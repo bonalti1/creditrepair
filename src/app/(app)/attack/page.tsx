@@ -1,119 +1,217 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { DEMO_REPORT } from "@/lib/demo";
 import { buildAttackPlan } from "@/lib/domain/attack";
-import type { ItemFlag } from "@/lib/domain/types";
+import { renderLetter } from "@/lib/letters/templates";
+import type { ItemFlag, PlannedLetter } from "@/lib/domain/types";
+import { STAGE_EXPLAINERS } from "@/lib/ux/explainers";
+import { countByState, useFlags } from "@/lib/ux/flagsStore";
 
-// Attack builder (spec §4.2/§4.3). The user reviews every letter the plan will
-// generate and presses the button — the DIY moment. In the demo, all negative
-// items are treated as flagged+attested so the plan preview renders; in
-// production the plan comes from /api/attacks/build and approval posts to
-// /api/attacks/approve, which re-verifies every attestation server-side.
+// Attack builder — no black box. Every letter is readable in full BEFORE
+// approval, with an "en palabras simples" summary of what it does and which
+// law it invokes. The attack reflects the user's real attested review from the
+// wizard (shared flags store). Approval is explicit and celebratory.
 
-const STAGE_LABEL: Record<string, string> = {
-  personal_info_cleanup: "Limpieza de datos personales",
-  dispute: "Disputa FCRA §611",
-  mov: "Método de verificación §611(a)(6)(B)(iii)",
-  furnisher_direct: "Directo al informante §623",
+const DEMO_USER = {
+  id: "demo",
+  fullName: "Tu Nombre",
+  addressLines: ["Tu dirección", "Houston, TX 77002"],
+  locale: "es" as const,
 };
 
 export default function Attack() {
-  const [roundNumber, setRoundNumber] = useState(1);
-  const [approved, setApproved] = useState(false);
+  const { flags, roundApproved, setRoundApproved, hydrated } = useFlags();
+  const [openLetter, setOpenLetter] = useState<number | null>(null);
 
-  const demoFlags: ItemFlag[] = useMemo(
+  const counts = countByState(flags);
+
+  const attestedFlags: ItemFlag[] = useMemo(
     () =>
-      DEMO_REPORT.items
-        .filter((i) => i.negative || i.category === "personal_info")
-        .map((i) => ({
-          fingerprint: i.fingerprint,
-          reason: "demo",
+      Object.entries(flags)
+        .filter(([, f]) => f.state === "attested" && f.attestedAt)
+        .map(([fingerprint, f]) => ({
+          fingerprint,
+          reason: f.reason ?? "",
           attested: true,
-          attestedAt: new Date().toISOString(),
+          attestedAt: f.attestedAt!,
         })),
-    [],
+    [flags],
   );
 
-  const plan = useMemo(
-    () => buildAttackPlan({ roundNumber, items: DEMO_REPORT.items, flags: demoFlags, history: {} }),
-    [roundNumber, demoFlags],
+  const hasPersonalInfo = useMemo(
+    () =>
+      DEMO_REPORT.items.some(
+        (i) =>
+          i.category === "personal_info" &&
+          attestedFlags.some((f) => f.fingerprint === i.fingerprint),
+      ),
+    [attestedFlags],
   );
+
+  // Round 1 handles personal-info cleanup; if the user attested no personal-info
+  // items, jump straight to the round-2 dispute plan so the attack isn't empty.
+  const roundNumber = hasPersonalInfo ? 1 : 2;
+  const plan = useMemo(
+    () =>
+      buildAttackPlan({
+        roundNumber,
+        items: DEMO_REPORT.items,
+        flags: attestedFlags,
+        history: {},
+      }),
+    [roundNumber, attestedFlags],
+  );
+
+  if (!hydrated) return null;
+
+  if (attestedFlags.length === 0) {
+    return (
+      <main>
+        <h1 className="text-2xl font-bold">Tu ataque</h1>
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-8 text-center">
+          <p className="text-3xl">🔍</p>
+          <h2 className="mt-2 text-lg font-bold">Aún no hay elementos en tu ataque</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
+            Tu ataque se arma con los elementos que TÚ marcas y atestiguas en la revisión guiada.
+            {counts.flagged > 0 &&
+              ` Tienes ${counts.flagged} elemento(s) marcados a los que les falta la atestiguación.`}
+          </p>
+          <Link
+            href="/items"
+            className="mt-4 inline-block rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white hover:bg-blue-800"
+          >
+            Ir a la revisión guiada →
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main>
       <h1 className="text-2xl font-bold">Tu ataque #{roundNumber}</h1>
       <p className="mt-1 text-slate-600">
-        Revisa las cartas que se generarán. Nada se envía hasta que <strong>tú</strong> apruebes.
+        {plan.letters.length} carta(s) generadas con tus {attestedFlags.length} elemento(s)
+        atestiguados. Lee cada una — nada se envía hasta que tú apruebes.
       </p>
 
-      <div className="mt-4 flex gap-2">
-        {[1, 2, 3].map((n) => (
-          <button
-            key={n}
-            onClick={() => {
-              setRoundNumber(n);
-              setApproved(false);
-            }}
-            className={`rounded px-3 py-1.5 text-sm font-medium ${
-              roundNumber === n ? "bg-blue-700 text-white" : "bg-white text-slate-600 border border-slate-300"
-            }`}
-          >
-            Ronda {n}
-          </button>
+      <div className="mt-6 space-y-3">
+        {plan.letters.map((letter, idx) => (
+          <LetterCard
+            key={idx}
+            letter={letter}
+            open={openLetter === idx}
+            onToggle={() => setOpenLetter(openLetter === idx ? null : idx)}
+            roundNumber={roundNumber}
+          />
         ))}
-        <span className="ml-2 self-center text-xs text-slate-500">(vista previa de escalación)</span>
       </div>
 
-      <div className="mt-6 space-y-3">
-        {plan.letters.length === 0 && (
-          <p className="rounded-lg border border-slate-200 bg-white p-6 text-slate-600">
-            No hay elementos atestiguados para esta ronda. Ve a <strong>Elementos</strong> y marca
-            los que creas inexactos.
-          </p>
-        )}
-        {plan.letters.map((letter, idx) => (
-          <div key={idx} className="rounded-lg border border-slate-200 bg-white p-4">
-            <div className="flex items-center justify-between">
-              <p className="font-semibold">{letter.target.name}</p>
-              <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                {STAGE_LABEL[letter.stage] ?? letter.stage}
-              </span>
+      <div className="mt-8 rounded-2xl border border-blue-200 bg-blue-50 p-6">
+        {roundApproved ? (
+          <div className="text-center">
+            <p className="text-3xl">🎉📬</p>
+            <p className="mt-2 font-bold text-green-800">¡Tu ataque va en camino!</p>
+            <p className="mt-1 text-sm text-green-700">
+              (Demo) En producción: tus cartas se imprimen y envían por correo certificado, y te
+              avisamos por WhatsApp. Los burós tienen ~30 días para responder.
+            </p>
+            <div className="mt-4 flex justify-center gap-3">
+              <Link
+                href="/rounds"
+                className="rounded-lg bg-blue-700 px-5 py-2.5 font-semibold text-white hover:bg-blue-800"
+              >
+                Seguir mi ronda →
+              </Link>
+              <button
+                onClick={() => setRoundApproved(false)}
+                className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm text-slate-600 hover:bg-white"
+              >
+                Reiniciar demo
+              </button>
             </div>
-            <p className="mt-1 text-sm text-slate-500">
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-blue-900">
+              Al presionar el botón confirmas que <strong>leíste tus cartas</strong> y que{" "}
+              <strong>tú decides enviarlas</strong>. Cada elemento incluido lleva tu atestiguación
+              registrada con fecha y hora.
+            </p>
+            <button
+              onClick={() => setRoundApproved(true)}
+              className="mt-4 w-full rounded-xl bg-blue-700 px-6 py-4 text-lg font-bold text-white hover:bg-blue-800 sm:w-auto"
+            >
+              Aprobar y enviar mi ataque ({plan.letters.length} cartas) 🚀
+            </button>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function LetterCard({
+  letter,
+  open,
+  onToggle,
+  roundNumber,
+}: {
+  letter: PlannedLetter;
+  open: boolean;
+  onToggle: () => void;
+  roundNumber: number;
+}) {
+  const explainer =
+    STAGE_EXPLAINERS[letter.templateKey] ?? STAGE_EXPLAINERS[letter.stage] ?? null;
+
+  const body = useMemo(() => {
+    const items = DEMO_REPORT.items.filter((i) => letter.itemFingerprints.includes(i.fingerprint));
+    return renderLetter(letter.templateKey, {
+      user: DEMO_USER,
+      target: letter.target,
+      items,
+      date: new Date().toISOString(),
+      roundNumber,
+    });
+  }, [letter, roundNumber]);
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <button onClick={onToggle} className="w-full p-4 text-left hover:bg-slate-50">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold">{letter.target.name}</p>
+            <p className="mt-0.5 text-sm text-slate-500">
+              {explainer?.name ?? letter.stage} ·{" "}
               {letter.itemFingerprints.length > 0
-                ? `${letter.itemFingerprints.length} elemento(s) incluidos`
-                : "Solicitud de expediente (buró secundario)"}
-              {" · "}plantilla: {letter.templateKey}
+                ? `${letter.itemFingerprints.length} elemento(s)`
+                : "solicitud de expediente"}
             </p>
           </div>
-        ))}
-      </div>
+          <span className="text-slate-400">{open ? "▲" : "▼ Leer carta"}</span>
+        </div>
+      </button>
 
-      {plan.letters.length > 0 && (
-        <div className="mt-8 rounded-lg border border-blue-200 bg-blue-50 p-5">
-          {approved ? (
-            <p className="font-semibold text-green-700">
-              ✅ Ataque aprobado (demo). En producción: tus cartas se imprimen y envían por correo, y
-              recibirás confirmación por WhatsApp.
-            </p>
-          ) : (
-            <>
-              <p className="text-sm text-blue-900">
-                Al presionar el botón confirmas que revisaste tus cartas y que <strong>tú</strong>{" "}
-                decides enviarlas. Cada elemento incluido lleva tu atestiguación de que lo crees
-                inexacto, no verificable o desactualizado.
-              </p>
-              <button
-                onClick={() => setApproved(true)}
-                className="mt-3 rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white hover:bg-blue-800"
-              >
-                Aprobar y enviar mi ataque ({plan.letters.length} cartas)
-              </button>
-            </>
+      {open && (
+        <div className="border-t border-slate-100 p-4">
+          {explainer && (
+            <div className="mb-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
+              <p className="font-semibold">En palabras simples:</p>
+              <p className="mt-1">{explainer.plain}</p>
+            </div>
           )}
+          <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-4 font-serif text-sm text-slate-800">
+            {body}
+          </pre>
+          <p className="mt-2 text-xs text-slate-500">
+            La carta se envía en inglés (idioma operativo de los burós). Al enviarse, la redacción
+            varía ligeramente para que tu carta sea única.
+          </p>
         </div>
       )}
-    </main>
+    </div>
   );
 }

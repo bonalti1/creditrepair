@@ -1,4 +1,12 @@
+"use client";
+
 import { DEMO_REPORT } from "@/lib/demo";
+import { countByState, useFlags } from "@/lib/ux/flagsStore";
+import { nextAction } from "@/lib/ux/journey";
+import JourneyHero from "@/components/JourneyHero";
+
+// Dashboard = the journey hero ("¿Qué sigue?") + a glanceable state of the
+// user's report and goal. One primary action, zero guessing.
 
 const BUREAU_LABEL: Record<string, string> = {
   equifax: "Equifax",
@@ -6,27 +14,49 @@ const BUREAU_LABEL: Record<string, string> = {
   transunion: "TransUnion",
 };
 
-// Report view (spec §4.3). Demo-backed until Phase 1 wires the monitoring
-// partner import + Supabase Auth.
-
 export default function Dashboard() {
+  const { flags, roundApproved, hydrated } = useFlags();
   const items = DEMO_REPORT.items;
   const negatives = items.filter((i) => i.negative);
+  const counts = countByState(flags);
+
+  if (!hydrated) return null;
+
+  const step = nextAction({
+    reportImported: true,
+    totalItems: items.length,
+    reviewedCount: counts.reviewed,
+    attestedCount: counts.attested,
+    roundApproved,
+    mailedAt: roundApproved ? new Date().toISOString() : null,
+  });
+
+  const goalPct = Math.min(
+    100,
+    Math.round(
+      ((counts.reviewed * 0.4 + (roundApproved ? counts.attested : 0) * 0.6) /
+        Math.max(1, items.length * 0.4 + negatives.length * 0.6)) *
+        100,
+    ),
+  );
 
   return (
     <main>
-      <h1 className="text-2xl font-bold">Mi reporte</h1>
+      <h1 className="text-2xl font-bold">Hola 👋</h1>
       <p className="mt-1 text-slate-600">
-        Importado el {new Date(DEMO_REPORT.pulledAt).toLocaleDateString("es-MX")} · {items.length}{" "}
-        elementos en 3 burós
+        Reporte importado el {new Date(DEMO_REPORT.pulledAt).toLocaleDateString("es-MX")} · 3 burós
       </p>
 
-      <div className="mt-6 grid grid-cols-3 gap-4">
+      <div className="mt-6">
+        <JourneyHero step={step} />
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {Object.entries(BUREAU_LABEL).map(([key, label]) => {
           const count = items.filter((i) => i.bureau === key).length;
           const neg = negatives.filter((i) => i.bureau === key).length;
           return (
-            <div key={key} className="rounded-lg border border-slate-200 bg-white p-5">
+            <div key={key} className="rounded-xl border border-slate-200 bg-white p-5">
               <p className="font-semibold">{label}</p>
               <p className="mt-1 text-sm text-slate-600">{count} elementos</p>
               <p className={`text-sm ${neg > 0 ? "text-red-600" : "text-green-600"}`}>
@@ -37,11 +67,19 @@ export default function Dashboard() {
         })}
       </div>
 
-      <div className="mt-8 rounded-lg border border-blue-200 bg-blue-50 p-5">
-        <p className="font-semibold text-blue-900">Tu progreso</p>
-        <p className="mt-1 text-sm text-blue-800">
-          Meta: lista para hipoteca 🏡 — {negatives.length} elementos por revisar. Marca los que
-          creas inexactos en la pestaña <strong>Elementos</strong> y arma tu primer ataque. Los
+      <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
+        <div className="flex items-center justify-between">
+          <p className="font-semibold">Tu meta: lista para hipoteca 🏡</p>
+          <span className="text-sm font-semibold text-blue-700">{goalPct}%</span>
+        </div>
+        <div className="mt-2 h-2.5 rounded-full bg-slate-200">
+          <div
+            className="h-2.5 rounded-full bg-gradient-to-r from-blue-500 to-blue-700 transition-all"
+            style={{ width: `${goalPct}%` }}
+          />
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          El progreso refleja tu avance en el proceso (revisión y rondas), no un puntaje. Los
           resultados varían según cada caso.
         </p>
       </div>
