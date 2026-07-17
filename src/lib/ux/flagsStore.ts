@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-// Shared review state, persisted in localStorage so the user's decisions follow
-// them across pages (dashboard, item wizard, attack builder). One of the core
-// "10x" bets: the app always knows where you left off — you never re-review.
-// TODO(Phase 2): swap the localStorage backend for the item_flags table once
-// Supabase Auth is wired; the hook API stays the same.
+// Shared review state so the user's decisions follow them across pages
+// (dashboard, item wizard, attack builder). One of the core "10x" bets: the
+// app always knows where you left off — you never re-review.
+// Signed in: server-backed (item_flags via /api/flags, RLS-scoped) with
+// write-through. Signed out / demo: localStorage only.
 
 export type ReviewState = "correct" | "flagged" | "attested";
 
@@ -35,11 +35,24 @@ export function useFlags() {
   const [flags, setFlags] = useState<FlagsMap>({});
   const [roundApproved, setRoundApprovedState] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [synced, setSynced] = useState(false);
 
   useEffect(() => {
     setFlags(load<FlagsMap>(STORAGE_KEY, {}));
     setRoundApprovedState(load<boolean>(APPROVED_KEY, false));
     setHydrated(true);
+
+    // When signed in, the server copy (item_flags, RLS-scoped) is the source
+    // of truth; localStorage remains the demo/offline cache.
+    fetch("/api/flags")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { authenticated: boolean; flags: FlagsMap } | null) => {
+        if (data?.authenticated) {
+          setFlags(data.flags);
+          setSynced(true);
+        }
+      })
+      .catch(() => undefined);
   }, []);
 
   const persist = useCallback((next: FlagsMap) => {
@@ -51,11 +64,24 @@ export function useFlags() {
     }
   }, []);
 
+  const writeThrough = useCallback(
+    (fingerprint: string, state: ReviewState | null, reason?: string) => {
+      if (!synced) return;
+      fetch("/api/flags", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fingerprint, state, reason, locale: "es" }),
+      }).catch(() => undefined);
+    },
+    [synced],
+  );
+
   const review = useCallback(
     (fingerprint: string, state: ReviewState, extra?: Partial<StoredFlag>) => {
       persist({ ...flags, [fingerprint]: { state, ...extra } });
+      writeThrough(fingerprint, state, extra?.reason);
     },
-    [flags, persist],
+    [flags, persist, writeThrough],
   );
 
   const clear = useCallback(
@@ -63,8 +89,9 @@ export function useFlags() {
       const next = { ...flags };
       delete next[fingerprint];
       persist(next);
+      writeThrough(fingerprint, null);
     },
-    [flags, persist],
+    [flags, persist, writeThrough],
   );
 
   const setRoundApproved = useCallback((value: boolean) => {
@@ -76,7 +103,7 @@ export function useFlags() {
     }
   }, []);
 
-  return { flags, review, clear, roundApproved, setRoundApproved, hydrated };
+  return { flags, review, clear, roundApproved, setRoundApproved, hydrated, synced };
 }
 
 export function countByState(flags: FlagsMap) {

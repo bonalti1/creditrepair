@@ -1,12 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import type { JourneyStep } from "@/lib/ux/journey";
+import { useLocale } from "@/lib/i18n";
+import { stepLabel, type JourneyStep } from "@/lib/ux/journey";
 
-// The "¿Qué sigue?" hero: one next step, one button. Shown at the top of the
+// The "what's next?" hero: one next step, one button. Shown at the top of the
 // dashboard so the user never has to figure out what to do.
 
 export default function JourneyHero({ step }: { step: JourneyStep }) {
+  const { locale } = useLocale();
+  const stepWord = locale === "es" ? "Paso" : "Step";
+  const ofWord = locale === "es" ? "de" : "of";
+
   return (
     <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-6">
       <div className="mb-3 flex items-center gap-2">
@@ -18,7 +23,7 @@ export default function JourneyHero({ step }: { step: JourneyStep }) {
         ))}
       </div>
       <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-        Paso {step.step} de {step.totalSteps} · ¿Qué sigue?
+        {stepWord} {step.step} {ofWord} {step.totalSteps} · {stepLabel(locale)}
       </p>
       <h2 className="mt-1 text-xl font-bold text-slate-900">{step.title}</h2>
       <p className="mt-2 text-sm text-slate-600">{step.description}</p>

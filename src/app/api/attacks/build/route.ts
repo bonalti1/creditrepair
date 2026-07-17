@@ -3,18 +3,22 @@ import { z } from "zod";
 import { buildAttackPlan, type ItemHistory } from "@/lib/domain/attack";
 import type { EscalationStage, ItemFlag, ReportItem } from "@/lib/domain/types";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { resolveActingUser } from "@/lib/supabase/server";
 
 // Phase 2/3: attack builder. Computes the round plan (which letters, to whom,
 // at which escalation stage) from the user's active items, their attested
 // flags, and their letter history. The plan is a DRAFT — nothing mails until
 // the user reviews and approves it (see /api/attacks/approve).
 
-const bodySchema = z.object({ userId: z.string().uuid() });
+const bodySchema = z.object({ userId: z.string().uuid().optional() });
 
 export async function POST(req: Request) {
-  const parsed = bodySchema.safeParse(await req.json());
+  const parsed = bodySchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  const { userId } = parsed.data;
+
+  const acting = await resolveActingUser(req, parsed.data.userId);
+  if (!acting) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  const { userId } = acting;
 
   const db = getAdminClient();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });

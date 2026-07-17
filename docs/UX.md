@@ -34,15 +34,23 @@ Every bet below targets a specific Dispute Beast failure mode.
 5. **Celebrate progress.** Finished review, approved attack, detected deletion —
    each gets a moment. Retention loop = emotional loop.
 
+## Since implemented
+
+- English toggle: dictionary-based i18n (`src/lib/i18n/`) covering all app
+  chrome, explainers, glossary, and journey copy. Spanish default, persists
+  per device.
+- WhatsApp deep links back into the exact next step (`appLink()` in the
+  WhatsApp integration; journey keys map 1:1 to destinations).
+- Passwordless auth (email magic link) — no passwords to forget; review
+  decisions persist server-side (`item_flags`) and follow the user across
+  devices.
+
 ## Next (not yet implemented)
 
-- English toggle (spec: Spanish default, EN toggle) — dictionary-based i18n
-  across pages; copy is already centralized enough to extract.
-- Deletion celebration screen driven by the real diff engine when Phase 1 data
-  is wired (confetti on `items_deleted`).
-- WhatsApp deep links back into the exact next step (journey engine keys map
-  1:1 to notification kinds).
+- Deletion celebration screen driven by the real diff engine once partner data
+  flows (confetti on `items_deleted`).
 - Accessibility pass: focus management in the wizard, reduced-motion variants,
   larger type mode (many users are 45+).
 - Real score-band goal track once monitoring data flows (mortgage-ready band
   from the partner API, never a promised score).
+- Coach widget chrome i18n (answers already follow the user's language).

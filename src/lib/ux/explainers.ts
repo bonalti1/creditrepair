@@ -1,9 +1,11 @@
 import type { ItemCategory } from "../domain/types";
+import type { Locale } from "../i18n/dictionaries";
 
-// Plain-Spanish explainers — the anti-jargon layer. Every item the user sees
-// comes with "¿qué es esto?" and "¿qué debo verificar?" in words a first-time
-// user understands. Copy discipline: educate on WHAT to check, never tell the
-// user an item IS wrong or promise that disputing removes it (Armor #3).
+// Plain-language explainers — the anti-jargon layer, in both locales. Every
+// item the user sees comes with "what is this?" and "what should I check?" in
+// words a first-time user understands. Copy discipline: educate on WHAT to
+// check, never tell the user an item IS wrong or promise that disputing
+// removes it (Armor #3).
 
 export interface CategoryExplainer {
   what: string;
@@ -11,7 +13,7 @@ export interface CategoryExplainer {
   checkHints: string[];
 }
 
-export const CATEGORY_EXPLAINERS: Record<ItemCategory, CategoryExplainer> = {
+const CATEGORY_ES: Record<ItemCategory, CategoryExplainer> = {
   tradeline: {
     what: "Una cuenta de crédito a tu nombre: tarjeta, préstamo, auto o una cuenta en cobranza.",
     whyItMatters:
@@ -56,8 +58,51 @@ export const CATEGORY_EXPLAINERS: Record<ItemCategory, CategoryExplainer> = {
   },
 };
 
-/** Jargon dictionary: terms that appear in report data, in plain Spanish. */
-export const TERM_GLOSSARY: Record<string, string> = {
+const CATEGORY_EN: Record<ItemCategory, CategoryExplainer> = {
+  tradeline: {
+    what: "A credit account in your name: a card, loan, auto loan, or an account in collections.",
+    whyItMatters:
+      "Accounts with late payments, charge-offs, or collections weigh most heavily on your report.",
+    checkHints: [
+      "Do you recognize the creditor and the account?",
+      "Are the balance and limit correct?",
+      "Do the dates (opened, last payment, first delinquency) match your reality?",
+      "Does the same debt appear twice (collector and original creditor both showing a balance)?",
+      "Has it been more than 7 years since the first delinquency? If so, it may be outdated.",
+    ],
+  },
+  inquiry: {
+    what: "A record that someone checked your credit. 'Hard' inquiries happen when you apply for credit.",
+    whyItMatters: "Hard inquiries you didn't authorize can signal an error or even identity theft.",
+    checkHints: [
+      "Do you remember applying for credit with this company on that date?",
+      "Did you authorize them to check your credit?",
+      "Is the inquiry more than 2 years old? It should have dropped off already.",
+    ],
+  },
+  public_record: {
+    what: "A public legal record: bankruptcy, lien, or judgment.",
+    whyItMatters:
+      "These are among the most serious items on a report and sometimes keep appearing after being resolved or expiring.",
+    checkHints: [
+      "Is the record really yours (not someone with a similar name)?",
+      "Is the status correct (resolved, discharged, paid)?",
+      "Has the legal reporting period expired?",
+    ],
+  },
+  personal_info: {
+    what: "Personal data the bureaus have on file: names, addresses, employers.",
+    whyItMatters:
+      "Old or wrong data can mix your file with someone else's and 'anchor' accounts that aren't yours. That's why Attack 1 starts here.",
+    checkHints: [
+      "Is this address or name variant still yours and current?",
+      "Is this employer correct?",
+      "Do you recognize every variant of your name?",
+    ],
+  },
+};
+
+const GLOSSARY_ES: Record<string, string> = {
   "charge-off":
     "«Charge-off»: el acreedor dio la deuda por perdida en sus libros. La deuda sigue existiendo, pero se reporta como incobrable.",
   collection:
@@ -67,7 +112,17 @@ export const TERM_GLOSSARY: Record<string, string> = {
   repossession: "«Reposesión»: el prestamista recuperó el bien (por ejemplo, un auto) por falta de pago.",
 };
 
-export const STAGE_EXPLAINERS: Record<string, { name: string; plain: string }> = {
+const GLOSSARY_EN: Record<string, string> = {
+  "charge-off":
+    "“Charge-off”: the creditor wrote the debt off as a loss on its books. The debt still exists, but is reported as uncollectible.",
+  collection:
+    "“Collection”: the debt was sold or assigned to a collector. Sometimes the same debt appears twice (collector + original creditor).",
+  hard: "“Hard inquiry”: someone checked your credit because you applied for credit. It requires your authorization.",
+  late: "“Late payment”: a payment recorded 30/60/90+ days behind.",
+  repossession: "“Repossession”: the lender took back the property (for example, a car) for non-payment.",
+};
+
+const STAGES_ES: Record<string, { name: string; plain: string }> = {
   personal_info_cleanup: {
     name: "Limpieza de datos personales",
     plain:
@@ -94,3 +149,43 @@ export const STAGE_EXPLAINERS: Record<string, { name: string; plain: string }> =
       "Además de los 3 burós grandes, hay agencias de datos menos conocidas (LexisNexis, Innovis…). Esta carta pide tu expediente completo para revisar qué dicen de ti.",
   },
 };
+
+const STAGES_EN: Record<string, { name: string; plain: string }> = {
+  personal_info_cleanup: {
+    name: "Personal info cleanup",
+    plain:
+      "This letter asks the bureaus to remove old or incorrect addresses, names, or employers from your file. It goes first because a clean file prevents mix-ups with other people's data.",
+  },
+  dispute: {
+    name: "FCRA §611 dispute",
+    plain:
+      "This letter exercises your legal right (FCRA Section 611) to have the bureau investigate the items you believe are inaccurate. They have ~30 days to verify each one or delete it.",
+  },
+  mov: {
+    name: "Method of verification",
+    plain:
+      "The bureau answered that it “verified” your items. This letter asks it to explain HOW it verified them and who it talked to. If it can't show its work, it must delete them.",
+  },
+  furnisher_direct: {
+    name: "Direct to furnisher",
+    plain:
+      "This letter goes straight to the company reporting the data (not the bureau). The law (FCRA §623) requires it to investigate your dispute and correct or stop reporting anything it can't verify.",
+  },
+  secondary_bureau_request: {
+    name: "Secondary bureau file request",
+    plain:
+      "Beyond the big 3 bureaus there are lesser-known data agencies (LexisNexis, Innovis…). This letter requests your full file to review what they say about you.",
+  },
+};
+
+export function getCategoryExplainers(locale: Locale): Record<ItemCategory, CategoryExplainer> {
+  return locale === "en" ? CATEGORY_EN : CATEGORY_ES;
+}
+
+export function getTermGlossary(locale: Locale): Record<string, string> {
+  return locale === "en" ? GLOSSARY_EN : GLOSSARY_ES;
+}
+
+export function getStageExplainers(locale: Locale): Record<string, { name: string; plain: string }> {
+  return locale === "en" ? STAGES_EN : STAGES_ES;
+}

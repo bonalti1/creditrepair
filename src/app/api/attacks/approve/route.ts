@@ -8,6 +8,7 @@ import { pickFont } from "@/lib/letters/fonts";
 import { mailLetter } from "@/lib/integrations/lob";
 import { sendWhatsApp } from "@/lib/integrations/whatsapp";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { resolveActingUser } from "@/lib/supabase/server";
 
 // The DIY moment (spec §4.2, legally load-bearing): the USER reviews the attack
 // and presses the button. Only then do we render, print, and mail letters.
@@ -15,12 +16,19 @@ import { getAdminClient } from "@/lib/supabase/admin";
 // every letter must carry a logged accuracy attestation (Armor #2). If any item
 // lacks one, the whole approval is rejected.
 
-const bodySchema = z.object({ userId: z.string().uuid(), roundNumber: z.number().int().positive() });
+const bodySchema = z.object({
+  userId: z.string().uuid().optional(),
+  roundNumber: z.number().int().positive(),
+});
 
 export async function POST(req: Request) {
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  const { userId, roundNumber } = parsed.data;
+  const { roundNumber } = parsed.data;
+
+  const acting = await resolveActingUser(req, parsed.data.userId);
+  if (!acting) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  const { userId } = acting;
 
   const db = getAdminClient();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });

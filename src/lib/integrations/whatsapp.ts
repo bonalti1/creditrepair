@@ -12,18 +12,25 @@ export type WhatsAppEvent =
   | { kind: "items_deleted"; deletedCount: number; remainingCount: number }
   | { kind: "day40_reengage"; deletedCount: number; remainingCount: number };
 
+// Deep links: every notification lands the user on the exact next step in the
+// app (journey engine keys map 1:1 to these destinations).
+function appLink(path: string): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL;
+  return base ? `\n👉 ${base}${path}` : "";
+}
+
 export function renderMessage(event: WhatsAppEvent): string {
   switch (event.kind) {
     case "report_imported":
-      return "✅ Tu reporte de crédito fue importado. Entra a la app para revisar tus elementos y marcar los que crees que son inexactos.";
+      return `✅ Tu reporte de crédito fue importado. Entra a la app para revisar tus elementos y marcar los que crees que son inexactos.${appLink("/items")}`;
     case "attack_ready":
-      return `🛡️ Tu ataque #${event.roundNumber} está listo para TU aprobación. Revisa tus cartas y presiona enviar cuando estés listo. Tú decides, tú envías.`;
+      return `🛡️ Tu ataque #${event.roundNumber} está listo para TU aprobación. Revisa tus cartas y presiona enviar cuando estés listo. Tú decides, tú envías.${appLink("/attack")}`;
     case "letters_mailed":
-      return `📬 ¡Listo! Tus ${event.letterCount} cartas del ataque #${event.roundNumber} fueron impresas y enviadas por correo. Los burós suelen responder en un plazo de ~30 días.`;
+      return `📬 ¡Listo! Tus ${event.letterCount} cartas del ataque #${event.roundNumber} fueron impresas y enviadas por correo. Los burós suelen responder en un plazo de ~30 días.${appLink("/rounds")}`;
     case "items_deleted":
-      return `🎉 ¡Buenas noticias! ${event.deletedCount} elemento(s) ya no aparecen en tu reporte. Quedan ${event.remainingCount}. Los resultados varían según cada caso.`;
+      return `🎉 ¡Buenas noticias! ${event.deletedCount} elemento(s) ya no aparecen en tu reporte. Quedan ${event.remainingCount}. Los resultados varían según cada caso.${appLink("/rounds")}`;
     case "day40_reengage":
-      return `📊 Actualizamos tu reporte: ${event.deletedCount} elemento(s) eliminados, ${event.remainingCount} pendientes. Entra a la app para armar tu próximo ataque.`;
+      return `📊 Actualizamos tu reporte: ${event.deletedCount} elemento(s) eliminados, ${event.remainingCount} pendientes. Entra a la app para armar tu próximo ataque.${appLink("/attack")}`;
   }
 }
 

@@ -71,15 +71,22 @@ set the Supabase env vars to enable persistence.
 - [ ] **Phase 0 (gating, non-code):** monitoring partner outreach (Array / SmartCredit
   white-label / IdentityIQ affiliate) · attorney session (TX CSO, ToS, claim
   guardrails, TSR/funnel) · TX CSO registration + $10k bond (default: register)
-- [x] **Phase 1 (scaffold):** onboarding UI, report import + parser — *monitoring
-  partner adapter + Supabase Auth wiring pending*
-- [x] **Phase 2 (scaffold):** item finder, flagging + attestation, attack builder
-- [x] **Phase 3 (scaffold):** letter engine + Lob + round loop
-- [~] **Phase 4:** WhatsApp layer + Spanish coach (server pieces done; n8n flows +
-  webhook inbound pending)
-- [x] **Phase 5 (scaffold):** diff engine, deletion detection, retention hooks
-- [ ] **Phase 6:** mortgage goal track + ABA handoff — **blocked on attorney sign-off**
-  (schema table `aba_acknowledgments` is ready)
+- [x] **Phase 1:** onboarding UI, report import + parser, Supabase Auth (magic
+  link, middleware gate, RLS-backed persistence), monitoring adapter layer
+  (`src/lib/monitoring/` — demo adapter live; Array skeleton awaits partner
+  sandbox for payload mapping)
+- [x] **Phase 2:** item finder (guided wizard), flagging + attestation
+  (server-persisted via `/api/flags`), attack builder
+- [x] **Phase 3:** letter engine + Lob + round loop, letter outcome tracking
+  (`/api/letters/outcome`)
+- [x] **Phase 4:** WhatsApp layer with journey deep links, Spanish coach, round
+  automation endpoint (`/api/cron/rounds` — n8n hits it hourly with the shared
+  secret; inbound WhatsApp webhook pending)
+- [x] **Phase 5:** diff engine, deletion detection, retention loop (celebration
+  fires inside the shared import pipeline)
+- [~] **Phase 6:** mortgage goal track + ABA handoff — **built dark** behind
+  `NEXT_PUBLIC_FEATURE_ABA_HANDOFF` (default off); flag flips only after
+  attorney sign-off on the flow + disclosure text
 
 ## Open items (spec §8 — resolve, don't assume)
 
