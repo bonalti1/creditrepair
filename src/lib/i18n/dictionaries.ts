@@ -7,10 +7,48 @@ export type Locale = "es" | "en";
 const es = {
   nav: {
     home: "Inicio",
+    audit: "Auditoría",
     review: "Revisar",
     attack: "Mi ataque",
     rounds: "Rondas",
     demo: "Demo",
+  },
+  audit: {
+    title: "Auditoría de tu crédito",
+    subtitle: (date: string) =>
+      `Análisis automático de tu reporte de 3 burós importado el ${date}. Esto es lo que encontramos, en palabras simples.`,
+    scores: "Tus puntajes hoy",
+    scoreNote: "VantageScore 3.0 según tu servicio de monitoreo. Los resultados varían.",
+    severityHigh: "🔴 Peso alto — revisa estos primero",
+    severityHighNote:
+      "Cobranzas, cargos dados de baja y registros públicos son lo que más pesa. Verifica cada dato: montos, fechas, duplicados.",
+    severityMed: "🟡 Peso medio",
+    severityMedNote: "Pagos tardíos y consultas duras. Revisa si las reconoces y si las fechas son correctas.",
+    severityInfo: "🔵 Datos personales",
+    severityInfoNote:
+      "Variantes de nombre, direcciones y empleos viejos. Limpiarlos evita mezclas con expedientes ajenos — por eso el Ataque 1 empieza aquí.",
+    matrix: "¿En qué burós aparece cada elemento?",
+    matrixNote:
+      "Un elemento que aparece en un buró y no en otro, o con datos distintos entre burós, es una señal clásica de posible inexactitud.",
+    cta: "Empezar mi revisión guiada →",
+    ctaNote: "Tú decides qué disputar. La auditoría solo te muestra dónde mirar.",
+    print: "Imprimir / guardar PDF",
+    clean: "✅ No encontramos elementos de peso alto en tu reporte. ¡Buena señal!",
+  },
+  scores: {
+    title: "Tus puntajes",
+    trend: (delta: number) => (delta >= 0 ? `+${delta} desde tu primer reporte` : `${delta} desde tu primer reporte`),
+  },
+  responses: {
+    title: "¿Recibiste respuesta de los burós?",
+    note: "Cuando llegue la carta de respuesta por correo, registra aquí qué pasó con cada elemento. Así tu siguiente ronda escala con la ley correcta.",
+    deleted: "🎉 Eliminado",
+    corrected: "✏️ Corregido",
+    verified: "📄 «Verificado»",
+    no_response: "⏳ Sin respuesta",
+    verifiedHint:
+      "¿Respondieron «verificado»? Tu siguiente carta exige el método de verificación (§611). Es el camino esperado — no te desanimes.",
+    saved: "Registrado",
   },
   dashboard: {
     greeting: "Hola 👋",
@@ -97,10 +135,48 @@ export type Dict = typeof es;
 const en: Dict = {
   nav: {
     home: "Home",
+    audit: "Audit",
     review: "Review",
     attack: "My attack",
     rounds: "Rounds",
     demo: "Demo",
+  },
+  audit: {
+    title: "Your credit audit",
+    subtitle: (date: string) =>
+      `Automatic analysis of your 3-bureau report imported on ${date}. Here's what we found, in plain words.`,
+    scores: "Your scores today",
+    scoreNote: "VantageScore 3.0 per your monitoring service. Results vary.",
+    severityHigh: "🔴 High weight — review these first",
+    severityHighNote:
+      "Collections, charge-offs, and public records weigh the most. Verify every detail: amounts, dates, duplicates.",
+    severityMed: "🟡 Medium weight",
+    severityMedNote: "Late payments and hard inquiries. Check whether you recognize them and whether dates are right.",
+    severityInfo: "🔵 Personal info",
+    severityInfoNote:
+      "Name variants, old addresses, and employers. Cleaning these prevents mix-ups with other people's files — that's why Attack 1 starts here.",
+    matrix: "Which bureaus show each item?",
+    matrixNote:
+      "An item that appears on one bureau but not another, or with different details across bureaus, is a classic sign of possible inaccuracy.",
+    cta: "Start my guided review →",
+    ctaNote: "You decide what to dispute. The audit just shows you where to look.",
+    print: "Print / save PDF",
+    clean: "✅ We found no high-weight items on your report. Good sign!",
+  },
+  scores: {
+    title: "Your scores",
+    trend: (delta: number) => (delta >= 0 ? `+${delta} since your first report` : `${delta} since your first report`),
+  },
+  responses: {
+    title: "Did the bureaus respond?",
+    note: "When the response letter arrives in the mail, log what happened to each item here. That way your next round escalates with the right law.",
+    deleted: "🎉 Deleted",
+    corrected: "✏️ Corrected",
+    verified: "📄 “Verified”",
+    no_response: "⏳ No response",
+    verifiedHint:
+      "They answered “verified”? Your next letter demands the method of verification (§611). It's the expected path — don't be discouraged.",
+    saved: "Logged",
   },
   dashboard: {
     greeting: "Hi 👋",

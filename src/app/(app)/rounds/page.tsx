@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { DEMO_REPORT } from "@/lib/demo";
 import { RESPONSE_WINDOW_DAYS, NEXT_ROUND_DAYS } from "@/lib/ux/journey";
 import { useLocale } from "@/lib/i18n";
 
@@ -112,10 +114,91 @@ export default function Rounds() {
                   </li>
                 ))}
               </ul>
+
+              {inProgress && <ResponseLogger />}
             </div>
           );
         })}
       </div>
     </main>
+  );
+}
+
+type Outcome = "deleted" | "corrected" | "verified" | "no_response";
+const OUTCOME_KEY = "bonalti.outcomes.v1";
+
+// Bureau-response intake: in CRC an agency employee does this data entry; here
+// the consumer logs it in two taps when the response letter arrives. Feeds the
+// escalation engine (a logged "verified" is what justifies the MOV letter).
+// Demo: localStorage; authed: also POSTs to /api/letters/outcome (TODO once
+// letter ids flow to the client).
+function ResponseLogger() {
+  const { d } = useLocale();
+  const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
+  const items = DEMO_REPORT.items.filter((i) => i.negative && i.category !== "personal_info");
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(OUTCOME_KEY);
+      if (raw) setOutcomes(JSON.parse(raw));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const log = (fp: string, outcome: Outcome) => {
+    const next = { ...outcomes, [fp]: outcome };
+    setOutcomes(next);
+    try {
+      window.localStorage.setItem(OUTCOME_KEY, JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  };
+
+  const options: Array<{ key: Outcome; label: string }> = [
+    { key: "deleted", label: d.responses.deleted },
+    { key: "corrected", label: d.responses.corrected },
+    { key: "verified", label: d.responses.verified },
+    { key: "no_response", label: d.responses.no_response },
+  ];
+
+  const anyVerified = Object.values(outcomes).includes("verified");
+
+  return (
+    <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <p className="text-sm font-semibold text-slate-800">{d.responses.title}</p>
+      <p className="mt-1 text-xs text-slate-600">{d.responses.note}</p>
+      <div className="mt-3 space-y-3">
+        {items.map((item) => (
+          <div key={item.fingerprint}>
+            <p className="text-sm font-medium text-slate-700">{item.name}</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {options.map((o) => (
+                <button
+                  key={o.key}
+                  onClick={() => log(item.fingerprint, o.key)}
+                  className={`rounded-full border px-2.5 py-1 text-xs ${
+                    outcomes[item.fingerprint] === o.key
+                      ? o.key === "deleted"
+                        ? "border-green-500 bg-green-100 font-semibold text-green-800"
+                        : "border-blue-500 bg-blue-100 font-semibold text-blue-800"
+                      : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+              {outcomes[item.fingerprint] && (
+                <span className="self-center text-xs text-slate-400">{d.responses.saved}</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      {anyVerified && (
+        <p className="mt-3 rounded-lg bg-blue-100 p-2.5 text-xs text-blue-900">💡 {d.responses.verifiedHint}</p>
+      )}
+    </div>
   );
 }

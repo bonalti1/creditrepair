@@ -123,6 +123,54 @@ Under FCRA Section 623(a)(8) and 12 C.F.R. § 1022.43, you are required to condu
 ` +
     SIGNATURE(ctx),
 
+  debt_validation: (ctx) =>
+    header(ctx) +
+    `Re: Request for validation of debt — FDCPA Section 809(b)
+
+To Whom It May Concern:
+
+I am requesting validation of the debt(s) you claim I owe and which you report to consumer reporting agencies:
+
+${itemLines(ctx.items)}
+
+Under Section 809(b) of the Fair Debt Collection Practices Act (15 U.S.C. § 1692g), I request that you provide: (1) proof that you own this debt or are authorized to collect it; (2) a complete accounting of the amount claimed, including the original creditor's name and account number; and (3) a copy of the original signed agreement creating the obligation.
+
+Until this debt is validated, please cease reporting it to any consumer reporting agency, or report it as disputed as required by FCRA Section 623(a)(3). If you cannot validate it, please delete your reporting of it and confirm to me in writing.
+` +
+    SIGNATURE(ctx),
+
+  identity_theft_block: (ctx) =>
+    header(ctx) +
+    `Re: Request to block information resulting from identity theft — FCRA Section 605B
+
+To Whom It May Concern:
+
+I am a victim of identity theft. The following items on my credit report resulted from transactions I did not make or authorize:
+
+${itemLines(ctx.items)}
+
+Under FCRA Section 605B (15 U.S.C. § 1681c-2), you must block the reporting of this information within four (4) business days of receiving this request. Enclosed are a copy of my identity theft report and proof of my identity.
+
+Please confirm the block in writing and notify the furnishers of this information as required by law.
+` +
+    SIGNATURE(ctx),
+
+  goodwill_adjustment: (ctx) =>
+    header(ctx) +
+    `Re: Goodwill request regarding late payment reporting
+
+To Whom It May Concern:
+
+I am writing about the following account(s), which I have maintained with you:
+
+${itemLines(ctx.items)}
+
+I am not disputing the accuracy of this information. I am respectfully asking, as a gesture of goodwill, that you remove the late payment notation(s), in light of my overall payment history and the circumstances at the time. I value my relationship with you, and this adjustment would meaningfully help as I work toward my financial goals.
+
+Thank you for your time and consideration. I would appreciate a written response.
+` +
+    SIGNATURE(ctx),
+
   secondary_bureau_request: (ctx) =>
     header(ctx) +
     `Re: Request for consumer file disclosure — FCRA Section 609

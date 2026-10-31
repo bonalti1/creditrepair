@@ -1,6 +1,6 @@
 "use client";
 
-import { DEMO_REPORT } from "@/lib/demo";
+import { DEMO_REPORT, DEMO_SCORE_HISTORY } from "@/lib/demo";
 import { countByState, useFlags } from "@/lib/ux/flagsStore";
 import { nextAction } from "@/lib/ux/journey";
 import { useLocale } from "@/lib/i18n";
@@ -62,9 +62,25 @@ export default function Dashboard() {
         {Object.entries(BUREAU_LABEL).map(([key, label]) => {
           const count = items.filter((i) => i.bureau === key).length;
           const neg = negatives.filter((i) => i.bureau === key).length;
+          const bureau = key as keyof typeof DEMO_REPORT.scores;
+          const score = DEMO_REPORT.scores[bureau];
+          const firstScore = DEMO_SCORE_HISTORY[0]?.scores[bureau];
+          const delta = score && firstScore ? score - firstScore : null;
           return (
             <div key={key} className="rounded-xl border border-slate-200 bg-white p-5">
-              <p className="font-semibold">{label}</p>
+              <div className="flex items-baseline justify-between">
+                <p className="font-semibold">{label}</p>
+                {score && (
+                  <p className="text-xl font-bold text-slate-900">
+                    {score}
+                    {delta !== null && (
+                      <span className={`ml-1 text-xs font-semibold ${delta >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {delta >= 0 ? `+${delta}` : delta}
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
               <p className="mt-1 text-sm text-slate-600">{d.dashboard.items(count)}</p>
               <p className={`text-sm ${neg > 0 ? "text-red-600" : "text-green-600"}`}>
                 {d.dashboard.negatives(neg)}

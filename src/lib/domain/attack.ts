@@ -104,22 +104,29 @@ export function buildAttackPlan(params: {
 
     if (stage === "furnisher_direct") {
       // Furnisher-direct letters go to the data furnisher, not the bureau.
+      // Collections get an FDCPA §809(b) debt-validation letter instead of the
+      // generic §623 dispute — stronger tool against collectors (CRC-library
+      // parity, selected automatically instead of making the user choose).
       // Items with no known furnisher (e.g. inquiries) stay at MOV with the bureau.
       if (item.furnisher) {
-        const key = item.furnisher.name;
+        const data = item.data as { accountType?: string; status?: string };
+        const isCollection =
+          /collection/i.test(data.accountType ?? "") || /collection/i.test(data.status ?? "");
+        const templateKey = isCollection ? "debt_validation" : "furnisher_direct";
+        const key = `${item.furnisher.name}|${templateKey}`;
         const existing = furnisherLetters.get(key);
         if (existing) existing.itemFingerprints.push(fp);
         else
           furnisherLetters.set(key, {
             target: {
               type: "furnisher",
-              key,
+              key: item.furnisher.name,
               name: item.furnisher.name,
               addressLines: item.furnisher.addressLines,
             },
             category: item.category,
             stage: "furnisher_direct",
-            templateKey: "furnisher_direct",
+            templateKey,
             itemFingerprints: [fp],
           });
         continue;

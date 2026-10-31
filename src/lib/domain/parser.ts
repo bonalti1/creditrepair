@@ -43,6 +43,7 @@ const rawPersonalInfo = z.object({
 });
 
 const rawBureauSection = z.object({
+  score: z.number().int().min(300).max(850).optional(),
   tradelines: z.array(rawTradeline).default([]),
   inquiries: z.array(rawInquiry).default([]),
   publicRecords: z.array(rawPublicRecord).default([]),
@@ -69,10 +70,12 @@ const NEGATIVE_STATUS = /collection|charge.?off|late|delinquen|repossess|foreclo
 export function parseReport(input: unknown): NormalizedReport {
   const raw = rawReportSchema.parse(input);
   const items: ReportItem[] = [];
+  const scores: Partial<Record<Bureau, number>> = {};
 
   for (const [bureauKey, section] of Object.entries(raw.bureaus)) {
     const bureau = bureauKey as Bureau;
     if (!section) continue;
+    if (section.score !== undefined) scores[bureau] = section.score;
 
     for (const t of section.tradelines) {
       items.push({
@@ -126,5 +129,5 @@ export function parseReport(input: unknown): NormalizedReport {
     }
   }
 
-  return { pulledAt: raw.pulledAt, source: raw.source, items };
+  return { pulledAt: raw.pulledAt, source: raw.source, items, scores };
 }

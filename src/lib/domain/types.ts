@@ -36,6 +36,8 @@ export interface NormalizedReport {
   pulledAt: string; // ISO timestamp
   source: string; // monitoring provider identifier
   items: ReportItem[];
+  /** Per-bureau scores as reported by the monitoring partner (VantageScore or FICO). */
+  scores: Partial<Record<Bureau, number>>;
 }
 
 export interface ItemFlag {

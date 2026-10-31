@@ -123,6 +123,21 @@ const GLOSSARY_EN: Record<string, string> = {
 };
 
 const STAGES_ES: Record<string, { name: string; plain: string }> = {
+  debt_validation: {
+    name: "Validación de deuda (FDCPA §809)",
+    plain:
+      "Esta carta exige al cobrador que PRUEBE que la deuda es tuya, que el monto es correcto y que tiene derecho a cobrarla. Si no puede validarla, debe dejar de reportarla. Es la herramienta más fuerte contra cuentas en cobranza.",
+  },
+  identity_theft_block: {
+    name: "Bloqueo por robo de identidad (FCRA §605B)",
+    plain:
+      "Si un elemento resultó de robo de identidad, esta carta obliga al buró a bloquearlo en 4 días hábiles. Requiere adjuntar tu reporte de robo de identidad (identitytheft.gov) y prueba de identidad.",
+  },
+  goodwill_adjustment: {
+    name: "Carta de buena voluntad",
+    plain:
+      "Para pagos tardíos REALES en cuentas que sí son tuyas: esta carta no disputa nada — pide amablemente al acreedor que retire la marca como gesto de buena voluntad, apoyándose en tu historial. No hay garantía, pero no cuesta nada intentarlo.",
+  },
   personal_info_cleanup: {
     name: "Limpieza de datos personales",
     plain:
@@ -151,6 +166,21 @@ const STAGES_ES: Record<string, { name: string; plain: string }> = {
 };
 
 const STAGES_EN: Record<string, { name: string; plain: string }> = {
+  debt_validation: {
+    name: "Debt validation (FDCPA §809)",
+    plain:
+      "This letter demands the collector PROVE the debt is yours, the amount is right, and they have the right to collect it. If they can't validate it, they must stop reporting it. It's the strongest tool against collection accounts.",
+  },
+  identity_theft_block: {
+    name: "Identity theft block (FCRA §605B)",
+    plain:
+      "If an item resulted from identity theft, this letter requires the bureau to block it within 4 business days. It needs your identity theft report (identitytheft.gov) and proof of identity attached.",
+  },
+  goodwill_adjustment: {
+    name: "Goodwill letter",
+    plain:
+      "For REAL late payments on accounts that are yours: this letter disputes nothing — it politely asks the creditor to remove the mark as a goodwill gesture, leaning on your history. No guarantee, but it costs nothing to ask.",
+  },
   personal_info_cleanup: {
     name: "Personal info cleanup",
     plain:

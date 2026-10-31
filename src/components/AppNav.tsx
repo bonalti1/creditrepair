@@ -9,6 +9,7 @@ import { useLocale } from "@/lib/i18n";
 
 const NAV = [
   { href: "/dashboard", key: "home" as const, icon: "🏠" },
+  { href: "/audit", key: "audit" as const, icon: "📋" },
   { href: "/items", key: "review" as const, icon: "🔍" },
   { href: "/attack", key: "attack" as const, icon: "🛡️" },
   { href: "/rounds", key: "rounds" as const, icon: "📬" },

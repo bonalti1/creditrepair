@@ -10,6 +10,7 @@ export const DEMO_RAW_REPORT: RawReport = {
   pulledAt: "2026-07-01T00:00:00.000Z",
   bureaus: {
     equifax: {
+      score: 561,
       tradelines: [
         {
           creditor: "Capital One",
@@ -40,6 +41,7 @@ export const DEMO_RAW_REPORT: RawReport = {
       ],
     },
     experian: {
+      score: 574,
       tradelines: [
         {
           creditor: "Midland Credit Management",
@@ -57,6 +59,7 @@ export const DEMO_RAW_REPORT: RawReport = {
       personalInfo: [{ field: "employer", value: "ACME LLC (antiguo empleo)" }],
     },
     transunion: {
+      score: 558,
       tradelines: [],
       inquiries: [{ inquirer: "Retail Card Services", date: "2026-01-08", type: "hard" }],
       publicRecords: [],
@@ -68,3 +71,13 @@ export const DEMO_RAW_REPORT: RawReport = {
 export const DEMO_REPORT: NormalizedReport = parseReport(DEMO_RAW_REPORT);
 
 export const DEMO_FLAGS: ItemFlag[] = [];
+
+/** Score history across pulls, for the dashboard trend (demo until partner data flows). */
+export const DEMO_SCORE_HISTORY: Array<{
+  date: string;
+  scores: Partial<Record<"equifax" | "experian" | "transunion", number>>;
+}> = [
+  { date: "2026-05-01", scores: { equifax: 538, experian: 549, transunion: 531 } },
+  { date: "2026-06-01", scores: { equifax: 547, experian: 561, transunion: 540 } },
+  { date: "2026-07-01", scores: { equifax: 561, experian: 574, transunion: 558 } },
+];
