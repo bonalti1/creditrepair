@@ -17,12 +17,9 @@ const GOALS = [
   { key: "general", label: "📈 Mejorar mi crédito en general" },
 ] as const;
 
-const STATES = [
-  "TX", "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA",
-  "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM",
-  "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "UT", "VT", "VA", "WA", "WV",
-  "WI", "WY",
-];
+import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
+
+const STATES = ["TX", ...ALL_STATES.filter((s) => s !== "TX")];
 
 function save(key: string, value: string) {
   try {
@@ -102,7 +99,9 @@ export default function Onboarding() {
       {step === "state" && (
         <>
           <h1 className="text-3xl font-bold">¿En qué estado vives?</h1>
-          <p className="mt-2 text-slate-600">Por ahora Bonalti está disponible solo en Texas. Pronto en más estados.</p>
+          <p className="mt-2 text-slate-600">
+            Bonalti abre estado por estado (cada uno tiene sus propias reglas). Hoy: Texas. Pronto: más.
+          </p>
           <select
             value={state}
             onChange={(e) => setState(e.target.value)}
@@ -115,7 +114,7 @@ export default function Onboarding() {
             ))}
           </select>
 
-          {state === "TX" ? (
+          {stateStatus(state) === "open" ? (
             <button
               onClick={() => setStep("assist")}
               className="mt-6 rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white"
