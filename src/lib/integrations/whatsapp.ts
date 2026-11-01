@@ -36,7 +36,16 @@ export function renderMessage(event: WhatsAppEvent): string {
 
 export async function sendWhatsApp(toPhoneE164: string, event: WhatsAppEvent): Promise<{ sent: boolean }> {
   const message = renderMessage(event);
-  assertClaimGuardrails(message, `whatsapp:${event.kind}`);
+  return sendWhatsAppText(toPhoneE164, message, `whatsapp:${event.kind}`);
+}
+
+/** Free-text sender (coach replies, assisted-plan conversations). Guardrail-linted. */
+export async function sendWhatsAppText(
+  toPhoneE164: string,
+  message: string,
+  context = "whatsapp:text",
+): Promise<{ sent: boolean }> {
+  assertClaimGuardrails(message, context);
 
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;

@@ -9,6 +9,7 @@ import type { ItemFlag, PlannedLetter } from "@/lib/domain/types";
 import { getStageExplainers } from "@/lib/ux/explainers";
 import { countByState, useFlags } from "@/lib/ux/flagsStore";
 import { useLocale } from "@/lib/i18n";
+import IdentityDocs from "@/components/IdentityDocs";
 
 // Attack builder — no black box. Every letter is readable in full BEFORE
 // approval, with an "in plain words" summary of what it does and which law it
@@ -106,6 +107,8 @@ export default function Attack() {
           />
         ))}
       </div>
+
+      <IdentityDocs />
 
       <div className="mt-8 rounded-2xl border border-blue-200 bg-blue-50 p-6">
         {roundApproved ? (

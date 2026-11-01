@@ -11,6 +11,8 @@ export interface LetterContext {
   items: ReportItem[];
   date: string; // ISO date the letter is generated
   roundNumber: number;
+  /** Enclosure labels (e.g. "Copy of government-issued ID") appended after the signature. */
+  enclosures?: string[];
 }
 
 function itemLines(items: ReportItem[]): string {
@@ -36,7 +38,13 @@ function header(ctx: LetterContext): string {
   ].join("\n");
 }
 
-const SIGNATURE = (ctx: LetterContext) => `\nSincerely,\n\n${ctx.user.fullName}`;
+const SIGNATURE = (ctx: LetterContext) => {
+  let sig = `\nSincerely,\n\n${ctx.user.fullName}`;
+  if (ctx.enclosures && ctx.enclosures.length > 0) {
+    sig += `\n\nEnclosures:\n${ctx.enclosures.map((e) => `- ${e}`).join("\n")}`;
+  }
+  return sig;
+};
 
 export const TEMPLATES: Record<string, (ctx: LetterContext) => string> = {
   personal_info_cleanup: (ctx) =>

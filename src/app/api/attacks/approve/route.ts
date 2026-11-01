@@ -110,6 +110,20 @@ export async function POST(req: Request) {
     }
   }
 
+  // Enclosures: bureaus expect ID + proof of address with disputes. Labels
+  // derive from the user's uploaded identity documents; physical attachment
+  // happens at the Lob render step (TODO: merge document PDFs into mailing).
+  const ENCLOSURE_LABELS: Record<string, string> = {
+    government_id: "Copy of government-issued photo ID",
+    proof_of_address: "Proof of address (utility bill / bank statement)",
+    ssn_card: "Copy of Social Security card",
+    identity_theft_report: "Identity theft report (FTC)",
+  };
+  const { data: docs } = await db.from("identity_documents").select("kind").eq("user_id", userId);
+  const enclosures = (docs ?? [])
+    .map((doc) => ENCLOSURE_LABELS[doc.kind])
+    .filter((label): label is string => Boolean(label));
+
   const now = new Date();
   const mailedLetters = [];
   for (const planned of plan.letters) {
@@ -123,6 +137,7 @@ export async function POST(req: Request) {
       items: letterItems,
       date: now.toISOString(),
       roundNumber,
+      enclosures,
     });
     const body = await varyLetterWording(baseBody);
 
