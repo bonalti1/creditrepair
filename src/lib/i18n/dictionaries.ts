@@ -7,7 +7,8 @@ export type Locale = "es" | "en";
 const es = {
   nav: {
     assistant: "Asistente",
-    home: "Inicio",
+    more: "Más",
+    home: "Mi reporte",
     audit: "Auditoría",
     review: "Revisar",
     attack: "Mi ataque",
@@ -136,7 +137,8 @@ export type Dict = typeof es;
 const en: Dict = {
   nav: {
     assistant: "Assistant",
-    home: "Home",
+    more: "More",
+    home: "My report",
     audit: "Audit",
     review: "Review",
     attack: "My attack",

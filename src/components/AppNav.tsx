@@ -4,17 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale } from "@/lib/i18n";
 
-// Responsive nav: top bar on desktop, thumb-reachable bottom tab bar on mobile.
-// Includes the ES/EN toggle (Spanish default per spec §4.3).
+// Three tabs, not six: the conversation, the report, and everything else.
+// Simplicity is the product for this audience — the detailed tools live one
+// level down under "Más" for the people who want them.
 
 const NAV = [
   { href: "/asistente", key: "assistant" as const, icon: "💬" },
-  { href: "/dashboard", key: "home" as const, icon: "🏠" },
-  { href: "/audit", key: "audit" as const, icon: "📋" },
-  { href: "/items", key: "review" as const, icon: "🔍" },
-  { href: "/attack", key: "attack" as const, icon: "🛡️" },
-  { href: "/rounds", key: "rounds" as const, icon: "📬" },
+  { href: "/dashboard", key: "home" as const, icon: "📊" },
+  { href: "/mas", key: "more" as const, icon: "☰" },
 ];
+
+const MORE_PATHS = ["/mas", "/audit", "/items", "/attack", "/rounds", "/goal"];
 
 function LocaleToggle() {
   const { locale, setLocale } = useLocale();
@@ -33,6 +33,9 @@ export default function AppNav() {
   const pathname = usePathname();
   const { d } = useLocale();
 
+  const isActive = (href: string) =>
+    href === "/mas" ? MORE_PATHS.some((p) => pathname.startsWith(p)) : pathname.startsWith(href);
+
   return (
     <>
       <header className="hidden border-b border-slate-200 bg-white sm:block">
@@ -45,9 +48,7 @@ export default function AppNav() {
               key={n.href}
               href={n.href}
               className={`text-sm ${
-                pathname.startsWith(n.href)
-                  ? "font-semibold text-blue-700"
-                  : "text-slate-600 hover:text-slate-900"
+                isActive(n.href) ? "font-semibold text-blue-700" : "text-slate-600 hover:text-slate-900"
               }`}
             >
               {d.nav[n.key]}
@@ -79,11 +80,11 @@ export default function AppNav() {
           <Link
             key={n.href}
             href={n.href}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-xs ${
-              pathname.startsWith(n.href) ? "font-semibold text-blue-700" : "text-slate-500"
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-sm ${
+              isActive(n.href) ? "font-semibold text-blue-700" : "text-slate-500"
             }`}
           >
-            <span className="text-lg">{n.icon}</span>
+            <span className="text-2xl">{n.icon}</span>
             {d.nav[n.key]}
           </Link>
         ))}

@@ -36,6 +36,35 @@ const STEPS = [
   },
 ];
 
+// The questions Hispanic families actually ask before trusting a credit company.
+// Answers stay inside the claim guardrails and promise nothing we can't control.
+const FAQ: Array<[string, string]> = [
+  [
+    "Ya me estafaron antes. ¿Cómo sé que esto es diferente?",
+    "No te pedimos que confíes a ciegas: tú ves cada carta antes de que salga, tú decides qué disputar, y no firmas contratos. Tampoco prometemos resultados — quien te los promete, te está mintiendo.",
+  ],
+  [
+    "¿Cuánto cuesta en total?",
+    "Solo tu suscripción de monitoreo de crédito (~$49 al mes). La app, las cartas, el envío por correo y la ayuda de nuestro equipo van incluidos. Cancelas cuando quieras.",
+  ],
+  [
+    "¿Esto tiene que ver con mi estatus migratorio?",
+    "No. Revisar y disputar tu propio reporte de crédito es un derecho de todo consumidor bajo la ley federal (FCRA). Bonalti no te pide información migratoria. (Esto no es asesoría legal.)",
+  ],
+  [
+    "¿Necesito número de Seguro Social?",
+    "El servicio de monitoreo verifica tu identidad para mostrarte tu reporte. Si usas ITIN en lugar de Seguro Social, escríbenos por WhatsApp antes de empezar y te decimos tus opciones.",
+  ],
+  [
+    "No soy bueno(a) con la tecnología. ¿Voy a poder?",
+    "Sí. Es un chat, como WhatsApp: el asistente te va diciendo qué sigue. Puedes escuchar las explicaciones en vez de leerlas, y si quieres, una persona del equipo te acompaña en vivo — gratis.",
+  ],
+  [
+    "¿Ustedes disputan por mí?",
+    "No — y eso te protege. El asistente prepara todo (lee tu reporte, escribe las cartas, las envía por correo), pero tú decides y tú apruebas. Son 3 toques por ronda, unos 5 minutos al mes.",
+  ],
+];
+
 export default function Empezar() {
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER;
   const ctaHref = whatsapp
@@ -112,6 +141,20 @@ export default function Empezar() {
         >
           {ctaLabel}
         </a>
+      </section>
+
+      <section className="border-t border-slate-100 bg-slate-50 py-14">
+        <div className="mx-auto max-w-2xl px-6">
+          <h2 className="text-center text-2xl font-bold">Preguntas que nos hacen siempre</h2>
+          <div className="mt-6 space-y-3">
+            {FAQ.map(([q, a]) => (
+              <details key={q} className="rounded-xl border border-slate-200 bg-white p-5">
+                <summary className="cursor-pointer text-lg font-semibold text-slate-900">{q}</summary>
+                <p className="mt-3 text-slate-600">{a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
       </section>
 
       <footer className="border-t border-slate-100 px-6 py-8 text-center">

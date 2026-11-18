@@ -9,6 +9,7 @@ import { getCategoryExplainers } from "@/lib/ux/explainers";
 import { countByState, useFlags } from "@/lib/ux/flagsStore";
 import { useLocale } from "@/lib/i18n";
 import type { ItemFlag } from "@/lib/domain/types";
+import SpeakButton from "@/components/SpeakButton";
 
 // The chat-first home: the client's entire journey lives in one conversation
 // with their AI assistant. The assistant drives (proactive messages + action
@@ -205,16 +206,40 @@ export default function Asistente() {
   const explainer = current ? getCategoryExplainers(locale)[current.category] : null;
 
   return (
-    <main className="mx-auto flex h-[calc(100vh-180px)] max-w-2xl flex-col sm:h-[calc(100vh-150px)]">
-      <div className="flex-1 space-y-3 overflow-y-auto px-1 py-2">
+    <main className="mx-auto -my-4 flex h-[calc(100dvh-170px)] max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm sm:my-0 sm:h-[calc(100dvh-150px)]">
+      <div className="flex items-center gap-3 border-b border-slate-100 bg-white px-4 py-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-700 text-xl">🤖</div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold leading-tight text-slate-900">
+            {locale === "es" ? "Tu asistente" : "Your assistant"}
+          </p>
+          <p className="flex items-center gap-1.5 text-xs text-slate-500">
+            <span className="h-2 w-2 rounded-full bg-green-500" />
+            {locale === "es" ? "IA · disponible 24/7" : "AI · available 24/7"}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => ask(locale === "es" ? "Quiero hablar con una persona" : "I want to talk to a person")}
+          className="shrink-0 rounded-full border border-green-300 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-800 hover:border-green-500"
+        >
+          🤝 {locale === "es" ? "Persona" : "Human"}
+        </button>
+      </div>
+
+      <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50 px-3 py-4">
         {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`max-w-[85%] whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-              m.role === "user" ? "ml-auto bg-blue-700 text-white" : "bg-white text-slate-800 shadow-sm"
-            }`}
-          >
-            {m.text}
+          <div key={i} className={`flex items-end gap-1.5 ${m.role === "user" ? "justify-end" : ""}`}>
+            <div
+              className={`max-w-[82%] whitespace-pre-line px-4 py-2.5 text-base leading-relaxed ${
+                m.role === "user"
+                  ? "rounded-2xl rounded-br-md bg-blue-700 text-white"
+                  : "rounded-2xl rounded-bl-md border border-slate-200 bg-white text-slate-800"
+              }`}
+            >
+              {m.text}
+            </div>
+            {m.role === "assistant" && <SpeakButton text={m.text} compact />}
           </div>
         ))}
 
@@ -228,7 +253,15 @@ export default function Asistente() {
                 </span>
               )}
             </p>
-            <p className="mt-1 text-lg font-bold text-slate-900">{current.name}</p>
+            <div className="mt-1 flex items-start justify-between gap-2">
+              <p className="text-lg font-bold text-slate-900">{current.name}</p>
+              {explainer && (
+                <SpeakButton
+                  text={`${current.name}. ${explainer.what} ${explainer.checkHints.slice(0, 3).join(" ")}`}
+                  className="shrink-0"
+                />
+              )}
+            </div>
             {explainer && <p className="mt-1.5 text-sm text-slate-600">{explainer.what}</p>}
             {explainer && (
               <ul className="mt-2 list-disc space-y-0.5 pl-5 text-xs text-slate-500">
@@ -238,16 +271,16 @@ export default function Asistente() {
               </ul>
             )}
             {!flagging ? (
-              <div className="mt-3 flex gap-2">
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 <button
                   onClick={decideCorrect}
-                  className="flex-1 rounded-xl border-2 border-green-200 bg-green-50 px-3 py-2.5 text-sm font-semibold text-green-800 hover:border-green-400"
+                  className="min-h-[52px] rounded-xl border-2 border-green-200 bg-green-50 px-3 py-3 text-base font-semibold text-green-800 hover:border-green-400"
                 >
                   {d.items.looksCorrect}
                 </button>
                 <button
                   onClick={() => setFlagging(true)}
-                  className="flex-1 rounded-xl border-2 border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-800 hover:border-blue-400"
+                  className="min-h-[52px] rounded-xl border-2 border-blue-200 bg-blue-50 px-3 py-3 text-base font-semibold text-blue-800 hover:border-blue-400"
                 >
                   {d.items.looksWrong}
                 </button>
@@ -334,20 +367,21 @@ export default function Asistente() {
           e.preventDefault();
           ask(input);
         }}
-        className="flex gap-2 border-t border-slate-200 bg-white p-3"
+        className="flex items-center gap-2 border-t border-slate-100 bg-white p-3"
       >
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={locale === "es" ? "Pregúntame lo que sea…" : "Ask me anything…"}
-          className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+          className="min-h-[48px] flex-1 rounded-full border border-slate-300 bg-slate-50 px-5 text-base outline-none focus:border-blue-500 focus:bg-white"
         />
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white disabled:bg-slate-300"
+          aria-label={locale === "es" ? "Enviar" : "Send"}
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-700 text-lg text-white disabled:bg-slate-300"
         >
-          {locale === "es" ? "Enviar" : "Send"}
+          ➤
         </button>
       </form>
       <p className="bg-white px-3 pb-2 text-center text-[11px] text-slate-400">
