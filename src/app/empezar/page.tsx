@@ -75,11 +75,11 @@ export default function Empezar() {
   return (
     <main className="bg-white">
       <section className="mx-auto max-w-3xl px-6 pb-12 pt-16 text-center">
-        <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Bonalti Crédito</p>
-        <h1 className="mt-3 text-4xl font-bold leading-tight sm:text-5xl">
+        <p className="text-[15px] font-semibold text-blue-700">Bonalti Crédito</p>
+        <h1 className="mt-3 text-[40px] font-bold leading-[1.08] text-slate-900 sm:text-[56px]">
           Tu asistente de crédito con IA — tú solo das el OK
         </h1>
-        <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-600">
+        <p className="mx-auto mt-5 max-w-2xl text-[19px] leading-relaxed text-slate-500">
           La IA hace el trabajo pesado: lee tu reporte, encuentra lo negativo, te lo explica,
           escribe tus cartas y las envía por correo. <strong>Tú decides qué disputar y tú
           apruebas</strong> — 3 toques por ronda, ~5 minutos al mes. Software gratuito; solo
@@ -87,7 +87,7 @@ export default function Empezar() {
         </p>
         <a
           href={ctaHref}
-          className="mt-8 inline-block rounded-xl bg-blue-700 px-8 py-4 text-lg font-bold text-white shadow-lg hover:bg-blue-800"
+          className="pressable mt-8 inline-flex h-14 items-center rounded-full bg-blue-700 px-9 text-[17px] font-semibold text-white hover:bg-blue-800"
         >
           {ctaLabel}
         </a>
@@ -112,7 +112,7 @@ export default function Empezar() {
                 <img
                   src={s.img}
                   alt={s.alt}
-                  className="w-full rounded-xl border border-slate-200 shadow-md"
+                  className="card w-full"
                 />
               </div>
             </div>
@@ -124,12 +124,12 @@ export default function Empezar() {
         <h2 className="text-2xl font-bold">Hecho para nuestra comunidad</h2>
         <div className="mt-6 grid gap-4 text-left sm:grid-cols-2">
           {[
-            ["🤖 La IA trabaja, tú mandas", "Tu asistente prepara todo y te avisa por WhatsApp. Las compañías que 'lo hacen por ti' son las que acaban demandadas — aquí TÚ tienes el control, y eso te protege."],
-            ["🤝 Ayuda humana gratis", "¿Prefieres que alguien te acompañe? Nuestro equipo te guía en vivo por WhatsApp mientras tú decides. Sin costo extra."],
-            ["🇲🇽 En tu idioma", "Todo en español — la app, las explicaciones y la ayuda. (English también disponible.)"],
-            ["⚖️ Con la ley de tu lado", "Tus cartas usan tus derechos bajo la ley federal FCRA. Tú las lees antes de enviar."],
+            ["La IA trabaja, tú mandas", "Tu asistente prepara todo y te avisa por WhatsApp. Las compañías que 'lo hacen por ti' son las que acaban demandadas — aquí TÚ tienes el control, y eso te protege."],
+            ["Ayuda humana gratis", "¿Prefieres que alguien te acompañe? Nuestro equipo te guía en vivo por WhatsApp mientras tú decides. Sin costo extra."],
+            ["En tu idioma", "Todo en español — la app, las explicaciones y la ayuda. (English también disponible.)"],
+            ["Con la ley de tu lado", "Tus cartas usan tus derechos bajo la ley federal FCRA. Tú las lees antes de enviar."],
           ].map(([t, b]) => (
-            <div key={t} className="rounded-xl border border-slate-200 bg-white p-5">
+            <div key={t} className="card p-6">
               <p className="font-semibold">{t}</p>
               <p className="mt-1 text-sm text-slate-600">{b}</p>
             </div>
@@ -137,7 +137,7 @@ export default function Empezar() {
         </div>
         <a
           href={ctaHref}
-          className="mt-10 inline-block rounded-xl bg-blue-700 px-8 py-4 text-lg font-bold text-white shadow-lg hover:bg-blue-800"
+          className="pressable mt-10 inline-flex h-14 items-center rounded-full bg-blue-700 px-9 text-[17px] font-semibold text-white hover:bg-blue-800"
         >
           {ctaLabel}
         </a>
@@ -148,7 +148,7 @@ export default function Empezar() {
           <h2 className="text-center text-2xl font-bold">Preguntas que nos hacen siempre</h2>
           <div className="mt-6 space-y-3">
             {FAQ.map(([q, a]) => (
-              <details key={q} className="rounded-xl border border-slate-200 bg-white p-5">
+              <details key={q} className="card p-6">
                 <summary className="cursor-pointer text-lg font-semibold text-slate-900">{q}</summary>
                 <p className="mt-3 text-slate-600">{a}</p>
               </details>

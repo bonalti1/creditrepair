@@ -3,21 +3,21 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
+import Icon from "@/components/Icon";
 
-// Onboarding: goal selector (spec §5 — feeds the mortgage track) → Texas gate
-// (v1 is TX-only; other states join the waitlist, since expansion is a legal
-// project, not a config change) → Plan Asistido choice (free live help over
-// WhatsApp; the user always decides and sends — assistance never disputes for
-// them). TODO(Phase 1): persist goal/assisted to profiles on auth.
+// Onboarding: goal (feeds the mortgage track) → state gate (v1 is TX-only;
+// other states join the waitlist, since expansion is a legal project, not a
+// config change) → how you want to do it (alone with the app, or with free
+// live help — the user always decides and sends either way).
+// One question per screen, one obvious button.
 
 const GOALS = [
-  { key: "mortgage", label: "🏡 Comprar una casa (hipoteca)" },
-  { key: "auto", label: "🚗 Comprar un auto" },
-  { key: "card", label: "💳 Calificar para mejores tarjetas" },
-  { key: "general", label: "📈 Mejorar mi crédito en general" },
+  { key: "mortgage", label: "Comprar una casa" },
+  { key: "auto", label: "Comprar un auto" },
+  { key: "card", label: "Calificar para mejores tarjetas" },
+  { key: "general", label: "Mejorar mi crédito en general" },
 ] as const;
-
-import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
 
 const STATES = ["TX", ...ALL_STATES.filter((s) => s !== "TX")];
 
@@ -29,6 +29,9 @@ function save(key: string, value: string) {
   }
 }
 
+const primaryButton =
+  "pressable flex h-14 w-full items-center justify-center rounded-full bg-blue-700 text-[17px] font-semibold text-white hover:bg-blue-800 disabled:bg-slate-200 disabled:text-slate-500";
+
 export default function Onboarding() {
   const router = useRouter();
   const [step, setStep] = useState<"goal" | "state" | "assist" | "waitlist-done">("goal");
@@ -38,6 +41,7 @@ export default function Onboarding() {
   const [busy, setBusy] = useState(false);
 
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER;
+  const stepIndex = step === "goal" ? 1 : step === "state" ? 2 : 3;
 
   const joinWaitlist = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,49 +67,73 @@ export default function Onboarding() {
   };
 
   return (
-    <main className="mx-auto max-w-xl px-6 py-16">
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-10 pt-6">
+      <div className="flex items-center justify-between">
+        <Link href="/" className="text-[15px] font-semibold tracking-tight text-slate-900">
+          Bonalti
+        </Link>
+        {step !== "waitlist-done" && (
+          <div className="flex gap-1.5" aria-label={`Paso ${stepIndex} de 3`}>
+            {[1, 2, 3].map((n) => (
+              <span key={n} className={`h-1.5 rounded-full ${n <= stepIndex ? "w-6 bg-blue-700" : "w-1.5 bg-slate-300"}`} />
+            ))}
+          </div>
+        )}
+      </div>
+
       {step === "goal" && (
-        <>
-          <h1 className="text-3xl font-bold">¿Para qué estás reparando tu crédito?</h1>
-          <p className="mt-2 text-slate-600">Tu meta define tu barra de progreso. Puedes cambiarla cuando quieras.</p>
-          <div className="mt-8 space-y-3">
-            {GOALS.map((g) => (
+        <div className="animate-rise flex flex-1 flex-col pt-12">
+          <h1 className="text-[34px] font-bold leading-tight text-slate-900">¿Para qué quieres mejorar tu crédito?</h1>
+          <p className="mt-3 text-[17px] text-slate-500">Tu meta guía tu progreso. Puedes cambiarla después.</p>
+          <div className="card mt-8 overflow-hidden">
+            {GOALS.map((g, index) => (
               <button
                 key={g.key}
                 onClick={() => setGoal(g.key)}
-                className={`w-full rounded-lg border px-5 py-4 text-left text-lg transition ${
-                  goal === g.key ? "border-blue-700 bg-blue-50 font-semibold" : "border-slate-300 bg-white hover:bg-slate-50"
-                }`}
+                aria-pressed={goal === g.key}
+                className={`pressable flex w-full items-center justify-between px-5 py-4 text-left text-[17px] text-slate-900 hover:bg-slate-50 ${
+                  index > 0 ? "border-t hairline" : ""
+                } ${goal === g.key ? "font-semibold" : ""}`}
               >
                 {g.label}
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-full ${
+                    goal === g.key ? "bg-blue-700 text-white" : "border-2 border-slate-300"
+                  }`}
+                >
+                  {goal === g.key && <Icon name="check" size={14} strokeWidth={3} />}
+                </span>
               </button>
             ))}
           </div>
-          <button
-            onClick={() => {
-              if (goal) {
-                save("bonalti.goal", goal);
-                setStep("state");
-              }
-            }}
-            disabled={!goal}
-            className="mt-6 rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white disabled:bg-slate-300"
-          >
-            Continuar
-          </button>
-        </>
+          <div className="mt-auto pt-8">
+            <button
+              onClick={() => {
+                if (goal) {
+                  save("bonalti.goal", goal);
+                  setStep("state");
+                }
+              }}
+              disabled={!goal}
+              className={primaryButton}
+            >
+              Continuar
+            </button>
+          </div>
+        </div>
       )}
 
       {step === "state" && (
-        <>
-          <h1 className="text-3xl font-bold">¿En qué estado vives?</h1>
-          <p className="mt-2 text-slate-600">
-            Bonalti abre estado por estado (cada uno tiene sus propias reglas). Hoy: Texas. Pronto: más.
+        <div className="animate-rise flex flex-1 flex-col pt-12">
+          <h1 className="text-[34px] font-bold leading-tight text-slate-900">¿En qué estado vives?</h1>
+          <p className="mt-3 text-[17px] text-slate-500">
+            Abrimos estado por estado, porque cada uno tiene sus propias reglas. Hoy: Texas.
           </p>
           <select
             value={state}
             onChange={(e) => setState(e.target.value)}
-            className="mt-6 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-lg outline-none focus:border-blue-500"
+            aria-label="Estado"
+            className="mt-8 h-14 w-full rounded-2xl bg-white px-4 text-[17px] text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] outline-none focus:ring-2 focus:ring-blue-300"
           >
             {STATES.map((s) => (
               <option key={s} value={s}>
@@ -115,83 +143,80 @@ export default function Onboarding() {
           </select>
 
           {stateStatus(state) === "open" ? (
-            <button
-              onClick={() => setStep("assist")}
-              className="mt-6 rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white"
-            >
-              Continuar
-            </button>
+            <div className="mt-auto pt-8">
+              <button onClick={() => setStep("assist")} className={primaryButton}>
+                Continuar
+              </button>
+            </div>
           ) : (
-            <form onSubmit={joinWaitlist} className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5">
-              <p className="text-sm font-semibold text-amber-900">
-                Todavía no llegamos a tu estado — pero estamos en camino.
-              </p>
-              <p className="mt-1 text-sm text-amber-800">Déjanos tu correo y te avisamos en cuanto abramos ahí.</p>
-              <div className="mt-3 flex gap-2">
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tu@correo.com"
-                  className="flex-1 rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
-                />
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="rounded-lg bg-blue-700 px-5 py-2.5 font-semibold text-white disabled:bg-slate-300"
-                >
-                  Avisarme
-                </button>
-              </div>
+            <form onSubmit={joinWaitlist} className="card mt-6 p-5">
+              <p className="text-[17px] font-semibold text-slate-900">Todavía no llegamos a tu estado</p>
+              <p className="mt-1 text-[15px] text-slate-500">Déjanos tu correo y te avisamos en cuanto abramos ahí.</p>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@correo.com"
+                aria-label="Correo electrónico"
+                className="mt-4 h-12 w-full rounded-2xl bg-slate-100 px-4 text-[16px] outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-300"
+              />
+              <button type="submit" disabled={busy} className={`${primaryButton} mt-3`}>
+                Avisarme
+              </button>
             </form>
           )}
-        </>
+        </div>
       )}
 
       {step === "assist" && (
-        <>
-          <h1 className="text-3xl font-bold">¿Cómo quieres hacerlo?</h1>
-          <p className="mt-2 text-slate-600">
-            De cualquier forma, <strong>tú decides y tú envías</strong> — así funciona Bonalti.
-          </p>
+        <div className="animate-rise flex flex-1 flex-col pt-12">
+          <h1 className="text-[34px] font-bold leading-tight text-slate-900">¿Cómo quieres hacerlo?</h1>
+          <p className="mt-3 text-[17px] text-slate-500">De cualquier forma, tú decides y tú envías.</p>
           <div className="mt-8 space-y-3">
-            <button
-              onClick={() => finish(false)}
-              className="w-full rounded-xl border-2 border-slate-300 bg-white px-5 py-5 text-left hover:border-blue-400"
-            >
-              <p className="text-lg font-semibold">🚀 Yo solo(a), con la guía de la app</p>
-              <p className="mt-1 text-sm text-slate-600">
-                La app te explica cada elemento en palabras simples, paso a paso.
-              </p>
+            <button onClick={() => finish(false)} className="card pressable flex w-full items-center gap-4 p-5 text-left">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                <Icon name="sparkle" size={24} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[17px] font-semibold text-slate-900">Con mi asistente</span>
+                <span className="block text-[15px] leading-snug text-slate-500">
+                  La app te explica cada paso en palabras simples.
+                </span>
+              </span>
+              <Icon name="chevron" size={18} className="shrink-0 text-slate-300" />
             </button>
-            <button
-              onClick={() => finish(true)}
-              className="w-full rounded-xl border-2 border-green-300 bg-green-50 px-5 py-5 text-left hover:border-green-500"
-            >
-              <p className="text-lg font-semibold">🤝 Plan Asistido — con ayuda en vivo (gratis)</p>
-              <p className="mt-1 text-sm text-slate-600">
-                Una persona de nuestro equipo te acompaña por WhatsApp mientras TÚ revisas y apruebas.
-                Sin costo extra.
-              </p>
+            <button onClick={() => finish(true)} className="card pressable flex w-full items-center gap-4 p-5 text-left">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
+                <Icon name="person" size={24} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[17px] font-semibold text-slate-900">Con una persona a mi lado</span>
+                <span className="block text-[15px] leading-snug text-slate-500">
+                  Alguien del equipo te acompaña por WhatsApp. Gratis.
+                </span>
+              </span>
+              <Icon name="chevron" size={18} className="shrink-0 text-slate-300" />
             </button>
           </div>
-          <p className="mt-6 text-xs text-slate-500">
-            La asistencia es educativa: te explicamos y acompañamos, pero cada decisión, atestiguación y
-            envío es tuyo. Los resultados varían según cada caso.
+          <p className="mt-6 text-[13px] leading-relaxed text-slate-500">
+            La ayuda es educativa: te explicamos y acompañamos, pero cada decisión y cada envío es tuyo.
+            Los resultados varían según cada caso.
           </p>
-        </>
+        </div>
       )}
 
       {step === "waitlist-done" && (
-        <div className="rounded-2xl border border-green-200 bg-green-50 p-8 text-center">
-          <p className="text-3xl">📬</p>
-          <h1 className="mt-2 text-2xl font-bold text-green-900">¡Listo! Te avisamos pronto.</h1>
-          <p className="mt-2 text-sm text-green-800">
-            En cuanto Bonalti abra en tu estado, serás de los primeros en saberlo.
+        <div className="animate-rise flex flex-1 flex-col items-center justify-center text-center">
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-green-50 text-green-700">
+            <Icon name="check" size={32} strokeWidth={2.5} />
+          </span>
+          <h1 className="mt-5 text-[28px] font-bold text-slate-900">Listo. Te avisamos pronto.</h1>
+          <p className="mt-2 max-w-xs text-[16px] text-slate-500">
+            En cuanto abramos en tu estado, serás de los primeros en saberlo.
           </p>
-          <Link href="/" className="mt-4 inline-block text-sm font-semibold text-blue-700">
-            ← Volver al inicio
+          <Link href="/" className="mt-6 text-[16px] font-medium text-blue-700">
+            Volver al inicio
           </Link>
         </div>
       )}

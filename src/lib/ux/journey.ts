@@ -124,7 +124,7 @@ export function nextAction(s: JourneyState, locale: Locale = "es"): JourneyStep 
       title: variant.title,
       description: c.reviewDescription,
       cta: variant.cta,
-      href: "/items",
+      href: "/asistente",
     };
   }
 
@@ -132,7 +132,7 @@ export function nextAction(s: JourneyState, locale: Locale = "es"): JourneyStep 
     if (s.attestedCount === 0) {
       return { step: 2, totalSteps, key: "review-empty", ...c.reviewEmpty, href: "/items" };
     }
-    return { step: 3, totalSteps, key: "attack", ...c.attack(s.attestedCount), href: "/attack" };
+    return { step: 3, totalSteps, key: "attack", ...c.attack(s.attestedCount), href: "/asistente" };
   }
 
   const mailed = s.mailedAt ? new Date(s.mailedAt) : new Date();
@@ -145,7 +145,7 @@ export function nextAction(s: JourneyState, locale: Locale = "es"): JourneyStep 
     return { step: 4, totalSteps, key: "waiting", ...c.waiting(daysLeft), href: "/rounds" };
   }
 
-  return { step: 5, totalSteps, key: "next-round", ...c.nextRound, href: "/attack" };
+  return { step: 5, totalSteps, key: "next-round", ...c.nextRound, href: "/asistente" };
 }
 
 export function stepLabel(locale: Locale): string {

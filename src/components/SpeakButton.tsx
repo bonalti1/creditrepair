@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
+import Icon from "@/components/Icon";
 
 // Read-aloud for any explanation. Many users prefer listening to reading —
 // this uses the phone's built-in voice (no cost, works offline) in the
@@ -14,7 +15,7 @@ export default function SpeakButton({
 }: {
   text: string;
   className?: string;
-  /** Icon-only variant for use inside chat bubbles. */
+  /** Icon-only variant for use beside chat bubbles. */
   compact?: boolean;
 }) {
   const { locale } = useLocale();
@@ -30,6 +31,8 @@ export default function SpeakButton({
 
   if (!supported) return null;
 
+  const label = locale === "es" ? (speaking ? "Detener" : "Escuchar") : speaking ? "Stop" : "Listen";
+
   const toggle = () => {
     const synth = window.speechSynthesis;
     if (speaking) {
@@ -38,7 +41,8 @@ export default function SpeakButton({
       return;
     }
     synth.cancel();
-    const utterance = new SpeechSynthesisUtterance(text.replace(/[🤖👋👇📬🎉🚀✓⚠️✅📄]/gu, ""));
+    // Strip emoji and symbols so the voice reads only the words.
+    const utterance = new SpeechSynthesisUtterance(text.replace(/[^\p{L}\p{N}\p{P}\p{Z}]/gu, ""));
     utterance.lang = locale === "es" ? "es-US" : "en-US";
     utterance.rate = 0.95;
     utterance.onend = () => setSpeaking(false);
@@ -51,15 +55,13 @@ export default function SpeakButton({
     <button
       type="button"
       onClick={toggle}
-      aria-label={locale === "es" ? (speaking ? "Detener" : "Escuchar") : speaking ? "Stop" : "Listen"}
-      className={`inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 ${
-        compact ? "h-7 w-7 justify-center" : "px-2.5 py-1"
-      } ${className}`}
+      aria-label={label}
+      className={`pressable inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full text-xs font-medium ${
+        speaking ? "bg-blue-700 text-white" : "bg-slate-100 text-slate-600"
+      } ${compact ? "h-8 w-8" : "h-8 px-3"} ${className}`}
     >
-      {speaking ? "⏹" : "🔊"}
-      {!compact && (
-        <span>{locale === "es" ? (speaking ? "Detener" : "Escuchar") : speaking ? "Stop" : "Listen"}</span>
-      )}
+      <Icon name={speaking ? "stop" : "speaker"} size={16} />
+      {!compact && <span>{label}</span>}
     </button>
   );
 }

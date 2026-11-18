@@ -8,7 +8,7 @@ const es = {
   nav: {
     assistant: "Asistente",
     more: "Más",
-    home: "Mi reporte",
+    home: "Inicio",
     audit: "Auditoría",
     review: "Revisar",
     attack: "Mi ataque",
@@ -138,7 +138,7 @@ const en: Dict = {
   nav: {
     assistant: "Assistant",
     more: "More",
-    home: "My report",
+    home: "Home",
     audit: "Audit",
     review: "Review",
     attack: "My attack",

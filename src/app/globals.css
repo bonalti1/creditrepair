@@ -1,10 +1,107 @@
 @import "tailwindcss";
 
-:root {
-  --brand: #1d4ed8;
-  --brand-dark: #1e3a8a;
+/*
+ * Design tokens. The entire product re-skins from this block: every screen
+ * uses the blue-* scale as "accent" and the slate-* scale as "neutral".
+ * To apply the final brand, change these values — no component edits needed.
+ *
+ * Neutrals follow Apple's system grays; every text tone used in the UI
+ * (slate-400 and darker) passes 4.5:1 on white.
+ */
+@theme {
+  --color-blue-50: #eef5ff;
+  --color-blue-100: #dcebff;
+  --color-blue-200: #b9d6ff;
+  --color-blue-300: #8bbbff;
+  --color-blue-400: #4a98f7;
+  --color-blue-500: #1a7ff0;
+  --color-blue-600: #0a72e8;
+  --color-blue-700: #0071e3;
+  --color-blue-800: #0062c4;
+  --color-blue-900: #004a99;
+
+  --color-slate-50: #f5f5f7;
+  --color-slate-100: #ededf0;
+  --color-slate-200: #e2e2e7;
+  --color-slate-300: #d2d2d7;
+  --color-slate-400: #75757a;
+  --color-slate-500: #6e6e73;
+  --color-slate-600: #5f5f64;
+  --color-slate-700: #424245;
+  --color-slate-800: #2c2c2e;
+  --color-slate-900: #1d1d1f;
+
+  /* San Francisco on Apple devices, Inter everywhere else. */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", var(--font-inter), "Helvetica Neue",
+    Arial, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  background: var(--color-slate-50);
+  color: var(--color-slate-900);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.022em;
+}
+
+/* Hairline used for separators inside grouped lists. */
+.hairline {
+  border-color: color-mix(in srgb, var(--color-slate-900) 9%, transparent);
+}
+
+/* Soft elevation for cards: barely there, like iOS. */
+.card {
+  background: #fff;
+  border-radius: 1.5rem;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-slate-900) 5%, transparent),
+    0 1px 2px color-mix(in srgb, var(--color-slate-900) 4%, transparent),
+    0 8px 24px -12px color-mix(in srgb, var(--color-slate-900) 10%, transparent);
+}
+
+/* Press feedback on anything tappable. */
+.pressable {
+  transition:
+    transform 0.15s ease,
+    background-color 0.15s ease,
+    opacity 0.15s ease;
+}
+.pressable:active {
+  transform: scale(0.975);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-rise {
+  animation: rise 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise {
+    animation: none;
+  }
+  .pressable {
+    transition: none;
+  }
+  .pressable:active {
+    transform: none;
+  }
 }

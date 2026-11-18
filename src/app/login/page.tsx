@@ -25,15 +25,15 @@ function LoginForm() {
 
   if (!supabase) {
     return (
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-        <p className="font-semibold">Modo demo</p>
+      <div className="card p-6 text-[15px] text-slate-600">
+        <p className="text-[17px] font-semibold text-slate-900">Modo demo</p>
         <p className="mt-1">
           Las cuentas se activan al configurar el servicio. Mientras tanto puedes explorar toda la app
           con datos de ejemplo.
         </p>
         <Link
           href="/asistente"
-          className="mt-3 inline-block rounded-xl bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800"
+          className="pressable mt-4 inline-flex h-12 items-center rounded-full bg-blue-700 px-6 font-semibold text-white hover:bg-blue-800"
         >
           Explorar la demo →
         </Link>
@@ -108,13 +108,13 @@ function LoginForm() {
           value={code}
           onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
           placeholder="123456"
-          className="w-full rounded-xl border border-slate-300 px-4 py-4 text-center text-3xl tracking-[0.4em] outline-none focus:border-blue-500"
+          className="h-16 w-full rounded-2xl bg-slate-100 px-4 text-center text-3xl tracking-[0.4em] outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-300"
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"
           disabled={busy || code.length < 6}
-          className="w-full rounded-xl bg-blue-700 px-5 py-4 text-lg font-semibold text-white hover:bg-blue-800 disabled:bg-slate-300"
+          className="pressable h-14 w-full rounded-full bg-blue-700 text-[17px] font-semibold text-white hover:bg-blue-800 disabled:bg-slate-200 disabled:text-slate-500"
         >
           {busy ? "Verificando…" : "Entrar"}
         </button>
@@ -139,14 +139,14 @@ function LoginForm() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="(713) 555-1234"
-              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-4 text-xl outline-none focus:border-blue-500"
+              className="mt-2 h-14 w-full rounded-2xl bg-slate-100 px-4 text-xl font-normal outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-300"
             />
           </label>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
             disabled={busy || phone.replace(/\D/g, "").length < 10}
-            className="w-full rounded-xl bg-blue-700 px-5 py-4 text-lg font-semibold text-white hover:bg-blue-800 disabled:bg-slate-300"
+            className="pressable h-14 w-full rounded-full bg-blue-700 text-[17px] font-semibold text-white hover:bg-blue-800 disabled:bg-slate-200 disabled:text-slate-500"
           >
             {busy ? "Enviando…" : "Mandarme el código"}
           </button>
@@ -164,14 +164,14 @@ function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@correo.com"
-              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-4 text-xl outline-none focus:border-blue-500"
+              className="mt-2 h-14 w-full rounded-2xl bg-slate-100 px-4 text-xl font-normal outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-300"
             />
           </label>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
             disabled={busy || !email}
-            className="w-full rounded-xl bg-blue-700 px-5 py-4 text-lg font-semibold text-white hover:bg-blue-800 disabled:bg-slate-300"
+            className="pressable h-14 w-full rounded-full bg-blue-700 text-[17px] font-semibold text-white hover:bg-blue-800 disabled:bg-slate-200 disabled:text-slate-500"
           >
             {busy ? "Enviando…" : "Mandarme el enlace"}
           </button>
@@ -194,11 +194,11 @@ function LoginForm() {
 export default function Login() {
   return (
     <main className="mx-auto max-w-md px-6 py-14">
-      <Link href="/" className="font-bold text-blue-700">
-        Bonalti Crédito
+      <Link href="/" className="text-[15px] font-semibold tracking-tight text-slate-900">
+        Bonalti
       </Link>
-      <h1 className="mt-6 text-3xl font-bold">Entrar</h1>
-      <p className="mt-1 text-slate-600">Tu asistente y tu reporte te esperan.</p>
+      <h1 className="mt-10 text-[34px] font-bold leading-tight text-slate-900">Entrar</h1>
+      <p className="mt-2 text-[17px] text-slate-500">Tu asistente y tu reporte te esperan.</p>
       <div className="mt-6">
         <Suspense fallback={null}>
           <LoginForm />
