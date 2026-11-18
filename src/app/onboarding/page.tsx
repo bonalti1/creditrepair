@@ -59,7 +59,7 @@ export default function Onboarding() {
         "_blank",
       );
     }
-    router.push("/dashboard");
+    router.push("/asistente");
   };
 
   return (

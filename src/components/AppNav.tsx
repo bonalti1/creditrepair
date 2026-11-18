@@ -8,6 +8,7 @@ import { useLocale } from "@/lib/i18n";
 // Includes the ES/EN toggle (Spanish default per spec §4.3).
 
 const NAV = [
+  { href: "/asistente", key: "assistant" as const, icon: "💬" },
   { href: "/dashboard", key: "home" as const, icon: "🏠" },
   { href: "/audit", key: "audit" as const, icon: "📋" },
   { href: "/items", key: "review" as const, icon: "🔍" },

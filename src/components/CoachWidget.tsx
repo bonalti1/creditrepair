@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 // Floating AI Credit Coach (spec §4.3), available on every app page — Dispute
 // Beast buries its coach; ours is one tap away with contextual quick questions.
@@ -31,6 +32,7 @@ const OFFLINE_FALLBACK =
   "El coach con IA se activa al conectar tu cuenta. Mientras tanto, prueba una de las preguntas rápidas de abajo, o revisa las explicaciones «¿Qué es esto?» junto a cada elemento de tu reporte.";
 
 export default function CoachWidget() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([
     {
@@ -78,6 +80,9 @@ export default function CoachWidget() {
       setBusy(false);
     }
   };
+
+  // The assistant page IS the conversation — no floating bubble there.
+  if (pathname.startsWith("/asistente")) return null;
 
   return (
     <>

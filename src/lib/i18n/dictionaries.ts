@@ -6,6 +6,7 @@ export type Locale = "es" | "en";
 
 const es = {
   nav: {
+    assistant: "Asistente",
     home: "Inicio",
     audit: "Auditoría",
     review: "Revisar",
@@ -134,6 +135,7 @@ export type Dict = typeof es;
 
 const en: Dict = {
   nav: {
+    assistant: "Assistant",
     home: "Home",
     audit: "Audit",
     review: "Review",
