@@ -92,8 +92,10 @@ export default function CoachWidget() {
       {open && (
         <div className="fixed bottom-36 right-4 z-40 flex h-[28rem] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:bottom-24">
           <div className="bg-blue-700 px-4 py-3 text-white">
-            <p className="font-semibold">Coach de crédito</p>
-            <p className="text-xs text-blue-100">Explica, no promete. Los resultados varían.</p>
+            <p className="font-semibold">Coach de crédito · IA 🤖</p>
+            <p className="text-xs text-blue-100">
+              Asistente de inteligencia artificial. Explica, no promete — los resultados varían.
+            </p>
           </div>
 
           <div className="flex-1 space-y-3 overflow-y-auto p-4">
