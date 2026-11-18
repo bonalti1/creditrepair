@@ -48,12 +48,13 @@ export default function Empezar() {
       <section className="mx-auto max-w-3xl px-6 pb-12 pt-16 text-center">
         <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Bonalti Crédito</p>
         <h1 className="mt-3 text-4xl font-bold leading-tight sm:text-5xl">
-          Empieza a disputar tu crédito en 5 minutos — en español
+          Tu asistente de crédito con IA — tú solo das el OK
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-600">
-          Software <strong>gratuito</strong> para armar tus disputas, paso a paso. Tú decides qué
-          disputar, tú apruebas cada carta, <strong>tú envías tu ataque</strong>. Solo necesitas tu
-          suscripción de monitoreo de crédito.
+          La IA hace el trabajo pesado: lee tu reporte, encuentra lo negativo, te lo explica,
+          escribe tus cartas y las envía por correo. <strong>Tú decides qué disputar y tú
+          apruebas</strong> — 3 toques por ronda, ~5 minutos al mes. Software gratuito; solo
+          necesitas tu suscripción de monitoreo.
         </p>
         <a
           href={ctaHref}
@@ -92,10 +93,11 @@ export default function Empezar() {
 
       <section className="mx-auto max-w-3xl px-6 py-14 text-center">
         <h2 className="text-2xl font-bold">Hecho para nuestra comunidad</h2>
-        <div className="mt-6 grid gap-4 text-left sm:grid-cols-3">
+        <div className="mt-6 grid gap-4 text-left sm:grid-cols-2">
           {[
+            ["🤖 La IA trabaja, tú mandas", "Tu asistente prepara todo y te avisa por WhatsApp. Las compañías que 'lo hacen por ti' son las que acaban demandadas — aquí TÚ tienes el control, y eso te protege."],
+            ["🤝 Ayuda humana gratis", "¿Prefieres que alguien te acompañe? Nuestro equipo te guía en vivo por WhatsApp mientras tú decides. Sin costo extra."],
             ["🇲🇽 En tu idioma", "Todo en español — la app, las explicaciones y la ayuda. (English también disponible.)"],
-            ["📱 En tu teléfono", "Diseñado para usarse desde el celular, con avisos por WhatsApp en cada paso."],
             ["⚖️ Con la ley de tu lado", "Tus cartas usan tus derechos bajo la ley federal FCRA. Tú las lees antes de enviar."],
           ].map(([t, b]) => (
             <div key={t} className="rounded-xl border border-slate-200 bg-white p-5">

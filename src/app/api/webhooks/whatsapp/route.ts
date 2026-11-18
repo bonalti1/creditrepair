@@ -10,8 +10,11 @@ import { getAdminClient } from "@/lib/supabase/admin";
 // app. Same guardrailed coach brain as /api/coach.
 // TODO: thread conversation history per phone number (stateless single-turn now).
 
+// AI disclosure: every automated reply is visibly marked as AI (the client
+// always knows). A human teammate takes over threads without the 🤖 prefix.
+const AI_PREFIX = "🤖 ";
 const FALLBACK =
-  "¡Gracias por tu mensaje! Para revisar tu reporte y armar tu ataque, entra a la app. Si tienes una pregunta sobre tu crédito, escríbela y tu coach te responde aquí mismo. 🙂";
+  "¡Gracias por tu mensaje! Soy el asistente de IA de Bonalti. Para revisar tu reporte y armar tu ataque, entra a la app. Si tienes una pregunta sobre tu crédito, escríbela y te respondo aquí mismo. Si prefieres hablar con una persona del equipo, dilo y te conectamos. 🙂";
 
 export async function GET(req: Request) {
   // Meta webhook verification handshake.
@@ -76,7 +79,7 @@ export async function POST(req: Request) {
       }
     }
 
-    await sendWhatsAppText(msg.from, reply, "whatsapp:coach-reply").catch(() => undefined);
+    await sendWhatsAppText(msg.from, AI_PREFIX + reply, "whatsapp:coach-reply").catch(() => undefined);
   }
 
   // Always 200 fast — Meta retries aggressively on non-200.
