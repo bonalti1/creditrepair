@@ -27,7 +27,7 @@ const STEPS = [
     title: "Revisa cada elemento, explicado en palabras simples",
     body: "Nada de tecnicismos: Capi te explica qué es cada cuenta, cobranza o consulta, y qué verificar. Tú marcas solo lo que crees inexacto, no verificable o desactualizado — y lo confirmas con tu firma electrónica.",
     img: "/screens/revisar.png",
-    alt: "Revisión guiada con atestiguación",
+    alt: "Revisión guiada con confirmación",
   },
   {
     n: 3,
@@ -58,7 +58,7 @@ const FAQ: Array<[string, string]> = [
     "El servicio de monitoreo verifica tu identidad para mostrarte tu reporte. Si usas ITIN en lugar de Seguro Social, escríbenos por WhatsApp antes de empezar y te decimos tus opciones.",
   ],
   [
-    "No soy bueno(a) con la tecnología. ¿Voy a poder?",
+    "No se me da bien la tecnología. ¿Voy a poder?",
     "Sí. Es un chat, como WhatsApp: el asistente te va diciendo qué sigue. Puedes escuchar las explicaciones en vez de leerlas, y si quieres, una persona del equipo te acompaña en vivo — gratis.",
   ],
   [
@@ -90,8 +90,9 @@ export default function Empezar() {
         <p className="mx-auto mt-5 max-w-2xl text-[19px] leading-relaxed text-blue-100">
           La IA hace el trabajo pesado: lee tu reporte, encuentra lo negativo, te lo explica,
           escribe tus cartas y las envía por correo. <strong>Tú decides qué disputar y tú
-          apruebas</strong> — 3 toques por ronda, ~5 minutos al mes. Software gratuito; solo
-          necesitas tu suscripción de monitoreo.
+          apruebas</strong> — 3 toques por ronda, ~5 minutos al mes. El software es gratis. El único
+          costo es tu suscripción de monitoreo de crédito: {MONITORING_OFFER.priceLabel} al mes, y la
+          cancelas cuando quieras.
         </p>
         <a
           href={ctaHref}
@@ -139,7 +140,7 @@ export default function Empezar() {
           {[
             ["La IA trabaja, tú mandas", "Tu asistente prepara todo y te avisa por WhatsApp. Las compañías que 'lo hacen por ti' son las que acaban demandadas — aquí TÚ tienes el control, y eso te protege."],
             ["Ayuda humana gratis", "¿Prefieres que alguien te acompañe? Nuestro equipo te guía en vivo por WhatsApp mientras tú decides. Sin costo extra."],
-            ["En tu idioma", "Todo en español — la app, las explicaciones y la ayuda. (English también disponible.)"],
+            ["En tu idioma", "Todo en español — la app, las explicaciones y la ayuda. Si prefieres inglés, lo eliges dentro de la app."],
             ["Con la ley de tu lado", "Tus cartas usan tus derechos bajo la ley federal FCRA. Tú las lees antes de enviar."],
           ].map(([t, b]) => (
             <div key={t} className="card p-6">

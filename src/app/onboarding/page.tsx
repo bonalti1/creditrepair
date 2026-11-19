@@ -298,7 +298,8 @@ export default function Onboarding() {
           </div>
           <p className="mt-4 text-[13px] leading-relaxed text-slate-500">
             {AFFILIATE_DISCLOSURE.es}
-            {whatsappNumber ? (
+            {/* Only where there is a number to write to. */}
+            {whatsappNumber && (
               <>
                 {" "}
                 ¿Usas ITIN en lugar de Seguro Social?{" "}
@@ -311,8 +312,6 @@ export default function Onboarding() {
                   Escríbenos antes de contratar.
                 </a>
               </>
-            ) : (
-              " ¿Usas ITIN en lugar de Seguro Social? Escríbenos antes de contratar."
             )}
           </p>
           <div className="mt-auto space-y-3 pt-8">

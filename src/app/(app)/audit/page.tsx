@@ -3,14 +3,19 @@
 import Link from "next/link";
 import { DEMO_REPORT, DEMO_SCORE_HISTORY } from "@/lib/demo";
 import { useLocale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n/dictionaries";
 import type { ReportItem } from "@/lib/domain/types";
+import { useFlags } from "@/lib/ux/flagsStore";
+import { itemTitle } from "@/lib/ux/itemDisplay";
+import { nextAction, sessionJourneyState } from "@/lib/ux/journey";
 import Icon from "@/components/Icon";
 
 // The Credit Audit — Credit Repair Cloud's conversion weapon, handed directly
 // to the consumer instead of to an agency closing a sale. Severity-ranked
 // findings, per-bureau scores, and a cross-bureau matrix (an item appearing
 // inconsistently across bureaus is the classic inaccuracy signal). Copy
-// discipline: it shows WHERE TO LOOK and never says an item IS wrong.
+// discipline: it shows WHERE TO LOOK and never says an item IS wrong. The
+// button at the end is the journey's one next step, the same one Home shows.
 
 const BUREAUS = ["equifax", "experian", "transunion"] as const;
 const BUREAU_LABEL: Record<string, string> = {
@@ -32,7 +37,10 @@ function severity(item: ReportItem): "high" | "medium" | "info" | null {
 
 export default function Audit() {
   const { locale, d } = useLocale();
+  const { flags, roundApproved, hydrated } = useFlags();
   const items = DEMO_REPORT.items;
+  // Known only once the saved decisions are read; the audit itself shows right away.
+  const step = hydrated ? nextAction(sessionJourneyState(items, flags, roundApproved), locale) : null;
   const high = items.filter((i) => severity(i) === "high");
   const medium = items.filter((i) => severity(i) === "medium");
   const info = items.filter((i) => severity(i) === "info");
@@ -93,9 +101,10 @@ export default function Audit() {
         note={d.audit.severityHighNote}
         items={high}
         emptyText={d.audit.clean}
+        locale={locale}
       />
-      <AuditSection title={d.audit.severityMed} note={d.audit.severityMedNote} items={medium} />
-      <AuditSection title={d.audit.severityInfo} note={d.audit.severityInfoNote} items={info} />
+      <AuditSection title={d.audit.severityMed} note={d.audit.severityMedNote} items={medium} locale={locale} />
+      <AuditSection title={d.audit.severityInfo} note={d.audit.severityInfoNote} items={info} locale={locale} />
 
       {byName.size > 0 && (
         <section className="card overflow-hidden">
@@ -130,15 +139,18 @@ export default function Audit() {
         </section>
       )}
 
-      <div className="pt-1 print:hidden">
-        <Link
-          href="/items"
-          className="pressable flex h-14 items-center justify-center rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500"
-        >
-          {d.audit.cta}
-        </Link>
-        <p className="px-4 pt-3 text-center text-xs leading-relaxed text-slate-500">{d.audit.ctaNote}</p>
-      </div>
+      {step && (
+        <div className="pt-1 print:hidden">
+          <p className="px-4 pb-3 text-center text-[17px] font-semibold leading-snug text-slate-900">{step.title}</p>
+          <Link
+            href={step.href}
+            className="pressable flex h-14 items-center justify-center rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500"
+          >
+            {step.cta}
+          </Link>
+          <p className="px-4 pt-3 text-center text-xs leading-relaxed text-slate-500">{d.audit.ctaNote}</p>
+        </div>
+      )}
     </main>
   );
 }
@@ -148,11 +160,13 @@ function AuditSection({
   note,
   items,
   emptyText,
+  locale,
 }: {
   title: string;
   note: string;
   items: ReportItem[];
   emptyText?: string;
+  locale: Locale;
 }) {
   if (items.length === 0 && !emptyText) return null;
 
@@ -168,12 +182,18 @@ function AuditSection({
         <p className="border-t hairline px-5 py-4 text-[15px] font-medium leading-snug text-green-700">{emptyText}</p>
       ) : (
         <ul>
-          {items.map((i) => (
-            <li key={i.fingerprint} className="flex items-baseline justify-between gap-3 border-t hairline px-5 py-3.5">
-              <span className="min-w-0 break-words text-[15px] text-slate-900">{i.name}</span>
-              <span className="shrink-0 text-[13px] text-slate-500">{BUREAU_LABEL[i.bureau]}</span>
-            </li>
-          ))}
+          {items.map((i) => {
+            const heading = itemTitle(i, locale);
+            return (
+              <li key={i.fingerprint} className="flex items-baseline justify-between gap-3 border-t hairline px-5 py-3.5">
+                <span className="min-w-0 break-words text-[15px] text-slate-900">
+                  {heading.kicker && <span className="block text-[13px] font-semibold text-slate-500">{heading.kicker}</span>}
+                  {heading.title}
+                </span>
+                <span className="shrink-0 text-[13px] text-slate-500">{BUREAU_LABEL[i.bureau]}</span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

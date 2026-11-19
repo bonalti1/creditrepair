@@ -4,12 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { DEMO_REPORT } from "@/lib/demo";
 import { ATTESTATION_TEXT } from "@/lib/compliance/attestation";
-import { buildAttackPlan } from "@/lib/domain/attack";
 import { getCategoryExplainers } from "@/lib/ux/explainers";
-import { countByState, useFlags } from "@/lib/ux/flagsStore";
-import { useChatThread, type ChatMsg } from "@/lib/ux/chatStore";
+import { useFlags } from "@/lib/ux/flagsStore";
+import { messageText, useChatThread, type ChatMsg } from "@/lib/ux/chatStore";
+import { HUMAN_HELP, humanHelpHref } from "@/lib/ux/humanHelp";
+import { itemCheckHints, itemFacts, itemKindLine, itemLabel, itemReadAloud, itemTitle } from "@/lib/ux/itemDisplay";
+import { sessionPlan } from "@/lib/ux/sessionPlan";
 import { useLocale } from "@/lib/i18n";
-import type { ItemFlag } from "@/lib/domain/types";
+import { DICTS } from "@/lib/i18n/dictionaries";
+import ItemFacts from "@/components/ItemFacts";
 import SpeakButton from "@/components/SpeakButton";
 import Icon from "@/components/Icon";
 import { CapiAvatar } from "@/components/Logo";
@@ -37,37 +40,27 @@ export default function Asistente() {
   const { locale, d } = useLocale();
   const es = locale === "es";
   const { flags, review, roundApproved, setRoundApproved, hydrated } = useFlags();
-  const { messages, append, hydrated: chatHydrated } = useChatThread();
+  const { messages, append, hydrated: chatHydrated, signedIn } = useChatThread();
   const seeded = useRef(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [flagging, setFlagging] = useState(false);
   const [reason, setReason] = useState("");
   const [attestChecked, setAttestChecked] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
+  /** How many messages were on screen at the last look; null until the thread first shows. */
+  const shownCount = useRef<number | null>(null);
+  /** True when this visit started the thread (nothing was saved before). */
+  const freshThread = useRef(false);
 
   const items = DEMO_REPORT.items;
-  const counts = countByState(flags);
   const pending = useMemo(() => items.filter((i) => !flags[i.fingerprint]), [items, flags]);
   const current = pending[0];
   const negatives = items.filter((i) => i.negative).length;
+  const humanHref = humanHelpHref(locale);
 
-  const attestedFlags: ItemFlag[] = useMemo(
-    () =>
-      Object.entries(flags)
-        .filter(([, f]) => f.state === "attested" && f.attestedAt)
-        .map(([fp, f]) => ({ fingerprint: fp, reason: f.reason ?? "", attested: true, attestedAt: f.attestedAt! })),
-    [flags],
-  );
-
-  const hasPI = useMemo(
-    () => items.some((i) => i.category === "personal_info" && attestedFlags.some((f) => f.fingerprint === i.fingerprint)),
-    [items, attestedFlags],
-  );
-  const plan = useMemo(
-    () => buildAttackPlan({ roundNumber: hasPI ? 1 : 2, items, flags: attestedFlags, history: {} }),
-    [items, attestedFlags, hasPI],
-  );
+  const { plan, roundNumber, attestedFlags } = useMemo(() => sessionPlan(items, flags), [items, flags]);
+  const confirmedCount = attestedFlags.length;
 
   const phase: "review" | "attack" | "waiting" | "done-empty" = !hydrated
     ? "review"
@@ -75,9 +68,25 @@ export default function Asistente() {
       ? "review"
       : roundApproved
         ? "waiting"
-        : counts.attested > 0
+        : confirmedCount > 0
           ? "attack"
           : "done-empty";
+
+  /**
+   * A scripted line, written in both languages at once. The thread shows the
+   * one that matches the active language, so it follows the language switch.
+   */
+  const line = (role: Msg["role"], esText: string, enText: string): Msg => ({
+    role,
+    text: es ? esText : enText,
+    lang: locale,
+    alt: es ? enText : esText,
+  });
+  const say = (esText: string, enText: string) => append([line("assistant", esText, enText)]);
+  const youSay = (esText: string, enText: string) => append([line("user", esText, enText)]);
+
+  const confirmedEs = (n: number) => (n === 1 ? "1 elemento confirmado" : `${n} elementos confirmados`);
+  const confirmedEn = (n: number) => (n === 1 ? "1 confirmed item" : `${n} confirmed items`);
 
   // Seed the opening messages once, matched to where the client is. A saved
   // thread is shown as it was left: nothing is added on a return visit.
@@ -85,89 +94,144 @@ export default function Asistente() {
     if (!hydrated || !chatHydrated || seeded.current) return;
     seeded.current = true;
     if (messages.length > 0) return;
+    freshThread.current = true;
     const opening: Msg[] = [
-      {
-        role: "assistant",
-        text: es
-          ? `Hola 👋 Soy Capi, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós: ${items.length} elementos, ${negatives} posiblemente negativos.`
-          : `Hi 👋 I'm Capi, your AI credit assistant. I already imported your 3-bureau report: ${items.length} items, ${negatives} possibly negative.`,
-      },
+      line(
+        "assistant",
+        `Hola 👋 Soy Capi, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós: ${DICTS.es.dashboard.items(items.length)}, ${DICTS.es.dashboard.negatives(negatives)}.`,
+        `Hi 👋 I'm Capi, your AI credit assistant. I already imported your 3-bureau report: ${DICTS.en.dashboard.items(items.length)}, ${DICTS.en.dashboard.negatives(negatives)}.`,
+      ),
     ];
     if (phase === "review") {
-      opening.push({
-        role: "assistant",
-        text: es
-          ? `Vamos a revisarlos juntos, uno por uno. Yo te explico cada uno y tú decides. Quedan ${pending.length}.`
-          : `Let's review them together, one by one. I explain each and you decide. ${pending.length} left.`,
-      });
+      opening.push(
+        line(
+          "assistant",
+          `Vamos a revisarlos juntos, uno por uno. Yo te explico cada uno y tú decides. ${pending.length === 1 ? "Queda 1" : `Quedan ${pending.length}`}.`,
+          `Let's review them together, one by one. I explain each and you decide. ${pending.length} left.`,
+        ),
+      );
     } else if (phase === "attack") {
-      opening.push({
-        role: "assistant",
-        text: es
-          ? `Tu revisión está completa: ${counts.attested} elemento(s) atestiguados. Preparé tus cartas. Revísalas y dame el OK.`
-          : `Your review is complete: ${counts.attested} attested item(s). I prepared your letters. Review them and give me the OK.`,
-      });
+      opening.push(
+        line(
+          "assistant",
+          `Tu revisión está completa: ${confirmedEs(confirmedCount)}. Preparé tus cartas. Revísalas y dame el OK.`,
+          `Your review is complete: ${confirmedEn(confirmedCount)}. I prepared your letters. Review them and give me the OK.`,
+        ),
+      );
     } else if (phase === "waiting") {
-      opening.push({
-        role: "assistant",
-        text: es
-          ? "Tus cartas van en camino. Los burós tienen ~30 días para responder y yo te aviso aquí con cualquier novedad. ¿Tienes preguntas mientras tanto?"
-          : "Your letters are on their way. Bureaus have ~30 days to respond and I'll message you here with any news. Any questions meanwhile?",
-      });
+      opening.push(
+        line(
+          "assistant",
+          "Tus cartas van en camino. Los burós tienen ~30 días para responder y yo te aviso aquí con cualquier novedad. ¿Tienes preguntas mientras tanto?",
+          "Your letters are on their way. Bureaus have ~30 days to respond and I'll message you here with any news. Any questions meanwhile?",
+        ),
+      );
     }
     append(opening);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, chatHydrated]);
 
+  /**
+   * Bring the newest message into view. It goes to the top of the view, or the
+   * view goes to the end of the thread, whichever comes first: a short tail
+   * lands at the bottom as usual, and a tall card that follows the message is
+   * read from its title down instead of from its buttons up.
+   */
+  const scrollToNewest = (smooth: boolean) => {
+    const box = threadRef.current;
+    if (!box) return;
+    const end = box.scrollHeight - box.clientHeight;
+    const newest = box.querySelector<HTMLElement>("[data-newest]");
+    const top = newest
+      ? newest.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 12
+      : end;
+    box.scrollTo({ top: Math.max(0, Math.min(top, end)), behavior: smooth ? "smooth" : "auto" });
+  };
+
+  // Where the thread sits. A thread started on this visit stays at the top, so
+  // Capi's greeting is the first thing read. A saved thread opens at its newest
+  // message. After that, the view moves only when a message is added.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, phase, flagging]);
+    if (!hydrated || !chatHydrated || messages.length === 0) return;
+    if (shownCount.current === null) {
+      shownCount.current = messages.length;
+      if (freshThread.current) threadRef.current?.scrollTo({ top: 0 });
+      else scrollToNewest(false);
+      return;
+    }
+    if (messages.length > shownCount.current) scrollToNewest(true);
+    shownCount.current = messages.length;
+  }, [messages.length, hydrated, chatHydrated]);
 
-  const say = (text: string) => append([{ role: "assistant", text }]);
-  const youSay = (text: string) => append([{ role: "user", text }]);
+  // Opening the "inaccurate" form is the customer's own tap: show the form.
+  useEffect(() => {
+    const box = threadRef.current;
+    if (flagging && box) box.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
+  }, [flagging]);
 
-  const afterDecision = () => {
+  /** After a decision. `confirmed` is how many items are confirmed once this decision counts. */
+  const afterDecision = (confirmed: number) => {
     const left = pending.length - 1;
     if (left > 0) {
-      say(es ? (left === 1 ? "Anotado. Último elemento:" : `Anotado. Quedan ${left}.`) : left === 1 ? "Noted. Last item:" : `Noted. ${left} left.`);
+      say(
+        left === 1 ? "Anotado. Último elemento:" : `Anotado. Quedan ${left}.`,
+        left === 1 ? "Noted. Last item:" : `Noted. ${left} left.`,
+      );
+    } else if (confirmed > 0) {
+      say(
+        "¡Revisaste todo! 🎉 Preparé tus cartas. Revísalas abajo y dame el OK cuando lo tengas claro.",
+        "You reviewed everything! 🎉 I prepared your letters. Review them below and give me the OK when you're sure.",
+      );
     } else {
       say(
-        es
-          ? "¡Revisaste todo! 🎉 Preparé tus cartas. Revísalas abajo y dame el OK cuando estés seguro(a)."
-          : "You reviewed everything! 🎉 I prepared your letters. Review them below and give me the OK when you're sure.",
+        "¡Revisaste todo! 🎉 No marcaste ningún elemento, así que no hay cartas por enviar.",
+        "You reviewed everything! 🎉 You didn't flag any items, so there are no letters to send.",
       );
     }
   };
 
   const decideCorrect = () => {
     if (!current) return;
-    youSay(es ? `${current.name}: se ve correcto` : `${current.name}: looks correct`);
+    youSay(
+      `${itemLabel(current, "es")}\n${plain(DICTS.es.items.looksCorrect)}`,
+      `${itemLabel(current, "en")}\n${plain(DICTS.en.items.looksCorrect)}`,
+    );
     review(current.fingerprint, "correct");
-    afterDecision();
+    afterDecision(confirmedCount);
   };
 
   const confirmFlag = () => {
     if (!current || !attestChecked) return;
-    youSay(`${current.name}: ${ATTESTATION_TEXT[locale]}`);
+    youSay(
+      `${itemLabel(current, "es")}\n${ATTESTATION_TEXT.es}`,
+      `${itemLabel(current, "en")}\n${ATTESTATION_TEXT.en}`,
+    );
     review(current.fingerprint, "attested", { reason, attestedAt: new Date().toISOString() });
     setFlagging(false);
     setReason("");
     setAttestChecked(false);
-    afterDecision();
+    afterDecision(confirmedCount + 1);
   };
 
   const approve = () => {
-    youSay(es ? "Apruebo. Envía mi ataque." : "Approved. Send my attack.");
+    youSay("Apruebo. Envía mi ataque.", "Approved. Send my attack.");
     setRoundApproved(true);
     say(
-      es
-        ? "¡Hecho! 📬 Tus cartas se imprimen y van por correo. Los burós tienen ~30 días; yo vigilo el calendario y te aviso aquí. No tienes que hacer nada más."
-        : "Done! 📬 Your letters are being printed and mailed. Bureaus have ~30 days; I watch the calendar and message you here. Nothing else to do.",
+      "¡Hecho! 📬 Tus cartas se imprimen y van por correo. Los burós tienen ~30 días; yo vigilo el calendario y te aviso aquí. No tienes que hacer nada más.",
+      "Done! 📬 Your letters are being printed and mailed. Bureaus have ~30 days; I watch the calendar and message you here. Nothing else to do.",
     );
   };
 
-  /** Record an exchange the coach endpoint did not store. No-op when signed out. */
+  /** Demo only (no WhatsApp number): say plainly that nobody is online. No coach call. */
+  const explainNoHuman = () => {
+    const last = messages[messages.length - 1];
+    if (last && (last.text === HUMAN_HELP.demoChat.es || last.text === HUMAN_HELP.demoChat.en)) return;
+    say(HUMAN_HELP.demoChat.es, HUMAN_HELP.demoChat.en);
+  };
+
+  /** Record an exchange the coach endpoint did not store. Nothing is sent when signed out. */
   const saveExchange = (question: string, answer: string) => {
+    if (!signedIn) return;
     fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -194,14 +258,20 @@ export default function Asistente() {
     append([{ role: "user", text: q }], { remote: false });
     setInput("");
     setBusy(true);
+    // Shown when the coach cannot answer (always, in the demo). A person is
+    // only offered where there is one to reach.
     const wantsHuman = /persona|humano|alguien|person|human/i.test(q);
-    const fallback = es
-      ? wantsHuman
-        ? "¡Claro! Te conecto con una persona del equipo. En tu cuenta real, este mismo chat continúa en WhatsApp con alguien de nuestro equipo. Mientras tanto sigo yo: ¿en qué te ayudo?"
-        : "Buena pregunta. El coach completo se activa al conectar tu cuenta. Mientras tanto, revisa las explicaciones junto a cada elemento, o pide hablar con una persona del equipo."
-      : wantsHuman
-        ? "Of course! I'll connect you with a teammate. On your real account this same chat continues on WhatsApp with someone from our team. Meanwhile I'm here: how can I help?"
-        : "Good question. The full coach activates once your account is connected. Meanwhile, check the explanations next to each item, or ask for a human teammate.";
+    const human = humanHref ? HUMAN_HELP.liveChat : HUMAN_HELP.demoChat;
+    const fallback = wantsHuman
+      ? human
+      : {
+          es: `Buena pregunta. El coach completo se activa al conectar tu cuenta. Mientras tanto, revisa las explicaciones junto a cada elemento${humanHref ? ", o toca «Persona» para hablar con alguien del equipo" : ""}.`,
+          en: `Good question. The full coach activates once your account is connected. Meanwhile, check the explanations next to each item${humanHref ? ", or tap “Person” to talk to someone on our team" : ""}.`,
+        };
+    const replyWithFallback = () => {
+      append([line("assistant", fallback.es, fallback.en)], { remote: false });
+      saveExchange(q, fallback[locale]);
+    };
     try {
       const res = await fetch("/api/coach", {
         method: "POST",
@@ -215,12 +285,10 @@ export default function Asistente() {
         // ordinary way so the thread is still complete on other devices.
         if (!stored) saveExchange(q, reply);
       } else {
-        append([{ role: "assistant", text: fallback }], { remote: false });
-        saveExchange(q, fallback);
+        replyWithFallback();
       }
     } catch {
-      append([{ role: "assistant", text: fallback }], { remote: false });
-      saveExchange(q, fallback);
+      replyWithFallback();
     } finally {
       setBusy(false);
     }
@@ -228,6 +296,18 @@ export default function Asistente() {
 
   if (!hydrated || !chatHydrated) return null;
   const explainer = current ? getCategoryExplainers(locale)[current.category] : null;
+  const heading = current ? itemTitle(current, locale) : null;
+  const facts = current ? itemFacts(current, locale) : [];
+  const kindLine = current ? itemKindLine(current, locale) : "";
+  const hints = current ? itemCheckHints(current, locale, 3) : [];
+  const humanButton =
+    "pressable flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-4 text-[14px] font-semibold text-slate-900";
+  const humanLabel = (
+    <>
+      <Icon name="person" size={16} />
+      {es ? "Persona" : "Person"}
+    </>
+  );
 
   return (
     <main className="card animate-rise -mt-1 flex h-[calc(100dvh-9.75rem)] flex-col overflow-hidden sm:h-[calc(100dvh-8.5rem)]">
@@ -242,52 +322,73 @@ export default function Asistente() {
             {es ? "Asistente con IA" : "AI assistant"}
           </span>
         </span>
-        <button
-          type="button"
-          onClick={() => ask(es ? "Quiero hablar con una persona" : "I want to talk to a person")}
-          className="pressable flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-3.5 text-[13px] font-semibold text-slate-900"
-        >
-          <Icon name="person" size={16} />
-          {es ? "Persona" : "Human"}
-        </button>
+        {humanHref ? (
+          <a
+            href={humanHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={es ? "Hablar con una persona por WhatsApp" : "Talk to a person on WhatsApp"}
+            className={humanButton}
+          >
+            {humanLabel}
+          </a>
+        ) : (
+          <button
+            type="button"
+            onClick={explainNoHuman}
+            aria-label={es ? "Hablar con una persona" : "Talk to a person"}
+            className={humanButton}
+          >
+            {humanLabel}
+          </button>
+        )}
       </header>
 
-      <div className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
-        {messages.map((m, i) => (
-          <div key={i} className={`animate-rise flex items-end gap-1.5 ${m.role === "user" ? "justify-end" : ""}`}>
+      <div ref={threadRef} className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
+        {messages.map((m, i) => {
+          const shown = messageText(m, locale);
+          return (
             <div
-              className={`max-w-[80%] whitespace-pre-line px-4 py-2.5 text-[16px] leading-snug ${
-                m.role === "user"
-                  ? "rounded-[22px] rounded-br-md bg-blue-700 text-white"
-                  : "rounded-[22px] rounded-bl-md bg-slate-100 text-slate-900"
-              }`}
+              key={i}
+              data-newest={i === messages.length - 1 ? "" : undefined}
+              className={`animate-rise flex items-end gap-1.5 ${m.role === "user" ? "justify-end" : ""}`}
             >
-              {m.text}
+              <div
+                className={`max-w-[80%] whitespace-pre-line break-words px-4 py-2.5 text-[16px] leading-snug ${
+                  m.role === "user"
+                    ? "rounded-[22px] rounded-br-md bg-blue-700 text-white"
+                    : "rounded-[22px] rounded-bl-md bg-slate-100 text-slate-900"
+                }`}
+              >
+                {shown}
+              </div>
+              {m.role === "assistant" && <SpeakButton text={shown} compact />}
             </div>
-            {m.role === "assistant" && <SpeakButton text={m.text} compact />}
-          </div>
-        ))}
+          );
+        })}
 
-        {phase === "review" && current && (
+        {phase === "review" && current && heading && (
           <div className="animate-rise mt-3 rounded-3xl border hairline bg-white p-5 shadow-[0_8px_24px_-14px_rgba(0,0,0,0.25)]">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {BUREAU_LABEL[current.bureau]}
+            <div className="flex items-start justify-between gap-2">
+              <p className="flex min-h-11 min-w-0 flex-1 flex-wrap items-center content-center gap-x-2 gap-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span>{BUREAU_LABEL[current.bureau]}</span>
                 {current.negative && (
-                  <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-red-700">
+                  <span className="whitespace-nowrap rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-red-700">
                     {d.items.negativeBadge}
                   </span>
                 )}
               </p>
-              {explainer && (
-                <SpeakButton text={`${current.name}. ${explainer.what} ${explainer.checkHints.slice(0, 3).join(" ")}`} />
-              )}
+              <SpeakButton text={`${itemReadAloud(current, locale)} ${hints.join(" ")}`} />
             </div>
-            <p className="mt-2 text-[22px] font-semibold leading-tight text-slate-900">{current.name}</p>
-            {explainer && <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{explainer.what}</p>}
-            {explainer && (
+            {heading.kicker && <p className="mt-2 text-[14px] font-semibold text-slate-500">{heading.kicker}</p>}
+            <p className={`break-words text-[22px] font-semibold leading-tight text-slate-900 ${heading.kicker ? "mt-0.5" : "mt-2"}`}>
+              {heading.title}
+            </p>
+            <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{kindLine}</p>
+            <ItemFacts facts={facts} heading={d.items.reportSays} className="mt-3" />
+            {hints.length > 0 && (
               <ul className="mt-3 space-y-2">
-                {explainer.checkHints.slice(0, 3).map((h, i) => (
+                {hints.map((h, i) => (
                   <li key={i} className="flex gap-2 text-[14px] leading-snug text-slate-600">
                     <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
                     {h}
@@ -314,11 +415,13 @@ export default function Asistente() {
               </div>
             ) : (
               <div className="mt-5">
-                <input
+                <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder={d.items.reasonPlaceholder}
-                  className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-[15px] outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-300"
+                  aria-label={d.items.reasonLabel}
+                  rows={3}
+                  className="block w-full resize-none rounded-2xl bg-slate-100 px-4 py-3 text-[15px] leading-snug outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-300"
                 />
                 <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl bg-blue-50 p-4 text-[15px] leading-snug text-slate-900">
                   <input
@@ -354,7 +457,7 @@ export default function Asistente() {
 
         {phase === "attack" && (
           <div className="animate-rise mt-3 rounded-3xl border hairline bg-white p-5 shadow-[0_8px_24px_-14px_rgba(0,0,0,0.25)]">
-            <p className="text-[20px] font-semibold text-slate-900">{d.attack.title(hasPI ? 1 : 2)}</p>
+            <p className="text-[20px] font-semibold text-slate-900">{d.attack.title(roundNumber)}</p>
             <ul className="mt-3 divide-y divide-slate-100">
               {plan.letters.slice(0, 4).map((l, i) => (
                 <li key={i} className="flex items-center gap-3 py-2.5 text-[15px] text-slate-700">
@@ -365,18 +468,30 @@ export default function Asistente() {
             </ul>
             {plan.letters.length > 4 && (
               <p className="pt-1 text-[13px] text-slate-500">
-                +{plan.letters.length - 4} {es ? "cartas más" : "more letters"}
+                +{plan.letters.length - 4}{" "}
+                {es
+                  ? plan.letters.length - 4 === 1 ? "carta más" : "cartas más"
+                  : plan.letters.length - 4 === 1 ? "more letter" : "more letters"}
               </p>
             )}
-            <button
-              onClick={approve}
-              className="pressable mt-4 h-14 w-full rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500"
-            >
-              {es ? `Aprobar y enviar ${plan.letters.length} cartas` : `Approve and send ${plan.letters.length} letters`}
-            </button>
-            <Link href="/attack" className="mt-3 block text-center text-[15px] font-medium text-blue-700">
-              {es ? "Leer cada carta completa" : "Read each full letter"}
-            </Link>
+            <div className="mt-4 grid gap-2.5">
+              <button
+                onClick={approve}
+                className="pressable h-14 w-full rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500"
+              >
+                {es
+                  ? plan.letters.length === 1 ? "Aprobar y enviar 1 carta" : `Aprobar y enviar ${plan.letters.length} cartas`
+                  : plan.letters.length === 1 ? "Approve and send 1 letter" : `Approve and send ${plan.letters.length} letters`}
+              </button>
+              <Link
+                href="/attack"
+                className="pressable flex h-12 w-full items-center justify-center rounded-full bg-slate-100 text-[16px] font-medium text-slate-900 hover:bg-slate-200"
+              >
+                {es
+                  ? plan.letters.length === 1 ? "Leer la carta completa" : "Leer cada carta completa"
+                  : plan.letters.length === 1 ? "Read the full letter" : "Read each full letter"}
+              </Link>
+            </div>
             <p className="mt-3 text-xs leading-relaxed text-slate-500">{d.attack.approveNote}</p>
           </div>
         )}
@@ -386,8 +501,6 @@ export default function Asistente() {
             {d.items.doneNoItems}
           </div>
         )}
-
-        <div ref={bottomRef} />
       </div>
 
       <form

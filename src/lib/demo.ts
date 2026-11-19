@@ -56,7 +56,7 @@ export const DEMO_RAW_REPORT: RawReport = {
       ],
       inquiries: [],
       publicRecords: [],
-      personalInfo: [{ field: "employer", value: "ACME LLC (antiguo empleo)" }],
+      personalInfo: [{ field: "employer", value: "ACME LLC" }],
     },
     transunion: {
       score: 558,

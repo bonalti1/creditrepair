@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLocale } from "@/lib/i18n";
+import { HUMAN_HELP, humanHelpHref } from "@/lib/ux/humanHelp";
 import Icon, { type IconName } from "@/components/Icon";
 
 // "Más": everything beyond Home and the conversation, as grouped rows that say
@@ -38,7 +39,7 @@ function Row({
   );
   const className = `pressable flex items-center gap-3.5 px-4 py-3.5 hover:bg-slate-50 ${first ? "" : "border-t hairline"}`;
   return external ? (
-    <a href={href} className={className}>
+    <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
       {body}
     </a>
   ) : (
@@ -51,10 +52,9 @@ function Row({
 export default function Mas() {
   const { locale, setLocale, d } = useLocale();
   const es = locale === "es";
-  const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER;
-  const humanHref = whatsapp
-    ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(es ? "Hola, necesito ayuda con mi cuenta de CreditCapi." : "Hi, I need help with my CreditCapi account.")}`
-    : "/asistente";
+  // A WhatsApp chat with the team, or null in the demo, where nobody is online.
+  const humanHref = humanHelpHref(locale);
+  const humanTitle = es ? "Hablar con una persona" : "Talk to a person";
 
   return (
     <main className="animate-rise space-y-6">
@@ -102,15 +102,33 @@ export default function Mas() {
           {es ? "Ayuda" : "Help"}
         </h2>
         <div className="card overflow-hidden">
-          <Row
-            first
-            external={Boolean(whatsapp)}
-            href={humanHref}
-            icon="person"
-            tint="bg-green-600"
-            title={es ? "Hablar con una persona" : "Talk to a person"}
-            desc={es ? "Nuestro equipo te ayuda por WhatsApp. Gratis." : "Our team helps you on WhatsApp. Free."}
-          />
+          {humanHref ? (
+            <Row
+              first
+              external
+              href={humanHref}
+              icon="person"
+              tint="bg-green-600"
+              title={humanTitle}
+              desc={HUMAN_HELP.liveRow[locale]}
+            />
+          ) : (
+            // Demo: not a link, and it says why.
+            <div className="flex items-center gap-3.5 px-4 py-3.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-400 text-white">
+                <Icon name="person" size={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2">
+                  <span className="text-[17px] font-medium text-slate-900">{humanTitle}</span>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
+                    {d.nav.demo}
+                  </span>
+                </span>
+                <span className="block text-[13px] leading-snug text-slate-500">{HUMAN_HELP.demoRow[locale]}</span>
+              </span>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setLocale(es ? "en" : "es")}

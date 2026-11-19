@@ -4,6 +4,9 @@
 
 export type Locale = "es" | "en";
 
+/** "1 carta" / "3 cartas": a count with the right singular or plural word. */
+const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
 const es = {
   nav: {
     assistant: "Asistente",
@@ -32,7 +35,6 @@ const es = {
     matrix: "¿En qué burós aparece cada elemento?",
     matrixNote:
       "Un elemento que aparece en un buró y no en otro, o con datos distintos entre burós, es una señal clásica de posible inexactitud.",
-    cta: "Empezar mi revisión guiada →",
     ctaNote: "Tú decides qué disputar. La auditoría solo te muestra dónde mirar.",
     print: "Imprimir / guardar PDF",
     clean: "✅ No encontramos elementos de peso alto en tu reporte. ¡Buena señal!",
@@ -46,7 +48,7 @@ const es = {
     note: "Cuando llegue la carta de respuesta por correo, registra aquí qué pasó con cada elemento. Así tu siguiente ronda escala con la ley correcta.",
     deleted: "🎉 Eliminado",
     corrected: "✏️ Corregido",
-    verified: "📄 «Verificado»",
+    verified: "📄 Verificado",
     no_response: "⏳ Sin respuesta",
     verifiedHint:
       "¿Respondieron «verificado»? Tu siguiente carta exige el método de verificación (§611). Es el camino esperado — no te desanimes.",
@@ -55,8 +57,8 @@ const es = {
   dashboard: {
     greeting: "Hola 👋",
     imported: (date: string) => `Reporte importado el ${date} · 3 burós`,
-    items: (n: number) => `${n} elementos`,
-    negatives: (n: number) => `${n} posiblemente negativos`,
+    items: (n: number) => count(n, "elemento", "elementos"),
+    negatives: (n: number) => (n === 1 ? "1 posiblemente negativo" : `${n} posiblemente negativos`),
     goalTitle: "Tu meta: lista para hipoteca 🏡",
     goalNote:
       "El progreso refleja tu avance en el proceso (revisión y rondas), no un puntaje. Los resultados varían según cada caso.",
@@ -77,39 +79,40 @@ const es = {
     reasonPlaceholder: "Ej.: no reconozco esta cuenta / el saldo no coincide",
     confirm: "Confirmar y seguir",
     back: "Volver",
+    reportSays: "Lo que dice tu reporte:",
     attestationRequired:
-      "La casilla de atestiguación es necesaria: solo se disputan elementos que TÚ crees inexactos, no verificables o desactualizados.",
-    doneTitle: "¡Revisaste todo!",
-    doneWithItems: (n: number) =>
-      `Marcaste y atestiguaste ${n} elemento(s). Tu ataque está listo para que lo revises.`,
+      "La casilla de confirmación es necesaria: solo se disputan elementos que TÚ crees inexactos, no verificables o desactualizados.",
     doneNoItems:
       "No marcaste ningún elemento — si todo es correcto, ¡buena señal! Puedes cambiar cualquier decisión en la lista.",
-    goToAttack: "Revisar mi ataque →",
     reviewAgain: "Revisar de nuevo",
     negativeBadge: "posiblemente negativo",
-    attestedOn: (when: string) => `✍️ Atestiguado el ${when}`,
+    attestedOn: (when: string) => `✍️ Confirmado el ${when}`,
     markedCorrect: "✓ Marcado como correcto",
-    flaggedPending: "⚠️ Marcado — falta tu atestiguación",
+    flaggedPending: "⚠️ Marcado — falta tu confirmación",
   },
   attack: {
     title: (n: number) => `Tu ataque #${n}`,
     subtitle: (letters: number, items: number) =>
-      `${letters} carta(s) generadas con tus ${items} elemento(s) atestiguados. Lee cada una — nada se envía hasta que tú apruebes.`,
+      `${letters === 1 ? "1 carta generada" : `${letters} cartas generadas`} con ${
+        items === 1 ? "tu elemento confirmado" : `tus ${items} elementos confirmados`
+      }. ${letters === 1 ? "Léela completa" : "Lee cada una"} — nada se envía hasta que tú apruebes.`,
     emptyTitle: "Aún no hay elementos en tu ataque",
     emptyBody:
-      "Tu ataque se arma con los elementos que TÚ marcas y atestiguas en la revisión guiada.",
+      "Tu ataque se arma con los elementos que TÚ marcas y confirmas en la revisión guiada.",
     emptyFlagged: (n: number) =>
-      ` Tienes ${n} elemento(s) marcados a los que les falta la atestiguación.`,
+      n === 1
+        ? " Tienes 1 elemento marcado al que le falta tu confirmación."
+        : ` Tienes ${n} elementos marcados a los que les falta tu confirmación.`,
     goToReview: "Ir a la revisión guiada →",
     readLetter: "▼ Leer carta",
     inPlainWords: "En palabras simples:",
     letterFootnote:
       "La carta se envía en inglés (idioma operativo de los burós). Al enviarse, la redacción varía ligeramente para que tu carta sea única.",
-    itemCount: (n: number) => `${n} elemento(s)`,
+    itemCount: (n: number) => count(n, "elemento", "elementos"),
     fileRequest: "solicitud de expediente",
     approveNote:
-      "Al presionar el botón confirmas que leíste tus cartas y que tú decides enviarlas. Cada elemento incluido lleva tu atestiguación registrada con fecha y hora.",
-    approveButton: (n: number) => `Aprobar y enviar mi ataque (${n} cartas) 🚀`,
+      "Al presionar el botón confirmas que leíste tus cartas y que tú decides enviarlas. Cada elemento incluido lleva tu confirmación registrada con fecha y hora.",
+    approveButton: (n: number) => `Aprobar y enviar mi ataque (${count(n, "carta", "cartas")}) 🚀`,
     approvedTitle: "¡Tu ataque va en camino!",
     approvedBody:
       "(Demo) En producción: tus cartas se imprimen y envían por correo certificado, y te avisamos por WhatsApp. Los burós tienen ~30 días para responder.",
@@ -121,14 +124,15 @@ const es = {
     subtitle: (resp: number, next: number) =>
       `Cada ronda: tú envías → los burós responden (~${resp} días) → tu reporte se actualiza y comparamos (~día ${next}) → armas la siguiente.`,
     inProgress: "En curso",
-    completed: "Completada",
     mailed: (date: string) => `📬 Enviado ${date}`,
     responseBy: (date: string) => `⏳ Respuesta ~${date}`,
     nextRound: (n: number, date: string) => `🔁 Ronda ${n} ~${date}`,
     waitDays: (n: number) =>
-      `Los burós tienen ~${n} día(s) más para responder. No necesitas hacer nada — te avisamos por WhatsApp.`,
-    windowClosed:
-      "La ventana de respuesta cerró. Tu reporte se re-importa pronto para comparar qué cambió.",
+      `Los burós tienen ~${count(n, "día", "días")} más para responder. No necesitas hacer nada — te avisamos por WhatsApp.`,
+    lettersSent: (n: number) => (n === 1 ? "La carta que enviaste" : `Las ${n} cartas que enviaste`),
+    emptyTitle: "Todavía no has enviado cartas",
+    emptyBody:
+      "Cuando apruebes tus cartas, aquí verás cuándo salieron, cuándo se espera la respuesta de los burós y cuándo toca la siguiente ronda.",
   },
 };
 
@@ -162,7 +166,6 @@ const en: Dict = {
     matrix: "Which bureaus show each item?",
     matrixNote:
       "An item that appears on one bureau but not another, or with different details across bureaus, is a classic sign of possible inaccuracy.",
-    cta: "Start my guided review →",
     ctaNote: "You decide what to dispute. The audit just shows you where to look.",
     print: "Print / save PDF",
     clean: "✅ We found no high-weight items on your report. Good sign!",
@@ -176,7 +179,7 @@ const en: Dict = {
     note: "When the response letter arrives in the mail, log what happened to each item here. That way your next round escalates with the right law.",
     deleted: "🎉 Deleted",
     corrected: "✏️ Corrected",
-    verified: "📄 “Verified”",
+    verified: "📄 Verified",
     no_response: "⏳ No response",
     verifiedHint:
       "They answered “verified”? Your next letter demands the method of verification (§611). It's the expected path — don't be discouraged.",
@@ -185,7 +188,7 @@ const en: Dict = {
   dashboard: {
     greeting: "Hi 👋",
     imported: (date: string) => `Report imported on ${date} · 3 bureaus`,
-    items: (n: number) => `${n} items`,
+    items: (n: number) => count(n, "item", "items"),
     negatives: (n: number) => `${n} possibly negative`,
     goalTitle: "Your goal: mortgage-ready 🏡",
     goalNote:
@@ -207,37 +210,39 @@ const en: Dict = {
     reasonPlaceholder: "E.g.: I don't recognize this account / the balance doesn't match",
     confirm: "Confirm and continue",
     back: "Back",
+    reportSays: "What your report says:",
     attestationRequired:
-      "The attestation checkbox is required: you only dispute items YOU believe are inaccurate, unverifiable, or outdated.",
-    doneTitle: "You reviewed everything!",
-    doneWithItems: (n: number) =>
-      `You flagged and attested ${n} item(s). Your attack is ready for your review.`,
+      "The confirmation checkbox is required: you only dispute items YOU believe are inaccurate, unverifiable, or outdated.",
     doneNoItems:
       "You didn't flag anything — if everything is accurate, that's good news! You can change any decision in the list.",
-    goToAttack: "Review my attack →",
     reviewAgain: "Review again",
     negativeBadge: "possibly negative",
-    attestedOn: (when: string) => `✍️ Attested on ${when}`,
+    attestedOn: (when: string) => `✍️ Confirmed on ${when}`,
     markedCorrect: "✓ Marked as correct",
-    flaggedPending: "⚠️ Flagged — attestation pending",
+    flaggedPending: "⚠️ Flagged — confirmation pending",
   },
   attack: {
     title: (n: number) => `Your attack #${n}`,
     subtitle: (letters: number, items: number) =>
-      `${letters} letter(s) generated from your ${items} attested item(s). Read each one — nothing is sent until you approve.`,
+      `${count(letters, "letter", "letters")} generated from ${
+        items === 1 ? "your confirmed item" : `your ${items} confirmed items`
+      }. ${letters === 1 ? "Read it in full" : "Read each one"} — nothing is sent until you approve.`,
     emptyTitle: "No items in your attack yet",
-    emptyBody: "Your attack is built from the items YOU flag and attest in the guided review.",
-    emptyFlagged: (n: number) => ` You have ${n} flagged item(s) still missing your attestation.`,
+    emptyBody: "Your attack is built from the items YOU flag and confirm in the guided review.",
+    emptyFlagged: (n: number) =>
+      n === 1
+        ? " You have 1 flagged item still missing your confirmation."
+        : ` You have ${n} flagged items still missing your confirmation.`,
     goToReview: "Go to guided review →",
     readLetter: "▼ Read letter",
     inPlainWords: "In plain words:",
     letterFootnote:
       "Letters mail in English (the bureaus' operating language). On send, the wording varies slightly so your letter is unique.",
-    itemCount: (n: number) => `${n} item(s)`,
+    itemCount: (n: number) => count(n, "item", "items"),
     fileRequest: "file disclosure request",
     approveNote:
-      "Pressing the button confirms you read your letters and that you decide to send them. Every included item carries your date-and-time-stamped attestation.",
-    approveButton: (n: number) => `Approve and send my attack (${n} letters) 🚀`,
+      "Pressing the button confirms you read your letters and that you decide to send them. Every included item carries your date-and-time-stamped confirmation.",
+    approveButton: (n: number) => `Approve and send my attack (${count(n, "letter", "letters")}) 🚀`,
     approvedTitle: "Your attack is on its way!",
     approvedBody:
       "(Demo) In production: your letters are printed and mailed, and we notify you on WhatsApp. Bureaus have ~30 days to respond.",
@@ -249,14 +254,15 @@ const en: Dict = {
     subtitle: (resp: number, next: number) =>
       `Each round: you send → bureaus respond (~${resp} days) → your report refreshes and we compare (~day ${next}) → you build the next one.`,
     inProgress: "In progress",
-    completed: "Completed",
     mailed: (date: string) => `📬 Mailed ${date}`,
     responseBy: (date: string) => `⏳ Response ~${date}`,
     nextRound: (n: number, date: string) => `🔁 Round ${n} ~${date}`,
     waitDays: (n: number) =>
-      `Bureaus have ~${n} more day(s) to respond. Nothing to do — we'll message you on WhatsApp.`,
-    windowClosed:
-      "The response window closed. Your report re-imports soon so we can compare what changed.",
+      `Bureaus have ~${n} more ${n === 1 ? "day" : "days"} to respond. Nothing to do — we'll message you on WhatsApp.`,
+    lettersSent: (n: number) => (n === 1 ? "The letter you sent" : `The ${n} letters you sent`),
+    emptyTitle: "You haven't sent any letters yet",
+    emptyBody:
+      "Once you approve your letters, this is where you'll see when they went out, when the bureaus' response is expected, and when the next round is due.",
   },
 };
 

@@ -34,8 +34,11 @@ export function monitoringNameEs(): string {
     : "tu suscripción de monitoreo de crédito";
 }
 
-/** Required wherever a signup link or button for the monitoring service appears. */
+/**
+ * Required wherever the monitoring subscription is offered. Worded so it holds
+ * whether or not a signup link is on screen (the demo has none).
+ */
 export const AFFILIATE_DISCLOSURE = {
-  es: "Transparencia: CreditCapi recibe una comisión cuando contratas el monitoreo desde este enlace.",
-  en: "Disclosure: CreditCapi earns a commission when you subscribe to monitoring through this link.",
+  es: "Transparencia: CreditCapi recibe una comisión del servicio de monitoreo cuando contratas tu suscripción.",
+  en: "Disclosure: CreditCapi earns a commission from the monitoring service when you subscribe.",
 } as const;
