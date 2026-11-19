@@ -25,6 +25,15 @@ const AI_PREFIX = "🤖 ";
 const FALLBACK =
   "¡Gracias por tu mensaje! Soy Capi, el asistente de IA de CreditCapi. Para revisar tu reporte y armar tu ataque, entra a la app. Si tienes una pregunta sobre tu crédito, escríbela y te respondo aquí mismo. Si prefieres hablar con una persona del equipo, dilo y te conectamos. 🙂";
 
+// Sales comes first. Someone writing in who is not yet a customer (no profile
+// with that phone number) is a lead, and leads are handled by a person. Capi
+// introduces itself once, says a teammate will write, and then stays quiet so
+// it never talks over the salesperson. Customers get Capi as before.
+// Set WHATSAPP_LEAD_REPLIES=ai to let Capi answer leads too.
+const LEAD_GREETING =
+  "¡Hola! Soy Capi, el asistente de IA de CreditCapi. Gracias por escribir. Una persona de nuestro equipo te responde aquí mismo en un momento para ayudarte a empezar. 🙂";
+const LEAD_GREETING_WINDOW_MS = 24 * 60 * 60_000;
+
 // Per-sender cap on AI replies: 12 in 5 minutes is far above a real
 // conversation and stops a loop or a script from running up the model bill.
 const SENDER_LIMIT = 12;
@@ -38,6 +47,22 @@ function firstTimeSeen(id: string): boolean {
   if (seenIds.size > 5000) seenIds.clear();
   seenIds.add(id);
   return true;
+}
+
+/** Tell the sales channel a new lead wrote in. Optional: needs SALES_WEBHOOK_URL. */
+async function notifySales(phoneE164: string): Promise<void> {
+  const url = process.env.SALES_WEBHOOK_URL;
+  if (!url) return;
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: `Nuevo prospecto por WhatsApp: ${phoneE164}. Capi ya lo saludó; falta que le escriba una persona.` }),
+      signal: AbortSignal.timeout(4000),
+    });
+  } catch {
+    // The lead is still in the WhatsApp inbox; a missed ping must not fail the webhook.
+  }
 }
 
 export async function GET(req: Request) {
@@ -124,6 +149,38 @@ export async function POST(req: Request) {
     }
 
     if (!checkRateLimit(`whatsapp:${phone}`, SENDER_LIMIT, SENDER_WINDOW_MS).allowed) continue;
+
+    const isLead = userId === null;
+    if (isLead && process.env.WHATSAPP_LEAD_REPLIES !== "ai") {
+      // One greeting per lead per day; after that the thread belongs to sales.
+      const firstToday = checkRateLimit(`whatsapp-lead:${phone}`, 1, LEAD_GREETING_WINDOW_MS).allowed;
+      const alreadyGreeted = db
+        ? (await loadWhatsAppThread(db, phone, { limit: 20 })).some((turn) => turn.role === "assistant")
+        : false;
+      if (firstToday && !alreadyGreeted) {
+        try {
+          await sendWhatsAppText(phone.slice(1), AI_PREFIX + LEAD_GREETING, "whatsapp:lead-greeting");
+          if (db) {
+            await storeMessage(db, {
+              phoneE164: phone,
+              channel: "whatsapp",
+              role: "assistant",
+              source: "journey",
+              text: LEAD_GREETING,
+            });
+            await db
+              .from("events")
+              .insert({ kind: "whatsapp_lead", payload: { from: msg.from } })
+              .then(() => undefined, () => undefined);
+          }
+          await notifySales(phone);
+          handled += 1;
+        } catch (error) {
+          await reportError(error, { where: "api/webhooks/whatsapp:lead" });
+        }
+      }
+      continue;
+    }
 
     let reply = FALLBACK;
     const apiKey = process.env.ANTHROPIC_API_KEY;

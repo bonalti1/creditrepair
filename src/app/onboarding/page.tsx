@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
 import Icon from "@/components/Icon";
 import Logo, { CapiAvatar } from "@/components/Logo";
 import { AFFILIATE_DISCLOSURE, MONITORING_OFFER } from "@/lib/monitoring/offer";
+import { GOALS, parseInvite, type Invite } from "@/lib/sales/invite";
 
 // Onboarding: goal (feeds the mortgage track) → state gate (v1 is TX-only;
 // other states join the waitlist, since expansion is a legal project, not a
@@ -15,13 +16,12 @@ import { AFFILIATE_DISCLOSURE, MONITORING_OFFER } from "@/lib/monitoring/offer";
 // (alone with the app, or with free live help — the user always decides and
 // sends either way).
 // One question per screen, one obvious button.
-
-const GOALS = [
-  { key: "mortgage", label: "Comprar una casa" },
-  { key: "auto", label: "Comprar un auto" },
-  { key: "card", label: "Calificar para mejores tarjetas" },
-  { key: "general", label: "Mejorar mi crédito en general" },
-] as const;
+//
+// Sales-led path: most customers arrive from a WhatsApp conversation with a
+// salesperson, who sends a personal link (see src/lib/sales/invite.ts). The
+// link opens on a welcome screen with the answers already filled in, so the
+// customer confirms instead of re-answering, then goes to monitoring and in.
+// The state gate and every later decision still apply.
 
 const STATES = ["TX", ...ALL_STATES.filter((s) => s !== "TX")];
 
@@ -38,14 +38,52 @@ const primaryButton =
 
 export default function Onboarding() {
   const router = useRouter();
-  const [step, setStep] = useState<"goal" | "state" | "monitoring" | "assist" | "waitlist-done">("goal");
+  const [step, setStep] = useState<"welcome" | "goal" | "state" | "monitoring" | "assist" | "waitlist-done">("goal");
+  const [invite, setInvite] = useState<Invite | null>(null);
+  const [ready, setReady] = useState(false);
   const [goal, setGoal] = useState<string | null>(null);
   const [state, setState] = useState("TX");
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
 
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER;
-  const stepIndex = step === "goal" ? 1 : step === "state" ? 2 : step === "monitoring" ? 3 : 4;
+  const invited = invite !== null;
+  const totalSteps = invited ? 2 : 4;
+  const stepIndex = invited
+    ? step === "monitoring" ? 2 : 1
+    : step === "goal" ? 1 : step === "state" ? 2 : step === "monitoring" ? 3 : 4;
+
+  // Read the invite link once, on arrival.
+  useEffect(() => {
+    const parsed = parseInvite(new URLSearchParams(window.location.search));
+    if (parsed) {
+      setInvite(parsed);
+      if (parsed.goal) {
+        setGoal(parsed.goal);
+        save("bonalti.goal", parsed.goal);
+      }
+      if (parsed.state) setState(parsed.state);
+      if (parsed.ref) save("bonalti.ref", parsed.ref);
+      setStep("welcome");
+    }
+    setReady(true);
+  }, []);
+
+  /** After the welcome screen: only ask for what the link did not carry. */
+  const afterWelcome = () => {
+    if (!goal) return setStep("goal");
+    if (!invite?.state) return setStep("state");
+    save("bonalti.state", state);
+    // A state we are not open in goes to the waitlist form, link or no link.
+    setStep(stateStatus(state) === "open" ? "monitoring" : "state");
+  };
+
+  /** After monitoring: an invited customer already has their person; go straight in. */
+  const afterMonitoring = () => {
+    if (!invited) return setStep("assist");
+    save("bonalti.assisted", "1");
+    router.push("/asistente");
+  };
   const { providerName, priceLabel, signupUrl } = MONITORING_OFFER;
 
   const joinWaitlist = async (e: React.FormEvent) => {
@@ -71,6 +109,10 @@ export default function Onboarding() {
     router.push("/asistente");
   };
 
+  // One tick while the link is read, so an invited customer never sees the
+  // generic first question flash by.
+  if (!ready) return null;
+
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-10 pt-6">
       <div className="flex items-center justify-between">
@@ -78,13 +120,66 @@ export default function Onboarding() {
           <Logo size={19} />
         </Link>
         {step !== "waitlist-done" && (
-          <div className="flex gap-1.5" aria-label={`Paso ${stepIndex} de 4`}>
-            {[1, 2, 3, 4].map((n) => (
+          <div className="flex gap-1.5" aria-label={`Paso ${stepIndex} de ${totalSteps}`}>
+            {Array.from({ length: totalSteps }, (_, i) => i + 1).map((n) => (
               <span key={n} className={`h-1.5 rounded-full ${n <= stepIndex ? "w-6 bg-blue-700" : "w-1.5 bg-slate-300"}`} />
             ))}
           </div>
         )}
       </div>
+
+      {step === "welcome" && invite && (
+        <div className="animate-rise flex flex-1 flex-col pt-10">
+          <CapiAvatar size={72} ring={false} />
+          <h1 className="mt-6 font-display text-[34px] font-black leading-tight text-blue-700">
+            {invite.name ? `¡Hola, ${invite.name}!` : "¡Hola!"}
+          </h1>
+          <p className="mt-3 text-[17px] leading-relaxed text-slate-500">
+            {invite.refName
+              ? `${invite.refName}, de nuestro equipo, te envió aquí. Ya anotó lo que platicaron, así que no tienes que repetirlo.`
+              : "Nuestro equipo te envió aquí. Ya anotamos lo que platicaron, así que no tienes que repetirlo."}
+          </p>
+          {(goal || invite.state) && (
+            <div className="card mt-7 overflow-hidden">
+              {goal && (
+                <div className="flex items-baseline justify-between gap-4 px-5 py-4">
+                  <span className="text-[15px] text-slate-500">Tu meta</span>
+                  <span className="text-right text-[16px] font-medium text-slate-900">
+                    {GOALS.find((g) => g.key === goal)?.label}
+                  </span>
+                </div>
+              )}
+              {invite.state && (
+                <div className={`flex items-baseline justify-between gap-4 px-5 py-4 ${goal ? "border-t hairline" : ""}`}>
+                  <span className="text-[15px] text-slate-500">Tu estado</span>
+                  <span className="text-right text-[16px] font-medium text-slate-900">
+                    {invite.state === "TX" ? "Texas" : invite.state}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+          <p className="mt-4 text-[13px] leading-relaxed text-slate-500">
+            Dentro de la app te acompaña Capi, un asistente con inteligencia artificial. Tú decides qué
+            disputar y tú apruebas cada carta. Los resultados varían según cada caso.
+          </p>
+          <div className="mt-auto space-y-3 pt-8">
+            <button onClick={afterWelcome} className={primaryButton}>
+              Sí, empezar
+            </button>
+            <button
+              onClick={() => {
+                setInvite((current) => (current ? { ...current, state: null } : current));
+                setGoal(null);
+                setStep("goal");
+              }}
+              className="pressable flex h-12 w-full items-center justify-center text-[15px] font-medium text-blue-700"
+            >
+              Cambiar mis respuestas
+            </button>
+          </div>
+        </div>
+      )}
 
       {step === "goal" && (
         <div className="animate-rise flex flex-1 flex-col pt-12">
@@ -118,6 +213,8 @@ export default function Onboarding() {
                   save("bonalti.goal", goal);
                   setStep("state");
                 }
+                // (An invited customer who changed their answers continues through
+                // the ordinary state question, which also applies the state gate.)
               }}
               disabled={!goal}
               className={primaryButton}
@@ -149,7 +246,13 @@ export default function Onboarding() {
 
           {stateStatus(state) === "open" ? (
             <div className="mt-auto pt-8">
-              <button onClick={() => setStep("monitoring")} className={primaryButton}>
+              <button
+                onClick={() => {
+                  save("bonalti.state", state);
+                  setStep("monitoring");
+                }}
+                className={primaryButton}
+              >
                 Continuar
               </button>
             </div>
@@ -225,7 +328,7 @@ export default function Onboarding() {
                   Activar mi monitoreo
                 </a>
                 <button
-                  onClick={() => setStep("assist")}
+                  onClick={afterMonitoring}
                   className="pressable flex h-14 w-full items-center justify-center rounded-full bg-slate-100 text-[17px] font-medium text-slate-900"
                 >
                   Ya lo tengo, continuar
@@ -233,7 +336,7 @@ export default function Onboarding() {
               </>
             ) : (
               <>
-                <button onClick={() => setStep("assist")} className={primaryButton}>
+                <button onClick={afterMonitoring} className={primaryButton}>
                   Continuar
                 </button>
                 <p className="text-center text-[13px] text-slate-500">En esta demo usamos un reporte de ejemplo.</p>
