@@ -53,7 +53,9 @@ const rawBureauSection = z.object({
 export const rawReportSchema = z.object({
   source: z.string(),
   pulledAt: z.string(),
-  bureaus: z.record(bureauSchema, rawBureauSection),
+  // partialRecord: a report may cover fewer than three bureaus. (A plain
+  // record keyed by an enum requires every key.)
+  bureaus: z.partialRecord(bureauSchema, rawBureauSection),
 });
 
 export type RawReport = z.infer<typeof rawReportSchema>;

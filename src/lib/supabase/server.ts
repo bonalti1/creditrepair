@@ -20,7 +20,7 @@ export async function getServerSupabase(): Promise<SupabaseClient | null> {
         try {
           cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
         } catch {
-          // Called from a Server Component — middleware handles the refresh.
+          // Called from a Server Component — src/proxy.ts handles the refresh.
         }
       },
     },
