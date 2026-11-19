@@ -10,7 +10,9 @@
     "test": "vitest run",
     "content:check": "tsx content/pipeline/check.ts",
     "content:prompts": "tsx content/pipeline/prompts.ts",
-    "content:assemble": "tsx content/pipeline/assemble.ts"
+    "content:assemble": "tsx content/pipeline/assemble.ts",
+    "content:variants": "tsx content/pipeline/variants.ts",
+    "content:rank": "tsx content/pipeline/rank.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.56.0",

@@ -1,0 +1,12 @@
+[
+  { "id": "h01", "html": "¿Tu carro te <b>dejó tirado?</b>" },
+  { "id": "h02", "html": "Pediste un mecánico… <b>y llegó Capi</b>" },
+  { "id": "h03", "html": "Espera a ver <b>quién llega</b>" },
+  { "id": "h04", "html": "¿Sabes qué dice tu <b>reporte de crédito?</b>" },
+  { "id": "h05", "html": "Lo que nadie te explica <b>de tu crédito</b>" },
+  { "id": "h06", "html": "Tu reporte de crédito, <b>sin enredos</b>" },
+  { "id": "h07", "html": "No es mecánico, <b>pero sí explica</b>" },
+  { "id": "h08", "html": "¿Errores en tu reporte? <b>Tú puedes disputarlos</b>" },
+  { "id": "h09", "html": "Texas: revisa tu crédito <b>con Capi</b>" },
+  { "id": "h10", "html": "Tu crédito, <b>paso a paso</b>" }
+]

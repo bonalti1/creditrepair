@@ -3,7 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { checkSpot, loadLock, loadSpot, SIZES, timelineSeconds, type Lock, type Spot } from "./spot";
+import { fileURLToPath } from "node:url";
+import { checkSpot, HOOK_DEFAULTS, loadLock, loadSpot, SIZES, timelineSeconds, type Lock, type Spot } from "./spot";
 
 // npm run content:assemble <spot-id> -- --clips <folder> --out <file.mp4>
 //
@@ -42,6 +43,16 @@ font-family:Nunito,sans-serif;font-weight:900;font-size:${c.sizePx}px;line-heigh
 .c b{color:${c.highlight};font-weight:900}</style></head><body><div class="c">${html}</div></body></html>`;
 }
 
+function hookHtml(html: string, spot: Spot, lock: Lock): string {
+  const [w, h] = SIZES[spot.format];
+  return `<!doctype html><html><head><meta charset="utf-8">${FONTS}<style>
+html,body{margin:0;width:${w}px;height:${h}px;background:transparent;overflow:hidden}
+.h{position:absolute;left:80px;right:80px;top:${lock.hook.centerY[spot.format]}px;transform:translateY(-50%);text-align:center;
+font-family:Nunito,sans-serif;font-weight:900;font-size:${lock.hook.sizePx}px;line-height:1.1;letter-spacing:-1px;color:#fff;
+-webkit-text-stroke:16px #06173b;paint-order:stroke fill;text-shadow:0 8px 22px rgba(6,23,59,.6)}
+.h b{color:${lock.captions.highlight};font-weight:900}</style></head><body><div class="h">${html}</div></body></html>`;
+}
+
 function endCardHtml(spot: Spot, lock: Lock): string {
   const [w, h] = SIZES[spot.format];
   const vertical = spot.format === "9:16";
@@ -65,7 +76,11 @@ svg.swoosh{position:absolute;left:0;right:0;bottom:0;width:100%;height:${vertica
 </body></html>`;
 }
 
-async function renderOverlays(spot: Spot, lock: Lock, dir: string): Promise<{ captions: string[]; endCard: string }> {
+async function renderOverlays(
+  spot: Spot,
+  lock: Lock,
+  dir: string,
+): Promise<{ captions: string[]; endCard: string; hook: string | null }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { chromium } = createRequire(import.meta.url)("playwright") as any;
   const [width, height] = SIZES[spot.format];
@@ -85,39 +100,37 @@ async function renderOverlays(spot: Spot, lock: Lock, dir: string): Promise<{ ca
   }
   const endCard = join(dir, "endcard.png");
   await shoot(endCardHtml(spot, lock), endCard, false);
-  await browser.close();
-  return { captions, endCard };
-}
-
-function arg(name: string): string | undefined {
-  const at = process.argv.indexOf(`--${name}`);
-  return at === -1 ? undefined : process.argv[at + 1];
-}
-
-async function main() {
-  const id = process.argv[2];
-  const clips = arg("clips");
-  if (!id || id.startsWith("--") || !clips) {
-    console.error("Usage: npm run content:assemble <spot-id> -- --clips <folder> [--out <file.mp4>]");
-    process.exit(2);
+  let hook: string | null = null;
+  if (spot.hook) {
+    hook = join(dir, "hook.png");
+    await shoot(hookHtml(spot.hook.html, spot, lock), hook, true);
   }
-  const lock = loadLock();
-  const spot = loadSpot(id);
+  await browser.close();
+  return { captions, endCard, hook };
+}
 
+export interface AssembleOptions {
+  clips: string;
+  out: string;
+  /** x264 quality: 18 is near-lossless for a master, 23 is a good upload size. */
+  crf?: number;
+}
+
+/** Build the finished video for a spot. Throws if the spot fails the check or a clip is missing. */
+export async function assembleSpot(spot: Spot, lock: Lock, options: AssembleOptions): Promise<string> {
+  const { clips } = options;
   const problems = checkSpot(spot, lock);
   if (problems.length > 0) {
-    console.error(`Spot "${spot.id}" fails the check; nothing was assembled:`);
-    for (const p of problems) console.error(`  ${p.where}: ${p.problem}`);
-    process.exit(1);
+    throw new Error(
+      `Spot "${spot.id}" fails the check; nothing was assembled:\n` +
+        problems.map((p) => `  ${p.where}: ${p.problem}`).join("\n"),
+    );
   }
   for (const shot of spot.shots) {
-    if (!existsSync(join(clips, shot.file))) {
-      console.error(`Missing clip for shot "${shot.id}": ${join(clips, shot.file)}`);
-      process.exit(1);
-    }
+    if (!existsSync(join(clips, shot.file))) throw new Error(`Missing clip for shot "${shot.id}": ${join(clips, shot.file)}`);
   }
 
-  const out = resolve(arg("out") ?? `${spot.id}-${spot.format.replace(":", "x")}.mp4`);
+  const out = resolve(options.out);
   mkdirSync(resolve(out, ".."), { recursive: true });
   const work = mkdtempSync(join(tmpdir(), "capi-spot-"));
   const overlays = await renderOverlays(spot, lock, work);
@@ -152,11 +165,19 @@ async function main() {
   const pairs = Array.from({ length: n + 1 }, (_, i) => `[v${i}][a${i}]`).join("");
   filters.push(`${pairs}concat=n=${n + 1}:v=1:a=1[vc][ac]`);
 
+  // Text overlays: captions, then the hook. Each is one more input.
+  const overlaysToDraw = spot.captions.map((caption, i) => ({ path: overlays.captions[i]!, from: caption.from, to: caption.to }));
+  if (spot.hook && overlays.hook) {
+    overlaysToDraw.push({
+      path: overlays.hook,
+      from: spot.hook.from ?? HOOK_DEFAULTS.from,
+      to: spot.hook.to ?? HOOK_DEFAULTS.to,
+    });
+  }
   let last = "vc";
-  overlays.captions.forEach((path, i) => {
-    inputs.push("-i", path);
-    const caption = spot.captions[i]!;
-    filters.push(`[${last}][${n + 2 + i}:v]overlay=enable='between(t,${caption.from},${caption.to})'[o${i}]`);
+  overlaysToDraw.forEach((overlay, i) => {
+    inputs.push("-i", overlay.path);
+    filters.push(`[${last}][${n + 2 + i}:v]overlay=enable='between(t,${overlay.from},${overlay.to})'[o${i}]`);
     last = `o${i}`;
   });
   filters.push("[ac]loudnorm=I=-16:TP=-1.5:LRA=11[an]");
@@ -168,15 +189,40 @@ async function main() {
       "-filter_complex", filters.join(";"),
       "-map", `[${last}]`, "-map", "[an]",
       "-t", total.toFixed(2),
-      "-c:v", "libx264", "-preset", "slow", "-crf", "18", "-pix_fmt", "yuv420p", "-r", "24",
+      "-c:v", "libx264", "-preset", "slow", "-crf", String(options.crf ?? 18), "-pix_fmt", "yuv420p", "-r", "24",
       "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", out,
     ],
     { stdio: "inherit" },
   );
-  console.log(`${out}  (${total.toFixed(1)}s, ${w}x${h})`);
+  return out;
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+export function arg(name: string): string | undefined {
+  const at = process.argv.indexOf(`--${name}`);
+  return at === -1 ? undefined : process.argv[at + 1];
+}
+
+async function main() {
+  const id = process.argv[2];
+  const clips = arg("clips");
+  if (!id || id.startsWith("--") || !clips) {
+    console.error("Usage: npm run content:assemble <spot-id> -- --clips <folder> [--out <file.mp4>] [--crf 18]");
+    process.exit(2);
+  }
+  const lock = loadLock();
+  const spot = loadSpot(id);
+  const out = await assembleSpot(spot, lock, {
+    clips,
+    out: arg("out") ?? `${spot.id}-${spot.format.replace(":", "x")}.mp4`,
+    crf: arg("crf") ? Number(arg("crf")) : undefined,
+  });
+  console.log(`${out}  (${timelineSeconds(spot, lock).toFixed(1)}s)`);
+}
+
+// Run only when called directly, not when imported by variants.ts.
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+}

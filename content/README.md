@@ -13,7 +13,7 @@ scripts, no dependency on the web app except the claim rules.
 | Film look | `brand/lock.json` → `look` | Photoreal, 35mm, golden light, locked-off camera. |
 | Models and cost | `brand/lock.json` → `models` | Stills: GPT Image 2.6, 2.75 credits each. Video: Gemini Omni Flash 1.2 at 1080p, 3.25 credits per second. |
 | Captions and end card | `brand/lock.json` → `captions`, `endCard` | Drawn by code in the brand font. Free. |
-| Capi's voice | `brand/lock.json` → `voice` | **Not locked yet.** The video model invents the voice on each render. Pick one before publishing at volume. |
+| Capi's voice | `brand/lock.json` → `voice` | **Not locked yet.** The video model invents the voice on each render, and the approved take is too short (about 4.5 s) to clone from; 10 s or more is needed. Steps to lock it are in `lock.json`. |
 
 ## A spot is a data file
 
@@ -62,6 +62,36 @@ Whisper small model (setup is in the script's header).
   accent, tone or whether a gag lands.
 - Approving anything before it is published or put behind ad spend.
 - Choosing Capi's voice.
+
+## Testing ten ads from one shoot
+
+Most of an ad's performance is decided in the first three seconds, so the
+opening is what gets tested. `hooks/<spot-id>.json` lists alternative opening
+lines (on-screen text over the first seconds); each must pass the claim rules.
+
+```bash
+# Ten finished videos, one per hook, cut from the same clips. No credits.
+npm run content:variants mecanico -- --clips ./clips --out ./out
+```
+
+## Reading the results
+
+Export one row per ad from the ads manager (spend, impressions, 3-second
+views, leads) and run:
+
+```bash
+npm run content:rank results.json
+```
+
+It marks each ad `scale`, `keep`, `stop` or `wait`, with the reason, and says
+what to make next. The rules are in `pipeline/rank.ts`: an ad is not judged
+before 2,000 impressions and $20 spent; cost per lead is trusted from 5 leads;
+leaders are within 20% of the best cost per lead; an ad is stopped at 50% above
+the typical cost, or after spending twice a typical lead with none. These
+thresholds are starting points to adjust once real numbers exist.
+
+Getting the numbers out of Meta automatically is the part that belongs to ALTO
+Control; this is the rulebook it should apply.
 
 ## Cheap testing
 
