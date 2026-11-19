@@ -1,0 +1,13 @@
+# Render blueprint: runs the app as an ordinary Node server (next start).
+# With no environment variables it starts in demo mode with sample data.
+services:
+  - type: web
+    name: creditcapi
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
