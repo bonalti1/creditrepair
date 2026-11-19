@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseReport } from "./parser";
 import { diffReports, diffSummary } from "./diff";
 import { sendWhatsApp } from "../integrations/whatsapp";
+import { recordReportAsProof } from "../monitoring/subscription";
 
 // Shared import pipeline (spec §4.1): store raw snapshot → upsert canonical
 // items → diff against previous pull → mark deletions → celebrate via WhatsApp.
@@ -83,6 +84,9 @@ export async function importReportForUser(
       }
     }
   }
+
+  // A report that just arrived proves the monitoring subscription works.
+  await recordReportAsProof(db, userId, normalized.source);
 
   await db
     .from("events")

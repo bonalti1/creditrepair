@@ -60,8 +60,8 @@ export default function IdentityDocs() {
   const title = locale === "es" ? "Tus documentos de identidad" : "Your identity documents";
   const why =
     locale === "es"
-      ? "Los burós suelen exigir copia de tu identificación y comprobante de domicilio con cada disputa. Súbelos una vez y se listan como anexos en todas tus cartas."
-      : "Bureaus typically require a copy of your ID and proof of address with each dispute. Upload once and they're listed as enclosures on all your letters.";
+      ? "Los burós suelen exigir copia de tu identificación y comprobante de domicilio con cada disputa. Toma una foto clara de cada uno, una sola vez, y se adjuntan a todas tus cartas."
+      : "Bureaus typically require a copy of your ID and proof of address with each dispute. Take one clear photo of each, once, and they are attached to all your letters.";
   const demoNote =
     locale === "es"
       ? "Disponible al activar tu cuenta — en la demo, las cartas se generan sin anexos."
@@ -88,7 +88,7 @@ export default function IdentityDocs() {
                 {busy === k.kind ? "…" : uploaded[k.kind] ? (locale === "es" ? "Reemplazar" : "Replace") : locale === "es" ? "Subir" : "Upload"}
                 <input
                   type="file"
-                  accept="image/*,.pdf"
+                  accept="image/*"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];

@@ -10,7 +10,8 @@ import { sendWhatsApp } from "@/lib/integrations/whatsapp";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { resolveActingUser } from "@/lib/supabase/server";
 import { reportError } from "@/lib/observability/errors";
-import { escapeHtml } from "@/lib/letters/html";
+import { ENCLOSURE_LABELS, isAttachableImage, letterHtml, type EnclosurePage } from "@/lib/letters/enclosures";
+import { loadMonitoringState, monitoringMessageEs } from "@/lib/monitoring/subscription";
 
 // The DIY moment (spec §4.2, legally load-bearing): the USER reviews the attack
 // and presses the button. Only then do we render, print, and mail letters.
@@ -44,6 +45,12 @@ export async function POST(req: Request) {
   if (!round) return NextResponse.json({ error: "Round not found" }, { status: 404 });
   if (round.status !== "draft") {
     return NextResponse.json({ error: `Round already ${round.status}` }, { status: 409 });
+  }
+
+  // Letters go out on current information only: same rule as the builder.
+  const monitoring = await loadMonitoringState(db, userId);
+  if (!monitoring.active) {
+    return NextResponse.json({ error: monitoringMessageEs(monitoring), reason: monitoring.reason }, { status: 402 });
   }
 
   const [{ data: profileRow }, { data: itemRows }, { data: flagRows }] = await Promise.all([
@@ -115,19 +122,20 @@ export async function POST(req: Request) {
     }
   }
 
-  // Enclosures: bureaus expect ID + proof of address with disputes. Labels
-  // derive from the user's uploaded identity documents; physical attachment
-  // happens at the Lob render step (TODO: merge document PDFs into mailing).
-  const ENCLOSURE_LABELS: Record<string, string> = {
-    government_id: "Copy of government-issued photo ID",
-    proof_of_address: "Proof of address (utility bill / bank statement)",
-    ssn_card: "Copy of Social Security card",
-    identity_theft_report: "Identity theft report (FTC)",
-  };
-  const { data: docs } = await db.from("identity_documents").select("kind").eq("user_id", userId);
-  const enclosures = (docs ?? [])
-    .map((doc) => ENCLOSURE_LABELS[doc.kind])
-    .filter((label): label is string => Boolean(label));
+  // Enclosures: bureaus expect ID + proof of address with a mailed dispute.
+  // Each uploaded photo is attached as its own page, and only what is attached
+  // is listed under "Enclosures" in the letter. The print provider fetches the
+  // photos through links that expire after a day.
+  const { data: docs } = await db.from("identity_documents").select("kind, storage_path").eq("user_id", userId);
+  const enclosurePages: EnclosurePage[] = [];
+  for (const doc of docs ?? []) {
+    const label = ENCLOSURE_LABELS[doc.kind as string];
+    const path = doc.storage_path as string;
+    if (!label || !isAttachableImage(path)) continue;
+    const { data: signed } = await db.storage.from("identity-docs").createSignedUrl(path, 24 * 60 * 60);
+    if (signed?.signedUrl) enclosurePages.push({ label, url: signed.signedUrl });
+  }
+  const enclosures = enclosurePages.map((page) => page.label);
 
   // A previous attempt may have stopped part-way (mail provider error). Letters
   // from that attempt are reused, never duplicated: one that already reached the
@@ -192,9 +200,9 @@ export async function POST(req: Request) {
       mail = await mailLetter({
         to: { name: planned.target.name, addressLines: planned.target.addressLines },
         from: { name: user.fullName, addressLines: user.addressLines },
-        // The letter is plain text: escape it so a creditor name or a user-typed
-        // reason can never be interpreted as markup by the print renderer.
-        bodyHtml: `<html><body style="font-family:'${font.family}';font-size:${font.sizePt}pt;white-space:pre-wrap;">${escapeHtml(body)}</body></html>`,
+        // The letter is plain text and is escaped, so a creditor name or a
+        // user-typed reason can never be read as markup by the print renderer.
+        bodyHtml: letterHtml({ body, fontFamily: font.family, sizePt: font.sizePt, enclosures: enclosurePages }),
         idempotencyKey: letterRow.id,
       });
     } catch (error) {

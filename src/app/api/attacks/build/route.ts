@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { loadMonitoringState, monitoringMessageEs } from "@/lib/monitoring/subscription";
 import { z } from "zod";
 import { buildAttackPlan, type ItemHistory } from "@/lib/domain/attack";
 import type { EscalationStage, ItemFlag, ReportItem } from "@/lib/domain/types";
@@ -24,15 +25,12 @@ export async function POST(req: Request) {
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
   // Gate: attack builder requires an active monitoring subscription (spec §1).
-  const { data: sub } = await db
-    .from("monitoring_subscriptions")
-    .select("status")
-    .eq("user_id", userId)
-    .eq("status", "active")
-    .maybeSingle();
-  if (!sub) {
+  // "Active" means a report from the last 45 days and no cancellation on record
+  // (src/lib/monitoring/subscription.ts).
+  const monitoring = await loadMonitoringState(db, userId);
+  if (!monitoring.active) {
     return NextResponse.json(
-      { error: "Se requiere una suscripción de monitoreo activa para armar tu ataque." },
+      { error: monitoringMessageEs(monitoring), reason: monitoring.reason, reportAgeDays: monitoring.reportAgeDays },
       { status: 402 },
     );
   }
