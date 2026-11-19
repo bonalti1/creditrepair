@@ -37,10 +37,18 @@ position. Visual identity is approved for use; these phrases are not:
 Approved pattern: "Tu crédito, en tus manos." / "Capi prepara todo. Tú decides
 y tú apruebas." / "Los resultados varían."
 
+## Ads
+
+The same brand rules apply to video. The mascot's photoreal look, the caption
+style and the end card are locked in `content/brand/lock.json`, and every ad
+script must pass the claim gate before anything is generated. See
+`content/README.md`.
+
 ## Open items
 
 - **Trademark:** two registered US marks for CREDITAPI (software that
   interfaces with credit reporting agencies) differ from CREDITCAPI by one
   letter. Counsel should clear the name before spend on signage or ads.
+- **Capi's voice:** not chosen yet; the video model invents one per render.
 - **Final artwork:** logo as SVG, Capi as transparent PNG/SVG in a few poses
   (waving, thumbs up, celebrating) for empty states and celebrations.
