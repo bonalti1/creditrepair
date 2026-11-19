@@ -1,0 +1,49 @@
+{
+  "id": "mecanico",
+  "title": "El mecánico",
+  "format": "9:16",
+  "lines": [
+    { "speaker": "mujer", "text": "¡Ay, qué bueno! ¿Tú eres el mecánico?" },
+    { "speaker": "capi", "text": "De carros no sé nada. Lo mío es tu crédito. Te lo explico, y tú decides." }
+  ],
+  "shots": [
+    {
+      "id": "wide",
+      "file": "wide.mp4",
+      "seconds": 8,
+      "in": 1.2,
+      "out": 7.6,
+      "reference": "wide",
+      "framing": "Locked-off wide shot. A quiet South Texas street in front of a small neighborhood auto shop with a navy awning and blank signage. An off-white mid-2000s sedan is broken down at the curb, hood raised, light steam rising. A Hispanic couple in their 30s stands by the car: the woman hopeful with her hands clasped, the man skeptical with his hands on his hips.",
+      "action": [
+        "0-2s: Capi walks the last three steps to the front bumper carrying a red metal toolbox and stops in front of the grille.",
+        "2-4s: The woman, relieved and hopeful, says in Mexican Spanish: \"¡Ay, qué bueno! ¿Tú eres el mecánico?\"",
+        "4-6.5s: Capi does not answer. He looks at the engine for one deadpan beat, lifts one paw, extends a single finger and gives the front edge of the car one light tap. The raised hood immediately falls and slams shut with a loud metal clunk. The steam stops.",
+        "6.5-8s: The hood stays closed. The couple turn and look at each other, surprised. Capi stays calm and deadpan."
+      ],
+      "audio": "Quiet neighborhood street ambience, soft steam hiss, boots on pavement, the woman's line clearly spoken, a loud hood clunk. No music. No narration. Capi does not speak."
+    },
+    {
+      "id": "close",
+      "file": "close.mp4",
+      "seconds": 6,
+      "in": 0.1,
+      "out": 5.7,
+      "reference": "closeup",
+      "framing": "Locked-off medium shot of Capi from the waist up, centered, shot from his eye level, shallow depth of field. He stands in front of the sedan, hood closed, and talks to the couple just off-camera.",
+      "action": [
+        "He starts speaking right away, warm and confident, with natural mouth movement and one small relaxed gesture with his raised paw. He says: \"De carros no sé nada. Lo mío es tu crédito. Te lo explico, y tú decides.\"",
+        "After the last word he closes his mouth into a friendly smile and gives one small nod."
+      ],
+      "audio": "His line clearly spoken, quiet street ambience underneath. No music. No narration. No other voices."
+    }
+  ],
+  "captions": [
+    { "html": "¡Ay, qué bueno!", "from": 1.35, "to": 2.58 },
+    { "html": "¿Tú eres el mecánico?", "from": 2.62, "to": 3.95 },
+    { "html": "De carros no sé nada.", "from": 6.55, "to": 8.15 },
+    { "html": "Lo mío es <b>tu crédito.</b>", "from": 8.25, "to": 9.55 },
+    { "html": "Te lo explico,", "from": 9.65, "to": 10.36 },
+    { "html": "y <b>tú decides.</b>", "from": 10.38, "to": 11.55 }
+  ]
+}

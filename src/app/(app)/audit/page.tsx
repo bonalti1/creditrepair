@@ -4,6 +4,7 @@ import Link from "next/link";
 import { DEMO_REPORT, DEMO_SCORE_HISTORY } from "@/lib/demo";
 import { useLocale } from "@/lib/i18n";
 import type { ReportItem } from "@/lib/domain/types";
+import Icon from "@/components/Icon";
 
 // The Credit Audit — Credit Repair Cloud's conversion weapon, handed directly
 // to the consumer instead of to an agency closing a sale. Severity-ranked
@@ -50,97 +51,93 @@ export default function Audit() {
   );
 
   return (
-    <main>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">{d.audit.title}</h1>
-          <p className="mt-1 text-slate-600">{d.audit.subtitle(fmtDate)}</p>
-        </div>
+    <main className="animate-rise space-y-5">
+      <header className="px-1">
+        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{d.audit.title}</h1>
+        <p className="mt-2 text-[15px] leading-relaxed text-slate-500">{d.audit.subtitle(fmtDate)}</p>
         <button
           onClick={() => window.print()}
-          className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 print:hidden"
+          className="pressable -ml-1 mt-1 inline-flex h-11 items-center gap-2 rounded-full px-1 text-[15px] font-medium text-blue-700 print:hidden"
         >
+          <Icon name="doc" size={18} />
           {d.audit.print}
         </button>
-      </div>
+      </header>
 
-      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
-        <p className="font-semibold">{d.audit.scores}</p>
-        <div className="mt-3 grid grid-cols-3 gap-4">
-          {BUREAUS.map((b) => {
+      <section>
+        <h2 className="px-1 pb-2 text-[13px] font-semibold uppercase tracking-wide text-slate-500">{d.audit.scores}</h2>
+        <div className="card overflow-hidden">
+          {BUREAUS.map((b, index) => {
             const score = DEMO_REPORT.scores[b];
             const delta = score && first?.[b] ? score - first[b] : null;
             return (
-              <div key={b} className="text-center">
-                <p className="text-sm text-slate-500">{BUREAU_LABEL[b]}</p>
-                <p className="text-3xl font-bold text-slate-900">{score ?? "—"}</p>
-                {delta !== null && (
-                  <p className={`text-xs font-semibold ${delta >= 0 ? "text-green-600" : "text-red-600"}`}>
-                    {d.scores.trend(delta)}
-                  </p>
-                )}
+              <div key={b} className={`flex items-center gap-3 px-5 py-4 ${index > 0 ? "border-t hairline" : ""}`}>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[17px] font-medium text-slate-900">{BUREAU_LABEL[b]}</p>
+                  {delta !== null && (
+                    <p className={`text-[13px] font-medium tabular-nums ${delta >= 0 ? "text-green-700" : "text-red-700"}`}>
+                      {d.scores.trend(delta)}
+                    </p>
+                  )}
+                </div>
+                <p className="text-[22px] font-semibold tabular-nums text-slate-900">{score ?? "—"}</p>
               </div>
             );
           })}
         </div>
-        <p className="mt-3 text-xs text-slate-500">{d.audit.scoreNote}</p>
+        <p className="px-1 pt-2 text-xs leading-relaxed text-slate-500">{d.audit.scoreNote}</p>
       </section>
 
       <AuditSection
         title={d.audit.severityHigh}
         note={d.audit.severityHighNote}
         items={high}
-        tone="red"
         emptyText={d.audit.clean}
       />
-      <AuditSection title={d.audit.severityMed} note={d.audit.severityMedNote} items={medium} tone="amber" />
-      <AuditSection title={d.audit.severityInfo} note={d.audit.severityInfoNote} items={info} tone="blue" />
+      <AuditSection title={d.audit.severityMed} note={d.audit.severityMedNote} items={medium} />
+      <AuditSection title={d.audit.severityInfo} note={d.audit.severityInfoNote} items={info} />
 
       {byName.size > 0 && (
-        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
-          <p className="font-semibold">{d.audit.matrix}</p>
-          <p className="mt-1 text-sm text-slate-600">{d.audit.matrixNote}</p>
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-slate-500">
-                  <th className="py-2 pr-4 font-medium"> </th>
-                  {BUREAUS.map((b) => (
-                    <th key={b} className="px-3 py-2 text-center font-medium">
-                      {BUREAU_LABEL[b]}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[...byName.entries()].map(([name, bureaus]) => (
-                  <tr key={name} className="border-b border-slate-100">
-                    <td className="py-2 pr-4 font-medium">{name}</td>
-                    {BUREAUS.map((b) => (
-                      <td key={b} className="px-3 py-2 text-center">
-                        {bureaus.has(b) ? (
-                          <span className="text-red-600">●</span>
-                        ) : (
-                          <span className="text-slate-300">—</span>
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <section className="card overflow-hidden">
+          <div className="px-5 pb-4 pt-5">
+            <h2 className="text-[17px] font-semibold leading-snug text-slate-900">{d.audit.matrix}</h2>
+            <p className="mt-1 text-[13px] leading-relaxed text-slate-500">{d.audit.matrixNote}</p>
           </div>
+          <ul>
+            {[...byName.entries()].map(([name, bureaus]) => (
+              <li key={name} className="border-t hairline px-5 py-4">
+                <p className="text-[15px] font-medium text-slate-900">{name}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {BUREAUS.map((b) => (
+                    <span
+                      key={b}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        bureaus.has(b) ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {bureaus.has(b) ? (
+                        <span className="text-[9px] leading-none text-red-600">●</span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                      {BUREAU_LABEL[b]}
+                    </span>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
-      <div className="mt-8 rounded-xl border border-blue-200 bg-blue-50 p-5 text-center print:hidden">
+      <div className="pt-1 print:hidden">
         <Link
           href="/items"
-          className="inline-block rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white hover:bg-blue-800"
+          className="pressable flex h-14 items-center justify-center rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500"
         >
           {d.audit.cta}
         </Link>
-        <p className="mt-2 text-xs text-blue-800">{d.audit.ctaNote}</p>
+        <p className="px-4 pt-3 text-center text-xs leading-relaxed text-slate-500">{d.audit.ctaNote}</p>
       </div>
     </main>
   );
@@ -150,34 +147,31 @@ function AuditSection({
   title,
   note,
   items,
-  tone,
   emptyText,
 }: {
   title: string;
   note: string;
   items: ReportItem[];
-  tone: "red" | "amber" | "blue";
   emptyText?: string;
 }) {
   if (items.length === 0 && !emptyText) return null;
-  const toneBorder = { red: "border-red-200", amber: "border-amber-200", blue: "border-blue-200" }[tone];
 
   return (
-    <section className={`mt-6 rounded-xl border ${toneBorder} bg-white p-5`}>
-      <p className="font-semibold">
-        {title} {items.length > 0 && <span className="text-slate-400">({items.length})</span>}
-      </p>
-      <p className="mt-1 text-sm text-slate-600">{note}</p>
+    <section className="card overflow-hidden">
+      <div className="px-5 pb-4 pt-5">
+        <h2 className="text-[17px] font-semibold leading-snug text-slate-900">
+          {title} {items.length > 0 && <span className="font-normal tabular-nums text-slate-400">({items.length})</span>}
+        </h2>
+        <p className="mt-1 text-[13px] leading-relaxed text-slate-500">{note}</p>
+      </div>
       {items.length === 0 && emptyText ? (
-        <p className="mt-3 text-sm font-medium text-green-700">{emptyText}</p>
+        <p className="border-t hairline px-5 py-4 text-[15px] font-medium leading-snug text-green-700">{emptyText}</p>
       ) : (
-        <ul className="mt-3 space-y-1.5 text-sm text-slate-800">
+        <ul>
           {items.map((i) => (
-            <li key={i.fingerprint} className="flex items-baseline justify-between gap-3">
-              <span>{i.name}</span>
-              <span className="shrink-0 text-xs text-slate-400">
-                {BUREAU_LABEL[i.bureau]}
-              </span>
+            <li key={i.fingerprint} className="flex items-baseline justify-between gap-3 border-t hairline px-5 py-3.5">
+              <span className="min-w-0 break-words text-[15px] text-slate-900">{i.name}</span>
+              <span className="shrink-0 text-[13px] text-slate-500">{BUREAU_LABEL[i.bureau]}</span>
             </li>
           ))}
         </ul>

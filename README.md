@@ -1,4 +1,6 @@
-# Bonalti Crédito — DIY Credit Dispute SaaS
+# CreditCapi — DIY Credit Dispute SaaS
+
+*(Consumer brand: CreditCapi, with the AI assistant "Capi". Internal/spec name: Bonalti Credit.)*
 
 Consumer-facing DIY credit dispute software. Spanish-first, Texas launch.
 The software is free; revenue is the required credit monitoring subscription
@@ -40,6 +42,11 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/app/api/webhooks/n8n` | Round triggers / day-40 re-engagement (shared-secret auth) |
 | `supabase/migrations/0001_init.sql` | Full schema with owner-only RLS on every table |
 | `src/app/*` | Landing, onboarding (goal selector), dashboard, item finder + attestation, attack builder, rounds — demo-data backed until Phase 1 auth wiring |
+| `src/app/api/chat`, `src/lib/chat/` | The thread with Capi, stored per user (`chat_messages`); AI replies are recorded by the server, never accepted from the browser |
+| `src/lib/security/` | Rate limiter, constant-time secret checks, WhatsApp webhook signature verification |
+| `src/lib/observability/errors.ts`, `src/instrumentation.ts` | Error log lines + optional alert webhook (`ERROR_WEBHOOK_URL`) |
+| `src/lib/__tests__/`, `content/spots.test.ts` | Test suite (`npm test`), run in CI |
+| `content/` | Ad content kit: locked mascot, spot files, claim gate, assembly and transcript check — see `content/README.md` |
 
 ## Load-bearing invariants
 
@@ -53,6 +60,12 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
    WhatsApp and coach output; use `assertClaimGuardrails` for any new copy surface.
 4. **Monitoring gate.** The attack builder requires an active monitoring
    subscription (`monitoring_subscriptions.status = 'active'`).
+5. **The AI may only reword prose.** A model-varied letter is mailed only if
+   its item lines, header, signature and legal citations are identical to the
+   template's (`variationProblems` in `src/lib/letters/variation.ts`);
+   otherwise the template goes out verbatim.
+6. **Ads make no outcome promises.** Ad scripts, captions and end cards must
+   pass `checkMarketingCopy`; CI checks every spot in `content/spots/`.
 
 ## Getting started
 
@@ -63,8 +76,26 @@ npm run dev
 ```
 
 Without env vars the app runs in demo mode (demo report data, stubbed mail/WhatsApp,
-coach disabled). Apply `supabase/migrations/0001_init.sql` to a Supabase project and
-set the Supabase env vars to enable persistence.
+coach disabled). Apply the migrations in `supabase/migrations/` in order to a Supabase
+project and set the Supabase env vars to enable persistence.
+
+```bash
+npm test            # unit tests (domain logic, compliance rules, security helpers, ad spots)
+npm run typecheck
+npm run build
+```
+
+### Before going live
+
+- Set `WHATSAPP_APP_SECRET`. With WhatsApp credentials present and no app secret,
+  the inbound webhook refuses every request rather than accept unsigned ones.
+- Set `ERROR_WEBHOOK_URL` so failures reach a person (Slack or an n8n webhook).
+- `npm audit` still reports two findings that need major upgrades and were
+  left for a planned change: `zod` 3 → 4 (memory use on oversized collections;
+  mitigated here by size-capped bodies on the public endpoints) and the
+  `postcss` copy bundled inside Next 15 (build-time only, fixed in Next 16).
+- The rate limiter is in-memory and per server instance. Keep the host's own
+  firewall / bot protection on in front of `/api/coach` and `/api/waitlist`.
 
 ## Build order & status (spec §7)
 
@@ -94,9 +125,12 @@ set the Supabase env vars to enable persistence.
 - TX CSO applicability to the $0-software model (default: register regardless).
 - Whether requiring paid monitoring re-characterizes the "free" software as a paid
   credit service — **the load-bearing legal question; needs a real answer**.
-- Secondary bureau list + current mailing addresses: every address in
-  `src/lib/domain/bureaus.ts` is marked `VERIFY_AT_BUILD` and must be confirmed
-  before any letter mails.
+- Bureau mailing addresses (`src/lib/domain/bureaus.ts`) were checked on
+  2026-11-19 by web search against each company's site and the CFPB list; each
+  entry carries `verifiedOn` and `source`. Two secondary addresses were out of
+  date and corrected (Innovis, Clarity), SageStream was folded into LexisNexis,
+  and ARS could not be confirmed and is not mailed. A person should open each
+  source link once before the first real mailing.
 - v1 = Texas only. Out-of-state marketing is a legal project, not a config change.
 
 *This repository is not legal advice; the compliance features implement the spec's

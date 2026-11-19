@@ -9,6 +9,8 @@ import { mailLetter } from "@/lib/integrations/lob";
 import { sendWhatsApp } from "@/lib/integrations/whatsapp";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { resolveActingUser } from "@/lib/supabase/server";
+import { reportError } from "@/lib/observability/errors";
+import { escapeHtml } from "@/lib/letters/html";
 
 // The DIY moment (spec §4.2, legally load-bearing): the USER reviews the attack
 // and presses the button. Only then do we render, print, and mail letters.
@@ -22,7 +24,7 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const parsed = bodySchema.safeParse(await req.json());
+  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const { roundNumber } = parsed.data;
 
@@ -82,8 +84,11 @@ export async function POST(req: Request) {
   const history: ItemHistory = {};
   const { data: mailedLetterItems } = await db
     .from("letter_items")
-    .select("escalation_stage, item_id, letters!inner(user_id, status)")
+    .select("escalation_stage, item_id, letters!inner(user_id, status, round_id)")
     .eq("letters.user_id", userId)
+    // Earlier rounds only: letters already sent in THIS round (a retried
+    // approval) must not push their items up the escalation ladder.
+    .neq("letters.round_id", round.id)
     .in("letters.status", ["queued", "mailed", "delivered"]);
   const rank: Record<EscalationStage, number> = { dispute: 1, mov: 2, furnisher_direct: 3 };
   for (const li of mailedLetterItems ?? []) {
@@ -124,9 +129,30 @@ export async function POST(req: Request) {
     .map((doc) => ENCLOSURE_LABELS[doc.kind])
     .filter((label): label is string => Boolean(label));
 
+  // A previous attempt may have stopped part-way (mail provider error). Letters
+  // from that attempt are reused, never duplicated: one that already reached the
+  // mail service is skipped, and an unsent draft keeps its row so its
+  // idempotency key stays the same.
+  const { data: priorLetters } = await db
+    .from("letters")
+    .select("id, target_type, target_key, template_key, status")
+    .eq("user_id", userId)
+    .eq("round_id", round.id);
+  const letterKey = (targetType: string, targetKey: string, templateKey: string) =>
+    `${targetType}|${targetKey}|${templateKey}`;
+  const priorByKey = new Map(
+    (priorLetters ?? []).map((l) => [letterKey(l.target_type, l.target_key, l.template_key), l]),
+  );
+
   const now = new Date();
   const mailedLetters = [];
   for (const planned of plan.letters) {
+    const prior = priorByKey.get(letterKey(planned.target.type, planned.target.key, planned.templateKey));
+    if (prior && prior.status !== "draft") {
+      mailedLetters.push({ id: prior.id as string, target: planned.target.name, stage: planned.stage });
+      continue;
+    }
+
     const letterItems = planned.itemFingerprints
       .map((fp) => items.find((i) => i.fingerprint === fp))
       .filter((i): i is ReportItem => Boolean(i));
@@ -141,31 +167,47 @@ export async function POST(req: Request) {
     });
     const body = await varyLetterWording(baseBody);
 
-    const { data: letterRow, error: letterError } = await db
-      .from("letters")
-      .insert({
-        user_id: userId,
-        round_id: round.id,
-        target_type: planned.target.type,
-        target_key: planned.target.key,
-        target_name: planned.target.name,
-        target_address_lines: planned.target.addressLines,
-        template_key: planned.templateKey,
-        escalation_stage: planned.stage,
-        body,
-        status: "draft",
-      })
-      .select("id")
-      .single();
-    if (letterError) return NextResponse.json({ error: letterError.message }, { status: 500 });
+    const letterFields = {
+      user_id: userId,
+      round_id: round.id,
+      target_type: planned.target.type,
+      target_key: planned.target.key,
+      target_name: planned.target.name,
+      target_address_lines: planned.target.addressLines,
+      template_key: planned.templateKey,
+      escalation_stage: planned.stage,
+      body,
+      status: "draft",
+    };
+    const { data: letterRow, error: letterError } = prior
+      ? await db.from("letters").update(letterFields).eq("id", prior.id).select("id").single()
+      : await db.from("letters").insert(letterFields).select("id").single();
+    if (letterError || !letterRow) {
+      return NextResponse.json({ error: letterError?.message ?? "Could not save letter" }, { status: 500 });
+    }
 
     const font = pickFont(letterRow.id);
-    const mail = await mailLetter({
-      to: { name: planned.target.name, addressLines: planned.target.addressLines },
-      from: { name: user.fullName, addressLines: user.addressLines },
-      bodyHtml: `<html><body style="font-family:'${font.family}';font-size:${font.sizePt}pt;white-space:pre-wrap;">${body}</body></html>`,
-      idempotencyKey: letterRow.id,
-    });
+    let mail;
+    try {
+      mail = await mailLetter({
+        to: { name: planned.target.name, addressLines: planned.target.addressLines },
+        from: { name: user.fullName, addressLines: user.addressLines },
+        // The letter is plain text: escape it so a creditor name or a user-typed
+        // reason can never be interpreted as markup by the print renderer.
+        bodyHtml: `<html><body style="font-family:'${font.family}';font-size:${font.sizePt}pt;white-space:pre-wrap;">${escapeHtml(body)}</body></html>`,
+        idempotencyKey: letterRow.id,
+      });
+    } catch (error) {
+      // The mail provider refused this letter. Leave it as a draft, tell the
+      // operator, and stop: the round stays in "draft" so the user can approve
+      // again. On the retry, letters that already went out are skipped and this
+      // one reuses its row (see priorByKey above).
+      await reportError(error, { where: "api/attacks/approve:mail", userId, extra: { letterId: letterRow.id } });
+      return NextResponse.json(
+        { error: "A letter could not be sent to the mail service. Nothing was lost; please try again.", mailed: mailedLetters },
+        { status: 502 },
+      );
+    }
 
     await db
       .from("letters")

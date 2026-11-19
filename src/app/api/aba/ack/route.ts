@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   const user = await getSessionUser();
   if (!supabase || !user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-  const parsed = bodySchema.safeParse(await req.json());
+  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const { error } = await supabase.from("aba_acknowledgments").insert({

@@ -56,6 +56,10 @@ export interface LetterTarget {
   key: string;
   name: string;
   addressLines: string[];
+  /** Registry entries only: the date (YYYY-MM-DD) the address was last checked. */
+  verifiedOn?: string;
+  /** Registry entries only: the page the address was checked against. */
+  source?: string;
 }
 
 export interface PlannedLetter {

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { readJsonBody } from "@/lib/security/body";
+import { rateLimit } from "@/lib/security/rateLimit";
 import { getAdminClient } from "@/lib/supabase/admin";
 
 // Waitlist for non-Texas visitors. v1 is Texas-only (spec §8): out-of-state
@@ -13,7 +15,13 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const parsed = bodySchema.safeParse(await req.json());
+  // Public, unauthenticated form: cap submissions per caller.
+  const limited = rateLimit(req, "waitlist", { limit: 5, windowMs: 10 * 60_000 });
+  if (limited) return limited;
+
+  const body = await readJsonBody(req, 4_000);
+  if (!body.ok) return NextResponse.json({ error: "Invalid request body" }, { status: body.status });
+  const parsed = bodySchema.safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const db = getAdminClient();

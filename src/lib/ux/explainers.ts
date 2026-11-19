@@ -51,6 +51,7 @@ const CATEGORY_ES: Record<ItemCategory, CategoryExplainer> = {
     whyItMatters:
       "Datos viejos o incorrectos pueden mezclar tu expediente con el de otra persona y 'anclar' cuentas que no son tuyas. Por eso el Ataque 1 empieza aquí.",
     checkHints: [
+      "¿Tu nombre aparece incompleto, con un solo apellido, sin acento o mal escrito? Pasa mucho con nombres hispanos (dos apellidos) y puede mezclar tu expediente con el de otra persona.",
       "¿Esta dirección o variante de nombre sigue siendo tuya y actual?",
       "¿Este empleo es correcto?",
       "¿Reconoces todas las variantes de tu nombre?",
@@ -95,6 +96,7 @@ const CATEGORY_EN: Record<ItemCategory, CategoryExplainer> = {
     whyItMatters:
       "Old or wrong data can mix your file with someone else's and 'anchor' accounts that aren't yours. That's why Attack 1 starts here.",
     checkHints: [
+      "Does your name appear incomplete, with only one surname, without accents, or misspelled? This is very common with Hispanic names (two surnames) and can mix your file with someone else's.",
       "Is this address or name variant still yours and current?",
       "Is this employer correct?",
       "Do you recognize every variant of your name?",

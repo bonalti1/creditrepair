@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { sendWhatsApp } from "@/lib/integrations/whatsapp";
+import { hasSharedSecret } from "@/lib/security/signatures";
 
 // n8n webhook (spec §6): pull scheduling, WhatsApp flows, round triggers.
 // n8n cron queries rounds where next_round_due_at has passed, triggers the
@@ -17,12 +18,11 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const secret = process.env.N8N_WEBHOOK_SECRET;
-  if (!secret || req.headers.get("x-webhook-secret") !== secret) {
+  if (!hasSharedSecret(req, process.env.N8N_WEBHOOK_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = bodySchema.safeParse(await req.json());
+  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const { action, userId, deletedCount = 0, remainingCount = 0, roundNumber = 1 } = parsed.data;
 

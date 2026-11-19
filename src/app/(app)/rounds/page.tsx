@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { DEMO_REPORT } from "@/lib/demo";
 import { RESPONSE_WINDOW_DAYS, NEXT_ROUND_DAYS } from "@/lib/ux/journey";
 import { useLocale } from "@/lib/i18n";
+import Icon from "@/components/Icon";
 
 // Round history with a real timeline: when letters mailed, when the FCRA
 // ~30-day response window closes, when the next round unlocks (~day 40).
@@ -52,34 +53,38 @@ export default function Rounds() {
     date.toLocaleDateString(locale === "es" ? "es-MX" : "en-US", { day: "numeric", month: "long" });
 
   return (
-    <main>
-      <h1 className="text-2xl font-bold">{d.rounds.title}</h1>
-      <p className="mt-1 text-slate-600">{d.rounds.subtitle(RESPONSE_WINDOW_DAYS, NEXT_ROUND_DAYS)}</p>
+    <main className="animate-rise space-y-5">
+      <header className="px-1">
+        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{d.rounds.title}</h1>
+        <p className="mt-2 text-[15px] leading-relaxed text-slate-500">
+          {d.rounds.subtitle(RESPONSE_WINDOW_DAYS, NEXT_ROUND_DAYS)}
+        </p>
+      </header>
 
-      <div className="mt-6 space-y-4">
-        {[...DEMO_ROUNDS].reverse().map((r) => {
-          const responseDue = addDays(r.mailedAt, RESPONSE_WINDOW_DAYS);
-          const nextRoundAt = addDays(r.mailedAt, NEXT_ROUND_DAYS);
-          const daysToResponse = Math.ceil((responseDue.getTime() - now.getTime()) / 86400000);
-          const inProgress = !r.outcome;
-          const clockPct = Math.min(
-            100,
-            Math.round(
-              ((now.getTime() - new Date(r.mailedAt).getTime()) /
-                (nextRoundAt.getTime() - new Date(r.mailedAt).getTime())) *
-                100,
-            ),
-          );
+      {[...DEMO_ROUNDS].reverse().map((r) => {
+        const responseDue = addDays(r.mailedAt, RESPONSE_WINDOW_DAYS);
+        const nextRoundAt = addDays(r.mailedAt, NEXT_ROUND_DAYS);
+        const daysToResponse = Math.ceil((responseDue.getTime() - now.getTime()) / 86400000);
+        const inProgress = !r.outcome;
+        const clockPct = Math.min(
+          100,
+          Math.round(
+            ((now.getTime() - new Date(r.mailedAt).getTime()) /
+              (nextRoundAt.getTime() - new Date(r.mailedAt).getTime())) *
+              100,
+          ),
+        );
 
-          return (
-            <div key={r.round} className="rounded-xl border border-slate-200 bg-white p-5">
-              <div className="flex items-center justify-between">
-                <p className="font-bold">
+        return (
+          <section key={r.round} className="card overflow-hidden">
+            <div className="px-5 pb-4 pt-5">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-[20px] font-semibold tabular-nums text-slate-900">
                   {locale === "es" ? "Ataque" : "Attack"} #{r.round}
-                </p>
+                </h2>
                 <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    inProgress ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-700"
+                  className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    inProgress ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"
                   }`}
                 >
                   {inProgress ? d.rounds.inProgress : d.rounds.completed}
@@ -88,38 +93,44 @@ export default function Rounds() {
 
               {inProgress && (
                 <div className="mt-4">
-                  <div className="flex justify-between text-xs text-slate-500">
-                    <span>{d.rounds.mailed(fmt(new Date(r.mailedAt)))}</span>
-                    <span>{d.rounds.responseBy(fmt(responseDue))}</span>
-                    <span>{d.rounds.nextRound(r.round + 1, fmt(nextRoundAt))}</span>
-                  </div>
-                  <div className="mt-1.5 h-2 rounded-full bg-slate-200">
+                  <div className="h-1.5 rounded-full bg-slate-200">
                     <div
-                      className="h-2 rounded-full bg-amber-500 transition-all"
+                      className="h-1.5 rounded-full bg-amber-400 transition-all"
                       style={{ width: `${Math.max(4, clockPct)}%` }}
                     />
                   </div>
-                  <p className="mt-2 text-sm text-amber-800">
+                  <div className="mt-3 space-y-1 text-[13px] tabular-nums text-slate-500">
+                    <p>{d.rounds.mailed(fmt(new Date(r.mailedAt)))}</p>
+                    <p>{d.rounds.responseBy(fmt(responseDue))}</p>
+                    <p>{d.rounds.nextRound(r.round + 1, fmt(nextRoundAt))}</p>
+                  </div>
+                  <p className="mt-3 text-[15px] leading-relaxed text-slate-700">
                     {daysToResponse > 0 ? d.rounds.waitDays(daysToResponse) : d.rounds.windowClosed}
                   </p>
                 </div>
               )}
 
-              {r.outcome && <p className="mt-2 text-sm text-green-700">{r.outcome[locale]}</p>}
-
-              <ul className="mt-3 space-y-1 text-sm text-slate-700">
-                {r.letters.map((l, i) => (
-                  <li key={i}>
-                    📄 {l.target} — {STAGE_LABEL[l.stageKey]?.[locale] ?? l.stageKey}
-                  </li>
-                ))}
-              </ul>
-
-              {inProgress && <ResponseLogger />}
+              {r.outcome && (
+                <p className="mt-2 text-[15px] font-medium leading-snug text-green-700">{r.outcome[locale]}</p>
+              )}
             </div>
-          );
-        })}
-      </div>
+
+            <ul>
+              {r.letters.map((l, i) => (
+                <li key={i} className="flex items-start gap-3 border-t hairline px-5 py-3.5 text-[15px] leading-snug text-slate-500">
+                  <Icon name="doc" size={18} className="mt-px shrink-0 text-slate-400" />
+                  <span className="min-w-0">
+                    <span className="font-medium text-slate-900">{l.target}</span> —{" "}
+                    {STAGE_LABEL[l.stageKey]?.[locale] ?? l.stageKey}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            {inProgress && <ResponseLogger />}
+          </section>
+        );
+      })}
     </main>
   );
 }
@@ -166,38 +177,45 @@ function ResponseLogger() {
   const anyVerified = Object.values(outcomes).includes("verified");
 
   return (
-    <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm font-semibold text-slate-800">{d.responses.title}</p>
-      <p className="mt-1 text-xs text-slate-600">{d.responses.note}</p>
-      <div className="mt-3 space-y-3">
+    <div className="border-t hairline px-5 pb-5 pt-5">
+      <p className="text-[17px] font-semibold leading-snug text-slate-900">{d.responses.title}</p>
+      <p className="mt-1 text-[13px] leading-relaxed text-slate-500">{d.responses.note}</p>
+      <div className="mt-4 space-y-5">
         {items.map((item) => (
           <div key={item.fingerprint}>
-            <p className="text-sm font-medium text-slate-700">{item.name}</p>
-            <div className="mt-1 flex flex-wrap gap-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="min-w-0 break-words text-[15px] font-medium text-slate-900">{item.name}</p>
+              {outcomes[item.fingerprint] && (
+                <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                  {d.responses.saved}
+                </span>
+              )}
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
               {options.map((o) => (
                 <button
                   key={o.key}
                   onClick={() => log(item.fingerprint, o.key)}
-                  className={`rounded-full border px-2.5 py-1 text-xs ${
+                  className={`pressable min-h-11 rounded-full px-3 py-2 text-[13px] leading-tight ${
                     outcomes[item.fingerprint] === o.key
                       ? o.key === "deleted"
-                        ? "border-green-500 bg-green-100 font-semibold text-green-800"
-                        : "border-blue-500 bg-blue-100 font-semibold text-blue-800"
-                      : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+                        ? "bg-green-50 font-semibold text-green-700 ring-1 ring-inset ring-green-600"
+                        : "bg-blue-50 font-semibold text-blue-700 ring-1 ring-inset ring-blue-600"
+                      : "bg-slate-100 font-medium text-slate-900 hover:bg-slate-200"
                   }`}
                 >
                   {o.label}
                 </button>
               ))}
-              {outcomes[item.fingerprint] && (
-                <span className="self-center text-xs text-slate-400">{d.responses.saved}</span>
-              )}
             </div>
           </div>
         ))}
       </div>
       {anyVerified && (
-        <p className="mt-3 rounded-lg bg-blue-100 p-2.5 text-xs text-blue-900">💡 {d.responses.verifiedHint}</p>
+        <p className="mt-5 flex gap-2.5 rounded-2xl bg-blue-50 px-4 py-3 text-[13px] leading-relaxed text-blue-900">
+          <Icon name="sparkle" size={18} className="mt-px shrink-0 text-blue-700" />
+          <span>{d.responses.verifiedHint}</span>
+        </p>
       )}
     </div>
   );

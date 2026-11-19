@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { hasSharedSecret } from "@/lib/security/signatures";
 
 // Cookie-bound Supabase client for server components and route handlers.
 // Queries through this client run as the signed-in user, so RLS applies.
@@ -46,8 +47,7 @@ export async function resolveActingUser(
   const user = await getSessionUser();
   if (user) return { userId: user.id, via: "session" };
 
-  const secret = process.env.N8N_WEBHOOK_SECRET;
-  if (explicitUserId && secret && req.headers.get("x-webhook-secret") === secret) {
+  if (explicitUserId && hasSharedSecret(req, process.env.N8N_WEBHOOK_SECRET)) {
     return { userId: explicitUserId, via: "service" };
   }
   return null;

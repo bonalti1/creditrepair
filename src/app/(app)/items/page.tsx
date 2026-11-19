@@ -8,6 +8,7 @@ import { getCategoryExplainers, getTermGlossary } from "@/lib/ux/explainers";
 import { countByState, useFlags } from "@/lib/ux/flagsStore";
 import { useLocale } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/dictionaries";
+import Icon from "@/components/Icon";
 
 // Guided review wizard — the anti-Dispute-Beast item experience. Instead of a
 // wall of rows, ONE item at a time: what it is in plain language, what to
@@ -59,27 +60,27 @@ export default function Items() {
   if (!hydrated) return null;
 
   return (
-    <main>
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{d.items.title}</h1>
+    <main className="animate-rise space-y-5">
+      <div className="px-1">
+        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{d.items.title}</h1>
         <button
           onClick={() => setMode(mode === "wizard" ? "list" : "wizard")}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+          className="pressable mt-1 inline-flex h-11 items-center text-[15px] font-medium text-blue-700"
         >
           {mode === "wizard" ? d.items.viewList : d.items.viewWizard}
         </button>
-      </div>
 
-      <div className="mt-4">
-        <div className="flex items-center justify-between text-sm text-slate-600">
-          <span>{d.items.reviewed(items.length - pending.length, items.length)}</span>
-          <span>{progressPct}%</span>
-        </div>
-        <div className="mt-1 h-2 rounded-full bg-slate-200">
-          <div
-            className="h-2 rounded-full bg-blue-600 transition-all"
-            style={{ width: `${progressPct}%` }}
-          />
+        <div className="mt-1">
+          <div className="flex items-center justify-between text-[13px] tabular-nums text-slate-500">
+            <span>{d.items.reviewed(items.length - pending.length, items.length)}</span>
+            <span>{progressPct}%</span>
+          </div>
+          <div className="mt-2 h-1.5 rounded-full bg-slate-200">
+            <div
+              className="h-1.5 rounded-full bg-blue-700 transition-all"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
         </div>
       </div>
 
@@ -100,65 +101,59 @@ export default function Items() {
       )}
 
       {mode === "wizard" && done && (
-        <div className="mt-8 rounded-2xl border border-green-200 bg-green-50 p-6 text-center">
-          <p className="text-3xl">🎉</p>
-          <h2 className="mt-2 text-xl font-bold text-green-900">{d.items.doneTitle}</h2>
-          <p className="mt-2 text-sm text-green-800">
+        <section className="card px-6 pb-6 pt-8 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-50 text-green-700">
+            <Icon name="check" size={28} strokeWidth={2.25} />
+          </span>
+          <h2 className="mt-4 text-[22px] font-semibold leading-snug text-slate-900">{d.items.doneTitle}</h2>
+          <p className="mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-slate-500">
             {counts.attested > 0 ? d.items.doneWithItems(counts.attested) : d.items.doneNoItems}
           </p>
           {counts.attested > 0 && (
             <Link
               href="/attack"
-              className="mt-4 inline-block rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white hover:bg-blue-800"
+              className="pressable mt-5 flex h-14 items-center justify-center rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500"
             >
               {d.items.goToAttack}
             </Link>
           )}
-        </div>
+        </section>
       )}
 
       {mode === "list" && (
-        <div className="mt-6 space-y-3">
-          {items.map((item) => {
+        <div className="card overflow-hidden">
+          {items.map((item, index) => {
             const f = flags[item.fingerprint];
             return (
               <div
                 key={item.fingerprint}
-                className={`rounded-lg border bg-white p-4 ${
-                  f?.state === "attested"
-                    ? "border-blue-400"
-                    : f?.state === "correct"
-                      ? "border-green-300"
-                      : "border-slate-200"
-                }`}
+                className={`flex items-center gap-3 px-5 py-4 ${index > 0 ? "border-t hairline" : ""}`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{item.name}</p>
-                    <p className="text-sm text-slate-500">
-                      {BUREAU_LABEL[item.bureau]} · {CATEGORY_LABEL[locale][item.category]}
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-[17px] font-medium leading-snug text-slate-900">{item.name}</p>
+                  <p className="mt-0.5 text-[13px] text-slate-500">
+                    {BUREAU_LABEL[item.bureau]} · {CATEGORY_LABEL[locale][item.category]}
+                  </p>
+                  {f?.state === "attested" && f.attestedAt && (
+                    <p className="mt-1 text-[13px] font-medium tabular-nums text-blue-700">
+                      {d.items.attestedOn(new Date(f.attestedAt).toLocaleString(locale === "es" ? "es-MX" : "en-US"))}
                     </p>
-                    {f?.state === "attested" && f.attestedAt && (
-                      <p className="mt-1 text-xs text-blue-700">
-                        {d.items.attestedOn(new Date(f.attestedAt).toLocaleString(locale === "es" ? "es-MX" : "en-US"))}
-                      </p>
-                    )}
-                    {f?.state === "correct" && (
-                      <p className="mt-1 text-xs text-green-700">{d.items.markedCorrect}</p>
-                    )}
-                    {f?.state === "flagged" && (
-                      <p className="mt-1 text-xs text-amber-700">{d.items.flaggedPending}</p>
-                    )}
-                  </div>
-                  {f && (
-                    <button
-                      onClick={() => clear(item.fingerprint)}
-                      className="shrink-0 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
-                    >
-                      {d.items.reviewAgain}
-                    </button>
+                  )}
+                  {f?.state === "correct" && (
+                    <p className="mt-1 text-[13px] font-medium text-green-700">{d.items.markedCorrect}</p>
+                  )}
+                  {f?.state === "flagged" && (
+                    <p className="mt-1 text-[13px] font-medium text-amber-700">{d.items.flaggedPending}</p>
                   )}
                 </div>
+                {f && (
+                  <button
+                    onClick={() => clear(item.fingerprint)}
+                    className="pressable h-11 shrink-0 text-[15px] font-medium text-blue-700"
+                  >
+                    {d.items.reviewAgain}
+                  </button>
+                )}
               </div>
             );
           })}
@@ -189,84 +184,86 @@ function WizardCard({
   const glossary = glossaryFor(item.data as Record<string, unknown>, locale);
 
   return (
-    <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-        {d.items.remaining(remaining)}
-      </p>
-      <div className="mt-2 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold">{item.name}</h2>
-          <p className="text-sm text-slate-500">
-            {BUREAU_LABEL[item.bureau]} · {CATEGORY_LABEL[locale][item.category]}
-            {item.negative && (
-              <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700">
-                {d.items.negativeBadge}
-              </span>
-            )}
-          </p>
-        </div>
+    <section className="card animate-rise overflow-hidden">
+      <div className="px-5 pb-5 pt-5">
+        <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">
+          {d.items.remaining(remaining)}
+        </p>
+        <h2 className="mt-2 break-words text-[22px] font-semibold leading-tight text-slate-900">{item.name}</h2>
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[15px] text-slate-500">
+          {BUREAU_LABEL[item.bureau]} · {CATEGORY_LABEL[locale][item.category]}
+          {item.negative && (
+            <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+              {d.items.negativeBadge}
+            </span>
+          )}
+        </p>
       </div>
 
-      <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm">
-        <p className="font-semibold text-slate-700">{d.items.whatIsThis}</p>
-        <p className="mt-1 text-slate-600">{explainer.what}</p>
-        <p className="mt-2 text-slate-600">{explainer.whyItMatters}</p>
+      <div className="border-t hairline px-5 py-4">
+        <p className="text-[15px] font-semibold text-slate-900">{d.items.whatIsThis}</p>
+        <p className="mt-1.5 text-[15px] leading-relaxed text-slate-600">{explainer.what}</p>
+        <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{explainer.whyItMatters}</p>
         {glossary.map((g, i) => (
-          <p key={i} className="mt-2 rounded-lg bg-white p-2 text-slate-600">
-            💡 {g}
+          <p key={i} className="mt-3 flex gap-2.5 rounded-2xl bg-slate-50 px-4 py-3 text-[14px] leading-snug text-slate-600">
+            <Icon name="sparkle" size={18} className="mt-px shrink-0 text-amber-600" />
+            <span>{g}</span>
           </p>
         ))}
       </div>
 
-      <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm">
-        <p className="font-semibold text-blue-900">{d.items.checkFirst}</p>
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-blue-800">
+      <div className="border-t hairline px-5 py-4">
+        <p className="text-[15px] font-semibold text-slate-900">{d.items.checkFirst}</p>
+        <ul className="mt-2.5 space-y-2">
           {explainer.checkHints.map((h, i) => (
-            <li key={i}>{h}</li>
+            <li key={i} className="flex gap-2.5 text-[15px] leading-snug text-slate-600">
+              <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
+              <span>{h}</span>
+            </li>
           ))}
         </ul>
       </div>
 
       {!flagging ? (
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-2.5 border-t hairline px-5 py-5 sm:grid-cols-2">
           <button
             onClick={onCorrect}
-            className="rounded-xl border-2 border-green-200 bg-green-50 px-4 py-4 text-left hover:border-green-400"
+            className="pressable rounded-2xl bg-slate-100 px-4 py-3.5 text-left hover:bg-slate-200"
           >
-            <p className="font-semibold text-green-800">{d.items.looksCorrect}</p>
-            <p className="mt-1 text-xs text-green-700">{d.items.looksCorrectSub}</p>
+            <p className="text-[17px] font-medium text-slate-900">{d.items.looksCorrect}</p>
+            <p className="mt-0.5 text-[13px] leading-snug text-slate-500">{d.items.looksCorrectSub}</p>
           </button>
           <button
             onClick={() => setFlagging(true)}
-            className="rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-4 text-left hover:border-blue-400"
+            className="pressable rounded-2xl bg-slate-100 px-4 py-3.5 text-left hover:bg-slate-200"
           >
-            <p className="font-semibold text-blue-800">{d.items.looksWrong}</p>
-            <p className="mt-1 text-xs text-blue-700">{d.items.looksWrongSub}</p>
+            <p className="text-[17px] font-medium text-slate-900">{d.items.looksWrong}</p>
+            <p className="mt-0.5 text-[13px] leading-snug text-slate-500">{d.items.looksWrongSub}</p>
           </button>
         </div>
       ) : (
-        <div className="mt-6 rounded-xl border border-blue-200 p-4">
-          <label className="text-sm font-semibold text-slate-700">{d.items.reasonLabel}</label>
+        <div className="border-t hairline px-5 py-5">
+          <label className="block text-[15px] font-medium leading-snug text-slate-900">{d.items.reasonLabel}</label>
           <input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder={d.items.reasonPlaceholder}
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="mt-2 h-12 w-full rounded-2xl bg-slate-100 px-4 text-[16px] text-slate-900 outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-300"
           />
-          <label className="mt-4 flex items-start gap-2 rounded-lg bg-blue-50 p-3 text-sm text-slate-800">
+          <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl bg-blue-50 p-4 text-[15px] leading-snug text-slate-900">
             <input
               type="checkbox"
               checked={attestChecked}
               onChange={(e) => setAttestChecked(e.target.checked)}
-              className="mt-0.5"
+              className="mt-0.5 h-5 w-5 shrink-0 accent-blue-700"
             />
             <span>{ATTESTATION_TEXT[locale]}</span>
           </label>
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 grid gap-2.5">
             <button
               onClick={() => (attestChecked ? onAttest(reason) : onFlag(reason))}
               disabled={!attestChecked}
-              className="rounded-lg bg-blue-700 px-5 py-2.5 font-semibold text-white disabled:bg-slate-300"
+              className="pressable h-14 rounded-full bg-amber-400 px-5 text-[17px] font-semibold text-blue-900 enabled:hover:bg-amber-500 disabled:bg-slate-200 disabled:text-slate-500"
             >
               {d.items.confirm}
             </button>
@@ -275,16 +272,16 @@ function WizardCard({
                 setFlagging(false);
                 setAttestChecked(false);
               }}
-              className="rounded-lg border border-slate-300 px-5 py-2.5 text-slate-600 hover:bg-slate-50"
+              className="pressable h-12 rounded-full bg-slate-100 px-5 text-[16px] font-medium text-slate-900 hover:bg-slate-200"
             >
               {d.items.back}
             </button>
           </div>
           {!attestChecked && (
-            <p className="mt-2 text-xs text-slate-500">{d.items.attestationRequired}</p>
+            <p className="mt-3 text-[13px] leading-relaxed text-slate-500">{d.items.attestationRequired}</p>
           )}
         </div>
       )}
-    </div>
+    </section>
   );
 }
