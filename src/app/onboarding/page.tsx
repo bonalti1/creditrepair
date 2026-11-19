@@ -6,11 +6,14 @@ import { useRouter } from "next/navigation";
 import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
 import Icon from "@/components/Icon";
 import Logo, { CapiAvatar } from "@/components/Logo";
+import { AFFILIATE_DISCLOSURE, MONITORING_OFFER } from "@/lib/monitoring/offer";
 
 // Onboarding: goal (feeds the mortgage track) → state gate (v1 is TX-only;
 // other states join the waitlist, since expansion is a legal project, not a
-// config change) → how you want to do it (alone with the app, or with free
-// live help — the user always decides and sends either way).
+// config change) → the monitoring subscription (the only cost, bought from the
+// monitoring provider, with our commission disclosed) → how you want to do it
+// (alone with the app, or with free live help — the user always decides and
+// sends either way).
 // One question per screen, one obvious button.
 
 const GOALS = [
@@ -35,14 +38,15 @@ const primaryButton =
 
 export default function Onboarding() {
   const router = useRouter();
-  const [step, setStep] = useState<"goal" | "state" | "assist" | "waitlist-done">("goal");
+  const [step, setStep] = useState<"goal" | "state" | "monitoring" | "assist" | "waitlist-done">("goal");
   const [goal, setGoal] = useState<string | null>(null);
   const [state, setState] = useState("TX");
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
 
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER;
-  const stepIndex = step === "goal" ? 1 : step === "state" ? 2 : 3;
+  const stepIndex = step === "goal" ? 1 : step === "state" ? 2 : step === "monitoring" ? 3 : 4;
+  const { providerName, priceLabel, signupUrl } = MONITORING_OFFER;
 
   const joinWaitlist = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,8 +78,8 @@ export default function Onboarding() {
           <Logo size={19} />
         </Link>
         {step !== "waitlist-done" && (
-          <div className="flex gap-1.5" aria-label={`Paso ${stepIndex} de 3`}>
-            {[1, 2, 3].map((n) => (
+          <div className="flex gap-1.5" aria-label={`Paso ${stepIndex} de 4`}>
+            {[1, 2, 3, 4].map((n) => (
               <span key={n} className={`h-1.5 rounded-full ${n <= stepIndex ? "w-6 bg-blue-700" : "w-1.5 bg-slate-300"}`} />
             ))}
           </div>
@@ -145,7 +149,7 @@ export default function Onboarding() {
 
           {stateStatus(state) === "open" ? (
             <div className="mt-auto pt-8">
-              <button onClick={() => setStep("assist")} className={primaryButton}>
+              <button onClick={() => setStep("monitoring")} className={primaryButton}>
                 Continuar
               </button>
             </div>
@@ -167,6 +171,75 @@ export default function Onboarding() {
               </button>
             </form>
           )}
+        </div>
+      )}
+
+      {step === "monitoring" && (
+        <div className="animate-rise flex flex-1 flex-col pt-12">
+          <h1 className="font-display text-[34px] font-black leading-tight text-blue-700">Activa tu monitoreo de crédito</h1>
+          <p className="mt-3 text-[17px] text-slate-500">
+            Es lo que nos deja ver tu reporte de los 3 burós, y es tu único costo.
+          </p>
+          <div className="card mt-8 overflow-hidden">
+            {[
+              ["Cuánto cuesta", `${priceLabel} al mes`],
+              ["Con quién lo contratas", providerName ?? "Un servicio de monitoreo independiente"],
+              ["Qué incluye CreditCapi", "La app, tus cartas y el envío por correo"],
+              ["Cancelar", "Cuando quieras, directo con el servicio"],
+            ].map(([label, value], index) => (
+              <div key={label} className={`flex items-baseline justify-between gap-4 px-5 py-4 ${index > 0 ? "border-t hairline" : ""}`}>
+                <span className="text-[15px] text-slate-500">{label}</span>
+                <span className="text-right text-[16px] font-medium text-slate-900">{value}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-[13px] leading-relaxed text-slate-500">
+            {AFFILIATE_DISCLOSURE.es}
+            {whatsappNumber ? (
+              <>
+                {" "}
+                ¿Usas ITIN en lugar de Seguro Social?{" "}
+                <a
+                  href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent("Hola, uso ITIN. ¿Puedo contratar el monitoreo?")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-blue-700"
+                >
+                  Escríbenos antes de contratar.
+                </a>
+              </>
+            ) : (
+              " ¿Usas ITIN en lugar de Seguro Social? Escríbenos antes de contratar."
+            )}
+          </p>
+          <div className="mt-auto space-y-3 pt-8">
+            {signupUrl ? (
+              <>
+                <a
+                  href={signupUrl}
+                  target="_blank"
+                  rel="noopener noreferrer sponsored"
+                  onClick={() => save("bonalti.monitoringClicked", new Date().toISOString())}
+                  className={primaryButton}
+                >
+                  Activar mi monitoreo
+                </a>
+                <button
+                  onClick={() => setStep("assist")}
+                  className="pressable flex h-14 w-full items-center justify-center rounded-full bg-slate-100 text-[17px] font-medium text-slate-900"
+                >
+                  Ya lo tengo, continuar
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => setStep("assist")} className={primaryButton}>
+                  Continuar
+                </button>
+                <p className="text-center text-[13px] text-slate-500">En esta demo usamos un reporte de ejemplo.</p>
+              </>
+            )}
+          </div>
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MONITORING_OFFER } from "@/lib/monitoring/offer";
 import Logo, { CapiAvatar } from "@/components/Logo";
 
 // Landing. The brand board in product form: navy field, gold action, Capi up
@@ -65,7 +66,7 @@ export default function Landing() {
           {[
             ["Todo en español", "La app, las explicaciones y la ayuda de nuestro equipo. Puedes escucharlas en vez de leerlas."],
             ["Tú tienes el control", "Capi prepara todo. Nada se envía hasta que tú lo lees y lo apruebas."],
-            ["Un solo costo", "El software es gratis. Solo necesitas tu suscripción de monitoreo de crédito."],
+            ["Un solo costo", `El software es gratis. Solo necesitas tu suscripción de monitoreo de crédito (${MONITORING_OFFER.priceLabel}/mes).`],
           ].map(([title, body]) => (
             <div key={title} className="card p-7">
               <h2 className="font-display text-[22px] font-extrabold text-blue-700">{title}</h2>

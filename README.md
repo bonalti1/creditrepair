@@ -4,7 +4,7 @@
 
 Consumer-facing DIY credit dispute software. Spanish-first, Texas launch.
 The software is free; revenue is the required credit monitoring subscription
-(affiliate/white-label). Implements the spec in `Bonalti Credit SaaS — Spec v2`
+(IdentityIQ, paid to us as a referral commission). Implements the spec in `Bonalti Credit SaaS — Spec v2`
 (Dispute Beast architecture + Armor).
 
 **Positioning rule (enforced in code):** the USER disputes — we provide the tool.
@@ -99,8 +99,8 @@ npm run build
 
 ## Build order & status (spec §7)
 
-- [ ] **Phase 0 (gating, non-code):** monitoring partner outreach (Array / SmartCredit
-  white-label / IdentityIQ affiliate) · attorney session (TX CSO, ToS, claim
+- [ ] **Phase 0 (gating, non-code):** monitoring provider chosen: **IdentityIQ**
+  (partner onboarding and report access pending — `docs/IDENTITYIQ.md`) · attorney session (TX CSO, ToS, claim
   guardrails, TSR/funnel) · TX CSO registration + $10k bond (default: register)
 - [x] **Phase 1:** onboarding UI, report import + parser, Supabase Auth (magic
   link, middleware gate, RLS-backed persistence), monitoring adapter layer
@@ -121,7 +121,9 @@ npm run build
 
 ## Open items (spec §8 — resolve, don't assume)
 
-- Monitoring provider choice + affiliate vs white-label economics (dependency #1).
+- Monitoring provider: IdentityIQ, paid by commission rather than by billing the
+  customer. Open with IDIQ: partner terms, whether paid ads are allowed, how the
+  app reads a report, ITIN enrollment. See `docs/IDENTITYIQ.md`.
 - TX CSO applicability to the $0-software model (default: register regardless).
 - Whether requiring paid monitoring re-characterizes the "free" software as a paid
   credit service — **the load-bearing legal question; needs a real answer**.
