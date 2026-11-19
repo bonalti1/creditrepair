@@ -3,11 +3,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { DEMO_REPORT } from "@/lib/demo";
-import { buildAttackPlan } from "@/lib/domain/attack";
 import { renderLetter } from "@/lib/letters/templates";
-import type { ItemFlag, PlannedLetter } from "@/lib/domain/types";
+import type { PlannedLetter } from "@/lib/domain/types";
 import { getStageExplainers } from "@/lib/ux/explainers";
 import { countByState, useFlags } from "@/lib/ux/flagsStore";
+import { sessionPlan } from "@/lib/ux/sessionPlan";
 import { useLocale } from "@/lib/i18n";
 import IdentityDocs from "@/components/IdentityDocs";
 import Icon from "@/components/Icon";
@@ -31,42 +31,9 @@ export default function Attack() {
 
   const counts = countByState(flags);
 
-  const attestedFlags: ItemFlag[] = useMemo(
-    () =>
-      Object.entries(flags)
-        .filter(([, f]) => f.state === "attested" && f.attestedAt)
-        .map(([fingerprint, f]) => ({
-          fingerprint,
-          reason: f.reason ?? "",
-          attested: true,
-          attestedAt: f.attestedAt!,
-        })),
-    [flags],
-  );
-
-  const hasPersonalInfo = useMemo(
-    () =>
-      DEMO_REPORT.items.some(
-        (i) =>
-          i.category === "personal_info" &&
-          attestedFlags.some((f) => f.fingerprint === i.fingerprint),
-      ),
-    [attestedFlags],
-  );
-
   // Round 1 handles personal-info cleanup; if the user attested no personal-info
-  // items, jump straight to the round-2 dispute plan so the attack isn't empty.
-  const roundNumber = hasPersonalInfo ? 1 : 2;
-  const plan = useMemo(
-    () =>
-      buildAttackPlan({
-        roundNumber,
-        items: DEMO_REPORT.items,
-        flags: attestedFlags,
-        history: {},
-      }),
-    [roundNumber, attestedFlags],
-  );
+  // items, the plan jumps straight to round 2 so the attack isn't empty.
+  const { attestedFlags, roundNumber, plan } = useMemo(() => sessionPlan(DEMO_REPORT.items, flags), [flags]);
 
   if (!hydrated) return null;
 

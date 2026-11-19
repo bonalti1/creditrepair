@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 // Onboarding happens before sign-in, so its answers wait in the browser. Once
 // the customer is inside the app and signed in, this sends them to the profile
-// one time. Signed out (demo), the request is refused and nothing happens.
+// one time. Signed out (demo), nothing is sent: the request would only be refused.
 
 const KEYS = { goal: "bonalti.goal", state: "bonalti.state", assisted: "bonalti.assisted", ref: "bonalti.ref" };
 const SYNCED = "bonalti.onboardingSynced";
@@ -12,6 +12,10 @@ const SYNCED = "bonalti.onboardingSynced";
 export default function OnboardingSync() {
   useEffect(() => {
     try {
+      // Signed in means Supabase has set its session cookie ("sb-…-auth-token").
+      const signedIn = document.cookie.split(";").some((c) => (c.split("=")[0] ?? "").includes("-auth-token"));
+      if (!signedIn) return;
+
       const read = (key: string) => window.localStorage.getItem(key);
       const goal = read(KEYS.goal);
       const state = read(KEYS.state);

@@ -126,7 +126,12 @@ export default function Invitar() {
       <section className="card mt-6 p-5">
         <p className={label}>Mensaje listo para enviar</p>
         <p className="whitespace-pre-line break-words text-[15px] leading-relaxed text-slate-900">
-          {ready ? message : "Escribe tu nombre y el del cliente para ver el mensaje."}
+          {ready
+            ? // The link may break at any character, so a break never reads as a hyphen in the address.
+              message.split(url).flatMap((part, i) =>
+                i === 0 ? [part] : [<span key={i} className="break-all">{url}</span>, part],
+              )
+            : "Escribe tu nombre y el del cliente para ver el mensaje."}
         </p>
       </section>
 

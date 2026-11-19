@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { checkMarketingCopy } from "../src/lib/compliance/guardrails";
 import { buildPrompts, checkSpot, estimateCredits, listSpots, loadLock, timelineSeconds, type Spot } from "./pipeline/spot";
 
 const lock = loadLock();
@@ -27,6 +29,24 @@ describe("ad spots", () => {
       expect(request.video.prompt).toContain(lock.voice.direction);
       expect(request.video.prompt).toContain("No subtitles");
     }
+  });
+});
+
+describe("ad text around the video", () => {
+  const ads = JSON.parse(readFileSync("content/ads/mecanico.json", "utf8")) as {
+    primaryText: string[]; headline: string[]; description: string[];
+  };
+
+  it("passes the claim rules, line by line", () => {
+    for (const line of [...ads.primaryText, ...ads.headline, ...ads.description]) {
+      expect(checkMarketingCopy(line), line).toEqual([]);
+    }
+  });
+
+  it("fits Meta's display lengths", () => {
+    for (const line of ads.headline) expect(line.length, line).toBeLessThanOrEqual(40);
+    for (const line of ads.description) expect(line.length, line).toBeLessThanOrEqual(50);
+    for (const line of ads.primaryText) expect(line.length, line).toBeLessThanOrEqual(220);
   });
 });
 

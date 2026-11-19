@@ -56,11 +56,11 @@ export default function SpeakButton({
       type="button"
       onClick={toggle}
       aria-label={label}
-      className={`pressable inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full text-xs font-medium ${
-        speaking ? "bg-amber-400 text-blue-900" : "bg-slate-100 text-slate-600"
-      } ${compact ? "h-8 w-8" : "h-8 px-3"} ${className}`}
+      className={`pressable inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full text-[14px] font-semibold ${
+        speaking ? "bg-amber-400 text-blue-900" : "bg-slate-100 text-slate-700"
+      } ${compact ? "h-11 w-11" : "h-11 px-4"} ${className}`}
     >
-      <Icon name={speaking ? "stop" : "speaker"} size={16} />
+      <Icon name={speaking ? "stop" : "speaker"} size={compact ? 20 : 18} />
       {!compact && <span>{label}</span>}
     </button>
   );

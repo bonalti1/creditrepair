@@ -46,6 +46,9 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/security/` | Rate limiter, constant-time secret checks, WhatsApp webhook signature verification |
 | `src/lib/observability/errors.ts`, `src/instrumentation.ts` | Error log lines + optional alert webhook (`ERROR_WEBHOOK_URL`) |
 | `src/lib/__tests__/`, `content/spots.test.ts` | Test suite (`npm test`), run in CI |
+| `src/lib/monitoring/subscription.ts` | When a monitoring subscription counts as active: a report from the last 45 days, and no cancellation on record |
+| `src/lib/letters/enclosures.ts` | ID and proof-of-address photos attached as pages behind each mailed letter |
+| `supabase/setup.sql` | Every migration in order, for pasting into the Supabase SQL editor (a test keeps it in sync) |
 | `src/lib/sales/`, `src/app/equipo/invitar` | Sales-first handoff: the salesperson's invite link and the page that builds it — see `docs/SALES-FLOW.md` |
 | `content/` | Ad content kit: locked mascot, spot files, claim gate, assembly and transcript check — see `content/README.md` |
 
@@ -87,6 +90,11 @@ npm run build
 ```
 
 ### Before going live
+
+The owner's step-by-step list, with the messages to send and every account and
+variable, is in `docs/GO-LIVE.md`. `GET /api/health` (with the shared secret)
+reports what is configured and what is missing.
+
 
 - Set `WHATSAPP_APP_SECRET`. With WhatsApp credentials present and no app secret,
   the inbound webhook refuses every request rather than accept unsigned ones.

@@ -67,6 +67,23 @@ function fingerprint(bureau: Bureau, category: ItemCategory, identity: string): 
     .slice(0, 24);
 }
 
+// Personal-info entries are named the way they should read in a letter to a
+// bureau, which is written in English ("Address: 123 Old Street").
+const PERSONAL_INFO_LABEL: Record<string, string> = {
+  address: "Address",
+  name: "Name",
+  employer: "Employer",
+  dob: "Date of birth",
+  ssn_variant: "SSN variant",
+};
+
+function personalInfoName(field: string, value: string): string {
+  const key = field.trim().toLowerCase();
+  const plain = field.trim().replace(/_/g, " ");
+  const label = PERSONAL_INFO_LABEL[key] ?? plain.charAt(0).toUpperCase() + plain.slice(1);
+  return `${label}: ${value}`;
+}
+
 const NEGATIVE_STATUS = /collection|charge.?off|late|delinquen|repossess|foreclos|derog|settled|default/i;
 
 export function parseReport(input: unknown): NormalizedReport {
@@ -123,7 +140,8 @@ export function parseReport(input: unknown): NormalizedReport {
         fingerprint: fingerprint(bureau, "personal_info", `${pi.field}|${pi.value}`),
         bureau,
         category: "personal_info",
-        name: `${pi.field}: ${pi.value}`,
+        // The fingerprint stays on the raw field and value; only the display name changes.
+        name: personalInfoName(pi.field, pi.value),
         furnisher: null,
         data: pi,
         negative: false,

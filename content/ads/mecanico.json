@@ -1,0 +1,19 @@
+{
+  "spot": "mecanico",
+  "note": "Text that goes around the video in Meta Ads Manager. Every line passes the claim rules (content/spots.test.ts). Meta: declare the special ad category for financial products and services before publishing.",
+  "primaryText": [
+    "De carros Capi no sabe nada. De tu reporte de crédito, sí. Te lo explica paso a paso, en español, y tú decides qué hacer. Escríbenos por WhatsApp.",
+    "¿Nunca nadie te explicó tu reporte de crédito? Capi, nuestro asistente con IA, te lo explica punto por punto. Tú revisas, tú decides y tú envías. Los resultados varían.",
+    "Tu reporte de crédito, en palabras simples. Una persona de nuestro equipo te recibe por WhatsApp y Capi te acompaña en la app. Disponible en Texas."
+  ],
+  "headline": [
+    "Tu crédito, explicado paso a paso",
+    "Entiende tu reporte de crédito",
+    "Capi te lo explica. Tú decides."
+  ],
+  "description": [
+    "Software en español. Tú decides y tú envías.",
+    "Hablamos por WhatsApp. Sin promesas."
+  ],
+  "button": "Enviar mensaje de WhatsApp"
+}

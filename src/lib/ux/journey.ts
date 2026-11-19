@@ -48,7 +48,7 @@ const COPY = {
     },
     attack: (n: number) => ({
       title: "Tu ataque está listo para tu revisión",
-      description: `${n} elemento(s) atestiguados. Lee cada carta (te la explicamos en palabras simples) y apruébala cuando estés seguro.`,
+      description: `${n === 1 ? "1 elemento confirmado" : `${n} elementos confirmados`}. Lee cada carta (te la explicamos en palabras simples) y aprueba cuando lo tengas claro.`,
       cta: "Revisar mi ataque",
     }),
     waiting: (daysLeft: number) => ({
@@ -86,7 +86,7 @@ const COPY = {
     },
     attack: (n: number) => ({
       title: "Your attack is ready for your review",
-      description: `${n} attested item(s). Read each letter (we explain it in plain words) and approve when you're sure.`,
+      description: `${n === 1 ? "1 confirmed item" : `${n} confirmed items`}. Read each letter (we explain it in plain words) and approve when you're sure.`,
       cta: "Review my attack",
     }),
     waiting: (daysLeft: number) => ({
@@ -105,6 +105,28 @@ const COPY = {
     },
   },
 } as const;
+
+/**
+ * The journey state for the demo session, built the same way on every screen
+ * so they all agree on the next step. Only decisions about items that are on
+ * the current report count; a decision left over from an older report does not.
+ */
+export function sessionJourneyState(
+  items: ReadonlyArray<{ fingerprint: string }>,
+  flags: Readonly<Record<string, { state: string } | undefined>>,
+  roundApproved: boolean,
+): JourneyState {
+  const decided = items.map((i) => flags[i.fingerprint]).filter((f) => f !== undefined);
+  return {
+    reportImported: true,
+    totalItems: items.length,
+    reviewedCount: decided.length,
+    attestedCount: decided.filter((f) => f.state === "attested").length,
+    roundApproved,
+    // The demo keeps no mailing date; an approved round counts as mailed today.
+    mailedAt: roundApproved ? new Date().toISOString() : null,
+  };
+}
 
 export function nextAction(s: JourneyState, locale: Locale = "es"): JourneyStep {
   const totalSteps = 5;

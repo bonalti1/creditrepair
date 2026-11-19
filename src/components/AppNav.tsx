@@ -22,10 +22,10 @@ function LocaleToggle() {
   return (
     <button
       onClick={() => setLocale(locale === "es" ? "en" : "es")}
-      className="pressable flex h-8 items-center gap-1.5 rounded-full bg-slate-100 px-3 text-xs font-semibold text-slate-700"
+      className="pressable flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full bg-slate-100 px-4 text-[13px] font-semibold text-slate-700"
       aria-label={locale === "es" ? "Switch to English" : "Cambiar a español"}
     >
-      <Icon name="globe" size={14} />
+      <Icon name="globe" size={16} />
       {locale === "es" ? "EN" : "ES"}
     </button>
   );

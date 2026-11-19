@@ -1,0 +1,8 @@
+# Netlify: its Next.js runtime is detected automatically.
+# With no environment variables the app runs in demo mode with sample data.
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"

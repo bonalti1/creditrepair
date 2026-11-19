@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { DEMO_REPORT, DEMO_SCORE_HISTORY } from "@/lib/demo";
-import { countByState, useFlags } from "@/lib/ux/flagsStore";
-import { nextAction } from "@/lib/ux/journey";
+import { useFlags } from "@/lib/ux/flagsStore";
+import { nextAction, sessionJourneyState } from "@/lib/ux/journey";
 import { useLocale } from "@/lib/i18n";
 import Icon, { type IconName } from "@/components/Icon";
 
@@ -78,21 +78,11 @@ export default function Home() {
   const es = locale === "es";
   const items = DEMO_REPORT.items;
   const negatives = items.filter((i) => i.negative);
-  const counts = countByState(flags);
 
   if (!hydrated) return null;
 
-  const step = nextAction(
-    {
-      reportImported: true,
-      totalItems: items.length,
-      reviewedCount: counts.reviewed,
-      attestedCount: counts.attested,
-      roundApproved,
-      mailedAt: roundApproved ? new Date().toISOString() : null,
-    },
-    locale,
-  );
+  // Built by the shared helper so Home, Review, Audit and Rounds agree on the next step.
+  const step = nextAction(sessionJourneyState(items, flags, roundApproved), locale);
 
   const score = average(DEMO_REPORT.scores);
   const firstScore = average(DEMO_SCORE_HISTORY[0]?.scores ?? {});

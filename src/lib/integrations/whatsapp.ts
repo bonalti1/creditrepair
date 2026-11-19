@@ -28,9 +28,9 @@ export function renderMessage(event: WhatsAppEvent): string {
     case "letters_mailed":
       return `📬 ¡Listo! Tus ${event.letterCount} cartas del ataque #${event.roundNumber} fueron impresas y enviadas por correo. Los burós suelen responder en un plazo de ~30 días.${appLink("/rounds")}`;
     case "items_deleted":
-      return `🎉 ¡Buenas noticias! ${event.deletedCount} elemento(s) ya no aparecen en tu reporte. Quedan ${event.remainingCount}. Los resultados varían según cada caso.${appLink("/rounds")}`;
+      return `🎉 ¡Buenas noticias! ${event.deletedCount === 1 ? "1 elemento ya no aparece" : `${event.deletedCount} elementos ya no aparecen`} en tu reporte. Quedan ${event.remainingCount}. Los resultados varían según cada caso.${appLink("/rounds")}`;
     case "day40_reengage":
-      return `📊 Actualizamos tu reporte: ${event.deletedCount} elemento(s) eliminados, ${event.remainingCount} pendientes. Entra a la app para armar tu próximo ataque.${appLink("/attack")}`;
+      return `📊 Actualizamos tu reporte: ${event.deletedCount === 1 ? "1 elemento eliminado" : `${event.deletedCount} elementos eliminados`}, ${event.remainingCount === 1 ? "1 pendiente" : `${event.remainingCount} pendientes`}. Entra a la app para armar tu próximo ataque.${appLink("/attack")}`;
   }
 }
 

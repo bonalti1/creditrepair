@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getAdminClient } from "@/lib/supabase/admin";
 import { getServerSupabase, getSessionUser } from "@/lib/supabase/server";
 
 // Letter outcome tracking: what did the bureau/furnisher actually do with each
 // item? Feeds two things: (1) escalation grounded in a recorded "verified"
 // response rather than guesswork, and (2) honest per-round result screens.
-// RLS scopes every write to the signed-in user's own letters.
+// Ownership is established with the customer's own session (row-level security
+// only shows them their own letters); the write itself is done by the server,
+// because customers cannot write letter or report records directly.
 
 const bodySchema = z.object({
   letterId: z.string().uuid(),
@@ -23,20 +26,28 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const { letterId, itemId, outcome, notes } = parsed.data;
 
-  const { error, count } = await supabase
+  // Visible through the customer's session only if the letter is theirs.
+  const { data: owned } = await supabase
     .from("letter_items")
-    .update(
-      { outcome, outcome_at: new Date().toISOString(), outcome_notes: notes ?? null },
-      { count: "exact" },
-    )
+    .select("letter_id")
+    .eq("letter_id", letterId)
+    .eq("item_id", itemId)
+    .maybeSingle();
+  if (!owned) return NextResponse.json({ error: "Letter item not found" }, { status: 404 });
+
+  const db = getAdminClient();
+  if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+
+  const { error } = await db
+    .from("letter_items")
+    .update({ outcome, outcome_at: new Date().toISOString(), outcome_notes: notes ?? null })
     .eq("letter_id", letterId)
     .eq("item_id", itemId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!count) return NextResponse.json({ error: "Letter item not found" }, { status: 404 });
 
   // A recorded deletion also retires the item itself.
   if (outcome === "deleted") {
-    await supabase
+    await db
       .from("report_items")
       .update({ status: "deleted", deleted_detected_at: new Date().toISOString() })
       .eq("id", itemId)
