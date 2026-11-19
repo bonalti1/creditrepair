@@ -15,7 +15,7 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const parsedBody = bodySchema.safeParse(await req.json());
+  const parsedBody = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsedBody.success) {
     return NextResponse.json({ error: parsedBody.error.flatten() }, { status: 400 });
   }

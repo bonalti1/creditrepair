@@ -7,6 +7,7 @@ import { ATTESTATION_TEXT } from "@/lib/compliance/attestation";
 import { buildAttackPlan } from "@/lib/domain/attack";
 import { getCategoryExplainers } from "@/lib/ux/explainers";
 import { countByState, useFlags } from "@/lib/ux/flagsStore";
+import { useChatThread, type ChatMsg } from "@/lib/ux/chatStore";
 import { useLocale } from "@/lib/i18n";
 import type { ItemFlag } from "@/lib/domain/types";
 import SpeakButton from "@/components/SpeakButton";
@@ -18,11 +19,10 @@ import { CapiAvatar } from "@/components/Logo";
 // decides, attests, and sends — the same three legally load-bearing taps, now
 // inside the chat. Free-text questions go to the guardrailed coach. The
 // assistant is always identified as AI; a human teammate is one tap away.
+// The thread itself is saved (server-side when signed in), so the client picks
+// up the same conversation on any device.
 
-interface Msg {
-  role: "assistant" | "user";
-  text: string;
-}
+type Msg = ChatMsg;
 
 const BUREAU_LABEL: Record<string, string> = {
   equifax: "Equifax",
@@ -37,7 +37,8 @@ export default function Asistente() {
   const { locale, d } = useLocale();
   const es = locale === "es";
   const { flags, review, roundApproved, setRoundApproved, hydrated } = useFlags();
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const { messages, append, hydrated: chatHydrated } = useChatThread();
+  const seeded = useRef(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [flagging, setFlagging] = useState(false);
@@ -78,9 +79,12 @@ export default function Asistente() {
           ? "attack"
           : "done-empty";
 
-  // Seed the opening messages once per visit, matched to where the client is.
+  // Seed the opening messages once, matched to where the client is. A saved
+  // thread is shown as it was left: nothing is added on a return visit.
   useEffect(() => {
-    if (!hydrated || messages.length > 0) return;
+    if (!hydrated || !chatHydrated || seeded.current) return;
+    seeded.current = true;
+    if (messages.length > 0) return;
     const opening: Msg[] = [
       {
         role: "assistant",
@@ -111,16 +115,16 @@ export default function Asistente() {
           : "Your letters are on their way. Bureaus have ~30 days to respond and I'll message you here with any news. Any questions meanwhile?",
       });
     }
-    setMessages(opening);
+    append(opening);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated]);
+  }, [hydrated, chatHydrated]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, phase, flagging]);
 
-  const say = (text: string) => setMessages((m) => [...m, { role: "assistant", text }]);
-  const youSay = (text: string) => setMessages((m) => [...m, { role: "user", text }]);
+  const say = (text: string) => append([{ role: "assistant", text }]);
+  const youSay = (text: string) => append([{ role: "user", text }]);
 
   const afterDecision = () => {
     const left = pending.length - 1;
@@ -162,10 +166,32 @@ export default function Asistente() {
     );
   };
 
+  /** Record an exchange the coach endpoint did not store. No-op when signed out. */
+  const saveExchange = (question: string, answer: string) => {
+    fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: [
+          { role: "user", text: question.slice(0, 4000) },
+          { role: "assistant", text: answer.slice(0, 4000) },
+        ],
+      }),
+    }).catch(() => undefined);
+  };
+
   const ask = async (text: string) => {
     const q = text.trim();
     if (!q || busy) return;
-    youSay(q);
+    // The coach gets the recent thread as context, starting at a client turn.
+    const recent = messages.slice(-12);
+    const firstUser = recent.findIndex((m) => m.role === "user");
+    const context = (firstUser === -1 ? [] : recent.slice(firstUser)).map((m) => ({
+      role: m.role,
+      content: m.text.slice(0, 4000),
+    }));
+    // Shown now; the server records coach exchanges itself (remote: false).
+    append([{ role: "user", text: q }], { remote: false });
     setInput("");
     setBusy(true);
     const wantsHuman = /persona|humano|alguien|person|human/i.test(q);
@@ -180,22 +206,27 @@ export default function Asistente() {
       const res = await fetch("/api/coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [{ role: "user", content: q }] }),
+        body: JSON.stringify({ messages: [...context, { role: "user", content: q.slice(0, 4000) }] }),
       });
       if (res.ok) {
-        const { reply } = (await res.json()) as { reply: string };
-        say(reply);
+        const { reply, stored } = (await res.json()) as { reply: string; stored?: boolean };
+        append([{ role: "assistant", text: reply }], { remote: false });
+        // Signed in but the server could not record it: save both lines the
+        // ordinary way so the thread is still complete on other devices.
+        if (!stored) saveExchange(q, reply);
       } else {
-        say(fallback);
+        append([{ role: "assistant", text: fallback }], { remote: false });
+        saveExchange(q, fallback);
       }
     } catch {
-      say(fallback);
+      append([{ role: "assistant", text: fallback }], { remote: false });
+      saveExchange(q, fallback);
     } finally {
       setBusy(false);
     }
   };
 
-  if (!hydrated) return null;
+  if (!hydrated || !chatHydrated) return null;
   const explainer = current ? getCategoryExplainers(locale)[current.category] : null;
 
   return (

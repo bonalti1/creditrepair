@@ -3,6 +3,7 @@ import { getMonitoringAdapter } from "@/lib/monitoring";
 import { importReportForUser } from "@/lib/domain/importReport";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { sendWhatsApp } from "@/lib/integrations/whatsapp";
+import { hasSharedSecret } from "@/lib/security/signatures";
 
 // The ~40-day round loop (spec §4.4), as one idempotent endpoint that n8n (or
 // any cron) hits hourly with the shared secret:
@@ -12,8 +13,7 @@ import { sendWhatsApp } from "@/lib/integrations/whatsapp";
 //   deep link into the next step.
 
 export async function POST(req: Request) {
-  const secret = process.env.N8N_WEBHOOK_SECRET;
-  if (!secret || req.headers.get("x-webhook-secret") !== secret) {
+  if (!hasSharedSecret(req, process.env.N8N_WEBHOOK_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
