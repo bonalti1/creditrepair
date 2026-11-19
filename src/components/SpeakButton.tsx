@@ -57,7 +57,7 @@ export default function SpeakButton({
       onClick={toggle}
       aria-label={label}
       className={`pressable inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full text-xs font-medium ${
-        speaking ? "bg-blue-700 text-white" : "bg-slate-100 text-slate-600"
+        speaking ? "bg-amber-400 text-blue-900" : "bg-slate-100 text-slate-600"
       } ${compact ? "h-8 w-8" : "h-8 px-3"} ${className}`}
     >
       <Icon name={speaking ? "stop" : "speaker"} size={16} />

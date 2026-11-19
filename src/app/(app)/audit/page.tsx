@@ -136,7 +136,7 @@ export default function Audit() {
       <div className="mt-8 rounded-xl border border-blue-200 bg-blue-50 p-5 text-center print:hidden">
         <Link
           href="/items"
-          className="inline-block rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white hover:bg-blue-800"
+          className="inline-block rounded-lg bg-amber-400 px-6 py-3 font-semibold text-blue-900 hover:bg-amber-500"
         >
           {d.audit.cta}
         </Link>

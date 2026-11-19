@@ -53,12 +53,12 @@ export default function Mas() {
   const es = locale === "es";
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER;
   const humanHref = whatsapp
-    ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(es ? "Hola, necesito ayuda con mi cuenta de Bonalti." : "Hi, I need help with my Bonalti account.")}`
+    ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(es ? "Hola, necesito ayuda con mi cuenta de CreditCapi." : "Hi, I need help with my CreditCapi account.")}`
     : "/asistente";
 
   return (
     <main className="animate-rise space-y-6">
-      <h1 className="px-1 text-[34px] font-bold leading-tight text-slate-900">{d.nav.more}</h1>
+      <h1 className="px-1 font-display text-[34px] font-black leading-tight text-blue-700">{d.nav.more}</h1>
 
       <section>
         <h2 className="px-1 pb-2 text-[13px] font-semibold uppercase tracking-wide text-slate-500">

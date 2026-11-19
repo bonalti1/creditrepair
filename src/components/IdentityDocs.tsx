@@ -84,7 +84,7 @@ export default function IdentityDocs() {
                 {uploaded[k.kind] ? "✅ " : "📎 "}
                 {locale === "es" ? k.es : k.en}
               </span>
-              <span className="cursor-pointer rounded bg-blue-700 px-3 py-1 text-xs font-semibold text-white">
+              <span className="cursor-pointer rounded bg-amber-400 px-3 py-1 text-xs font-semibold text-blue-900">
                 {busy === k.kind ? "…" : uploaded[k.kind] ? (locale === "es" ? "Reemplazar" : "Replace") : locale === "es" ? "Subir" : "Upload"}
                 <input
                   type="file"

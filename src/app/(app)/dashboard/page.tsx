@@ -41,8 +41,8 @@ function ScoreRing({ score, caption }: { score: number; caption: string }) {
       <svg width={size} height={size} role="img" aria-label={`${score}`}>
         <defs>
           <linearGradient id="ring" x1="0" y1="0" x2={size} y2={size} gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="var(--color-blue-400)" />
-            <stop offset="1" stopColor="var(--color-blue-700)" />
+            <stop offset="0" stopColor="var(--color-amber-600)" />
+            <stop offset="1" stopColor="var(--color-amber-300)" />
           </linearGradient>
         </defs>
         <g transform={`rotate(135 ${center} ${center})`} fill="none" strokeWidth={stroke} strokeLinecap="round">
@@ -127,7 +127,7 @@ export default function Home() {
 
         <Link
           href={step.href}
-          className="pressable mt-5 flex h-14 items-center justify-center rounded-full bg-blue-700 text-[17px] font-semibold text-white hover:bg-blue-800"
+          className="pressable mt-5 flex h-14 items-center justify-center rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500"
         >
           {step.cta}
         </Link>

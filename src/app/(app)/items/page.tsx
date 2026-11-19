@@ -109,7 +109,7 @@ export default function Items() {
           {counts.attested > 0 && (
             <Link
               href="/attack"
-              className="mt-4 inline-block rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white hover:bg-blue-800"
+              className="mt-4 inline-block rounded-lg bg-amber-400 px-6 py-3 font-semibold text-blue-900 hover:bg-amber-500"
             >
               {d.items.goToAttack}
             </Link>
@@ -266,7 +266,7 @@ function WizardCard({
             <button
               onClick={() => (attestChecked ? onAttest(reason) : onFlag(reason))}
               disabled={!attestChecked}
-              className="rounded-lg bg-blue-700 px-5 py-2.5 font-semibold text-white disabled:bg-slate-300"
+              className="rounded-lg bg-amber-400 px-5 py-2.5 font-semibold text-blue-900 disabled:bg-slate-300"
             >
               {d.items.confirm}
             </button>

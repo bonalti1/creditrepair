@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase/client";
+import Logo from "@/components/Logo";
 
 // Passwordless sign-in built for people who live on their phone: a text-message
 // code is the default (no email required, nothing to remember); an email link
@@ -33,7 +34,7 @@ function LoginForm() {
         </p>
         <Link
           href="/asistente"
-          className="pressable mt-4 inline-flex h-12 items-center rounded-full bg-blue-700 px-6 font-semibold text-white hover:bg-blue-800"
+          className="pressable mt-4 inline-flex h-12 items-center rounded-full bg-amber-400 px-6 font-semibold text-blue-900 hover:bg-amber-500"
         >
           Explorar la demo →
         </Link>
@@ -114,7 +115,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={busy || code.length < 6}
-          className="pressable h-14 w-full rounded-full bg-blue-700 text-[17px] font-semibold text-white hover:bg-blue-800 disabled:bg-slate-200 disabled:text-slate-500"
+          className="pressable h-14 w-full rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500 disabled:bg-slate-200 disabled:text-slate-500"
         >
           {busy ? "Verificando…" : "Entrar"}
         </button>
@@ -146,7 +147,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={busy || phone.replace(/\D/g, "").length < 10}
-            className="pressable h-14 w-full rounded-full bg-blue-700 text-[17px] font-semibold text-white hover:bg-blue-800 disabled:bg-slate-200 disabled:text-slate-500"
+            className="pressable h-14 w-full rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500 disabled:bg-slate-200 disabled:text-slate-500"
           >
             {busy ? "Enviando…" : "Mandarme el código"}
           </button>
@@ -171,7 +172,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={busy || !email}
-            className="pressable h-14 w-full rounded-full bg-blue-700 text-[17px] font-semibold text-white hover:bg-blue-800 disabled:bg-slate-200 disabled:text-slate-500"
+            className="pressable h-14 w-full rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500 disabled:bg-slate-200 disabled:text-slate-500"
           >
             {busy ? "Enviando…" : "Mandarme el enlace"}
           </button>
@@ -194,11 +195,11 @@ function LoginForm() {
 export default function Login() {
   return (
     <main className="mx-auto max-w-md px-6 py-14">
-      <Link href="/" className="text-[15px] font-semibold tracking-tight text-slate-900">
-        Bonalti
+      <Link href="/" aria-label="CreditCapi">
+        <Logo size={24} />
       </Link>
-      <h1 className="mt-10 text-[34px] font-bold leading-tight text-slate-900">Entrar</h1>
-      <p className="mt-2 text-[17px] text-slate-500">Tu asistente y tu reporte te esperan.</p>
+      <h1 className="mt-10 font-display text-[34px] font-black leading-tight text-blue-700">Entrar</h1>
+      <p className="mt-2 text-[17px] text-slate-500">Capi y tu reporte te esperan.</p>
       <div className="mt-6">
         <Suspense fallback={null}>
           <LoginForm />

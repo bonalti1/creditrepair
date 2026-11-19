@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
 import Icon from "@/components/Icon";
+import Logo, { CapiAvatar } from "@/components/Logo";
 
 // Onboarding: goal (feeds the mortgage track) → state gate (v1 is TX-only;
 // other states join the waitlist, since expansion is a legal project, not a
@@ -30,7 +31,7 @@ function save(key: string, value: string) {
 }
 
 const primaryButton =
-  "pressable flex h-14 w-full items-center justify-center rounded-full bg-blue-700 text-[17px] font-semibold text-white hover:bg-blue-800 disabled:bg-slate-200 disabled:text-slate-500";
+  "pressable flex h-14 w-full items-center justify-center rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500 disabled:bg-slate-200 disabled:text-slate-500";
 
 export default function Onboarding() {
   const router = useRouter();
@@ -59,7 +60,7 @@ export default function Onboarding() {
     save("bonalti.assisted", assisted ? "1" : "0");
     if (assisted && whatsappNumber) {
       window.open(
-        `https://wa.me/${whatsappNumber}?text=${encodeURIComponent("¡Hola! Quiero ayuda en vivo para revisar mi crédito con Bonalti.")}`,
+        `https://wa.me/${whatsappNumber}?text=${encodeURIComponent("¡Hola! Quiero ayuda en vivo para revisar mi crédito con CreditCapi.")}`,
         "_blank",
       );
     }
@@ -69,8 +70,8 @@ export default function Onboarding() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-10 pt-6">
       <div className="flex items-center justify-between">
-        <Link href="/" className="text-[15px] font-semibold tracking-tight text-slate-900">
-          Bonalti
+        <Link href="/" aria-label="CreditCapi">
+          <Logo size={19} />
         </Link>
         {step !== "waitlist-done" && (
           <div className="flex gap-1.5" aria-label={`Paso ${stepIndex} de 3`}>
@@ -83,7 +84,7 @@ export default function Onboarding() {
 
       {step === "goal" && (
         <div className="animate-rise flex flex-1 flex-col pt-12">
-          <h1 className="text-[34px] font-bold leading-tight text-slate-900">¿Para qué quieres mejorar tu crédito?</h1>
+          <h1 className="font-display text-[34px] font-black leading-tight text-blue-700">¿Para qué quieres mejorar tu crédito?</h1>
           <p className="mt-3 text-[17px] text-slate-500">Tu meta guía tu progreso. Puedes cambiarla después.</p>
           <div className="card mt-8 overflow-hidden">
             {GOALS.map((g, index) => (
@@ -98,7 +99,7 @@ export default function Onboarding() {
                 {g.label}
                 <span
                   className={`flex h-6 w-6 items-center justify-center rounded-full ${
-                    goal === g.key ? "bg-blue-700 text-white" : "border-2 border-slate-300"
+                    goal === g.key ? "bg-amber-400 text-blue-900" : "border-2 border-slate-300"
                   }`}
                 >
                   {goal === g.key && <Icon name="check" size={14} strokeWidth={3} />}
@@ -125,7 +126,7 @@ export default function Onboarding() {
 
       {step === "state" && (
         <div className="animate-rise flex flex-1 flex-col pt-12">
-          <h1 className="text-[34px] font-bold leading-tight text-slate-900">¿En qué estado vives?</h1>
+          <h1 className="font-display text-[34px] font-black leading-tight text-blue-700">¿En qué estado vives?</h1>
           <p className="mt-3 text-[17px] text-slate-500">
             Abrimos estado por estado, porque cada uno tiene sus propias reglas. Hoy: Texas.
           </p>
@@ -171,17 +172,15 @@ export default function Onboarding() {
 
       {step === "assist" && (
         <div className="animate-rise flex flex-1 flex-col pt-12">
-          <h1 className="text-[34px] font-bold leading-tight text-slate-900">¿Cómo quieres hacerlo?</h1>
+          <h1 className="font-display text-[34px] font-black leading-tight text-blue-700">¿Cómo quieres hacerlo?</h1>
           <p className="mt-3 text-[17px] text-slate-500">De cualquier forma, tú decides y tú envías.</p>
           <div className="mt-8 space-y-3">
             <button onClick={() => finish(false)} className="card pressable flex w-full items-center gap-4 p-5 text-left">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700">
-                <Icon name="sparkle" size={24} />
-              </span>
+              <CapiAvatar size={48} ring={false} />
               <span className="min-w-0 flex-1">
-                <span className="block text-[17px] font-semibold text-slate-900">Con mi asistente</span>
+                <span className="block text-[17px] font-semibold text-slate-900">Con Capi, mi asistente</span>
                 <span className="block text-[15px] leading-snug text-slate-500">
-                  La app te explica cada paso en palabras simples.
+                  Capi te explica cada paso en palabras simples.
                 </span>
               </span>
               <Icon name="chevron" size={18} className="shrink-0 text-slate-300" />

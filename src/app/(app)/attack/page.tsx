@@ -82,7 +82,7 @@ export default function Attack() {
           </p>
           <Link
             href="/items"
-            className="mt-4 inline-block rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white hover:bg-blue-800"
+            className="mt-4 inline-block rounded-lg bg-amber-400 px-6 py-3 font-semibold text-blue-900 hover:bg-amber-500"
           >
             {d.attack.goToReview}
           </Link>
@@ -119,7 +119,7 @@ export default function Attack() {
             <div className="mt-4 flex justify-center gap-3">
               <Link
                 href="/rounds"
-                className="rounded-lg bg-blue-700 px-5 py-2.5 font-semibold text-white hover:bg-blue-800"
+                className="rounded-lg bg-amber-400 px-5 py-2.5 font-semibold text-blue-900 hover:bg-amber-500"
               >
                 {d.attack.trackRound}
               </Link>
@@ -136,7 +136,7 @@ export default function Attack() {
             <p className="text-sm text-blue-900">{d.attack.approveNote}</p>
             <button
               onClick={() => setRoundApproved(true)}
-              className="mt-4 w-full rounded-xl bg-blue-700 px-6 py-4 text-lg font-bold text-white hover:bg-blue-800 sm:w-auto"
+              className="mt-4 w-full rounded-xl bg-amber-400 px-6 py-4 text-lg font-bold text-blue-900 hover:bg-amber-500 sm:w-auto"
             >
               {d.attack.approveButton(plan.letters.length)}
             </button>

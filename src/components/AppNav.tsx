@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale } from "@/lib/i18n";
 import Icon, { type IconName } from "@/components/Icon";
+import Logo from "@/components/Logo";
 
 // Three destinations, like a good phone app: where you stand, your assistant,
 // and everything else. Translucent bars keep the content feeling continuous.
@@ -41,8 +42,8 @@ export default function AppNav() {
     <>
       <header className="sticky top-0 z-30 border-b hairline bg-white/75 backdrop-blur-xl">
         <div className="mx-auto flex h-12 max-w-2xl items-center justify-between px-4 sm:h-14 sm:px-6">
-          <Link href="/" className="text-[15px] font-semibold tracking-tight text-slate-900">
-            Bonalti
+          <Link href="/" aria-label="CreditCapi">
+            <Logo size={19} />
           </Link>
 
           <nav className="hidden items-center gap-1 sm:flex">

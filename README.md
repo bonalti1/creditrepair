@@ -1,4 +1,6 @@
-# Bonalti Crédito — DIY Credit Dispute SaaS
+# CreditCapi — DIY Credit Dispute SaaS
+
+*(Consumer brand: CreditCapi, with the AI assistant "Capi". Internal/spec name: Bonalti Credit.)*
 
 Consumer-facing DIY credit dispute software. Spanish-first, Texas launch.
 The software is free; revenue is the required credit monitoring subscription

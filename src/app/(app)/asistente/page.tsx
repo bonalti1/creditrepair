@@ -11,6 +11,7 @@ import { useLocale } from "@/lib/i18n";
 import type { ItemFlag } from "@/lib/domain/types";
 import SpeakButton from "@/components/SpeakButton";
 import Icon from "@/components/Icon";
+import { CapiAvatar } from "@/components/Logo";
 
 // The conversation. The client's whole journey lives in one thread with their
 // AI assistant: it leads with proactive messages and action cards; the client
@@ -84,8 +85,8 @@ export default function Asistente() {
       {
         role: "assistant",
         text: es
-          ? `Hola 👋 Soy tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós: ${items.length} elementos, ${negatives} posiblemente negativos.`
-          : `Hi 👋 I'm your AI credit assistant. I already imported your 3-bureau report: ${items.length} items, ${negatives} possibly negative.`,
+          ? `Hola 👋 Soy Capi, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós: ${items.length} elementos, ${negatives} posiblemente negativos.`
+          : `Hi 👋 I'm Capi, your AI credit assistant. I already imported your 3-bureau report: ${items.length} items, ${negatives} possibly negative.`,
       },
     ];
     if (phase === "review") {
@@ -200,16 +201,14 @@ export default function Asistente() {
   return (
     <main className="card animate-rise -mt-1 flex h-[calc(100dvh-9.75rem)] flex-col overflow-hidden sm:h-[calc(100dvh-8.5rem)]">
       <header className="flex items-center gap-3 border-b hairline px-4 py-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-blue-700 text-white">
-          <Icon name="sparkle" size={20} />
-        </span>
+        <CapiAvatar size={42} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[16px] font-semibold leading-tight text-slate-900">
-            {es ? "Tu asistente" : "Your assistant"}
+            Capi
           </span>
           <span className="flex items-center gap-1.5 text-xs text-slate-500">
             <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-            {es ? "Inteligencia artificial" : "Artificial intelligence"}
+            {es ? "Asistente con IA" : "AI assistant"}
           </span>
         </span>
         <button
@@ -303,7 +302,7 @@ export default function Asistente() {
                   <button
                     onClick={confirmFlag}
                     disabled={!attestChecked}
-                    className="pressable h-[52px] rounded-full bg-blue-700 text-[16px] font-semibold text-white disabled:bg-slate-200 disabled:text-slate-500"
+                    className="pressable h-[52px] rounded-full bg-amber-400 text-[16px] font-semibold text-blue-900 disabled:bg-slate-200 disabled:text-slate-500"
                   >
                     {d.items.confirm}
                   </button>
@@ -340,7 +339,7 @@ export default function Asistente() {
             )}
             <button
               onClick={approve}
-              className="pressable mt-4 h-14 w-full rounded-full bg-blue-700 text-[17px] font-semibold text-white hover:bg-blue-800"
+              className="pressable mt-4 h-14 w-full rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500"
             >
               {es ? `Aprobar y enviar ${plan.letters.length} cartas` : `Approve and send ${plan.letters.length} letters`}
             </button>
@@ -378,7 +377,7 @@ export default function Asistente() {
           type="submit"
           disabled={busy || !input.trim()}
           aria-label={es ? "Enviar" : "Send"}
-          className="pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-700 text-white disabled:bg-slate-200 disabled:text-slate-400"
+          className="pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-400 text-blue-900 disabled:bg-slate-200 disabled:text-slate-400"
         >
           <Icon name="arrowUp" size={20} strokeWidth={2.25} />
         </button>

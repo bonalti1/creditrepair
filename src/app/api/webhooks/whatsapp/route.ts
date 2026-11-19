@@ -14,7 +14,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 // always knows). A human teammate takes over threads without the 🤖 prefix.
 const AI_PREFIX = "🤖 ";
 const FALLBACK =
-  "¡Gracias por tu mensaje! Soy el asistente de IA de Bonalti. Para revisar tu reporte y armar tu ataque, entra a la app. Si tienes una pregunta sobre tu crédito, escríbela y te respondo aquí mismo. Si prefieres hablar con una persona del equipo, dilo y te conectamos. 🙂";
+  "¡Gracias por tu mensaje! Soy Capi, el asistente de IA de CreditCapi. Para revisar tu reporte y armar tu ataque, entra a la app. Si tienes una pregunta sobre tu crédito, escríbela y te respondo aquí mismo. Si prefieres hablar con una persona del equipo, dilo y te conectamos. 🙂";
 
 export async function GET(req: Request) {
   // Meta webhook verification handshake.

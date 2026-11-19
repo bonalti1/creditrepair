@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Logo, { CapiAvatar } from "@/components/Logo";
 
 // /empezar — the paid-traffic funnel page (Meta Click-to-WhatsApp + Google).
 // Structure mirrors what converts in this category (hero promise → numbered
@@ -7,7 +8,7 @@ import Link from "next/link";
 // routes to WhatsApp when configured (the spec's funnel), else to onboarding.
 
 export const metadata = {
-  title: "Bonalti Crédito — Empieza en 5 minutos",
+  title: "CreditCapi — Empieza en 5 minutos",
   description:
     "Software gratuito de disputas de crédito en español. Tú revisas, tú apruebas, tú envías. Los resultados varían.",
 };
@@ -18,12 +19,12 @@ const STEPS = [
     title: "Conecta tu monitoreo e importa tu reporte",
     body: "Con tu suscripción de monitoreo (~$49/mes, el único costo), importamos tu reporte de los 3 burós — Equifax, Experian y TransUnion — y te mostramos exactamente qué sigue, un paso a la vez.",
     img: "/screens/journey.png",
-    alt: "Panel de Bonalti mostrando el siguiente paso",
+    alt: "Panel de CreditCapi mostrando el siguiente paso",
   },
   {
     n: 2,
     title: "Revisa cada elemento, explicado en palabras simples",
-    body: "Nada de tecnicismos: te explicamos qué es cada cuenta, cobranza o consulta, y qué verificar. Tú marcas solo lo que crees inexacto, no verificable o desactualizado — y lo confirmas con tu firma electrónica.",
+    body: "Nada de tecnicismos: Capi te explica qué es cada cuenta, cobranza o consulta, y qué verificar. Tú marcas solo lo que crees inexacto, no verificable o desactualizado — y lo confirmas con tu firma electrónica.",
     img: "/screens/revisar.png",
     alt: "Revisión guiada con atestiguación",
   },
@@ -49,7 +50,7 @@ const FAQ: Array<[string, string]> = [
   ],
   [
     "¿Esto tiene que ver con mi estatus migratorio?",
-    "No. Revisar y disputar tu propio reporte de crédito es un derecho de todo consumidor bajo la ley federal (FCRA). Bonalti no te pide información migratoria. (Esto no es asesoría legal.)",
+    "No. Revisar y disputar tu propio reporte de crédito es un derecho de todo consumidor bajo la ley federal (FCRA). CreditCapi no te pide información migratoria. (Esto no es asesoría legal.)",
   ],
   [
     "¿Necesito número de Seguro Social?",
@@ -68,18 +69,24 @@ const FAQ: Array<[string, string]> = [
 export default function Empezar() {
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER;
   const ctaHref = whatsapp
-    ? `https://wa.me/${whatsapp}?text=${encodeURIComponent("¡Hola! Quiero empezar a revisar mi crédito con Bonalti.")}`
+    ? `https://wa.me/${whatsapp}?text=${encodeURIComponent("¡Hola! Quiero empezar a revisar mi crédito con CreditCapi.")}`
     : "/onboarding";
   const ctaLabel = whatsapp ? "Escríbenos por WhatsApp →" : "Empezar ahora — es gratis →";
 
   return (
-    <main className="bg-white">
-      <section className="mx-auto max-w-3xl px-6 pb-12 pt-16 text-center">
-        <p className="text-[15px] font-semibold text-blue-700">Bonalti Crédito</p>
-        <h1 className="mt-3 text-[40px] font-bold leading-[1.08] text-slate-900 sm:text-[56px]">
-          Tu asistente de crédito con IA — tú solo das el OK
+    <main className="bg-slate-50">
+      <section className="relative overflow-hidden bg-gradient-to-b from-blue-800 to-blue-900 px-6 pb-32 pt-10 text-center text-white">
+        <div className="mx-auto max-w-3xl">
+        <div className="flex justify-center">
+          <Logo size={28} tone="dark" />
+        </div>
+        <div className="mt-8 flex justify-center">
+          <CapiAvatar size={88} ring={false} />
+        </div>
+        <h1 className="mt-5 font-display text-[40px] font-black leading-[1.05] sm:text-[60px]">
+          Capi, tu asistente de crédito con IA. <span className="text-amber-400">Tú solo das el OK.</span>
         </h1>
-        <p className="mx-auto mt-5 max-w-2xl text-[19px] leading-relaxed text-slate-500">
+        <p className="mx-auto mt-5 max-w-2xl text-[19px] leading-relaxed text-blue-100">
           La IA hace el trabajo pesado: lee tu reporte, encuentra lo negativo, te lo explica,
           escribe tus cartas y las envía por correo. <strong>Tú decides qué disputar y tú
           apruebas</strong> — 3 toques por ronda, ~5 minutos al mes. Software gratuito; solo
@@ -87,16 +94,21 @@ export default function Empezar() {
         </p>
         <a
           href={ctaHref}
-          className="pressable mt-8 inline-flex h-14 items-center rounded-full bg-blue-700 px-9 text-[17px] font-semibold text-white hover:bg-blue-800"
+          className="pressable mt-8 inline-flex h-14 items-center rounded-full bg-amber-400 px-9 text-[17px] font-bold text-blue-900 hover:bg-amber-300"
         >
           {ctaLabel}
         </a>
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-4 text-[13px] text-blue-200">
           Sin contratos de servicio · Ayuda en vivo gratis si la quieres · Cancela tu monitoreo cuando quieras
         </p>
+      </div>
+        <svg viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true" className="absolute inset-x-0 bottom-0 h-20 w-full sm:h-28">
+          <path d="M0 62C380 132 1060 -8 1440 54V120H0Z" fill="var(--color-amber-400)" />
+          <path d="M0 84C380 146 1060 14 1440 76V120H0Z" fill="var(--color-slate-50)" />
+        </svg>
       </section>
 
-      <section className="border-t border-slate-100 bg-slate-50 py-14">
+      <section className="bg-slate-50 py-14">
         <div className="mx-auto max-w-4xl space-y-14 px-6">
           {STEPS.map((s) => (
             <div key={s.n} className="grid items-center gap-8 sm:grid-cols-2">
@@ -104,7 +116,7 @@ export default function Empezar() {
                 <span className="inline-block rounded-full bg-blue-100 px-3 py-1 text-sm font-bold text-blue-700">
                   Paso {s.n}
                 </span>
-                <h2 className="mt-3 text-2xl font-bold">{s.title}</h2>
+                <h2 className="mt-3 font-display text-[26px] font-extrabold leading-tight text-blue-700">{s.title}</h2>
                 <p className="mt-2 text-slate-600">{s.body}</p>
               </div>
               <div className={s.n % 2 === 0 ? "sm:order-1" : ""}>
@@ -112,7 +124,7 @@ export default function Empezar() {
                 <img
                   src={s.img}
                   alt={s.alt}
-                  className="card w-full"
+                  className="card mx-auto w-full max-w-[300px]"
                 />
               </div>
             </div>
@@ -121,7 +133,7 @@ export default function Empezar() {
       </section>
 
       <section className="mx-auto max-w-3xl px-6 py-14 text-center">
-        <h2 className="text-2xl font-bold">Hecho para nuestra comunidad</h2>
+        <h2 className="font-display text-[28px] font-black text-blue-700">Hecho para nuestra comunidad</h2>
         <div className="mt-6 grid gap-4 text-left sm:grid-cols-2">
           {[
             ["La IA trabaja, tú mandas", "Tu asistente prepara todo y te avisa por WhatsApp. Las compañías que 'lo hacen por ti' son las que acaban demandadas — aquí TÚ tienes el control, y eso te protege."],
@@ -137,7 +149,7 @@ export default function Empezar() {
         </div>
         <a
           href={ctaHref}
-          className="pressable mt-10 inline-flex h-14 items-center rounded-full bg-blue-700 px-9 text-[17px] font-semibold text-white hover:bg-blue-800"
+          className="pressable mt-10 inline-flex h-14 items-center rounded-full bg-amber-400 px-9 text-[17px] font-semibold text-blue-900 hover:bg-amber-500"
         >
           {ctaLabel}
         </a>
@@ -145,7 +157,7 @@ export default function Empezar() {
 
       <section className="border-t border-slate-100 bg-slate-50 py-14">
         <div className="mx-auto max-w-2xl px-6">
-          <h2 className="text-center text-2xl font-bold">Preguntas que nos hacen siempre</h2>
+          <h2 className="text-center font-display text-[28px] font-black text-blue-700">Preguntas que nos hacen siempre</h2>
           <div className="mt-6 space-y-3">
             {FAQ.map(([q, a]) => (
               <details key={q} className="card p-6">
@@ -159,7 +171,7 @@ export default function Empezar() {
 
       <footer className="border-t border-slate-100 px-6 py-8 text-center">
         <p className="mx-auto max-w-2xl text-xs text-slate-500">
-          Bonalti Crédito es una herramienta de software DIY (hazlo tú mismo): no disputamos por ti y
+          CreditCapi es una herramienta de software DIY (hazlo tú mismo): no disputamos por ti y
           no garantizamos resultados — los resultados varían según cada caso. Disputar información
           correcta y actual no es el propósito de la herramienta. Requiere una suscripción activa de
           monitoreo de crédito (~$49/mes). Disponible en Texas. Esto no es asesoría legal.{" "}

@@ -19,9 +19,9 @@ const DISCLOSURE_VERSION = "draft-v1"; // ⚠️ attorney must approve before fl
 const DISCLOSURE = {
   es: {
     title: "Divulgación de negocios afiliados",
-    body: `AVISO PARA: el consumidor. DE: Bonalti Crédito.
+    body: `AVISO PARA: el consumidor. DE: CreditCapi.
 
-Bonalti Crédito tiene una relación de negocios con la entidad hipotecaria afiliada de Bonalti: los dueños de Bonalti Crédito también tienen participación en dicha entidad. Debido a esta relación, referirte a esa entidad puede generar un beneficio económico para sus dueños (a través de su participación en la propiedad, no por pagos por referencia).
+CreditCapi tiene una relación de negocios con la entidad hipotecaria afiliada de CreditCapi: los dueños de CreditCapi también tienen participación en dicha entidad. Debido a esta relación, referirte a esa entidad puede generar un beneficio económico para sus dueños (a través de su participación en la propiedad, no por pagos por referencia).
 
 NO estás obligado(a) a usar la entidad afiliada para obtener tu hipoteca. HAY OTROS PROVEEDORES HIPOTECARIOS DISPONIBLES CON SERVICIOS SIMILARES; eres libre de comparar y elegir el proveedor que prefieras.`,
     ack: "He leído esta divulgación y entiendo que NO estoy obligado(a) a usar la entidad afiliada.",
@@ -35,9 +35,9 @@ NO estás obligado(a) a usar la entidad afiliada para obtener tu hipoteca. HAY O
   },
   en: {
     title: "Affiliated Business Arrangement Disclosure",
-    body: `NOTICE TO: the consumer. FROM: Bonalti Crédito.
+    body: `NOTICE TO: the consumer. FROM: CreditCapi.
 
-Bonalti Crédito has a business relationship with Bonalti's affiliated mortgage entity: the owners of Bonalti Crédito also hold an ownership interest in that entity. Because of this relationship, a referral to that entity may provide its owners a financial benefit (through ownership returns, not referral payments).
+CreditCapi has a business relationship with CreditCapi's affiliated mortgage entity: the owners of CreditCapi also hold an ownership interest in that entity. Because of this relationship, a referral to that entity may provide its owners a financial benefit (through ownership returns, not referral payments).
 
 You are NOT required to use the affiliated entity to obtain your mortgage. THERE ARE OTHER MORTGAGE PROVIDERS AVAILABLE WITH SIMILAR SERVICES; you are free to shop around and choose any provider you prefer.`,
     ack: "I have read this disclosure and understand that I am NOT required to use the affiliated entity.",
@@ -108,7 +108,7 @@ export default function Goal() {
       <button
         onClick={acknowledge}
         disabled={!checked}
-        className="mt-4 rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white disabled:bg-slate-300"
+        className="mt-4 rounded-lg bg-amber-400 px-6 py-3 font-semibold text-blue-900 disabled:bg-slate-300"
       >
         {c.confirm}
       </button>
