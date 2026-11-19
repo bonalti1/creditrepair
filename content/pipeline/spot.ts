@@ -33,6 +33,17 @@ export interface Caption {
   to: number;
 }
 
+/**
+ * On-screen text over the opening seconds: the line that stops the scroll.
+ * It is not spoken, so it is checked on its own against the claim rules.
+ */
+export interface Hook {
+  id: string;
+  html: string;
+  from?: number;
+  to?: number;
+}
+
 export interface Spot {
   id: string;
   title: string;
@@ -40,7 +51,10 @@ export interface Spot {
   lines: Array<{ speaker: string; text: string }>;
   shots: Shot[];
   captions: Caption[];
+  hook?: Hook;
 }
+
+export const HOOK_DEFAULTS = { from: 0.15, to: 3.4 };
 
 export interface Lock {
   character: { name: string; look: string; wardrobe: string; scale: string; manner: string; never: string[] };
@@ -52,6 +66,7 @@ export interface Lock {
   };
   voice: { status: string; direction: string };
   captions: { font: string; sizePx: number; color: string; highlight: string; stroke: string; centerY: Record<string, number> };
+  hook: { sizePx: number; centerY: Record<string, number> };
   endCard: { seconds: number; tagline: string; legal: string };
 }
 
@@ -64,6 +79,20 @@ export function loadLock(): Lock {
 export function loadSpot(idOrPath: string): Spot {
   const path = idOrPath.endsWith(".json") ? idOrPath : join(CONTENT_DIR, "spots", `${idOrPath}.json`);
   return JSON.parse(readFileSync(path, "utf8")) as Spot;
+}
+
+/** Alternative opening hooks for a spot: content/hooks/<spot-id>.json. Empty if none. */
+export function loadHooks(spotId: string): Hook[] {
+  try {
+    return JSON.parse(readFileSync(join(CONTENT_DIR, "hooks", `${spotId}.json`), "utf8")) as Hook[];
+  } catch {
+    return [];
+  }
+}
+
+/** One spot per hook, named <spot>-<hook>. Same footage, different opening text. */
+export function hookVariants(spot: Spot, hooks: Hook[]): Spot[] {
+  return hooks.map((hook) => ({ ...spot, id: `${spot.id}-${hook.id}`, hook }));
 }
 
 export function listSpots(): Spot[] {
@@ -82,6 +111,7 @@ export function spotTexts(spot: Spot, lock: Lock): Array<{ where: string; text: 
     { where: "all lines together", text: spot.lines.map((l) => l.text).join(" ") },
     ...spot.captions.map((c, i) => ({ where: `caption ${i + 1}`, text: stripTags(c.html) })),
     { where: "all captions together", text: spot.captions.map((c) => stripTags(c.html)).join(" ") },
+    ...(spot.hook ? [{ where: `hook ${spot.hook.id}`, text: stripTags(spot.hook.html) }] : []),
     { where: "end card tagline", text: stripTags(lock.endCard.tagline) },
     { where: "end card legal line", text: lock.endCard.legal },
   ];
@@ -128,6 +158,13 @@ export function checkSpot(spot: Spot, lock: Lock): SpotProblem[] {
     if (c.from < previousEnd) problems.push({ where: `caption ${i + 1}`, problem: "overlaps the previous caption" });
     if (c.to > total - lock.endCard.seconds) problems.push({ where: `caption ${i + 1}`, problem: "runs into the end card" });
     previousEnd = c.to;
+  }
+  if (spot.hook) {
+    const from = spot.hook.from ?? HOOK_DEFAULTS.from;
+    const to = spot.hook.to ?? HOOK_DEFAULTS.to;
+    if (!(from >= 0 && from < to)) problems.push({ where: `hook ${spot.hook.id}`, problem: "ends before it starts" });
+    if (to > total - lock.endCard.seconds) problems.push({ where: `hook ${spot.hook.id}`, problem: "runs into the end card" });
+    if (stripTags(spot.hook.html).length > 60) problems.push({ where: `hook ${spot.hook.id}`, problem: "longer than 60 characters; it will not be read in time" });
   }
   for (const shot of spot.shots) {
     if (!(shot.in >= 0 && shot.in < shot.out && shot.out <= shot.seconds)) {

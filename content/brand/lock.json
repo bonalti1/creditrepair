@@ -16,18 +16,35 @@
     ]
   },
   "references": {
-    "closeup": { "file": "capi-reference-closeup.jpg", "higgsfieldJobId": "973edccc-9401-48a0-918c-97704560f586" },
-    "wide": { "file": "capi-reference-wide.jpg", "higgsfieldJobId": "05c7bd73-a89f-47e5-9296-5e8c076efe26" }
+    "closeup": {
+      "file": "capi-reference-closeup.jpg",
+      "higgsfieldJobId": "973edccc-9401-48a0-918c-97704560f586"
+    },
+    "wide": {
+      "file": "capi-reference-wide.jpg",
+      "higgsfieldJobId": "05c7bd73-a89f-47e5-9296-5e8c076efe26"
+    }
   },
   "look": "Photoreal live-action TV commercial, deadpan comedy, shot on 35mm, late-afternoon golden light, locked-off camera on a tripod, natural film grain.",
   "models": {
-    "still": { "id": "gpt_image_2_6", "quality": "high", "resolution": "2k", "creditsEach": 2.75 },
-    "video": { "id": "gemini_omni_flash_1_2", "mode": "image-to-video", "resolution": "1080p", "creditsPerSecond": 3.25, "creditsPerSecond720p": 2.25 }
+    "still": {
+      "id": "gpt_image_2_6",
+      "quality": "high",
+      "resolution": "2k",
+      "creditsEach": 2.75
+    },
+    "video": {
+      "id": "gemini_omni_flash_1_2",
+      "mode": "image-to-video",
+      "resolution": "1080p",
+      "creditsPerSecond": 3.25,
+      "creditsPerSecond720p": 2.25
+    }
   },
   "voice": {
     "status": "not locked",
     "direction": "Mexican Spanish, warm friendly adult male voice with gentle deadpan humor, natural conversational pace.",
-    "note": "The video model invents the voice on every render, so it can differ between videos. Choose one voice and apply it to every clip before publishing at volume."
+    "note": "The video model invents the voice on every render, so it differs between videos. It could not be locked from the approved ad: cloning a voice needs 10 seconds or more of clear speech, the approved take has about 4.5, and the three takes made so far are three different voices. To lock it: pick the take whose voice is right (or a preset voice), record one line of 10+ seconds in it, create the voice, then run every new clip through voice change before assembly."
   },
   "captions": {
     "font": "Nunito 900",
@@ -35,11 +52,21 @@
     "color": "#ffffff",
     "highlight": "#ffc21a",
     "stroke": "14px #06173b",
-    "centerY": { "9:16": 1400, "16:9": 900 }
+    "centerY": {
+      "9:16": 1400,
+      "16:9": 900
+    }
   },
   "endCard": {
     "seconds": 3,
     "tagline": "Tu crédito, explicado <b>paso a paso.</b>",
     "legal": "Software para que tú disputes tu propio reporte. Tú decides y tú envías. Los resultados varían."
+  },
+  "hook": {
+    "sizePx": 84,
+    "centerY": {
+      "9:16": 430,
+      "16:9": 170
+    }
   }
 }

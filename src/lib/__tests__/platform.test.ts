@@ -111,3 +111,20 @@ describe("chat history helpers", () => {
     expect(toModelMessages(long, 12)[0]!.role).toBe("user");
   });
 });
+
+describe("login gate file", () => {
+  // The framework only loads the gate from next to the app folder. At the
+  // repository root it is silently ignored and every app page is left open,
+  // which is how it sat until this test existed.
+  it("lives in src/, beside app/, and exports proxy with the protected paths", async () => {
+    const { existsSync, readFileSync } = await import("node:fs");
+    expect(existsSync("src/proxy.ts")).toBe(true);
+    expect(existsSync("proxy.ts")).toBe(false);
+    expect(existsSync("middleware.ts")).toBe(false);
+    const source = readFileSync("src/proxy.ts", "utf8");
+    expect(source).toMatch(/export async function proxy\(/);
+    for (const path of ["/asistente", "/mas", "/dashboard", "/audit", "/items", "/attack", "/rounds", "/goal"]) {
+      expect(source).toContain(`"${path}/:path*"`);
+    }
+  });
+});

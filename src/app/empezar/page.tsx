@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Logo, { CapiAvatar } from "@/components/Logo";
+import { MONITORING_OFFER, monitoringNameEs } from "@/lib/monitoring/offer";
 
 // /empezar — the paid-traffic funnel page (Meta Click-to-WhatsApp + Google).
 // Structure mirrors what converts in this category (hero promise → numbered
@@ -17,7 +18,7 @@ const STEPS = [
   {
     n: 1,
     title: "Conecta tu monitoreo e importa tu reporte",
-    body: "Con tu suscripción de monitoreo (~$49/mes, el único costo), importamos tu reporte de los 3 burós — Equifax, Experian y TransUnion — y te mostramos exactamente qué sigue, un paso a la vez.",
+    body: `Con ${monitoringNameEs()} (${MONITORING_OFFER.priceLabel}/mes, el único costo), importamos tu reporte de los 3 burós — Equifax, Experian y TransUnion — y te mostramos exactamente qué sigue, un paso a la vez.`,
     img: "/screens/journey.png",
     alt: "Panel de CreditCapi mostrando el siguiente paso",
   },
@@ -46,7 +47,7 @@ const FAQ: Array<[string, string]> = [
   ],
   [
     "¿Cuánto cuesta en total?",
-    "Solo tu suscripción de monitoreo de crédito (~$49 al mes). La app, las cartas, el envío por correo y la ayuda de nuestro equipo van incluidos. Cancelas cuando quieras.",
+    `Solo ${monitoringNameEs()} (${MONITORING_OFFER.priceLabel} al mes), que contratas directo con el servicio de monitoreo. La app, las cartas, el envío por correo y la ayuda de nuestro equipo van incluidos. Cancelas cuando quieras.`,
   ],
   [
     "¿Esto tiene que ver con mi estatus migratorio?",
@@ -174,7 +175,9 @@ export default function Empezar() {
           CreditCapi es una herramienta de software DIY (hazlo tú mismo): no disputamos por ti y
           no garantizamos resultados — los resultados varían según cada caso. Disputar información
           correcta y actual no es el propósito de la herramienta. Requiere una suscripción activa de
-          monitoreo de crédito (~$49/mes). Disponible en Texas. Esto no es asesoría legal.{" "}
+          monitoreo de crédito ({MONITORING_OFFER.priceLabel}/mes), que se contrata con un servicio de monitoreo
+          independiente; CreditCapi recibe una comisión por esa suscripción. Disponible en Texas. Esto no es
+          asesoría legal.{" "}
           <Link href="/" className="text-blue-700 underline">
             Más información
           </Link>

@@ -34,6 +34,22 @@ describe("parseReport", () => {
     expect(new Set(report.items.map((i) => i.fingerprint)).size).toBe(report.items.length);
   });
 
+  it("accepts a report that covers fewer than three bureaus and fills optional fields", () => {
+    const partial = parseReport({
+      source: "test",
+      pulledAt: "2026-07-01T00:00:00.000Z",
+      bureaus: { experian: { tradelines: [{ creditor: "Acme Bank" }] } },
+    });
+    expect(partial.items).toHaveLength(1);
+    expect(partial.items[0]!.bureau).toBe("experian");
+    expect(partial.items[0]!.data).toMatchObject({ accountNumberMasked: "", status: "", remarks: [] });
+    expect(partial.scores).toEqual({});
+  });
+
+  it("rejects an unknown bureau", () => {
+    expect(() => parseReport({ source: "x", pulledAt: "now", bureaus: { innovis: {} } })).toThrow();
+  });
+
   it("rejects a payload that is not a report", () => {
     expect(() => parseReport({ source: "x" })).toThrow();
     expect(() => parseReport({ source: "x", pulledAt: "now", bureaus: { equifax: { score: 9000 } } })).toThrow();

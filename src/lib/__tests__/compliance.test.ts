@@ -3,6 +3,7 @@ import { ATTESTATION_TEXT, ATTESTATION_VERSION, buildAttestationRecord } from "@
 import { assertClaimGuardrails, checkClaimGuardrails, checkMarketingCopy } from "@/lib/compliance/guardrails";
 import { ALL_STATES, openStates, stateStatus } from "@/lib/compliance/states";
 import { renderMessage, type WhatsAppEvent } from "@/lib/integrations/whatsapp";
+import { AFFILIATE_DISCLOSURE, MONITORING_OFFER, monitoringNameEs } from "@/lib/monitoring/offer";
 
 const rules = (text: string) => checkClaimGuardrails(text).map((v) => v.rule);
 const adRules = (text: string) => checkMarketingCopy(text).map((v) => v.rule);
@@ -76,6 +77,26 @@ describe("advertising rules", () => {
   it("does not apply the advertising rules to ordinary conversation", () => {
     // The coach may explain how scores work; only ads are barred from the imperative promise.
     expect(rules("Pagar a tiempo ayuda: así es como la gente mejora tu puntaje con el tiempo.")).toEqual([]);
+  });
+});
+
+describe("monitoring offer", () => {
+  it("does not name the provider before a partner link exists", () => {
+    // No NEXT_PUBLIC_MONITORING_SIGNUP_URL in the test environment.
+    expect(MONITORING_OFFER.signupUrl).toBeNull();
+    expect(MONITORING_OFFER.providerName).toBeNull();
+    expect(monitoringNameEs()).toBe("tu suscripción de monitoreo de crédito");
+  });
+
+  it("discloses the commission in both languages, within the claim rules", () => {
+    expect(AFFILIATE_DISCLOSURE.es).toMatch(/comisión/);
+    expect(AFFILIATE_DISCLOSURE.en).toMatch(/commission/);
+    expect(adRules(AFFILIATE_DISCLOSURE.es)).toEqual([]);
+    expect(adRules(AFFILIATE_DISCLOSURE.en)).toEqual([]);
+  });
+
+  it("shows a price", () => {
+    expect(MONITORING_OFFER.priceLabel).toMatch(/\$\d+/);
   });
 });
 
