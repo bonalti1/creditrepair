@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
 import { getAdminClient } from "@/lib/supabase/admin";
 
@@ -18,7 +19,9 @@ export async function POST(req: Request) {
   const limited = rateLimit(req, "waitlist", { limit: 5, windowMs: 10 * 60_000 });
   if (limited) return limited;
 
-  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
+  const body = await readJsonBody(req, 4_000);
+  if (!body.ok) return NextResponse.json({ error: "Invalid request body" }, { status: body.status });
+  const parsed = bodySchema.safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const db = getAdminClient();

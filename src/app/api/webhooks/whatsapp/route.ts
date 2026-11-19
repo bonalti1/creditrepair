@@ -62,6 +62,8 @@ interface InboundMessage {
 
 export async function POST(req: Request) {
   const rawBody = await req.text();
+  // Real deliveries are a few kilobytes.
+  if (rawBody.length > 1_000_000) return NextResponse.json({ error: "Payload too large" }, { status: 413 });
 
   const appSecret = process.env.WHATSAPP_APP_SECRET;
   const whatsappConfigured = Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);

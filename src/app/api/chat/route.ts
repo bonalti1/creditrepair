@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerSupabase, getSessionUser } from "@/lib/supabase/server";
 import { loadAppThread, MAX_MESSAGE_CHARS } from "@/lib/chat/history";
+import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
 
 // The in-app thread with Capi, stored per user. Runs as the signed-in user
@@ -32,7 +33,9 @@ export async function POST(req: Request) {
   const user = await getSessionUser();
   if (!supabase || !user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-  const parsed = postSchema.safeParse(await req.json().catch(() => null));
+  const body = await readJsonBody(req, 64_000);
+  if (!body.ok) return NextResponse.json({ error: "Invalid request body" }, { status: body.status });
+  const parsed = postSchema.safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const { error } = await supabase.from("chat_messages").insert(

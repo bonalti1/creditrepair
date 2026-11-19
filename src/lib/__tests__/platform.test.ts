@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { toE164, toModelMessages } from "@/lib/chat/history";
 import { resetAlertThrottle, shouldAlert } from "@/lib/observability/errors";
+import { readJsonBody } from "@/lib/security/body";
 import { checkRateLimit, clientIp, rateLimit, resetRateLimits } from "@/lib/security/rateLimit";
 import { hasSharedSecret, safeEqual, signMetaPayload, verifyMetaSignature } from "@/lib/security/signatures";
 
@@ -29,6 +30,25 @@ describe("rate limiter", () => {
     const res = rateLimit(req(), "t", { limit: 1, windowMs: 60_000 });
     expect(res?.status).toBe(429);
     expect(Number(res?.headers.get("Retry-After"))).toBeGreaterThan(0);
+  });
+});
+
+describe("bounded body reader", () => {
+  const post = (body: string, headers: Record<string, string> = {}) =>
+    new Request("https://x.test", { method: "POST", body, headers });
+
+  it("parses a normal body", async () => {
+    expect(await readJsonBody(post('{"a":1}'), 100)).toEqual({ ok: true, data: { a: 1 } });
+  });
+
+  it("refuses an oversized body before parsing it, whatever the header claims", async () => {
+    const big = JSON.stringify({ items: Array.from({ length: 5000 }, (_, i) => i) });
+    expect(await readJsonBody(post(big), 1000)).toEqual({ ok: false, status: 413 });
+    expect(await readJsonBody(post(big, { "content-length": "10" }), 1000)).toEqual({ ok: false, status: 413 });
+  });
+
+  it("reports malformed JSON as a bad request", async () => {
+    expect(await readJsonBody(post("not json"), 100)).toEqual({ ok: false, status: 400 });
   });
 });
 

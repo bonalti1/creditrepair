@@ -5,6 +5,7 @@ import { COACH_SYSTEM_PROMPT } from "@/lib/coach/systemPrompt";
 import { checkClaimGuardrails } from "@/lib/compliance/guardrails";
 import { storeMessage } from "@/lib/chat/history";
 import { reportError } from "@/lib/observability/errors";
+import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/supabase/server";
@@ -32,7 +33,10 @@ export async function POST(req: Request) {
   const limited = rateLimit(req, "coach", { limit: 20, windowMs: 5 * 60_000 });
   if (limited) return limited;
 
-  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
+  // 40 messages of 4,000 characters is ~160 KB; anything past 256 KB is not a conversation.
+  const body = await readJsonBody(req, 256_000);
+  if (!body.ok) return NextResponse.json({ error: "Invalid request body" }, { status: body.status });
+  const parsed = bodySchema.safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const messages = parsed.data.messages;

@@ -90,6 +90,10 @@ npm run build
 - Set `WHATSAPP_APP_SECRET`. With WhatsApp credentials present and no app secret,
   the inbound webhook refuses every request rather than accept unsigned ones.
 - Set `ERROR_WEBHOOK_URL` so failures reach a person (Slack or an n8n webhook).
+- `npm audit` still reports two findings that need major upgrades and were
+  left for a planned change: `zod` 3 → 4 (memory use on oversized collections;
+  mitigated here by size-capped bodies on the public endpoints) and the
+  `postcss` copy bundled inside Next 15 (build-time only, fixed in Next 16).
 - The rate limiter is in-memory and per server instance. Keep the host's own
   firewall / bot protection on in front of `/api/coach` and `/api/waitlist`.
 
