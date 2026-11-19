@@ -1,0 +1,105 @@
+import { describe, expect, it } from "vitest";
+import { ATTESTATION_TEXT, ATTESTATION_VERSION, buildAttestationRecord } from "@/lib/compliance/attestation";
+import { assertClaimGuardrails, checkClaimGuardrails, checkMarketingCopy } from "@/lib/compliance/guardrails";
+import { ALL_STATES, openStates, stateStatus } from "@/lib/compliance/states";
+import { renderMessage, type WhatsAppEvent } from "@/lib/integrations/whatsapp";
+
+const rules = (text: string) => checkClaimGuardrails(text).map((v) => v.rule);
+const adRules = (text: string) => checkMarketingCopy(text).map((v) => v.rule);
+
+describe("claim guardrails", () => {
+  it.each([
+    ["Garantizamos la eliminación de tus deudas", "no-guaranteed-deletions"],
+    ["We guarantee removal of collections", "no-guaranteed-deletions"],
+    ["Sube 100 puntos en 30 días", "no-points-in-days"],
+    ["Gain 80 points in 2 weeks", "no-points-in-days"],
+    ["We can remove accurate information", "no-accurate-removal"],
+    ["Podemos eliminar información correcta", "no-accurate-removal"],
+    ["Nosotros disputamos por ti", "diy-positioning"],
+    ["We fix your credit", "diy-positioning"],
+    ["Reparamos, disputamos y mejoramos tu perfil de crédito", "diy-positioning"],
+    ["Lo que yo te voy a arreglar... es tu crédito.", "diy-positioning"],
+    ["Yo te arreglo tu crédito", "diy-positioning"],
+    ["I'll fix your credit", "diy-positioning"],
+  ])("blocks %s", (text, rule) => {
+    expect(rules(text)).toContain(rule);
+  });
+
+  it.each([
+    "Tú decides qué disputar y tú apruebas.",
+    "Capi prepara todo. Tú decides y tú envías. Los resultados varían.",
+    "Tu ataque #2 está listo para TU aprobación.",
+    "De carros no sé nada. Lo mío es tu crédito. Te lo explico, y tú decides.",
+    "You review each item and you send your own disputes. Results vary.",
+  ])("allows %s", (text) => {
+    expect(rules(text)).toEqual([]);
+  });
+
+  it("throws from the pipeline variant, naming the rule", () => {
+    expect(() => assertClaimGuardrails("Eliminación garantizada", "test")).toThrow(/no-guaranteed-deletions/);
+    expect(() => assertClaimGuardrails("Los resultados varían.", "test")).not.toThrow();
+  });
+
+  it("passes every templated WhatsApp message", () => {
+    const events: WhatsAppEvent[] = [
+      { kind: "report_imported" },
+      { kind: "attack_ready", roundNumber: 2 },
+      { kind: "letters_mailed", roundNumber: 2, letterCount: 5 },
+      { kind: "items_deleted", deletedCount: 2, remainingCount: 3 },
+      { kind: "day40_reengage", deletedCount: 1, remainingCount: 4 },
+    ];
+    for (const event of events) expect(rules(renderMessage(event)), event.kind).toEqual([]);
+  });
+});
+
+describe("advertising rules", () => {
+  it.each([
+    ["Mejora tu crédito hoy", "no-outcome-promise"],
+    ["Aumenta tu puntaje", "no-outcome-promise"],
+    ["Resultados reales", "no-outcome-promise"],
+    ["Boost your credit score fast", "no-outcome-promise"],
+    ["Para que vayas por el carro que siempre quisiste.", "no-outcome-promise"],
+    ["So you can finally buy the house you want", "no-outcome-promise"],
+    ["Aprobación garantizada", "no-approval-claims"],
+  ])("blocks %s", (text, rule) => {
+    expect(adRules(text)).toContain(rule);
+  });
+
+  it("blocks the commercial's original punchline and allows the line that shipped", () => {
+    const original = "Lo que yo te voy a arreglar... es tu crédito. Para que vayas por el carro que siempre quisiste.";
+    expect(adRules(original).sort()).toEqual(["diy-positioning", "no-outcome-promise"]);
+    expect(adRules("De carros no sé nada. Lo mío es tu crédito. Te lo explico, y tú decides.")).toEqual([]);
+    expect(adRules("Tu crédito, explicado paso a paso.")).toEqual([]);
+    expect(adRules("Software para que tú disputes tu propio reporte. Tú decides y tú envías. Los resultados varían.")).toEqual([]);
+  });
+
+  it("does not apply the advertising rules to ordinary conversation", () => {
+    // The coach may explain how scores work; only ads are barred from the imperative promise.
+    expect(rules("Pagar a tiempo ayuda: así es como la gente mejora tu puntaje con el tiempo.")).toEqual([]);
+  });
+});
+
+describe("attestation", () => {
+  it("records the exact text shown to the user, the version and a timestamp", () => {
+    const record = buildAttestationRecord("abc", "es");
+    expect(record.text).toBe(ATTESTATION_TEXT.es);
+    expect(record.version).toBe(ATTESTATION_VERSION);
+    expect(Number.isNaN(Date.parse(record.attestedAt))).toBe(false);
+    expect(buildAttestationRecord("abc", "en").text).toBe("I believe this item is inaccurate, unverifiable, or outdated.");
+  });
+});
+
+describe("state registry", () => {
+  it("opens Texas only", () => {
+    expect(openStates()).toEqual(["TX"]);
+    expect(stateStatus("tx")).toBe("open");
+  });
+
+  it("blocks Georgia and waitlists everything not explicitly cleared", () => {
+    expect(stateStatus("GA")).toBe("blocked");
+    expect(stateStatus("CA")).toBe("waitlist");
+    expect(stateStatus("WY")).toBe("waitlist");
+    expect(stateStatus("ZZ")).toBe("waitlist");
+    expect(ALL_STATES).toHaveLength(50);
+  });
+});
