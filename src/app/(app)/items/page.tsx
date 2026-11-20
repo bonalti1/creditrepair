@@ -5,6 +5,7 @@ import Link from "next/link";
 import { DEMO_REPORT } from "@/lib/demo";
 import { ATTESTATION_TEXT } from "@/lib/compliance/attestation";
 import { getCategoryExplainers, getTermGlossary } from "@/lib/ux/explainers";
+import { crossBureauNote } from "@/lib/ux/crossBureau";
 import { useFlags } from "@/lib/ux/flagsStore";
 import { itemCheckHints, itemFacts, itemKindLine, itemTitle } from "@/lib/ux/itemDisplay";
 import { nextAction, sessionJourneyState } from "@/lib/ux/journey";
@@ -12,6 +13,7 @@ import { useLocale } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/dictionaries";
 import Icon from "@/components/Icon";
 import ItemFacts from "@/components/ItemFacts";
+import { InfoNote } from "@/components/RoundNotes";
 
 // Guided review wizard — the anti-Dispute-Beast item experience. Instead of a
 // wall of rows, ONE item at a time: what it is in plain language, what to
@@ -105,6 +107,8 @@ export default function Items() {
           key={current.fingerprint}
           item={current}
           remaining={pending.length}
+          otherBureaus={crossBureauNote(current, items, flags, locale)?.text ?? null}
+          lettersOut={roundApproved}
           onCorrect={() => {
             review(current.fingerprint, "correct");
             setFocus(null);
@@ -125,9 +129,17 @@ export default function Items() {
 
       {mode === "list" && (
         <div className="card overflow-hidden">
+          {/* Reviewing again stays open after the letters went out; this says what a change then means. */}
+          {roundApproved && (
+            <div className="border-b hairline px-5 py-4">
+              <InfoNote testId="after-mailed-note">{d.items.afterMailedList}</InfoNote>
+            </div>
+          )}
           {items.map((item, index) => {
             const f = flags[item.fingerprint];
             const heading = itemTitle(item, locale);
+            // Shown in the list only when the same account has two different answers.
+            const otherBureaus = crossBureauNote(item, items, flags, locale);
             return (
               <div key={item.fingerprint} className={`px-5 py-4 ${index > 0 ? "border-t hairline" : ""}`}>
                 <div className="flex items-center gap-3">
@@ -148,17 +160,22 @@ export default function Items() {
                   )}
                 </div>
                 {/* Full width, under the title and its button, so the facts are not squeezed into a column. */}
-                <ItemFacts facts={itemFacts(item, locale)} variant="inline" className="mt-1" />
+                <ItemFacts facts={itemFacts(item, locale)} variant="list" className="mt-2" />
                 {f?.state === "attested" && f.attestedAt && (
-                  <p className="mt-1 text-[13px] font-medium tabular-nums text-blue-700">
+                  <p className="mt-2 text-[13px] font-medium tabular-nums text-blue-700">
                     {d.items.attestedOn(new Date(f.attestedAt).toLocaleString(locale === "es" ? "es-MX" : "en-US"))}
                   </p>
                 )}
                 {f?.state === "correct" && (
-                  <p className="mt-1 text-[13px] font-medium text-green-700">{d.items.markedCorrect}</p>
+                  <p className="mt-2 text-[13px] font-medium text-green-700">{d.items.markedCorrect}</p>
                 )}
                 {f?.state === "flagged" && (
                   <p className="mt-1 text-[13px] font-medium text-amber-700">{d.items.flaggedPending}</p>
+                )}
+                {otherBureaus?.differs && (
+                  <InfoNote testId="cross-bureau-note" className="mt-2.5">
+                    {otherBureaus.text}
+                  </InfoNote>
                 )}
               </div>
             );
@@ -200,12 +217,18 @@ export default function Items() {
 function WizardCard({
   item,
   remaining,
+  otherBureaus,
+  lettersOut,
   onCorrect,
   onFlag,
   onAttest,
 }: {
   item: (typeof DEMO_REPORT.items)[number];
   remaining: number;
+  /** A neutral note when the same account is also on another bureau. */
+  otherBureaus: string | null;
+  /** True when this round's letters were already approved: a changed answer counts from the next round. */
+  lettersOut: boolean;
   onCorrect: () => void;
   onFlag: (reason: string) => void;
   onAttest: (reason: string) => void;
@@ -240,12 +263,22 @@ function WizardCard({
             {BUREAU_LABEL[item.bureau]} · {CATEGORY_LABEL[locale][item.category]}
           </span>
           {item.negative && (
-            <span className="whitespace-nowrap rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+            <span className="whitespace-nowrap rounded-full bg-red-50 px-2.5 py-0.5 text-[13px] font-semibold text-red-700">
               {d.items.negativeBadge}
             </span>
           )}
         </p>
         <ItemFacts facts={facts} heading={d.items.reportSays} className="mt-4" />
+        {otherBureaus && (
+          <InfoNote testId="cross-bureau-note" className="mt-3">
+            {otherBureaus}
+          </InfoNote>
+        )}
+        {lettersOut && (
+          <InfoNote testId="after-mailed-note" className="mt-3">
+            {d.items.afterMailedCard}
+          </InfoNote>
+        )}
       </div>
 
       <div className="border-t hairline px-5 py-4">

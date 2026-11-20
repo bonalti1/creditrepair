@@ -14,7 +14,7 @@ const es = {
     home: "Inicio",
     audit: "Auditoría",
     review: "Revisar",
-    attack: "Mi ataque",
+    attack: "Mis cartas",
     rounds: "Rondas",
     demo: "Demo",
   },
@@ -31,7 +31,7 @@ const es = {
     severityMedNote: "Pagos tardíos y consultas duras. Revisa si las reconoces y si las fechas son correctas.",
     severityInfo: "🔵 Datos personales",
     severityInfoNote:
-      "Variantes de nombre, direcciones y empleos viejos. Limpiarlos evita mezclas con expedientes ajenos — por eso el Ataque 1 empieza aquí.",
+      "Variantes de nombre, direcciones y empleos viejos. Limpiarlos evita mezclas con expedientes ajenos — por eso la Ronda 1 empieza aquí.",
     matrix: "¿En qué burós aparece cada elemento?",
     matrixNote:
       "Un elemento que aparece en un buró y no en otro, o con datos distintos entre burós, es una señal clásica de posible inexactitud.",
@@ -89,16 +89,23 @@ const es = {
     attestedOn: (when: string) => `✍️ Confirmado el ${when}`,
     markedCorrect: "✓ Marcado como correcto",
     flaggedPending: "⚠️ Marcado — falta tu confirmación",
+    afterMailedCard:
+      "Las cartas de esta ronda ya salieron. Si cambias tu respuesta, el cambio cuenta desde tu siguiente ronda.",
+    afterMailedList:
+      "Las cartas de esta ronda ya salieron. Si vuelves a revisar un elemento y cambias tu respuesta, el cambio cuenta desde tu siguiente ronda.",
+    afterMailedNoted:
+      "Anotado. Las cartas de esta ronda ya salieron; si tu respuesta cambió, el cambio cuenta desde tu siguiente ronda.",
   },
   attack: {
-    title: (n: number) => `Tu ataque #${n}`,
+    title: (n: number) => `Tu ronda de cartas #${n}`,
+    /** `items` counts only the confirmed items that are inside these letters. */
     subtitle: (letters: number, items: number) =>
       `${letters === 1 ? "1 carta generada" : `${letters} cartas generadas`} con ${
         items === 1 ? "tu elemento confirmado" : `tus ${items} elementos confirmados`
       }. ${letters === 1 ? "Léela completa" : "Lee cada una"} — nada se envía hasta que tú apruebes.`,
-    emptyTitle: "Aún no hay elementos en tu ataque",
+    emptyTitle: "Aún no hay elementos en tu ronda de cartas",
     emptyBody:
-      "Tu ataque se arma con los elementos que TÚ marcas y confirmas en la revisión guiada.",
+      "Tu ronda de cartas se arma con los elementos que TÚ marcas y confirmas en la revisión guiada.",
     emptyFlagged: (n: number) =>
       n === 1
         ? " Tienes 1 elemento marcado al que le falta tu confirmación."
@@ -106,14 +113,17 @@ const es = {
     goToReview: "Ir a la revisión guiada →",
     readLetter: "▼ Leer carta",
     inPlainWords: "En palabras simples:",
+    covers: "Incluye:",
+    placeholderNote:
+      "El nombre y la dirección que ves en esta vista son de ejemplo. En tu carta van tu nombre y tu dirección.",
     letterFootnote:
       "La carta se envía en inglés (idioma operativo de los burós). Al enviarse, la redacción varía ligeramente para que tu carta sea única.",
     itemCount: (n: number) => count(n, "elemento", "elementos"),
     fileRequest: "solicitud de expediente",
     approveNote:
       "Al presionar el botón confirmas que leíste tus cartas y que tú decides enviarlas. Cada elemento incluido lleva tu confirmación registrada con fecha y hora.",
-    approveButton: (n: number) => `Aprobar y enviar mi ataque (${count(n, "carta", "cartas")}) 🚀`,
-    approvedTitle: "¡Tu ataque va en camino!",
+    approveButton: (n: number) => `Aprobar y enviar ${n === 1 ? "mi carta" : `mis ${n} cartas`} 🚀`,
+    approvedTitle: "¡Tus cartas van en camino!",
     approvedBody:
       "(Demo) En producción: tus cartas se imprimen y envían por correo certificado, y te avisamos por WhatsApp. Los burós tienen ~30 días para responder.",
     trackRound: "Seguir mi ronda →",
@@ -130,6 +140,7 @@ const es = {
     waitDays: (n: number) =>
       `Los burós tienen ~${count(n, "día", "días")} más para responder. No necesitas hacer nada — te avisamos por WhatsApp.`,
     lettersSent: (n: number) => (n === 1 ? "La carta que enviaste" : `Las ${n} cartas que enviaste`),
+    waitingTitle: "En espera para tu siguiente ronda",
     emptyTitle: "Todavía no has enviado cartas",
     emptyBody:
       "Cuando apruebes tus cartas, aquí verás cuándo salieron, cuándo se espera la respuesta de los burós y cuándo toca la siguiente ronda.",
@@ -145,7 +156,7 @@ const en: Dict = {
     home: "Home",
     audit: "Audit",
     review: "Review",
-    attack: "My attack",
+    attack: "My letters",
     rounds: "Rounds",
     demo: "Demo",
   },
@@ -162,7 +173,7 @@ const en: Dict = {
     severityMedNote: "Late payments and hard inquiries. Check whether you recognize them and whether dates are right.",
     severityInfo: "🔵 Personal info",
     severityInfoNote:
-      "Name variants, old addresses, and employers. Cleaning these prevents mix-ups with other people's files — that's why Attack 1 starts here.",
+      "Name variants, old addresses, and employers. Cleaning these prevents mix-ups with other people's files — that's why Round 1 starts here.",
     matrix: "Which bureaus show each item?",
     matrixNote:
       "An item that appears on one bureau but not another, or with different details across bureaus, is a classic sign of possible inaccuracy.",
@@ -220,15 +231,21 @@ const en: Dict = {
     attestedOn: (when: string) => `✍️ Confirmed on ${when}`,
     markedCorrect: "✓ Marked as correct",
     flaggedPending: "⚠️ Flagged — confirmation pending",
+    afterMailedCard:
+      "This round's letters have already gone out. If you change your answer, the change applies from your next round.",
+    afterMailedList:
+      "This round's letters have already gone out. If you review an item again and change your answer, the change applies from your next round.",
+    afterMailedNoted:
+      "Noted. This round's letters have already gone out; if your answer changed, the change applies from your next round.",
   },
   attack: {
-    title: (n: number) => `Your attack #${n}`,
+    title: (n: number) => `Your round of letters #${n}`,
     subtitle: (letters: number, items: number) =>
       `${count(letters, "letter", "letters")} generated from ${
         items === 1 ? "your confirmed item" : `your ${items} confirmed items`
       }. ${letters === 1 ? "Read it in full" : "Read each one"} — nothing is sent until you approve.`,
-    emptyTitle: "No items in your attack yet",
-    emptyBody: "Your attack is built from the items YOU flag and confirm in the guided review.",
+    emptyTitle: "No items in your round of letters yet",
+    emptyBody: "Your round of letters is built from the items YOU flag and confirm in the guided review.",
     emptyFlagged: (n: number) =>
       n === 1
         ? " You have 1 flagged item still missing your confirmation."
@@ -236,14 +253,17 @@ const en: Dict = {
     goToReview: "Go to guided review →",
     readLetter: "▼ Read letter",
     inPlainWords: "In plain words:",
+    covers: "Covers:",
+    placeholderNote:
+      "The name and address in this preview are placeholders. Your letter carries your own name and address.",
     letterFootnote:
       "Letters mail in English (the bureaus' operating language). On send, the wording varies slightly so your letter is unique.",
     itemCount: (n: number) => count(n, "item", "items"),
     fileRequest: "file disclosure request",
     approveNote:
       "Pressing the button confirms you read your letters and that you decide to send them. Every included item carries your date-and-time-stamped confirmation.",
-    approveButton: (n: number) => `Approve and send my attack (${count(n, "letter", "letters")}) 🚀`,
-    approvedTitle: "Your attack is on its way!",
+    approveButton: (n: number) => `Approve and send ${n === 1 ? "my letter" : `my ${n} letters`} 🚀`,
+    approvedTitle: "Your letters are on their way!",
     approvedBody:
       "(Demo) In production: your letters are printed and mailed, and we notify you on WhatsApp. Bureaus have ~30 days to respond.",
     trackRound: "Track my round →",
@@ -260,6 +280,7 @@ const en: Dict = {
     waitDays: (n: number) =>
       `Bureaus have ~${n} more ${n === 1 ? "day" : "days"} to respond. Nothing to do — we'll message you on WhatsApp.`,
     lettersSent: (n: number) => (n === 1 ? "The letter you sent" : `The ${n} letters you sent`),
+    waitingTitle: "Waiting for your next round",
     emptyTitle: "You haven't sent any letters yet",
     emptyBody:
       "Once you approve your letters, this is where you'll see when they went out, when the bureaus' response is expected, and when the next round is due.",

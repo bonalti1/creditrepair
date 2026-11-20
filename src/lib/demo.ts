@@ -19,6 +19,9 @@ export const DEMO_RAW_REPORT: RawReport = {
           status: "open",
           paymentStatus: "current",
           balance: 480,
+          creditLimit: 1500,
+          openedAt: "2021-09-10",
+          lastPaymentAt: "2026-06-05",
           remarks: [],
           furnisher: { name: "Capital One", addressLines: ["P.O. Box 30285", "Salt Lake City, UT 84130"] },
         },
@@ -29,6 +32,9 @@ export const DEMO_RAW_REPORT: RawReport = {
           status: "collection",
           paymentStatus: "charge-off",
           balance: 1250,
+          // A collection has no credit limit. Same dates on both bureaus.
+          openedAt: "2024-02-20",
+          firstDelinquencyAt: "2023-07-15",
           remarks: ["placed for collection"],
           furnisher: { name: "Midland Credit Management", addressLines: ["350 Camino De La Reina", "San Diego, CA 92108"] },
         },
@@ -50,6 +56,9 @@ export const DEMO_RAW_REPORT: RawReport = {
           status: "collection",
           paymentStatus: "charge-off",
           balance: 1250,
+          // A collection has no credit limit. Same dates on both bureaus.
+          openedAt: "2024-02-20",
+          firstDelinquencyAt: "2023-07-15",
           remarks: [],
           furnisher: { name: "Midland Credit Management", addressLines: ["350 Camino De La Reina", "San Diego, CA 92108"] },
         },
@@ -72,12 +81,31 @@ export const DEMO_REPORT: NormalizedReport = parseReport(DEMO_RAW_REPORT);
 
 export const DEMO_FLAGS: ItemFlag[] = [];
 
-/** Score history across pulls, for the dashboard trend (demo until partner data flows). */
+/**
+ * Score history across pulls, for the dashboard trend. The demo has a single
+ * pull: today's scores are the starting point, so no gain or loss is shown.
+ * A trend appears only once there are at least two real pulls.
+ */
 export const DEMO_SCORE_HISTORY: Array<{
   date: string;
   scores: Partial<Record<"equifax" | "experian" | "transunion", number>>;
-}> = [
-  { date: "2026-05-01", scores: { equifax: 538, experian: 549, transunion: 531 } },
-  { date: "2026-06-01", scores: { equifax: 547, experian: 561, transunion: 540 } },
-  { date: "2026-07-01", scores: { equifax: 561, experian: 574, transunion: 558 } },
-];
+}> = [{ date: "2026-07-01", scores: { equifax: 561, experian: 574, transunion: 558 } }];
+
+/**
+ * The first pull's scores to compare today's against, or null when there are
+ * not yet two pulls (a single pull is a baseline, not a change).
+ */
+export function firstScoresForTrend(
+  history: ReadonlyArray<{ scores: Partial<Record<"equifax" | "experian" | "transunion", number>> }>,
+): Partial<Record<"equifax" | "experian" | "transunion", number>> | null {
+  return history.length >= 2 ? history[0]!.scores : null;
+}
+
+/**
+ * The demo report reads as imported today, whenever the demo is opened. Call
+ * it in the browser after mount: a date worked out on the server can differ
+ * from the visitor's day.
+ */
+export function demoImportedAt(): Date {
+  return new Date();
+}

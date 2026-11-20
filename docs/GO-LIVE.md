@@ -4,7 +4,7 @@ The software is finished as far as it can go without real accounts. This is
 the list of what only the owner can do, with the messages already written.
 
 **One rule about keys:** every key and password below goes into the hosting
-settings (Vercel → Project → Settings → Environment Variables), under the exact
+settings (Render → your service → Environment), under the exact
 name shown. Never paste a key into a chat or an email.
 
 ---
@@ -79,13 +79,14 @@ name shown. Never paste a key into a chat or an email.
 
 ## Step 2 — Open the accounts
 
-Open each one, then copy the values named in the last column into Vercel.
+Open each one, then copy the values named in the last column into Render
+(your service → Environment). Render redeploys by itself after you save.
 
-| # | Account | What it is for | Variables to set in Vercel |
+| # | Account | What it is for | Variables to set in Render |
 | --- | --- | --- | --- |
-| 1 | **Vercel** | Hosting. Sign in with GitHub and import the `creditrepair` repository. | (this is where the others go) |
+| 1 | **Render** | Hosting. Already set up: the demo runs at `creditcapi-demo.onrender.com`. | (this is where the others go) |
 | 2 | **Supabase** | Database and login. Create a project. | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` |
-| 3 | **A text-message provider** connected in Supabase (Authentication → Providers → Phone) | Login codes by text | set inside Supabase, not Vercel |
+| 3 | **A text-message provider** connected in Supabase (Authentication → Providers → Phone) | Login codes by text | set inside Supabase, not Render |
 | 4 | **Anthropic** | Capi, and letter wording | `ANTHROPIC_API_KEY` |
 | 5 | **Lob** | Prints and mails the letters | `LOB_API_KEY` (start with the test key) |
 | 6 | **Meta for Developers + WhatsApp Business** | WhatsApp messages | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, and a word you invent for `WHATSAPP_WEBHOOK_VERIFY_TOKEN` |

@@ -47,9 +47,9 @@ const COPY = {
       cta: "Volver a revisar",
     },
     attack: (n: number) => ({
-      title: "Tu ataque está listo para tu revisión",
+      title: "Tus cartas están listas para tu revisión",
       description: `${n === 1 ? "1 elemento confirmado" : `${n} elementos confirmados`}. Lee cada carta (te la explicamos en palabras simples) y aprueba cuando lo tengas claro.`,
-      cta: "Revisar mi ataque",
+      cta: "Revisar mis cartas",
     }),
     waiting: (daysLeft: number) => ({
       title: "Tus cartas van en camino 📬",
@@ -62,8 +62,8 @@ const COPY = {
     nextRound: {
       title: "Es hora de tu siguiente ronda",
       description:
-        "Tu reporte se vuelve a importar, comparamos qué se eliminó y qué sigue, y armas tu próximo ataque con un clic.",
-      cta: "Armar siguiente ataque",
+        "Tu reporte se vuelve a importar, comparamos qué se eliminó y qué sigue, y armas tu próxima ronda de cartas con un clic.",
+      cta: "Armar mi siguiente ronda",
     },
   },
   en: {
@@ -85,9 +85,9 @@ const COPY = {
       cta: "Review again",
     },
     attack: (n: number) => ({
-      title: "Your attack is ready for your review",
+      title: "Your letters are ready for your review",
       description: `${n === 1 ? "1 confirmed item" : `${n} confirmed items`}. Read each letter (we explain it in plain words) and approve when you're sure.`,
-      cta: "Review my attack",
+      cta: "Review my letters",
     }),
     waiting: (daysLeft: number) => ({
       title: "Your letters are on their way 📬",
@@ -100,8 +100,8 @@ const COPY = {
     nextRound: {
       title: "Time for your next round",
       description:
-        "Your report re-imports, we compare what was deleted and what remains, and you build your next attack in one click.",
-      cta: "Build next attack",
+        "Your report re-imports, we compare what was deleted and what remains, and you build your next round of letters in one click.",
+      cta: "Build my next round",
     },
   },
 } as const;

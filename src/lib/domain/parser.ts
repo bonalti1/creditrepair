@@ -16,7 +16,13 @@ const rawTradeline = z.object({
   status: z.string().optional().default(""),
   paymentStatus: z.string().optional().default(""),
   balance: z.number().optional(),
+  // Optional detail a partner may or may not send. None of it feeds the
+  // fingerprint, which stays on creditor + masked account number.
+  creditLimit: z.number().optional(),
   openedAt: z.string().optional(),
+  lastPaymentAt: z.string().optional(),
+  firstDelinquencyAt: z.string().optional(),
+  lastReportedAt: z.string().optional(),
   remarks: z.array(z.string()).optional().default([]),
   furnisher: z
     .object({ name: z.string(), addressLines: z.array(z.string()) })

@@ -10,11 +10,13 @@ import { ALL_STATES } from "../compliance/states";
 // the customer's own decisions (reviewing items, the attestation, approving
 // letters). The link holds no phone number, address or account data.
 
+// `label` is the Spanish label (the salesperson's page is Spanish-only);
+// `labelEn` is the same goal for a customer reading in English.
 export const GOALS = [
-  { key: "mortgage", label: "Comprar una casa" },
-  { key: "auto", label: "Comprar un auto" },
-  { key: "card", label: "Calificar para mejores tarjetas" },
-  { key: "general", label: "Mejorar mi crédito en general" },
+  { key: "mortgage", label: "Comprar una casa", labelEn: "Buy a house" },
+  { key: "auto", label: "Comprar un auto", labelEn: "Buy a car" },
+  { key: "card", label: "Calificar para mejores tarjetas", labelEn: "Qualify for better cards" },
+  { key: "general", label: "Mejorar mi crédito en general", labelEn: "Improve my credit in general" },
 ] as const;
 
 export type GoalKey = (typeof GOALS)[number]["key"];

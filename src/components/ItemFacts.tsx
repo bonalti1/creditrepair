@@ -2,7 +2,8 @@ import type { ItemFact } from "@/lib/ux/itemDisplay";
 
 // The facts the report states about one item (balance, status, dates…), so the
 // customer can check them before deciding. "card" is the label/value list on a
-// review card; "inline" is the one-paragraph version for rows in a list.
+// review card; "list" is the same label/value layout, without the box, for rows
+// in a list. Both keep one fact per line so it can be scanned.
 
 export default function ItemFacts({
   facts,
@@ -13,21 +14,21 @@ export default function ItemFacts({
   facts: ItemFact[];
   /** Says whose words these are, e.g. "Lo que dice tu reporte:". */
   heading?: string;
-  variant?: "card" | "inline";
+  variant?: "card" | "list";
   className?: string;
 }) {
   if (facts.length === 0) return null;
 
-  if (variant === "inline") {
+  if (variant === "list") {
     return (
-      <p className={`text-[13px] leading-relaxed text-slate-500 ${className}`}>
-        {facts.map((f, i) => (
-          <span key={f.label}>
-            {i > 0 && " · "}
-            {f.label}: <span className="font-medium text-slate-900">{f.value}</span>
-          </span>
+      <dl className={`space-y-1 ${className}`}>
+        {facts.map((f) => (
+          <div key={f.label} className="flex items-baseline justify-between gap-4">
+            <dt className="shrink-0 text-[13px] text-slate-500">{f.label}</dt>
+            <dd className="min-w-0 break-words text-right text-[14px] font-medium text-slate-900">{f.value}</dd>
+          </div>
         ))}
-      </p>
+      </dl>
     );
   }
 

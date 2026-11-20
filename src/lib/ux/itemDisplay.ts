@@ -123,6 +123,10 @@ function translateStatus(value: unknown, locale: Locale): string {
   return translate(value, ACCOUNT_STATUS, locale);
 }
 
+function isAmount(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 /** $1,250 — whole dollars without cents, anything else with two decimals. */
 function formatMoney(amount: number): string {
   const digits = Number.isInteger(amount) ? 0 : 2;
@@ -161,7 +165,11 @@ const LABELS = {
     status: "Estado",
     paymentStatus: "Estado de pago",
     balance: "Saldo",
+    creditLimit: "Límite de crédito",
     opened: "Fecha de apertura",
+    lastPayment: "Último pago",
+    firstDelinquency: "Primer atraso",
+    lastReported: "Último reporte",
     remarks: "Notas",
     inquiryDate: "Fecha",
     inquiryType: "Tipo de consulta",
@@ -175,7 +183,11 @@ const LABELS = {
     status: "Status",
     paymentStatus: "Payment status",
     balance: "Balance",
+    creditLimit: "Credit limit",
     opened: "Opened",
+    lastPayment: "Last payment",
+    firstDelinquency: "First late payment",
+    lastReported: "Last reported",
     remarks: "Remarks",
     inquiryDate: "Date",
     inquiryType: "Inquiry type",
@@ -215,10 +227,12 @@ export function itemFacts(item: ReportItem, locale: Locale): ItemFact[] {
     add(label.accountNumber, text(data.accountNumberMasked));
     add(label.status, translateStatus(data.status, locale));
     add(label.paymentStatus, translateStatus(data.paymentStatus, locale));
-    if (typeof data.balance === "number" && Number.isFinite(data.balance)) {
-      add(label.balance, formatMoney(data.balance));
-    }
+    if (isAmount(data.balance)) add(label.balance, formatMoney(data.balance));
+    if (isAmount(data.creditLimit)) add(label.creditLimit, formatMoney(data.creditLimit));
     add(label.opened, formatDate(data.openedAt, locale));
+    add(label.lastPayment, formatDate(data.lastPaymentAt, locale));
+    add(label.firstDelinquency, formatDate(data.firstDelinquencyAt, locale));
+    add(label.lastReported, formatDate(data.lastReportedAt, locale));
     if (Array.isArray(data.remarks)) {
       const remarks = data.remarks.map((r) => translate(r, REMARK, locale)).filter(Boolean);
       add(label.remarks, remarks.join("; "));
@@ -329,8 +343,9 @@ export function itemReadAloud(item: ReportItem, locale: Locale): string {
 }
 
 // "Check before you decide" questions. Accounts, inquiries and public records
-// use the category's list. A personal-information entry gets the questions for
-// its own field: an address card should not ask whether an employer is right.
+// are asked only about what their card shows (see HINTS below). A
+// personal-information entry gets the questions for its own field: an address
+// card should not ask whether an employer is right.
 // The questions are neutral on purpose: they help the customer look, and never
 // suggest which answer to give.
 const PERSONAL_INFO_HINTS: Record<string, { es: string[]; en: string[] }> = {
@@ -362,11 +377,123 @@ const PERSONAL_INFO_HINTS: Record<string, { es: string[]; en: string[] }> = {
   },
 };
 
+type HintCopy = {
+  recognise: string;
+  balanceAndLimit: string;
+  balance: string;
+  limit: string;
+  dates: (names: string[]) => string;
+  sevenYears: string;
+  dateName: { opened: string; lastPayment: string; firstDelinquency: string; lastReported: string };
+  inquiryApplied: string;
+  inquiryAppliedOnDate: string;
+  inquiryAuthorised: string;
+  inquiryTwoYears: string;
+  recordYours: string;
+  recordStatus: string;
+  recordPeriod: string;
+};
+
+// Questions for accounts, inquiries and public records. Each one is asked only
+// when the card shows the thing it asks about, so the customer is never asked
+// to check a limit or a date they cannot see.
+const HINTS: Record<Locale, HintCopy> = {
+  es: {
+    recognise: "¿Reconoces al acreedor y la cuenta?",
+    balanceAndLimit: "¿El saldo y el límite de crédito que aparecen son correctos?",
+    balance: "¿El saldo que aparece es correcto?",
+    limit: "¿El límite de crédito que aparece es correcto?",
+    dates: (names) =>
+      names.length === 1
+        ? `¿La fecha que aparece (${names[0]}) coincide con tu realidad?`
+        : `¿Las fechas que aparecen (${names.join(", ")}) coinciden con tu realidad?`,
+    sevenYears: "¿Ya pasaron más de 7 años desde el primer atraso? Si sí, podría estar desactualizada.",
+    dateName: {
+      opened: "apertura",
+      lastPayment: "último pago",
+      firstDelinquency: "primer atraso",
+      lastReported: "último reporte",
+    },
+    inquiryApplied: "¿Recuerdas haber pedido crédito con esta empresa?",
+    inquiryAppliedOnDate: "¿Recuerdas haber pedido crédito con esta empresa en esa fecha?",
+    inquiryAuthorised: "¿Autorizaste que revisaran tu crédito?",
+    inquiryTwoYears: "¿La consulta tiene más de 2 años? Debería haber caído ya.",
+    recordYours: "¿El registro es realmente tuyo (no de alguien con nombre parecido)?",
+    recordStatus: "¿El estado es correcto (resuelto, descargado, pagado)?",
+    recordPeriod: "¿Ya venció el plazo legal para reportarlo?",
+  },
+  en: {
+    recognise: "Do you recognize the creditor and the account?",
+    balanceAndLimit: "Are the balance and the credit limit shown correct?",
+    balance: "Is the balance shown correct?",
+    limit: "Is the credit limit shown correct?",
+    dates: (names) =>
+      names.length === 1
+        ? `Does the date shown (${names[0]}) match your reality?`
+        : `Do the dates shown (${names.join(", ")}) match your reality?`,
+    sevenYears: "Has it been more than 7 years since the first late payment? If so, it may be outdated.",
+    dateName: {
+      opened: "opened",
+      lastPayment: "last payment",
+      firstDelinquency: "first late payment",
+      lastReported: "last reported",
+    },
+    inquiryApplied: "Do you remember applying for credit with this company?",
+    inquiryAppliedOnDate: "Do you remember applying for credit with this company on that date?",
+    inquiryAuthorised: "Did you authorize them to check your credit?",
+    inquiryTwoYears: "Is the inquiry more than 2 years old? It should have dropped off already.",
+    recordYours: "Is the record really yours (not someone with a similar name)?",
+    recordStatus: "Is the status correct (resolved, discharged, paid)?",
+    recordPeriod: "Has the legal reporting period expired?",
+  },
+};
+
+function tradelineHints(data: Record<string, unknown>, locale: Locale): string[] {
+  const c = HINTS[locale];
+  // Always asked: the creditor is the card's title.
+  const hints = [c.recognise];
+
+  const hasBalance = isAmount(data.balance);
+  const hasLimit = isAmount(data.creditLimit);
+  if (hasBalance && hasLimit) hints.push(c.balanceAndLimit);
+  else if (hasBalance) hints.push(c.balance);
+  else if (hasLimit) hints.push(c.limit);
+
+  const shownDates: string[] = [];
+  if (text(data.openedAt)) shownDates.push(c.dateName.opened);
+  if (text(data.lastPaymentAt)) shownDates.push(c.dateName.lastPayment);
+  if (text(data.firstDelinquencyAt)) shownDates.push(c.dateName.firstDelinquency);
+  if (text(data.lastReportedAt)) shownDates.push(c.dateName.lastReported);
+  if (shownDates.length > 0) hints.push(c.dates(shownDates));
+
+  if (text(data.firstDelinquencyAt)) hints.push(c.sevenYears);
+  return hints;
+}
+
+function inquiryHints(data: Record<string, unknown>, locale: Locale): string[] {
+  const c = HINTS[locale];
+  const hasDate = Boolean(text(data.date));
+  const hints = [hasDate ? c.inquiryAppliedOnDate : c.inquiryApplied, c.inquiryAuthorised];
+  if (hasDate) hints.push(c.inquiryTwoYears);
+  return hints;
+}
+
+function publicRecordHints(data: Record<string, unknown>, locale: Locale): string[] {
+  const c = HINTS[locale];
+  const hints = [c.recordYours];
+  if (text(data.status)) hints.push(c.recordStatus);
+  if (text(data.filedAt)) hints.push(c.recordPeriod);
+  return hints;
+}
+
 export function itemCheckHints(item: ReportItem, locale: Locale, max?: number): string[] {
-  let hints = getCategoryExplainers(locale)[item.category].checkHints;
-  if (item.category === "personal_info") {
+  let hints: string[];
+  if (item.category === "tradeline") hints = tradelineHints(item.data, locale);
+  else if (item.category === "inquiry") hints = inquiryHints(item.data, locale);
+  else if (item.category === "public_record") hints = publicRecordHints(item.data, locale);
+  else {
     const field = String((item.data as { field?: unknown }).field ?? "").trim().toLowerCase();
-    hints = PERSONAL_INFO_HINTS[field]?.[locale] ?? hints;
+    hints = PERSONAL_INFO_HINTS[field]?.[locale] ?? getCategoryExplainers(locale).personal_info.checkHints;
   }
   return max === undefined ? hints : hints.slice(0, max);
 }

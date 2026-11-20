@@ -8,7 +8,7 @@ The software is free; revenue is the required credit monitoring subscription
 (Dispute Beast architecture + Armor).
 
 **Positioning rule (enforced in code):** the USER disputes — we provide the tool.
-All copy says "tu ataque", "tú envías", "tus disputas". Never "we remove / we fix /
+All copy says "tus cartas", "tu ronda de cartas", "tú envías", "tus disputas" (the spec's "ataque" was replaced after user testing: it read as aggressive). Never "we remove / we fix /
 we dispute for you". See `src/lib/compliance/guardrails.ts`, which lints copy in
 the content pipeline (WhatsApp messages, coach output).
 

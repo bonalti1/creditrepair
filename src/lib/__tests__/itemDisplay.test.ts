@@ -42,6 +42,8 @@ describe("itemFacts", () => {
       Estado: "En cobranza",
       "Estado de pago": "Dada de baja (charge-off)",
       Saldo: "$1,250",
+      "Fecha de apertura": "20 de febrero de 2024",
+      "Primer atraso": "15 de julio de 2023",
       Notas: "Enviada a cobranza",
     });
   });
@@ -53,17 +55,22 @@ describe("itemFacts", () => {
       Status: "In collection",
       "Payment status": "Charge-off",
       Balance: "$1,250",
+      Opened: "February 20, 2024",
+      "First late payment": "July 15, 2023",
       Remarks: "Placed for collection",
     });
   });
 
-  it("shows Capital One's type, masked number and balance", () => {
+  it("shows Capital One's type, masked number, balance, limit and dates", () => {
     expect(asMap(capitalOne, "es")).toEqual({
       "Tipo de cuenta": "Tarjeta de crédito",
       "Número de cuenta": "****1234",
       Estado: "Abierta",
       "Estado de pago": "Al corriente",
       Saldo: "$480",
+      "Límite de crédito": "$1,500",
+      "Fecha de apertura": "10 de septiembre de 2021",
+      "Último pago": "5 de junio de 2026",
     });
     expect(asMap(capitalOne, "en")).toMatchObject({
       "Account type": "Credit card",
@@ -75,12 +82,15 @@ describe("itemFacts", () => {
   });
 
   it("leaves out what the report does not say", () => {
-    // Capital One has no opened date and an empty remarks list in the demo data.
+    // Capital One has no first late payment, no last-reported date and an empty remarks list in the demo data.
     const labels = itemFacts(capitalOne, "es").map((f) => f.label);
-    expect(labels).not.toContain("Fecha de apertura");
+    expect(labels).not.toContain("Primer atraso");
+    expect(labels).not.toContain("Último reporte");
     expect(labels).not.toContain("Notas");
-    // Midland on Experian has no remarks either.
-    expect(itemFacts(find("Midland Credit Management", "experian"), "es").map((f) => f.label)).not.toContain("Notas");
+    // Midland on Experian has no remarks either, and a collection has no credit limit.
+    const midlandExperian = itemFacts(find("Midland Credit Management", "experian"), "es").map((f) => f.label);
+    expect(midlandExperian).not.toContain("Notas");
+    expect(midlandExperian).not.toContain("Límite de crédito");
 
     // A tradeline that arrives with only a creditor has no facts at all: nothing is invented.
     const bare = parseReport({

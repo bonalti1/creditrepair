@@ -48,13 +48,13 @@ export function monitoringMessageEs(state: MonitoringState): string {
     case "fresh_report":
       return "Tu monitoreo está activo.";
     case "no_report":
-      return "Todavía no tenemos tu reporte. Activa tu monitoreo de crédito e importa tu reporte para armar tu ataque.";
+      return "Todavía no tenemos tu reporte. Activa tu monitoreo de crédito e importa tu reporte para preparar tus cartas.";
     case "stale_report":
-      return `Tu último reporte tiene ${state.reportAgeDays} días. Actualízalo desde tu monitoreo de crédito para armar tu ataque con información al día.`;
+      return `Tu último reporte tiene ${state.reportAgeDays} días. Actualízalo desde tu monitoreo de crédito para preparar tus cartas con información al día.`;
     case "canceled":
-      return "Tu suscripción de monitoreo aparece cancelada. Reactívala para armar tu ataque.";
+      return "Tu suscripción de monitoreo aparece cancelada. Reactívala para preparar tus cartas.";
     case "past_due":
-      return "Tu suscripción de monitoreo tiene un pago pendiente. Ponla al corriente para armar tu ataque.";
+      return "Tu suscripción de monitoreo tiene un pago pendiente. Ponla al corriente para preparar tus cartas.";
   }
 }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { DEMO_REPORT, DEMO_SCORE_HISTORY } from "@/lib/demo";
+import { DEMO_REPORT, DEMO_SCORE_HISTORY, firstScoresForTrend } from "@/lib/demo";
 import { useFlags } from "@/lib/ux/flagsStore";
 import { nextAction, sessionJourneyState } from "@/lib/ux/journey";
 import { useLocale } from "@/lib/i18n";
@@ -85,7 +85,10 @@ export default function Home() {
   const step = nextAction(sessionJourneyState(items, flags, roundApproved), locale);
 
   const score = average(DEMO_REPORT.scores);
-  const firstScore = average(DEMO_SCORE_HISTORY[0]?.scores ?? {});
+  // A change is shown only between two real pulls. With one pull (the demo, or
+  // a customer's first day) today's score is the starting point and nothing more.
+  const firstScores = firstScoresForTrend(DEMO_SCORE_HISTORY);
+  const firstScore = firstScores ? average(firstScores) : null;
   const delta = score !== null && firstScore !== null ? score - firstScore : null;
 
   const shortcuts: Array<{ href: string; icon: IconName; label: string }> = [
@@ -150,7 +153,7 @@ export default function Home() {
         <div className="card overflow-hidden">
           {BUREAUS.map(([key, label], index) => {
             const bureauScore = DEMO_REPORT.scores[key];
-            const first = DEMO_SCORE_HISTORY[0]?.scores[key];
+            const first = firstScores?.[key];
             const bureauDelta = bureauScore && first ? bureauScore - first : null;
             const neg = negatives.filter((i) => i.bureau === key).length;
             return (

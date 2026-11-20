@@ -45,8 +45,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Conversation must start and end with a user message" }, { status: 400 });
   }
 
+  // No key means the coach is switched off here (the demo), which is a normal
+  // state and not a failure: answer 200 with no reply and let the client show
+  // its own fallback. A 5xx is kept for a model call that actually failed, so
+  // an outage is not hidden behind the demo's noise.
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: "Coach not configured (ANTHROPIC_API_KEY missing)" }, { status: 503 });
+  if (!apiKey) return NextResponse.json({ reply: null, configured: false });
 
   const user = await getSessionUser().catch(() => null);
 
