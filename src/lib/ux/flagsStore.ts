@@ -20,6 +20,8 @@ export type FlagsMap = Record<string, StoredFlag>;
 
 const STORAGE_KEY = "bonalti.review.v1";
 const APPROVED_KEY = "bonalti.roundApproved.v1";
+/** The answers as they were when the round was approved: what the mailed letters were built from. */
+const MAILED_KEY = "bonalti.roundMailed.v1";
 
 function load<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -34,12 +36,14 @@ function load<T>(key: string, fallback: T): T {
 export function useFlags() {
   const [flags, setFlags] = useState<FlagsMap>({});
   const [roundApproved, setRoundApprovedState] = useState(false);
+  const [mailedFlags, setMailedFlags] = useState<FlagsMap | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [synced, setSynced] = useState(false);
 
   useEffect(() => {
     setFlags(load<FlagsMap>(STORAGE_KEY, {}));
     setRoundApprovedState(load<boolean>(APPROVED_KEY, false));
+    setMailedFlags(load<FlagsMap | null>(MAILED_KEY, null));
     setHydrated(true);
 
     // When signed in, the server copy (item_flags, RLS-scoped) is the source
@@ -94,16 +98,32 @@ export function useFlags() {
     [flags, persist, writeThrough],
   );
 
-  const setRoundApproved = useCallback((value: boolean) => {
-    setRoundApprovedState(value);
-    try {
-      window.localStorage.setItem(APPROVED_KEY, JSON.stringify(value));
-    } catch {
-      // ignore
-    }
-  }, []);
+  const setRoundApproved = useCallback(
+    (value: boolean) => {
+      // Approving keeps a copy of the answers the letters were built from, so
+      // an answer changed later does not rewrite what was already mailed.
+      const snapshot = value ? flags : null;
+      setRoundApprovedState(value);
+      setMailedFlags(snapshot);
+      try {
+        window.localStorage.setItem(APPROVED_KEY, JSON.stringify(value));
+        if (snapshot) window.localStorage.setItem(MAILED_KEY, JSON.stringify(snapshot));
+        else window.localStorage.removeItem(MAILED_KEY);
+      } catch {
+        // ignore
+      }
+    },
+    [flags],
+  );
 
-  return { flags, review, clear, roundApproved, setRoundApproved, hydrated, synced };
+  /**
+   * The answers this round's letters were built from: the copy taken at
+   * approval, or the current answers when there is no copy (not approved yet,
+   * or approved before copies were kept).
+   */
+  const roundFlags = roundApproved && mailedFlags ? mailedFlags : flags;
+
+  return { flags, roundFlags, review, clear, roundApproved, setRoundApproved, hydrated, synced };
 }
 
 export function countByState(flags: FlagsMap) {

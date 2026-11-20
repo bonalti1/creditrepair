@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { DEMO_REPORT, DEMO_SCORE_HISTORY } from "@/lib/demo";
+import { DEMO_REPORT, DEMO_SCORE_HISTORY, demoImportedAt, firstScoresForTrend } from "@/lib/demo";
 import { useLocale } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/dictionaries";
 import type { ReportItem } from "@/lib/domain/types";
@@ -53,16 +54,22 @@ export default function Audit() {
     byName.get(i.name)!.add(i.bureau);
   }
 
-  const first = DEMO_SCORE_HISTORY[0]?.scores;
-  const fmtDate = new Date(DEMO_REPORT.pulledAt).toLocaleDateString(
-    locale === "es" ? "es-MX" : "en-US",
-  );
+  // A change is shown only between two real pulls; one pull is a starting point.
+  const first = firstScoresForTrend(DEMO_SCORE_HISTORY);
+  // The demo report reads as imported today. The date is worked out in the
+  // browser after mount, so the server's day never disagrees with the visitor's.
+  const [importedAt, setImportedAt] = useState<Date | null>(null);
+  useEffect(() => setImportedAt(demoImportedAt()), []);
+  const fmtDate = importedAt ? importedAt.toLocaleDateString(locale === "es" ? "es-MX" : "en-US") : "";
 
   return (
     <main className="animate-rise space-y-5">
       <header className="px-1">
         <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{d.audit.title}</h1>
-        <p className="mt-2 text-[15px] leading-relaxed text-slate-500">{d.audit.subtitle(fmtDate)}</p>
+        {/* Holds its space until the date is known, so nothing jumps. */}
+        <p className={`mt-2 text-[15px] leading-relaxed text-slate-500 ${importedAt ? "" : "invisible"}`}>
+          {d.audit.subtitle(fmtDate || "…")}
+        </p>
         <button
           onClick={() => window.print()}
           className="pressable -ml-1 mt-1 inline-flex h-11 items-center gap-2 rounded-full px-1 text-[15px] font-medium text-blue-700 print:hidden"

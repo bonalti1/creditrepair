@@ -34,6 +34,14 @@ export function monitoringNameEs(): string {
     : "tu suscripción de monitoreo de crédito";
 }
 
+/** The same phrase in the reader's language. */
+export function monitoringName(locale: "es" | "en"): string {
+  if (locale === "es") return monitoringNameEs();
+  return MONITORING_OFFER.providerName
+    ? `your credit monitoring subscription with ${MONITORING_OFFER.providerName}`
+    : "your credit monitoring subscription";
+}
+
 /**
  * Required wherever the monitoring subscription is offered. Worded so it holds
  * whether or not a signup link is on screen (the demo has none).

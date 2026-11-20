@@ -23,7 +23,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 // always knows). A human teammate takes over threads without the 🤖 prefix.
 const AI_PREFIX = "🤖 ";
 const FALLBACK =
-  "¡Gracias por tu mensaje! Soy Capi, el asistente de IA de CreditCapi. Para revisar tu reporte y armar tu ataque, entra a la app. Si tienes una pregunta sobre tu crédito, escríbela y te respondo aquí mismo. Si prefieres hablar con una persona del equipo, dilo y te conectamos. 🙂";
+  "¡Gracias por tu mensaje! Soy Capi, el asistente de IA de CreditCapi. Para revisar tu reporte y preparar tus cartas, entra a la app. Si tienes una pregunta sobre tu crédito, escríbela y te respondo aquí mismo. Si prefieres hablar con una persona del equipo, dilo y te conectamos. 🙂";
 
 // Sales comes first. Someone writing in who is not yet a customer (no profile
 // with that phone number) is a lead, and leads are handled by a person. Capi

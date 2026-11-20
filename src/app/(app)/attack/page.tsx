@@ -7,10 +7,12 @@ import { renderLetter } from "@/lib/letters/templates";
 import type { PlannedLetter } from "@/lib/domain/types";
 import { getStageExplainers } from "@/lib/ux/explainers";
 import { countByState, useFlags } from "@/lib/ux/flagsStore";
+import { letterCoverage, waitingNote } from "@/lib/ux/roundCopy";
 import { sessionPlan } from "@/lib/ux/sessionPlan";
 import { useLocale } from "@/lib/i18n";
 import IdentityDocs from "@/components/IdentityDocs";
 import Icon from "@/components/Icon";
+import { WaitingNote } from "@/components/RoundNotes";
 
 // Attack builder — no black box. Every letter is readable in full BEFORE
 // approval, with an "in plain words" summary of what it does and which law it
@@ -25,7 +27,7 @@ const DEMO_USER = {
 };
 
 export default function Attack() {
-  const { flags, roundApproved, setRoundApproved, hydrated } = useFlags();
+  const { flags, roundFlags, roundApproved, setRoundApproved, hydrated } = useFlags();
   const { locale, d } = useLocale();
   const [openLetter, setOpenLetter] = useState<number | null>(null);
 
@@ -33,7 +35,11 @@ export default function Attack() {
 
   // Round 1 handles personal-info cleanup; if the user attested no personal-info
   // items, the plan jumps straight to round 2 so the attack isn't empty.
-  const { attestedFlags, roundNumber, plan } = useMemo(() => sessionPlan(DEMO_REPORT.items, flags), [flags]);
+  // Once approved, the page keeps showing the letters as they were approved.
+  const session = useMemo(() => sessionPlan(DEMO_REPORT.items, roundFlags), [roundFlags]);
+  const { attestedFlags, roundNumber, plan, inRound } = session;
+  // Confirmed items that are not in these letters, said plainly before approving.
+  const waiting = waitingNote(session, locale);
 
   if (!hydrated) return null;
 
@@ -70,7 +76,7 @@ export default function Attack() {
           {d.attack.title(roundNumber)}
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-slate-500">
-          {d.attack.subtitle(plan.letters.length, attestedFlags.length)}
+          {d.attack.subtitle(plan.letters.length, inRound.length)}
         </p>
       </header>
 
@@ -91,6 +97,8 @@ export default function Attack() {
       <div className="card overflow-hidden [&>div]:mt-0 [&>div]:rounded-none [&>div]:border-0 [&>div]:p-5">
         <IdentityDocs />
       </div>
+
+      {waiting && <WaitingNote note={waiting} />}
 
       <section className="card px-5 py-5">
         {roundApproved ? (
@@ -148,6 +156,8 @@ function LetterCard({
   const stages = getStageExplainers(locale);
   const explainer = stages[letter.templateKey] ?? stages[letter.stage] ?? null;
 
+  const coverage = letterCoverage(letter, DEMO_REPORT.items, locale);
+
   const body = useMemo(() => {
     const items = DEMO_REPORT.items.filter((i) => letter.itemFingerprints.includes(i.fingerprint));
     return renderLetter(letter.templateKey, {
@@ -173,6 +183,21 @@ function LetterCard({
               ? d.attack.itemCount(letter.itemFingerprints.length)
               : d.attack.fileRequest}
           </p>
+          {/* What this letter is about, by name, so the recipient is never the only thing shown. */}
+          {letter.itemFingerprints.length > 0 && (
+            <p data-testid="letter-covers" className="mt-1.5 text-[14px] leading-snug text-slate-700">
+              <span className="text-slate-500">{d.attack.covers}</span>{" "}
+              {coverage.length === 1 ? (
+                <span className="break-words font-medium text-slate-900">{coverage[0]}</span>
+              ) : (
+                coverage.map((c) => (
+                  <span key={c} className="mt-0.5 block break-words font-medium text-slate-900">
+                    {c}
+                  </span>
+                ))
+              )}
+            </p>
+          )}
         </div>
         {open ? (
           <Icon name="chevron" size={18} className="shrink-0 -rotate-90 text-slate-400" />
@@ -189,6 +214,7 @@ function LetterCard({
               <p className="mt-1 text-[15px] leading-relaxed text-slate-600">{explainer.plain}</p>
             </div>
           )}
+          <p className="mb-2 text-[13px] leading-relaxed text-slate-600">{d.attack.placeholderNote}</p>
           <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap break-words rounded-2xl bg-slate-50 p-4 font-serif text-[14px] leading-relaxed text-slate-800">
             {body}
           </pre>

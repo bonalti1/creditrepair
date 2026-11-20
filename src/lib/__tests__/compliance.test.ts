@@ -29,7 +29,7 @@ describe("claim guardrails", () => {
   it.each([
     "Tú decides qué disputar y tú apruebas.",
     "Capi prepara todo. Tú decides y tú envías. Los resultados varían.",
-    "Tu ataque #2 está listo para TU aprobación.",
+    "Tu ronda de cartas #2 está lista para TU aprobación.",
     "De carros no sé nada. Lo mío es tu crédito. Te lo explico, y tú decides.",
     "You review each item and you send your own disputes. Results vary.",
   ])("allows %s", (text) => {
@@ -122,5 +122,26 @@ describe("state registry", () => {
     expect(stateStatus("WY")).toBe("waitlist");
     expect(stateStatus("ZZ")).toBe("waitlist");
     expect(ALL_STATES).toHaveLength(50);
+  });
+});
+
+describe("wording", () => {
+  // The owner replaced "ataque" with "ronda de cartas" after two rounds of user
+  // testing found it read as aggressive. Keep it out of everything a customer reads.
+  it("does not call a round of letters an attack", async () => {
+    const { readFileSync } = await import("node:fs");
+    const files = [
+      "src/lib/i18n/dictionaries.ts", "src/lib/i18n/marketing.ts", "src/lib/ux/journey.ts",
+      "src/lib/ux/explainers.ts", "src/lib/ux/roundCopy.ts", "src/lib/integrations/whatsapp.ts",
+      "src/lib/monitoring/subscription.ts", "src/app/api/webhooks/whatsapp/route.ts",
+      "src/app/(app)/asistente/page.tsx", "src/app/(app)/rounds/page.tsx", "src/app/(app)/items/page.tsx",
+      "src/app/(app)/audit/page.tsx", "src/app/(app)/dashboard/page.tsx", "src/app/(app)/mas/page.tsx",
+    ];
+    for (const file of files) {
+      const text = readFileSync(file, "utf8");
+      expect(/ataque/i.test(text), file).toBe(false);
+      // English copy: the word may appear in code (paths, identifiers), never inside a sentence.
+      expect(/\b(your|my|next|the) attack\b|Attack #|Attack \d/i.test(text), file).toBe(false);
+    }
   });
 });

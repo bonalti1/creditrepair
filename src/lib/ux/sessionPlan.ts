@@ -1,5 +1,5 @@
 import { buildAttackPlan } from "../domain/attack";
-import type { AttackPlan, ItemFlag, ReportItem } from "../domain/types";
+import type { AttackPlan, ItemFlag, PlannedLetter, ReportItem } from "../domain/types";
 
 // The customer's plan for this session, built one way for every screen that
 // shows it (the chat, the letters page, the rounds page), so the letters they
@@ -11,6 +11,20 @@ export interface SessionPlan {
   /** 1 when a personal-info item was confirmed (cleanup goes first), otherwise 2. */
   roundNumber: number;
   plan: AttackPlan;
+  /** Confirmed items that are inside this round's letters. */
+  inRound: ReportItem[];
+  /**
+   * Confirmed items that are NOT in this round's letters. Round 1 mails only
+   * personal-information corrections, so a confirmed account, inquiry or public
+   * record waits here for the next round. Empty when the first round is round 2.
+   */
+  waiting: ReportItem[];
+}
+
+/** The report items one letter covers, in report order. A file request covers none. */
+export function letterItems(letter: PlannedLetter, items: ReportItem[]): ReportItem[] {
+  const covered = new Set(letter.itemFingerprints);
+  return items.filter((i) => covered.has(i.fingerprint));
 }
 
 export function sessionPlan(
@@ -30,5 +44,15 @@ export function sessionPlan(
   // Round 1 handles personal-info cleanup; with none confirmed, go straight to
   // the round-2 dispute plan so the round is not empty.
   const roundNumber = hasPersonalInfo ? 1 : 2;
-  return { attestedFlags, roundNumber, plan: buildAttackPlan({ roundNumber, items, flags: attestedFlags, history: {} }) };
+  const plan = buildAttackPlan({ roundNumber, items, flags: attestedFlags, history: {} });
+  // Split what the customer confirmed by where it is: in these letters, or not yet.
+  const mailed = new Set(plan.letters.flatMap((l) => l.itemFingerprints));
+  const confirmedItems = items.filter((i) => confirmed.has(i.fingerprint));
+  return {
+    attestedFlags,
+    roundNumber,
+    plan,
+    inRound: confirmedItems.filter((i) => mailed.has(i.fingerprint)),
+    waiting: confirmedItems.filter((i) => !mailed.has(i.fingerprint)),
+  };
 }

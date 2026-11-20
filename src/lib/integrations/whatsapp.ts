@@ -24,13 +24,13 @@ export function renderMessage(event: WhatsAppEvent): string {
     case "report_imported":
       return `✅ Tu reporte de crédito fue importado. Entra a la app para revisar tus elementos y marcar los que crees que son inexactos.${appLink("/items")}`;
     case "attack_ready":
-      return `🛡️ Tu ataque #${event.roundNumber} está listo para TU aprobación. Revisa tus cartas y presiona enviar cuando estés listo. Tú decides, tú envías.${appLink("/attack")}`;
+      return `📝 Tu ronda de cartas #${event.roundNumber} está lista para TU aprobación. Revisa tus cartas y presiona enviar cuando estés listo. Tú decides, tú envías.${appLink("/attack")}`;
     case "letters_mailed":
-      return `📬 ¡Listo! Tus ${event.letterCount} cartas del ataque #${event.roundNumber} fueron impresas y enviadas por correo. Los burós suelen responder en un plazo de ~30 días.${appLink("/rounds")}`;
+      return `📬 ¡Listo! Tus ${event.letterCount} cartas de tu ronda #${event.roundNumber} fueron impresas y enviadas por correo. Los burós suelen responder en un plazo de ~30 días.${appLink("/rounds")}`;
     case "items_deleted":
       return `🎉 ¡Buenas noticias! ${event.deletedCount === 1 ? "1 elemento ya no aparece" : `${event.deletedCount} elementos ya no aparecen`} en tu reporte. Quedan ${event.remainingCount}. Los resultados varían según cada caso.${appLink("/rounds")}`;
     case "day40_reengage":
-      return `📊 Actualizamos tu reporte: ${event.deletedCount === 1 ? "1 elemento eliminado" : `${event.deletedCount} elementos eliminados`}, ${event.remainingCount === 1 ? "1 pendiente" : `${event.remainingCount} pendientes`}. Entra a la app para armar tu próximo ataque.${appLink("/attack")}`;
+      return `📊 Actualizamos tu reporte: ${event.deletedCount === 1 ? "1 elemento eliminado" : `${event.deletedCount} elementos eliminados`}, ${event.remainingCount === 1 ? "1 pendiente" : `${event.remainingCount} pendientes`}. Entra a la app para armar tu próxima ronda de cartas.${appLink("/attack")}`;
   }
 }
 

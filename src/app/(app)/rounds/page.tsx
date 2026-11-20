@@ -8,6 +8,7 @@ import { getStageExplainers } from "@/lib/ux/explainers";
 import { useFlags } from "@/lib/ux/flagsStore";
 import { itemLabel } from "@/lib/ux/itemDisplay";
 import { RESPONSE_WINDOW_DAYS, NEXT_ROUND_DAYS, nextAction, sessionJourneyState } from "@/lib/ux/journey";
+import { letterCoverage, waitingListNote } from "@/lib/ux/roundCopy";
 import { sessionPlan } from "@/lib/ux/sessionPlan";
 import { useLocale } from "@/lib/i18n";
 import Icon from "@/components/Icon";
@@ -32,9 +33,12 @@ const BUREAU_LABEL: Record<string, string> = {
 
 export default function Rounds() {
   const { locale, d } = useLocale();
-  const { flags, roundApproved, hydrated } = useFlags();
+  const { flags, roundFlags, roundApproved, hydrated } = useFlags();
   const items = DEMO_REPORT.items;
-  const { plan, roundNumber } = useMemo(() => sessionPlan(items, flags), [items, flags]);
+  // The round as it was approved: an answer changed afterwards does not rewrite what was mailed.
+  const { plan, roundNumber } = useMemo(() => sessionPlan(items, roundFlags), [items, roundFlags]);
+  // What is confirmed today, to list what is not in these letters.
+  const confirmedNow = useMemo(() => sessionPlan(items, flags).attestedFlags, [items, flags]);
 
   if (!hydrated) return null;
 
@@ -50,6 +54,9 @@ export default function Rounds() {
   // The items in this round's letters: the ones a bureau response will be about.
   const inRound = new Set(plan.letters.flatMap((l) => l.itemFingerprints));
   const roundItems = items.filter((i) => inRound.has(i.fingerprint));
+  // Confirmed, and not in these letters: they go in the next round.
+  const confirmedFps = new Set(confirmedNow.map((f) => f.fingerprint));
+  const waitingItems = items.filter((i) => confirmedFps.has(i.fingerprint) && !inRound.has(i.fingerprint));
 
   // Nothing mailed: the one next step, the same one Home shows.
   const step = nextAction(sessionJourneyState(items, flags, sent), locale);
@@ -68,7 +75,7 @@ export default function Rounds() {
           <div className="px-5 pb-4 pt-5">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-[20px] font-semibold tabular-nums text-slate-900">
-                {locale === "es" ? "Ataque" : "Attack"} #{roundNumber}
+                {locale === "es" ? "Ronda" : "Round"} #{roundNumber}
               </h2>
               <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
                 {d.rounds.inProgress}
@@ -102,10 +109,37 @@ export default function Rounds() {
                 <span className="min-w-0 break-words">
                   <span className="font-medium text-slate-900">{l.target.name}</span> —{" "}
                   {(stages[l.templateKey] ?? stages[l.stage])?.name ?? l.stage}
+                  {/* What the letter covers, by name. */}
+                  {letterCoverage(l, items, locale).map((c) => (
+                    <span key={c} data-testid="letter-covers" className="mt-0.5 block text-[14px] text-slate-700">
+                      {c}
+                    </span>
+                  ))}
                 </span>
               </li>
             ))}
           </ul>
+
+          {waitingItems.length > 0 && (
+            <div data-testid="waiting-list" className="border-t hairline bg-amber-50 px-5 pb-4 pt-4">
+              <h3 className="flex items-center gap-2 text-[17px] font-semibold leading-snug text-slate-900">
+                <Icon name="clock" size={20} className="shrink-0 text-amber-700" />
+                {d.rounds.waitingTitle}
+              </h3>
+              <ul className="mt-2.5 space-y-1.5">
+                {waitingItems.map((item) => (
+                  <li key={item.fingerprint} className="flex gap-2.5 text-[15px] leading-snug text-slate-900">
+                    <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" />
+                    <span className="min-w-0 break-words">
+                      <span className="font-medium">{itemLabel(item, locale)}</span>
+                      <span className="text-slate-600"> · {BUREAU_LABEL[item.bureau]}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2.5 text-[14px] leading-relaxed text-slate-700">{waitingListNote(locale)}</p>
+            </div>
+          )}
 
           {roundItems.length > 0 && <ResponseLogger items={roundItems} />}
         </section>

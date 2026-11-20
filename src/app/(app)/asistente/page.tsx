@@ -5,16 +5,19 @@ import Link from "next/link";
 import { DEMO_REPORT } from "@/lib/demo";
 import { ATTESTATION_TEXT } from "@/lib/compliance/attestation";
 import { getCategoryExplainers } from "@/lib/ux/explainers";
-import { useFlags } from "@/lib/ux/flagsStore";
+import { crossBureauNote, differingAnswerLine } from "@/lib/ux/crossBureau";
+import { useFlags, type FlagsMap } from "@/lib/ux/flagsStore";
 import { messageText, useChatThread, type ChatMsg } from "@/lib/ux/chatStore";
 import { HUMAN_HELP, humanHelpHref } from "@/lib/ux/humanHelp";
 import { itemCheckHints, itemFacts, itemKindLine, itemLabel, itemReadAloud, itemTitle } from "@/lib/ux/itemDisplay";
+import { approvedMessage, letterCoverage, waitingNote } from "@/lib/ux/roundCopy";
 import { sessionPlan } from "@/lib/ux/sessionPlan";
 import { useLocale } from "@/lib/i18n";
 import { DICTS } from "@/lib/i18n/dictionaries";
 import ItemFacts from "@/components/ItemFacts";
 import SpeakButton from "@/components/SpeakButton";
 import Icon from "@/components/Icon";
+import { InfoNote, WaitingNote } from "@/components/RoundNotes";
 import { CapiAvatar } from "@/components/Logo";
 
 // The conversation. The client's whole journey lives in one thread with their
@@ -59,8 +62,11 @@ export default function Asistente() {
   const negatives = items.filter((i) => i.negative).length;
   const humanHref = humanHelpHref(locale);
 
-  const { plan, roundNumber, attestedFlags } = useMemo(() => sessionPlan(items, flags), [items, flags]);
+  const session = useMemo(() => sessionPlan(items, flags), [items, flags]);
+  const { plan, roundNumber, attestedFlags } = session;
   const confirmedCount = attestedFlags.length;
+  // Confirmed items that are not in this round's letters, said plainly above the approve button.
+  const waiting = waitingNote(session, locale);
 
   const phase: "review" | "attack" | "waiting" | "done-empty" = !hydrated
     ? "review"
@@ -169,14 +175,27 @@ export default function Asistente() {
     if (flagging && box) box.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
   }, [flagging]);
 
-  /** After a decision. `confirmed` is how many items are confirmed once this decision counts. */
-  const afterDecision = (confirmed: number) => {
+  /**
+   * After a decision. `confirmed` is how many items are confirmed once this
+   * decision counts; `after` is the answers with this decision in them.
+   */
+  const afterDecision = (confirmed: number, after: FlagsMap) => {
     const left = pending.length - 1;
+    // The same account on another bureau, answered differently: say so once,
+    // plainly, without suggesting which answer to keep.
+    if (current) {
+      const differsEs = differingAnswerLine(current, items, after, "es");
+      const differsEn = differingAnswerLine(current, items, after, "en");
+      if (differsEs && differsEn) say(differsEs, differsEn);
+    }
     if (left > 0) {
       say(
         left === 1 ? "Anotado. Último elemento:" : `Anotado. Quedan ${left}.`,
         left === 1 ? "Noted. Last item:" : `Noted. ${left} left.`,
       );
+    } else if (roundApproved) {
+      // An item reopened after the letters went out: the round itself does not change.
+      say(DICTS.es.items.afterMailedNoted, DICTS.en.items.afterMailedNoted);
     } else if (confirmed > 0) {
       say(
         "¡Revisaste todo! 🎉 Preparé tus cartas. Revísalas abajo y dame el OK cuando lo tengas claro.",
@@ -197,7 +216,7 @@ export default function Asistente() {
       `${itemLabel(current, "en")}\n${plain(DICTS.en.items.looksCorrect)}`,
     );
     review(current.fingerprint, "correct");
-    afterDecision(confirmedCount);
+    afterDecision(confirmedCount, { ...flags, [current.fingerprint]: { state: "correct" } });
   };
 
   const confirmFlag = () => {
@@ -206,20 +225,19 @@ export default function Asistente() {
       `${itemLabel(current, "es")}\n${ATTESTATION_TEXT.es}`,
       `${itemLabel(current, "en")}\n${ATTESTATION_TEXT.en}`,
     );
-    review(current.fingerprint, "attested", { reason, attestedAt: new Date().toISOString() });
+    const attestedAt = new Date().toISOString();
+    review(current.fingerprint, "attested", { reason, attestedAt });
     setFlagging(false);
     setReason("");
     setAttestChecked(false);
-    afterDecision(confirmedCount + 1);
+    afterDecision(confirmedCount + 1, { ...flags, [current.fingerprint]: { state: "attested", reason, attestedAt } });
   };
 
   const approve = () => {
-    youSay("Apruebo. Envía mi ataque.", "Approved. Send my attack.");
+    youSay("Apruebo. Envía mis cartas.", "Approved. Send my letters.");
     setRoundApproved(true);
-    say(
-      "¡Hecho! 📬 Tus cartas se imprimen y van por correo. Los burós tienen ~30 días; yo vigilo el calendario y te aviso aquí. No tienes que hacer nada más.",
-      "Done! 📬 Your letters are being printed and mailed. Bureaus have ~30 days; I watch the calendar and message you here. Nothing else to do.",
-    );
+    // Which letters went out, what each covers, and what waits for the next round.
+    say(approvedMessage(session, items, "es"), approvedMessage(session, items, "en"));
   };
 
   /** Demo only (no WhatsApp number): say plainly that nobody is online. No coach call. */
@@ -279,11 +297,16 @@ export default function Asistente() {
         body: JSON.stringify({ messages: [...context, { role: "user", content: q.slice(0, 4000) }] }),
       });
       if (res.ok) {
-        const { reply, stored } = (await res.json()) as { reply: string; stored?: boolean };
-        append([{ role: "assistant", text: reply }], { remote: false });
-        // Signed in but the server could not record it: save both lines the
-        // ordinary way so the thread is still complete on other devices.
-        if (!stored) saveExchange(q, reply);
+        const { reply, stored } = (await res.json()) as { reply: string | null; stored?: boolean };
+        if (typeof reply === "string" && reply) {
+          append([{ role: "assistant", text: reply }], { remote: false });
+          // Signed in but the server could not record it: save both lines the
+          // ordinary way so the thread is still complete on other devices.
+          if (!stored) saveExchange(q, reply);
+        } else {
+          // No reply and no error: the coach is not configured here (the demo).
+          replyWithFallback();
+        }
       } else {
         replyWithFallback();
       }
@@ -300,6 +323,7 @@ export default function Asistente() {
   const facts = current ? itemFacts(current, locale) : [];
   const kindLine = current ? itemKindLine(current, locale) : "";
   const hints = current ? itemCheckHints(current, locale, 3) : [];
+  const otherBureaus = current ? crossBureauNote(current, items, flags, locale) : null;
   const humanButton =
     "pressable flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-4 text-[14px] font-semibold text-slate-900";
   const humanLabel = (
@@ -373,7 +397,7 @@ export default function Asistente() {
               <p className="flex min-h-11 min-w-0 flex-1 flex-wrap items-center content-center gap-x-2 gap-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <span>{BUREAU_LABEL[current.bureau]}</span>
                 {current.negative && (
-                  <span className="whitespace-nowrap rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-red-700">
+                  <span className="whitespace-nowrap rounded-full bg-red-50 px-2.5 py-0.5 text-[13px] font-medium normal-case tracking-normal text-red-700">
                     {d.items.negativeBadge}
                   </span>
                 )}
@@ -386,6 +410,16 @@ export default function Asistente() {
             </p>
             <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{kindLine}</p>
             <ItemFacts facts={facts} heading={d.items.reportSays} className="mt-3" />
+            {otherBureaus && (
+              <InfoNote testId="cross-bureau-note" className="mt-3">
+                {otherBureaus.text}
+              </InfoNote>
+            )}
+            {roundApproved && (
+              <InfoNote testId="after-mailed-note" className="mt-3">
+                {d.items.afterMailedCard}
+              </InfoNote>
+            )}
             {hints.length > 0 && (
               <ul className="mt-3 space-y-2">
                 {hints.map((h, i) => (
@@ -458,22 +492,26 @@ export default function Asistente() {
         {phase === "attack" && (
           <div className="animate-rise mt-3 rounded-3xl border hairline bg-white p-5 shadow-[0_8px_24px_-14px_rgba(0,0,0,0.25)]">
             <p className="text-[20px] font-semibold text-slate-900">{d.attack.title(roundNumber)}</p>
+            <p className="mt-1 text-[14px] leading-snug text-slate-500">
+              {d.attack.subtitle(plan.letters.length, session.inRound.length)}
+            </p>
+            {/* Every letter, with what it covers: the recipient alone does not say what is being mailed. */}
             <ul className="mt-3 divide-y divide-slate-100">
-              {plan.letters.slice(0, 4).map((l, i) => (
-                <li key={i} className="flex items-center gap-3 py-2.5 text-[15px] text-slate-700">
-                  <Icon name="doc" size={18} className="shrink-0 text-slate-400" />
-                  <span className="truncate">{l.target.name}</span>
+              {plan.letters.map((l, i) => (
+                <li key={i} className="flex items-start gap-3 py-2.5 text-[15px] leading-snug text-slate-700">
+                  <Icon name="doc" size={18} className="mt-0.5 shrink-0 text-slate-400" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words font-medium text-slate-900">{l.target.name}</span>
+                    {letterCoverage(l, items, locale).map((c) => (
+                      <span key={c} data-testid="letter-covers" className="block break-words text-[14px] text-slate-600">
+                        {c}
+                      </span>
+                    ))}
+                  </span>
                 </li>
               ))}
             </ul>
-            {plan.letters.length > 4 && (
-              <p className="pt-1 text-[13px] text-slate-500">
-                +{plan.letters.length - 4}{" "}
-                {es
-                  ? plan.letters.length - 4 === 1 ? "carta más" : "cartas más"
-                  : plan.letters.length - 4 === 1 ? "more letter" : "more letters"}
-              </p>
-            )}
+            {waiting && <WaitingNote note={waiting} className="mt-3" />}
             <div className="mt-4 grid gap-2.5">
               <button
                 onClick={approve}

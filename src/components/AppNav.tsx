@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale } from "@/lib/i18n";
 import Icon, { type IconName } from "@/components/Icon";
+import LocaleToggle from "@/components/LocaleToggle";
 import Logo from "@/components/Logo";
 
 // Three destinations, like a good phone app: where you stand, your assistant,
@@ -17,20 +18,6 @@ const NAV: Array<{ href: string; key: "home" | "assistant" | "more"; icon: IconN
 
 const MORE_PATHS = ["/mas", "/audit", "/items", "/attack", "/rounds", "/goal"];
 
-function LocaleToggle() {
-  const { locale, setLocale } = useLocale();
-  return (
-    <button
-      onClick={() => setLocale(locale === "es" ? "en" : "es")}
-      className="pressable flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full bg-slate-100 px-4 text-[13px] font-semibold text-slate-700"
-      aria-label={locale === "es" ? "Switch to English" : "Cambiar a español"}
-    >
-      <Icon name="globe" size={16} />
-      {locale === "es" ? "EN" : "ES"}
-    </button>
-  );
-}
-
 export default function AppNav() {
   const pathname = usePathname();
   const { d } = useLocale();
@@ -42,7 +29,8 @@ export default function AppNav() {
     <>
       <header className="sticky top-0 z-30 border-b hairline bg-white/75 backdrop-blur-xl">
         <div className="mx-auto flex h-12 max-w-2xl items-center justify-between px-4 sm:h-14 sm:px-6">
-          <Link href="/" aria-label="CreditCapi">
+          {/* Full header height, so the logo is an easy tap. */}
+          <Link href="/" aria-label="CreditCapi" className="flex h-11 items-center">
             <Logo size={19} />
           </Link>
 
