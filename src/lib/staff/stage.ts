@@ -1,3 +1,5 @@
+import { firstWorkingDay } from "../agreement/businessDays";
+import { deadlineOf, workMayStart, type AgreementRecord, type GateResult } from "../agreement/gate";
 import { ROUND_CYCLE_DAYS } from "../domain/attack";
 import { FRESH_REPORT_DAYS } from "../monitoring/subscription";
 import { RESPONSE_WINDOW_DAYS } from "../ux/journey";
@@ -60,6 +62,7 @@ function daysPhrase(days: number): string {
 export const STAGE_ORDER = [
   "lead",
   "agreement_pending",
+  "cancellation_window",
   "documents_pending",
   "report_pending",
   "client_review_pending",
@@ -68,9 +71,13 @@ export const STAGE_ORDER = [
   "results_in",
   "next_round_ready",
   "paused",
+  "cancelled",
 ] as const;
 
 export type Stage = (typeof STAGE_ORDER)[number];
+
+/** The stages of clients the team is working with. A client who cancelled is not among them. */
+export const PIPELINE_STAGES: readonly Stage[] = STAGE_ORDER.filter((stage) => stage !== "cancelled");
 
 /** Whose move it is. "staff" is the team running fulfillment; "sales" is whoever is talking with a lead. */
 export type Actor = "system" | "client" | "staff" | "sales";
@@ -104,6 +111,13 @@ export const STAGES: Record<Stage, StageInfo> = {
     short: "Acuerdo",
     description: "El cliente tiene que firmar el acuerdo de servicio. Nada avanza hasta entonces.",
     actor: "client",
+  },
+  cancellation_window: {
+    label: "En periodo de cancelación",
+    short: "Cancelación",
+    description:
+      "Firmó el acuerdo y está en sus 3 días hábiles para cancelar sin costo. La ley no permite empezar ningún trabajo antes. Nadie tiene que hacer nada: el sistema avisa el día que se puede empezar.",
+    actor: "system",
   },
   documents_pending: {
     label: "Faltan documentos",
@@ -155,7 +169,71 @@ export const STAGES: Record<Stage, StageInfo> = {
       "No hay trabajo en curso: pago vencido, servicio cancelado o nada marcado como inexacto por el cliente. El equipo decide cómo seguir.",
     actor: "staff",
   },
+  cancelled: {
+    label: "Canceló su acuerdo",
+    short: "Cancelados",
+    description:
+      "El cliente canceló su acuerdo. No se hace ningún trabajo, no se envía ninguna carta y no se le cobra. Su registro se conserva.",
+    actor: "staff",
+  },
 };
+
+// ── The agreement ───────────────────────────────────────────────────────
+
+/** The client's agreement as the gate reads it (src/lib/agreement/gate.ts). */
+export function clientAgreement(client: StaffClient): AgreementRecord {
+  return {
+    // A record made before the acknowledgement was kept separately: the signing date stands in.
+    disclosureAcknowledgedAt:
+      client.disclosureAcknowledgedAt === undefined ? client.agreementSignedAt : client.disclosureAcknowledgedAt,
+    signedAt: client.agreementSignedAt,
+    cancellationDeadline: client.cancellationDeadline ?? null,
+    cancelledAt: client.agreementCancelledAt ?? null,
+    serviceEndRequestedAt: client.serviceEndRequestedAt ?? null,
+  };
+}
+
+/** Whether work may be done for this client now (the same rule the letters endpoint applies). */
+export function agreementGate(client: StaffClient, now: Date): GateResult {
+  return workMayStart(clientAgreement(client), now);
+}
+
+/**
+ * For a client inside the cancellation window: the first working day the team
+ * may begin. Null for everyone else.
+ */
+export function workStartsAt(client: StaffClient, now: Date): Date | null {
+  const gate = agreementGate(client, now);
+  if (gate.allowed || gate.code !== "in_cancellation_window") return null;
+  const deadline = deadlineOf(clientAgreement(client));
+  return deadline ? firstWorkingDay(deadline) : null;
+}
+
+/** True once the client asked to end the service and has not been cancelled: a person has to settle it. */
+function serviceEndPending(client: StaffClient): boolean {
+  return Boolean(client.serviceEndRequestedAt) && !client.agreementCancelledAt;
+}
+
+/**
+ * The agreement in one line, for the client page:
+ * "En periodo de cancelación — se puede empezar el 25 de noviembre".
+ */
+export function agreementLine(client: StaffClient, now: Date): string {
+  if (!client.agreementSignedAt) {
+    return clientAgreement(client).disclosureAcknowledgedAt
+      ? "Recibió la declaración de sus derechos; falta que firme el contrato"
+      : "Sin firmar";
+  }
+  if (client.agreementCancelledAt) {
+    return client.cancelledWithinWindow === false
+      ? `Cancelado el ${formatDay(new Date(client.agreementCancelledAt))}, después del plazo`
+      : `Cancelado el ${formatDay(new Date(client.agreementCancelledAt))}, dentro del plazo`;
+  }
+  const starts = workStartsAt(client, now);
+  if (starts) return `En periodo de cancelación — se puede empezar el ${formatDay(starts)}`;
+  if (serviceEndPending(client)) return `Vigente — pidió terminar el servicio el ${formatDay(new Date(client.serviceEndRequestedAt!))}`;
+  return "Vigente — el periodo de cancelación ya terminó";
+}
 
 export function latestRound(client: StaffClient): StaffRound | null {
   return client.rounds.reduce<StaffRound | null>((latest, r) => (!latest || r.number > latest.number ? r : latest), null);
@@ -198,13 +276,18 @@ export function reviewProgress(client: StaffClient): ReviewProgress {
  * The one stage a client is in. Checked in the order work actually happens,
  * so the stage is always the earliest thing still missing.
  *
- * `now` is accepted so all three functions are called the same way. It is
- * not used: a stage depends on what has been recorded, not on the date.
+ * A stage depends on what has been recorded, with one exception that depends
+ * on the date: the days right after signing, while the client can still cancel
+ * without penalty and the law allows no work. `now` decides that one; left
+ * out, the current time is used.
  */
-export function clientStage(client: StaffClient, _now?: Date): Stage {
+export function clientStage(client: StaffClient, now: Date = new Date()): Stage {
+  // A cancelled agreement ends everything, whatever else is on record.
+  if (client.agreementCancelledAt) return "cancelled";
   if (client.billing === "canceled" || client.billing === "past_due") return "paused";
   if (!client.signedUpAt) return "lead";
   if (!client.agreementSignedAt) return "agreement_pending";
+  if (workStartsAt(client, now)) return "cancellation_window";
   if (missingDocuments(client).length > 0) return "documents_pending";
   if (!client.report) return "report_pending";
 
@@ -235,6 +318,7 @@ export const EXCEPTION_KINDS = [
   "response_overdue",
   "agreement_unsigned",
   "identity_theft_report_missing",
+  "service_end_requested",
 ] as const;
 
 export type ExceptionKind = (typeof EXCEPTION_KINDS)[number];
@@ -251,6 +335,7 @@ export const EXCEPTION_LABEL: Record<ExceptionKind, string> = {
   response_overdue: "Sin reporte nuevo",
   agreement_unsigned: "Acuerdo sin firmar",
   identity_theft_report_missing: "Robo de identidad sin reporte",
+  service_end_requested: "Pidió terminar el servicio",
 };
 
 export interface StaffException {
@@ -319,9 +404,24 @@ function responseOverdue(client: StaffClient, now: Date): StaffRound | null {
 /** Every exception that applies right now, whether or not someone marked it handled. */
 function openExceptions(client: StaffClient, now: Date): StaffException[] {
   // A cancelled client has nothing in flight, so nothing can be wrong with it.
-  if (client.billing === "canceled") return [];
+  if (client.billing === "canceled" || client.agreementCancelledAt) return [];
 
   const found: StaffException[] = [];
+
+  // Past the cancellation window the client asked to stop. Nothing more is
+  // sent (sendBlockReason), and a person confirms it with them.
+  if (serviceEndPending(client)) {
+    const why = client.serviceEndReason?.trim();
+    found.push({
+      key: "service_end_requested",
+      kind: "service_end_requested",
+      severity: "high",
+      sentence: `Pidió terminar el servicio${why ? `: «${clip(why, 110)}»` : ""}. No se envía nada más hasta que alguien del equipo lo confirme con el cliente.`,
+      actionLabel: "Confirmarle por WhatsApp",
+      action: "whatsapp",
+      since: client.serviceEndRequestedAt ?? null,
+    });
+  }
 
   if (client.billing === "past_due") {
     found.push({
@@ -513,7 +613,16 @@ export interface AutomaticStep {
  * move belongs to a person (the client or the team).
  */
 export function nextAutomaticStep(client: StaffClient, now: Date): AutomaticStep | null {
+  // The client asked to stop: the system does nothing more on its own.
+  if (serviceEndPending(client)) return null;
+
   const stage = clientStage(client, now);
+
+  if (stage === "cancellation_window") {
+    // Nobody acts: the system waits out the cancellation period, then work may begin.
+    const starts = workStartsAt(client, now);
+    return starts ? { text: `Empezar el ${formatDay(starts)}`, at: starts.toISOString() } : null;
+  }
 
   if (stage === "waiting_on_bureaus") {
     const round = latestRound(client);
@@ -553,11 +662,17 @@ export function nextStep(client: StaffClient, now: Date): NextStep {
   const stage = clientStage(client, now);
   const person = (actor: Actor, text: string): NextStep => ({ actor, text, at: null });
 
+  if (serviceEndPending(client)) return person("staff", "Confirmar con el cliente que termina el servicio");
+
   switch (stage) {
     case "lead":
       return person("sales", "Seguir la conversación y enviarle su enlace");
     case "agreement_pending":
       return person("client", "Firmar el acuerdo de servicio");
+    case "cancellation_window":
+      return person("system", "Esperar a que termine su periodo de cancelación");
+    case "cancelled":
+      return person("staff", "Canceló su acuerdo: nada pendiente");
     case "documents_pending":
       return person("client", `Subir su ${documentNames(missingDocuments(client))}`);
     case "report_pending":
@@ -587,9 +702,23 @@ export function nextStep(client: StaffClient, now: Date): NextStep {
 
 /**
  * Why a prepared round must not be mailed yet, or null when it may. Letters go
- * out on a current report only; a handled mark does not lift this.
+ * out only under an agreement that allows work to start, and on a current
+ * report only; a handled mark does not lift this.
  */
 export function sendBlockReason(client: StaffClient, now: Date): string | null {
+  // The agreement comes before everything else: no signature, a cancellation,
+  // the cancellation window or a request to stop each hold every letter.
+  const gate = agreementGate(client, now);
+  if (!gate.allowed) {
+    if (gate.code === "in_cancellation_window") {
+      const starts = workStartsAt(client, now);
+      return `El cliente está en su periodo de cancelación de 3 días hábiles y la ley no permite empezar antes.${
+        starts ? ` Se puede enviar a partir del ${formatDay(starts)}.` : ""
+      }`;
+    }
+    if (gate.code === "cancelled") return "El cliente canceló su acuerdo. Sus cartas no se envían.";
+    return gate.reason.es;
+  }
   const stale = openExceptions(client, now).find((e) => e.kind === "report_stale");
   if (stale) {
     return `El reporte tiene más de ${FRESH_REPORT_DAYS} días. Hace falta uno reciente antes de enviar cartas.`;

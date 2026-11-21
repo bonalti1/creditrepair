@@ -13,6 +13,9 @@ import { reportError } from "@/lib/observability/errors";
 import { ENCLOSURE_LABELS, isAttachableImage, letterHtml, type EnclosurePage } from "@/lib/letters/enclosures";
 import { loadMonitoringState, monitoringMessageEs } from "@/lib/monitoring/subscription";
 import { itemReasonsFrom } from "@/lib/ux/disputeReason";
+import { workMayStart } from "@/lib/agreement/gate";
+import { loadAgreement } from "@/lib/agreement/server";
+import { isFullService } from "@/lib/service/mode";
 
 // The DIY moment (spec §4.2, legally load-bearing): the USER reviews the attack
 // and presses the button. Only then do we render, print, and mail letters.
@@ -36,6 +39,24 @@ export async function POST(req: Request) {
 
   const db = getAdminClient();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+
+  // Full service: no letter leaves before the client's agreement allows work
+  // to start — disclosure acknowledged, contract signed, not cancelled, and the
+  // 3-business-day cancellation period over (15 U.S.C. §1679d(a)). Checked
+  // here, on the server, whatever the screen showed.
+  if (isFullService) {
+    let agreement;
+    try {
+      agreement = await loadAgreement(db, userId);
+    } catch (error) {
+      await reportError(error, { where: "api/attacks/approve:agreement", userId });
+      return NextResponse.json({ error: "Could not check the service agreement. Nothing was sent." }, { status: 500 });
+    }
+    const gate = workMayStart(agreement, new Date());
+    if (!gate.allowed) {
+      return NextResponse.json({ error: gate.reason.es, code: `agreement_${gate.code}` }, { status: 409 });
+    }
+  }
 
   const { data: round } = await db
     .from("attack_rounds")

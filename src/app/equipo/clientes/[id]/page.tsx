@@ -6,11 +6,13 @@ import { useParams } from "next/navigation";
 import type { Bureau } from "@/lib/domain/types";
 import { readerLabel } from "@/lib/reports/readers";
 import { demoClientUploads } from "@/lib/staff/data";
-import { count, formatBytes, formatPhone, longDay, relativeDay, shortDay } from "@/lib/staff/format";
+import { count, formatBytes, formatPhone, longDay, relativeDay, shortDateTime, shortDay } from "@/lib/staff/format";
 import { staffLetterText } from "@/lib/staff/letters";
 import { exceptionMessage, STAFF_MESSAGE_RULES, whatsappHref } from "@/lib/staff/messages";
 import { roundRefsHref } from "@/lib/staff/printBatch";
 import {
+  agreementLine,
+  clientAgreement,
   clientExceptions,
   clientStage,
   formatDay,
@@ -25,6 +27,7 @@ import {
   STAGES,
 } from "@/lib/staff/stage";
 import { clientTimeline } from "@/lib/staff/timeline";
+import { deadlineOf } from "@/lib/agreement/gate";
 import {
   fullName,
   REQUIRED_DOCUMENTS,
@@ -223,6 +226,35 @@ export default function ClientePage() {
   const handled = handledExceptions(client, now);
   const round = sendableRound(client, now);
   const blocked = stage === "ready_to_send" || stage === "next_round_ready" ? sendBlockReason(client, now) : null;
+  // The agreement record, as rows: what is on file and when.
+  const deadline = client.agreementSignedAt ? deadlineOf(clientAgreement(client)) : null;
+  const acknowledgedAt = clientAgreement(client).disclosureAcknowledgedAt;
+  const agreementRows: Array<[string, string]> = [
+    ["Declaración de derechos", acknowledgedAt ? `Recibida el ${shortDateTime(acknowledgedAt)}` : "Sin recibir"],
+    ["Contrato", client.agreementSignedAt ? `Firmado el ${shortDateTime(client.agreementSignedAt)}` : "Sin firmar"],
+    ...(client.agreementSignedAt
+      ? ([
+          ["Versión del texto", client.agreementVersion ?? "Sin registro"],
+          [
+            "Puede cancelar sin costo",
+            deadline
+              ? `Hasta el ${shortDateTime(deadline.toISOString())}${deadline.getTime() >= now.getTime() ? "" : " (ya pasó)"}`
+              : "Sin fecha",
+          ],
+        ] as Array<[string, string]>)
+      : []),
+    ...(client.agreementCancelledAt
+      ? ([
+          [
+            "Cancelación",
+            `${shortDateTime(client.agreementCancelledAt)}, ${client.cancelledWithinWindow === false ? "después del plazo" : "dentro del plazo"}`,
+          ],
+        ] as Array<[string, string]>)
+      : []),
+    ...(client.serviceEndRequestedAt
+      ? ([["Pidió terminar el servicio", shortDateTime(client.serviceEndRequestedAt)]] as Array<[string, string]>)
+      : []),
+  ];
   const review = reviewProgress(client);
   const timeline = clientTimeline(client, now);
   const missing = missingDocuments(client);
@@ -585,12 +617,6 @@ export default function ClientePage() {
                   </dd>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-slate-500">Acuerdo</dt>
-                  <dd className="text-right font-medium text-slate-900">
-                    {client.agreementSignedAt ? `Firmado el ${shortDay(client.agreementSignedAt)}` : "Sin firmar"}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
                   <dt className="text-slate-500">Invitación</dt>
                   <dd>
                     <Link
@@ -602,6 +628,31 @@ export default function ClientePage() {
                   </dd>
                 </div>
               </dl>
+            </div>
+          </section>
+
+          <section aria-labelledby="acuerdo" data-testid="agreement-record">
+            <SectionTitle>
+              <span id="acuerdo">Acuerdo</span>
+            </SectionTitle>
+            <div className="card px-5 py-4">
+              <p className="text-[15px] font-medium leading-snug text-slate-900">{agreementLine(client, now)}</p>
+              <dl className="mt-3 space-y-2.5 border-t hairline pt-3 text-[14px]">
+                {agreementRows.map(([label, value]) => (
+                  <div key={label} className="flex items-baseline justify-between gap-3">
+                    <dt className="shrink-0 text-slate-500">{label}</dt>
+                    <dd className="text-right font-medium text-slate-900">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              {client.serviceEndReason && (
+                <p className="mt-3 rounded-2xl bg-slate-100 px-4 py-3 text-[14px] leading-snug text-slate-700">
+                  Lo que escribió: «{client.serviceEndReason}»
+                </p>
+              )}
+              <p className="mt-3 text-xs leading-relaxed text-slate-500">
+                El acuerdo lo firma y lo cancela el cliente desde su app. El equipo no puede firmarlo ni cambiarlo.
+              </p>
             </div>
           </section>
 

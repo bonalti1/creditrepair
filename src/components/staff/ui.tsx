@@ -24,7 +24,7 @@ export function Chip({ tone, children }: { tone: string; children: React.ReactNo
 }
 
 export function StageChip({ stage }: { stage: Stage }) {
-  const tone = stage === "paused" ? "bg-slate-100 text-slate-600" : ACTOR_TONE[STAGES[stage].actor];
+  const tone = stage === "paused" || stage === "cancelled" ? "bg-slate-100 text-slate-600" : ACTOR_TONE[STAGES[stage].actor];
   return <Chip tone={tone}>{STAGES[stage].label}</Chip>;
 }
 

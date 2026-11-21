@@ -1,7 +1,8 @@
 import { readerLabel } from "../reports/readers";
 import { displayName } from "./conversation";
 import { count, longDay } from "./format";
-import { nextAutomaticStep, reviewProgress } from "./stage";
+import { clientAgreement, nextAutomaticStep, reviewProgress } from "./stage";
+import { deadlineOf } from "../agreement/gate";
 import type { ReportImport, StaffClient } from "./types";
 
 // A client's story in dated lines, newest first, built only from what is on
@@ -44,7 +45,26 @@ export function clientTimeline(client: StaffClient, now: Date): TimelineEntry[] 
 
   add(client.createdAt, `Primer contacto con ventas (${client.salesperson})`, "team");
   add(client.signedUpAt, "Creó su cuenta", "client");
+  // The acknowledgement of the disclosure statements is its own record, before the contract.
+  if (client.disclosureAcknowledgedAt && client.disclosureAcknowledgedAt !== client.agreementSignedAt) {
+    add(client.disclosureAcknowledgedAt, "Recibió y confirmó la declaración de sus derechos", "client");
+  }
   add(client.agreementSignedAt, "Firmó el acuerdo de servicio", "client");
+  if (client.agreementCancelledAt) {
+    add(
+      client.agreementCancelledAt,
+      client.cancelledWithinWindow === false
+        ? "Canceló su acuerdo, después del plazo de cancelación"
+        : "Canceló su acuerdo dentro del plazo de 3 días hábiles. No se le cobra ni se le envía nada",
+      "client",
+    );
+  }
+  // The end of the cancellation window is told once it has passed, unless the client cancelled first.
+  const deadline = client.agreementSignedAt ? deadlineOf(clientAgreement(client)) : null;
+  if (deadline && deadline.getTime() < now.getTime() && !client.agreementCancelledAt) {
+    add(deadline.toISOString(), "Terminó su periodo de cancelación: el equipo puede empezar", "team");
+  }
+  add(client.serviceEndRequestedAt ?? null, "Pidió terminar el servicio", "client");
 
   // Reports staff brought in are told by their own record: who, when and what changed.
   const imports = client.reportImports ?? [];

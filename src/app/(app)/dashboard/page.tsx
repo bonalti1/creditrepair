@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { DEMO_REPORT, DEMO_SCORE_HISTORY, firstScoresForTrend } from "@/lib/demo";
+import { useAgreement } from "@/lib/ux/agreementStore";
 import { useFlags } from "@/lib/ux/flagsStore";
 import { nextAction, sessionJourneyState } from "@/lib/ux/journey";
 import { useLocale } from "@/lib/i18n";
@@ -74,15 +75,17 @@ function average(scores: Partial<Record<string, number>>): number | null {
 
 export default function Home() {
   const { flags, roundApproved, hydrated } = useFlags();
+  // The agreement comes first in the journey, so Home waits for it too.
+  const { agreement, hydrated: agreementReady } = useAgreement();
   const { locale, d } = useLocale();
   const es = locale === "es";
   const items = DEMO_REPORT.items;
   const negatives = items.filter((i) => i.negative);
 
-  if (!hydrated) return null;
+  if (!hydrated || !agreementReady) return null;
 
   // Built by the shared helper so Home, Review, Audit and Rounds agree on the next step.
-  const step = nextAction(sessionJourneyState(items, flags, roundApproved), locale);
+  const step = nextAction(sessionJourneyState(items, flags, roundApproved, agreement), locale);
 
   const score = average(DEMO_REPORT.scores);
   // A change is shown only between two real pulls. With one pull (the demo, or

@@ -47,6 +47,9 @@ const BODY: Record<ExceptionKind, (client: StaffClient, exception: StaffExceptio
     `Ya pasaron los ${RESPONSE_WINDOW_DAYS} días que tienen los burós para responder y no hemos podido importar tu reporte nuevo. ¿Puedes revisar que tu monitoreo de crédito siga activo?`,
   identity_theft_report_missing: () =>
     "Vimos que en tu revisión dijiste que algo en tu reporte es resultado de robo de identidad. Para seguir con ese paso hace falta tu reporte de robo de identidad de la FTC, que se llena sin costo en IdentityTheft.gov. ¿Ya lo tienes? Si no, te explico cómo hacerlo.",
+  // No persuading and no conditions: the client asked to stop, the team confirms it.
+  service_end_requested: () =>
+    "Recibimos tu solicitud para terminar el servicio y ya no se envía ninguna carta más. Te escribo para confirmarlo contigo y resolver cualquier duda que tengas.",
   agreement_unsigned: () =>
     "Tu cuenta ya está creada. Para empezar solo falta que firmes el acuerdo de servicio. Si tienes preguntas sobre el acuerdo, con gusto te las respondo por aquí.",
 };

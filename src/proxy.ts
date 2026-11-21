@@ -47,6 +47,8 @@ export const config = {
     "/attack/:path*",
     "/rounds/:path*",
     "/goal/:path*",
+    // The service agreement: read, signed and cancelled only by the signed-in client.
+    "/acuerdo/:path*",
     // The staff console. Signed in is the first check; being an active member
     // of staff is the second, in src/app/equipo/layout.tsx.
     "/equipo/:path*",

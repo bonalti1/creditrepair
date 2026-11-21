@@ -110,6 +110,8 @@ describe("staff: clientStage", () => {
   const cases: Array<[Stage, StaffClient]> = [
     ["lead", client({ signedUpAt: null, agreementSignedAt: null, documents: [], report: null, answers: {}, billing: "none" })],
     ["agreement_pending", client({ agreementSignedAt: null, documents: [], report: null, answers: {}, billing: "none" })],
+    // Signed yesterday: inside the 3-business-day cancellation window, whatever else is on file.
+    ["cancellation_window", client({ agreementSignedAt: ago(1), rounds: [round(1, "ready")] })],
     ["documents_pending", client({ documents: ["government_id"], report: null, answers: {} })],
     ["report_pending", client({ report: null, answers: {} })],
     ["client_review_pending", client({ answers: answers(report(2), 3) })],
@@ -118,6 +120,7 @@ describe("staff: clientStage", () => {
     ["results_in", client({ rounds: [round(1, "responded", 32)] })],
     ["next_round_ready", client({ rounds: [round(1, "responded", 41), round(2, "ready")] })],
     ["paused", client({ billing: "canceled", rounds: [round(1, "mailed", 10)] })],
+    ["cancelled", client({ agreementCancelledAt: ago(16), cancelledWithinWindow: true, rounds: [round(1, "ready")] })],
   ];
 
   it("covers every stage, each with a label, a short name and a line saying who does what next", () => {
@@ -427,7 +430,7 @@ describe("staff: demo clients", () => {
 
   it("are about fourteen invented people in Texas with fictional phone numbers", () => {
     expect(clients.length).toBeGreaterThanOrEqual(13);
-    expect(clients.length).toBeLessThanOrEqual(16);
+    expect(clients.length).toBeLessThanOrEqual(19);
     expect(new Set(clients.map((c) => c.id)).size).toBe(clients.length);
     for (const c of clients) {
       expect(c.state).toBe("TX");
@@ -450,9 +453,9 @@ describe("staff: demo clients", () => {
     const needPerson = clients.filter((c) => clientExceptions(c, later).length > 0);
     const ready = clients.filter((c) => sendableRound(c, later));
     const nothing = clients.filter((c) => clientExceptions(c, later).length === 0 && !sendableRound(c, later));
-    expect(needPerson.length).toBe(9);
+    expect(needPerson.length).toBe(10);
     expect(ready.length).toBe(3);
-    expect(nothing.length).toBe(4);
+    expect(nothing.length).toBe(6);
     expect(clients.some((c) => nextAutomaticStep(c, later))).toBe(true);
   });
 

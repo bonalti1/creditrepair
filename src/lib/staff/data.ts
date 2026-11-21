@@ -2,6 +2,7 @@ import type { RawReport } from "../domain/parser";
 import { mergeReport, planImport } from "../reports/merge";
 import { checkStaffReply, MAX_REPLY_CHARS, openQuestions, type ReplyProblem } from "./conversation";
 import { buildDemoClients } from "./demoClients";
+import { sendableRound } from "./stage";
 import type { DocumentKind, ReportSample, StaffChatMessage, StaffClient, StaffNote } from "./types";
 
 // Where the console gets its clients and records what staff do.
@@ -257,8 +258,15 @@ function createDemoData(): StaffData & { reset(): void; receiveDocument(clientId
     },
     async markRoundsSent(rounds) {
       const { actions: a } = state();
-      const at = new Date().toISOString();
+      const now = new Date();
+      const at = now.toISOString();
+      const clients = current();
       for (const { clientId, roundNumber } of rounds) {
+        // The same rule the screens show, applied again where the round is
+        // marked: a round goes out only if it may be sent right now (agreement
+        // in force and past its cancellation window, current report…).
+        const client = clients.find((c) => c.id === clientId);
+        if (!client || sendableRound(client, now)?.number !== roundNumber) continue;
         a.sent[clientId] = { ...a.sent[clientId], [String(roundNumber)]: at };
       }
       saveActions(a);
@@ -358,13 +366,19 @@ export function demoClientUploads(clientId: string, kind: DocumentKind): void {
 // "staff read …" policies in supabase/migrations/0007_staff.sql (profiles,
 // monitoring_subscriptions, report_pulls, report_items, item_flags,
 // attack_rounds, letters, letter_items, identity_documents, chat_messages,
-// events). Map those rows to StaffClient.
+// events) and "staff read agreements" in 0010_service_agreements.sql
+// (service_agreements: the newest row per client gives agreementSignedAt,
+// disclosureAcknowledgedAt, agreementVersion, cancellationDeadline,
+// agreementCancelledAt, cancelledWithinWindow, serviceEndRequestedAt and
+// serviceEndReason). Map those rows to StaffClient.
 //
 // Writes: staff have no write policies. markRoundsSent, addNote,
 // resolveException, saveReport, saveReportSample and sendReply must call
 // server routes that check is_staff() and write with the service role, so
-// every staff action is validated and logged in one place. Notes, handled
-// marks, the agreement date and report samples have no table yet.
+// every staff action is validated and logged in one place. The route behind
+// markRoundsSent must apply workMayStart (src/lib/agreement/gate.ts) on the
+// server, as /api/attacks/approve does. Notes, handled marks and report
+// samples have no table yet.
 //
 // saveReport: the route must read the source again with the reader on the
 // server (never trust a report parsed in the browser), then write a

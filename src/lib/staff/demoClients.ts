@@ -1,3 +1,5 @@
+import { cancellationDeadline } from "../agreement/businessDays";
+import { AGREEMENT_VERSION } from "../agreement/documents";
 import { buildAttackPlan } from "../domain/attack";
 import { parseReport, type RawReport } from "../domain/parser";
 import type { ItemFlag, NormalizedReport, ReportItem } from "../domain/types";
@@ -16,13 +18,19 @@ import type {
 // ─────────────────────────────────────────────────────────────────────────
 // DEMO DATA. Nobody in this file exists.
 //
-// Sixteen invented clients for the staff console, spread across every stage
+// Nineteen invented clients for the staff console, spread across every stage
 // and every kind of exception. A few have a conversation with Capi on file. Names are made up, phone numbers use the
 // reserved fictional range (555-01xx), addresses are placeholders and the
 // reports are variations of the app's demo report (src/lib/demo.ts).
 //
 // Every date is counted back from "now", so the demo looks the same whenever
 // it is opened: the client who stalled 8 days ago always stalled 8 days ago.
+//
+// The one thing that follows the real calendar is the cancellation window: it
+// ends on the 3rd business day after signing, so its length depends on the
+// weekday. To keep the picture the same on any day, everyone whose story is
+// past the window signed at least 7 days ago (the window never lasts that
+// long), and the one client inside it signed yesterday (it never ends that soon).
 // ─────────────────────────────────────────────────────────────────────────
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -211,6 +219,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
       );
     }
     const signedUp = seed.signedUpDaysAgo !== undefined;
+    const signedAt = seed.agreementDaysAgo !== undefined ? ago(seed.agreementDaysAgo) : null;
     return {
       id: seed.id,
       firstName: seed.first,
@@ -221,7 +230,15 @@ export function buildDemoClients(now: Date): StaffClient[] {
       salesperson: seed.salesperson,
       createdAt: ago(seed.createdDaysAgo),
       signedUpAt: signedUp ? ago(seed.signedUpDaysAgo!) : null,
-      agreementSignedAt: seed.agreementDaysAgo !== undefined ? ago(seed.agreementDaysAgo) : null,
+      agreementSignedAt: signedAt,
+      // The disclosure statements are acknowledged first, a few minutes before the contract.
+      disclosureAcknowledgedAt: signedAt ? new Date(new Date(signedAt).getTime() - 6 * 60 * 1000).toISOString() : null,
+      agreementVersion: signedAt ? AGREEMENT_VERSION : null,
+      cancellationDeadline: signedAt ? cancellationDeadline(new Date(signedAt)).toISOString() : null,
+      agreementCancelledAt: null,
+      cancelledWithinWindow: null,
+      serviceEndRequestedAt: null,
+      serviceEndReason: null,
       documents: seed.documents ?? [],
       report,
       answers,
@@ -299,17 +316,17 @@ export function buildDemoClients(now: Date): StaffClient[] {
     salesperson: "luis", createdDaysAgo: 8, signedUpDaysAgo: 6, lastActivityDaysAgo: 6,
   });
 
-  // 3. Signed five days ago; proof of address still missing.
+  // 3. Signed eight days ago; proof of address still missing.
   const rigoberto = make({
     id: "c03", first: "Rigoberto", last: "Almanza", phone: "+12145550103", city: "Dallas", zip: "75201",
-    salesperson: "ana", createdDaysAgo: 9, signedUpDaysAgo: 7, agreementDaysAgo: 5,
-    documents: ["government_id"], lastActivityDaysAgo: 5,
+    salesperson: "ana", createdDaysAgo: 12, signedUpDaysAgo: 10, agreementDaysAgo: 8,
+    documents: ["government_id"], lastActivityDaysAgo: 8,
   });
 
   // 4. Everything in, waiting for her report; she asked something Capi passed on.
   const itzel = make({
     id: "c04", first: "Itzel", last: "Bahena", phone: "+15125550104", city: "Austin", zip: "78701",
-    salesperson: "carmen", createdDaysAgo: 4, signedUpDaysAgo: 3, agreementDaysAgo: 2,
+    salesperson: "carmen", createdDaysAgo: 9, signedUpDaysAgo: 8, agreementDaysAgo: 7,
     documents: both, lastActivityDaysAgo: 1,
   });
   itzel.questions = [
@@ -329,7 +346,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   // 5. Reviewing, on schedule: nothing to do.
   const fidel = make({
     id: "c05", first: "Fidel", last: "Carranza", phone: "+19155550105", city: "El Paso", zip: "79901",
-    salesperson: "luis", createdDaysAgo: 6, signedUpDaysAgo: 5, agreementDaysAgo: 4, documents: both,
+    salesperson: "luis", createdDaysAgo: 9, signedUpDaysAgo: 8, agreementDaysAgo: 7, documents: both,
     report: { pulledDaysAgo: 2, shape: "base" }, answered: 3, answeredDaysAgo: 0, lastActivityDaysAgo: 0,
   });
 
@@ -458,7 +475,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   // teammate would follow up, so a person has to.
   const dolores = make({
     id: "c16", first: "Dolores", last: "Nájera", phone: "+19565550116", city: "Laredo", zip: "78040",
-    salesperson: "ana", createdDaysAgo: 7, signedUpDaysAgo: 6, agreementDaysAgo: 5, documents: both,
+    salesperson: "ana", createdDaysAgo: 9, signedUpDaysAgo: 8, agreementDaysAgo: 7, documents: both,
     report: { pulledDaysAgo: 3, shape: "base" }, answered: 4, answeredDaysAgo: 1, lastActivityDaysAgo: 1,
   });
   {
@@ -481,8 +498,42 @@ export function buildDemoClients(now: Date): StaffClient[] {
     ]),
   ];
 
+  // 17. Signed yesterday: inside the 3-business-day cancellation window. Her
+  // documents are in, and nothing may start yet. Nobody has to act; the system
+  // shows the day work can begin.
+  const estela = make({
+    id: "c17", first: "Estela", last: "Coronado", phone: "+18065550117", city: "Lubbock", zip: "79401",
+    salesperson: "luis", createdDaysAgo: 3, signedUpDaysAgo: 2, agreementDaysAgo: 1,
+    documents: both, lastActivityDaysAgo: 1, billing: "none",
+  });
+
+  // 18. Signed six days ago and cancelled the next day, inside the window. He
+  // had already reviewed his report and round 1 was prepared: it never goes out.
+  const octavio = make({
+    id: "c18", first: "Octavio", last: "Rentería", phone: "+13615550118", city: "Corpus Christi", zip: "78401",
+    salesperson: "ana", createdDaysAgo: 8, signedUpDaysAgo: 7, agreementDaysAgo: 6, documents: both,
+    report: { pulledDaysAgo: 6, shape: "base" }, answeredDaysAgo: 5, lastActivityDaysAgo: 5,
+    billing: "none",
+  });
+  octavio.rounds = [round(octavio, 1, "ready")];
+  octavio.agreementCancelledAt = ago(5);
+  octavio.cancelledWithinWindow = true;
+  octavio.notes = [{ id: "c18-n1", at: ago(5), author: "ana", text: "Canceló desde la app dentro de su plazo. No se le cobra nada." }];
+
+  // 19. Round 1 went out 25 days ago; yesterday she asked to end the service.
+  // Nothing more is sent, and a person confirms it with her.
+  const rebeca = make({
+    id: "c19", first: "Rebeca", last: "Ontiveros", phone: "+14325550119", city: "Midland", zip: "79701",
+    salesperson: "carmen", createdDaysAgo: 36, signedUpDaysAgo: 35, agreementDaysAgo: 34, documents: both,
+    report: { pulledDaysAgo: 29, shape: "extra_inquiry" }, answeredDaysAgo: 27, lastActivityDaysAgo: 1,
+  });
+  rebeca.rounds = [round(rebeca, 1, "mailed", { mailedDaysAgo: 25 })];
+  rebeca.serviceEndRequestedAt = ago(1);
+  rebeca.serviceEndReason = "Me voy a mudar fuera de Texas el próximo mes.";
+
   return [
     mariana, yolanda, rigoberto, itzel, fidel, lourdes, anselmo, brenda,
     ramiro, ernesto, graciela, heriberto, paulina, samuel, noemi, dolores,
+    estela, octavio, rebeca,
   ];
 }

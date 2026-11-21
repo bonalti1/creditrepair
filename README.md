@@ -65,6 +65,10 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/letters/reasons.ts`, `src/lib/ux/disputeReason.ts`, `src/components/DisputeFields.tsx` | A stated reason for every disputed item: the catalogue, the rule that a reason (and a note for "other") is required to confirm, and the picker both review screens share. The letter prints the reason's sentence on the item's line; the client's own words are never printed |
 | `supabase/migrations/0008_dispute_reason.sql` | `item_flags.reason_code` (nullable: answers confirmed earlier have none). Apply it before deploying the code that reads it |
 | `src/lib/staff/printBatch.ts`, `src/app/equipo/imprimir` | Print a batch of letters locally (US Letter, #10 window envelope, cover sheet and enclosure slips) and mark the rounds as mailed |
+| `src/lib/service/mode.ts` | How the service is delivered: full service (default) or self-serve (`NEXT_PUBLIC_SERVICE_MODE`) |
+| `src/lib/agreement/` | The service agreement full service requires (CROA, Texas Finance Code ch. 393): the documents and the statutory text, the 3-business-day cancellation window, the gate that holds every letter until work may start, the business terms the owner fills in, and readiness — see `docs/AGREEMENT.md`. **Draft: no attorney has reviewed the text** |
+| `src/app/(app)/acuerdo`, `src/app/api/agreement`, `src/lib/ux/agreementStore.ts` | The client's side: disclosures first, then the contract and signature, the printable copy, cancelling; the endpoints that record each step |
+| `supabase/migrations/0010_service_agreements.sql` | `service_agreements`: acknowledgement, signature, cancellation. Read-only for clients and staff, written by the server, and unchangeable once written |
 | `content/` | Ad content kit: locked mascot, spot files, claim gate, assembly and transcript check — see `content/README.md` |
 
 ## Load-bearing invariants
@@ -85,6 +89,12 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
    otherwise the template goes out verbatim.
 6. **Ads make no outcome promises.** Ad scripts, captions and end cards must
    pass `checkMarketingCopy`; CI checks every spot in `content/spots/`.
+7. **No work before the agreement allows it (full service).** A letter leaves
+   only if the client acknowledged the disclosures, signed the contract, has
+   not cancelled, and the 3-business-day cancellation window is over
+   (`workMayStart` in `src/lib/agreement/gate.ts`), checked in
+   `/api/attacks/approve` and in the staff console's send rules. Unreviewed
+   agreement text cannot be signed by a real client (`agreementReadiness`).
 
 ## Getting started
 

@@ -14,6 +14,7 @@ import {
   RESPONSE_WINDOW_DAYS,
   roundItemCount,
   sendableRound,
+  PIPELINE_STAGES,
   STAGE_ORDER,
   STAGES,
   type Stage,
@@ -57,12 +58,14 @@ export default function EquipoHome() {
     const byStage = Object.fromEntries(STAGE_ORDER.map((s) => [s, 0])) as Record<Stage, number>;
 
     for (const client of clients) {
-      byStage[clientStage(client, now)] += 1;
+      const stage = clientStage(client, now);
+      byStage[stage] += 1;
       const own = clientExceptions(client, now);
       own.forEach((exception) => exceptions.push({ client, exception }));
       const round = sendableRound(client, now);
       if (round) sendable.push({ client, round });
-      if (own.length === 0 && !round) quiet.push(client);
+      // A client who cancelled is not moving along on their own: they are out.
+      if (own.length === 0 && !round && stage !== "cancelled") quiet.push(client);
     }
     exceptions.sort(
       (a, b) =>
@@ -339,8 +342,8 @@ export default function EquipoHome() {
         >
           <span id="etapas">Clientes por etapa</span>
         </SectionTitle>
-        <div className="card grid grid-cols-2 overflow-hidden sm:grid-cols-5 lg:grid-cols-10">
-          {STAGE_ORDER.map((stage) => {
+        <div className="card grid grid-cols-2 overflow-hidden sm:grid-cols-4 lg:grid-cols-11">
+          {PIPELINE_STAGES.map((stage) => {
             const n = view.byStage[stage];
             return (
               <Link
@@ -359,6 +362,16 @@ export default function EquipoHome() {
             );
           })}
         </div>
+        {/* Clients who cancelled their agreement are out of the pipeline; they stay on record. */}
+        {view.byStage.cancelled > 0 && (
+          <p className="px-1 pt-2 text-[13px] text-slate-500">
+            Fuera de las etapas:{" "}
+            <Link href="/equipo/clientes?etapa=cancelled" className="font-medium text-blue-700 underline-offset-2 hover:underline">
+              {count(view.byStage.cancelled, "cliente canceló su acuerdo", "clientes cancelaron su acuerdo")}
+            </Link>
+            . No se les envía ni se les cobra nada.
+          </p>
+        )}
       </section>
     </main>
   );

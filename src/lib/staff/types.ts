@@ -176,6 +176,30 @@ export interface StaffClient {
   signedUpAt: string | null;
   /** The day the service agreement was signed; null until then. */
   agreementSignedAt: string | null;
+  // The rest of the agreement record (service_agreements, migration 0010; the
+  // rules are in src/lib/agreement/gate.ts). Optional so a record made before
+  // these were kept still reads: absent means "nothing on record".
+  /**
+   * When the client acknowledged the disclosure statements, which comes before
+   * the contract. Absent on an older record: the signing date stands in.
+   */
+  disclosureAcknowledgedAt?: string | null;
+  /** The version of the agreement text the client signed. */
+  agreementVersion?: string | null;
+  /**
+   * The end of the 3-business-day cancellation window, as computed when the
+   * client signed. No work may start before it. Absent: computed from the
+   * signing date.
+   */
+  cancellationDeadline?: string | null;
+  /** When the client cancelled the agreement. After this, nothing is ever sent. */
+  agreementCancelledAt?: string | null;
+  /** True when the cancellation was inside the window (no penalty, no obligation). */
+  cancelledWithinWindow?: boolean | null;
+  /** After the window: when the client asked to end the service. A person handles it. */
+  serviceEndRequestedAt?: string | null;
+  /** What the client wrote when asking to end the service, if anything. */
+  serviceEndReason?: string | null;
   /** Kinds of identity document on file. */
   documents: DocumentKind[];
   /** The newest report; its date is report.pulledAt. Null until the first import. */

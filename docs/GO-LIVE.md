@@ -103,6 +103,19 @@ Also set, with no account needed:
 | `NEXT_PUBLIC_MONITORING_PRICE` | The price on that link's checkout page, for example `$31.49` |
 | `MONITORING_PROVIDER` | Leave empty until report reading is built |
 
+### The service agreement
+
+Full service needs a signed agreement before any work starts, and no client
+can sign until this is done. The whole list, with every variable, what each
+document is and the questions for the attorney, is in `docs/AGREEMENT.md`.
+In short:
+
+- [ ] The attorney reviews the agreement text (print `/acuerdo/copia`) and answers the questions in `docs/AGREEMENT.md`
+- [ ] Texas registration number, the bond's surety, and your registered agent
+- [ ] Decide the monthly fee and the estimated length
+- [ ] Set the `NEXT_PUBLIC_COMPANY_…`, `NEXT_PUBLIC_PLAN_…` and `NEXT_PUBLIC_TX_…` variables listed there
+- [ ] Only after the attorney approves: set `NEXT_PUBLIC_AGREEMENT_APPROVED_VERSION`
+
 ## Step 3 — Three one-time setups
 
 1. **Database.** In Supabase, open the SQL editor, paste the whole file
@@ -147,5 +160,5 @@ Then run one full pass yourself:
 | IdentityIQ: a sample report or partner documentation | Reading real reports. Until then the app shows the sample report. |
 | IdentityIQ: partner link and price | The subscribe button and naming IdentityIQ in the app |
 | IdentityIQ: paid-ads permission | Any ad spend |
-| Attorney | Launch itself; Texas registration and bond |
+| Attorney | Launch itself; Texas registration and bond; the service agreement text (`docs/AGREEMENT.md`) |
 | You: final logo, Capi's voice | Brand polish on ads |
