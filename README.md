@@ -2,22 +2,39 @@
 
 *(Company: Credalti, with the AI assistant "Capi". Called CreditCapi until November 2026. Internal/spec name: Bonalti Credit.)*
 
-**Where this is going:** Credalti is moving to full service: the company
-prepares and sends the disputes for its clients, with software automated enough
-for two staff to run fulfillment. The first piece of that is the staff console
-at `/equipo` (demo data for now; see `src/lib/staff/`). The client app described
-below still works as it did, as a do-it-yourself tool; its switch to full
-service, contracts and billing are later phases.
+**What it is:** Credalti is a full-service credit services company,
+Spanish-first, launching in Texas. A sales team talks to the lead first and
+sends an invitation into the app. The client signs a service agreement,
+uploads ID and proof of address, connects credit monitoring (IdentityIQ), and
+reviews each item on their report, saying which ones are inaccurate and why.
+From there Credalti's staff prepares and mails the dispute letters for the
+client, in rounds about every 40 days, from the staff console at `/equipo`
+(see `src/lib/staff/`), with software automated enough for two staff to run
+fulfillment. The client can read the letters and follow their status.
 
-Consumer-facing DIY credit dispute software. Spanish-first, Texas launch.
-The software is free; revenue is the required credit monitoring subscription
-(IdentityIQ, paid to us as a referral commission). Implements the spec in `Bonalti Credit SaaS — Spec v2`
-(Dispute Beast architecture + Armor).
+Credalti charges a monthly service fee, separate from the monitoring
+subscription the client pays to the monitoring provider. Amounts are not
+decided and no price is written anywhere in the app; billing is not built.
+The engine underneath follows the spec in `Bonalti Credit SaaS — Spec v2`
+(Dispute Beast architecture + Armor), which was written for a do-it-yourself
+product.
 
-**Positioning rule (enforced in code):** the USER disputes — we provide the tool.
-All copy says "tus cartas", "tu ronda de cartas", "tú envías", "tus disputas" (the spec's "ataque" was replaced after user testing: it read as aggressive). Never "we remove / we fix /
-we dispute for you". See `src/lib/compliance/guardrails.ts`, which lints copy in
-the content pipeline (WhatsApp messages, coach output).
+**Service mode:** `NEXT_PUBLIC_SERVICE_MODE` (`src/lib/service/mode.ts`).
+Unset means full service. `self_serve` brings back the do-it-yourself version,
+where the client approves and sends their own letters; it is kept for later.
+The mode changes the client app's wording, whether the approve button exists,
+the WhatsApp templates, Capi's instructions and one claim rule.
+
+**Positioning rule (enforced in code):** describe the process, never promise
+an outcome. Under full service it is true, and allowed, to say "nuestro equipo
+prepara y envía tus cartas" or "disputamos por ti los puntos que tú nos
+indicas". In every mode it is banned to say "we remove / we fix / we repair /
+we delete", "te subimos el puntaje", any guarantee, points or timeframe, and
+anything that takes the client's decisions away ("we dispute everything
+negative", "we decide what to dispute"). Copy says "ronda de cartas" (the
+spec's "ataque" was replaced after user testing: it read as aggressive). See
+`src/lib/compliance/guardrails.ts`, which lints marketing copy, WhatsApp
+messages, staff replies and coach output.
 
 ## Stack
 
@@ -35,20 +52,22 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/domain/attack.ts` | Round-based attack engine: Attack 1 = personal-info cleanup ×3 bureaus; Attack 2+ = per-category per-bureau letters; escalation §611 → MOV → furnisher-direct (spec §4.2) |
 | `src/lib/domain/bureaus.ts` | Primary + secondary bureau registry (**addresses are placeholders — VERIFY_AT_BUILD**) |
 | `src/lib/compliance/attestation.ts` | Armor #2: per-item accuracy attestation text + record builder |
-| `src/lib/compliance/guardrails.ts` | Armor #3: marketing claim guardrails (ES + EN), throwing linter |
+| `src/lib/compliance/guardrails.ts` | Armor #3: claim guardrails (ES + EN), aware of the service mode: process may be described, outcomes may not be promised |
+| `src/lib/service/mode.ts` | The service mode switch: full service (default) or self-serve |
 | `src/lib/letters/templates.ts` | Merge-field letter templates (§611, MOV, §623 furnisher-direct, §609, personal-info) |
 | `src/lib/letters/variation.ts` | Claude-powered per-letter wording variation (e-OSCAR countermeasure) |
 | `src/lib/letters/fonts.ts` | Print/handwritten font rotation, deterministic per letter |
-| `src/lib/coach/systemPrompt.ts` | Spanish-first AI Credit Coach prompt with hard-coded claim guardrails |
+| `src/lib/coach/systemPrompt.ts` | Capi's instructions, Spanish-first, per service mode: explains the service, never promises a result, never picks items, never quotes a price, hands over to the team |
 | `src/lib/integrations/lob.ts` | Lob mail client (stubbed without API key) |
 | `src/lib/integrations/whatsapp.ts` | WhatsApp Cloud API sender; message copy runs through guardrails |
 | `src/app/api/reports/import` | Import + parse + diff a monitoring pull; deletion celebration |
 | `src/app/api/attacks/build` | Build the draft round plan (requires active monitoring subscription) |
-| `src/app/api/attacks/approve` | **The DIY moment.** Re-verifies every attestation server-side, renders/varies letters, mails via Lob, schedules the ~40-day next round |
+| `src/app/api/attacks/approve` | The self-serve approval: re-verifies every attestation server-side, renders/varies letters, mails via Lob, schedules the ~40-day next round. The full-service client app has no approve button and does not call it |
 | `src/app/api/coach` | Coach endpoint with post-hoc guardrail lint on output |
 | `src/app/api/webhooks/n8n` | Round triggers / day-40 re-engagement (shared-secret auth) |
 | `supabase/migrations/0001_init.sql` | Full schema with owner-only RLS on every table |
-| `src/app/*` | Landing, onboarding (goal selector), dashboard, item finder + attestation, attack builder, rounds — demo-data backed until Phase 1 auth wiring |
+| `src/app/*` | Landing, onboarding (goal selector), dashboard, item finder + attestation, letters page (read-only under full service), rounds — demo-data backed until Phase 1 auth wiring |
+| `src/lib/ux/teamRound.ts`, `src/lib/ux/reviewChatCopy.ts` | Full service in the client app: where the team's round stands (being prepared, mailed), and what Capi says once the review is finished |
 | `src/app/api/chat`, `src/lib/chat/` | The thread with Capi, stored per user (`chat_messages`); AI replies are recorded by the server, never accepted from the browser |
 | `src/lib/security/` | Rate limiter, constant-time secret checks, WhatsApp webhook signature verification |
 | `src/lib/observability/errors.ts`, `src/instrumentation.ts` | Error log lines + optional alert webhook (`ERROR_WEBHOOK_URL`) |
@@ -72,11 +91,16 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 1. **Attestation before inclusion.** No letter may include an item without a logged,
    timestamped "I believe this item is inaccurate, unverifiable, or outdated"
    attestation. Enforced in the plan builder AND re-checked in `/api/attacks/approve`.
-2. **The user presses the button.** Letters render and mail only from the approval
-   endpoint, triggered by explicit user action.
+2. **The client decides what is disputed; the team sends.** Which items are
+   inaccurate, and why, is the client's answer alone. Under full service the
+   team prepares and mails the letters and the client approves nothing; in
+   self-serve mode letters mail only from the approval endpoint, on the
+   client's explicit action.
 3. **Claim guardrails.** No guaranteed deletions, no "X points in Y days", no
-   removal-of-accurate-info claims, no real-estate bait — linted at send time for
-   WhatsApp and coach output; use `assertClaimGuardrails` for any new copy surface.
+   removal-of-accurate-info claims, no "we remove / we fix", no "we dispute
+   everything negative", no real-estate bait — linted at send time for
+   WhatsApp, staff replies and coach output; use `assertClaimGuardrails` for
+   any new copy surface.
 4. **Monitoring gate.** The attack builder requires an active monitoring
    subscription (`monitoring_subscriptions.status = 'active'`).
 5. **The AI may only reword prose.** A model-varied letter is mailed only if
@@ -146,9 +170,13 @@ reports what is configured and what is missing.
 - Monitoring provider: IdentityIQ, paid by commission rather than by billing the
   customer. Open with IDIQ: partner terms, whether paid ads are allowed, how the
   app reads a report, ITIN enrollment. See `docs/IDENTITYIQ.md`.
-- TX CSO applicability to the $0-software model (default: register regardless).
-- Whether requiring paid monitoring re-characterizes the "free" software as a paid
-  credit service — **the load-bearing legal question; needs a real answer**.
+- Full service with a monthly fee is a paid credit service: TX CSO registration
+  and bond, the written agreement with its 3-business-day right to cancel, and
+  no charge before the service it pays for has been performed. Attorney to
+  confirm each — **the load-bearing legal questions; they need real answers**.
+- Whether letters the team prepares and mails may go out in the client's name,
+  and what the client must sign for that (`docs/LETTER-LIBRARY.md`).
+- The monthly fee: amounts, and how it is billed. Not built.
 - Bureau mailing addresses (`src/lib/domain/bureaus.ts`) were checked on
   2026-11-19 by web search against each company's site and the CFPB list; each
   entry carries `verifiedOn` and `source`. Two secondary addresses were out of

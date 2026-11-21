@@ -18,7 +18,7 @@ export const BRAND = {
   /** Browser-tab title of the customer app. */
   title: "Credalti — Tu asistente de crédito con IA",
   /** Browser-tab title of the ad landing page. */
-  startTitle: "Credalti — Empieza en 5 minutos",
+  startTitle: "Credalti — Habla con nuestro equipo",
   /** Browser-tab title of the staff console. */
   teamTitle: "Credalti — Equipo",
   /** Internal and spec name; never shown to customers. */

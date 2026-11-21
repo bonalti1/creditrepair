@@ -15,10 +15,11 @@ import { BRAND } from "@/lib/brand";
 
 // Onboarding: goal (feeds the mortgage track) → state gate (v1 is TX-only;
 // other states join the waitlist, since expansion is a legal project, not a
-// config change) → the monitoring subscription (the only cost, bought from the
-// monitoring provider, with our commission disclosed) → how you want to do it
-// (alone with the app, or with free live help — the user always decides and
-// sends either way).
+// config change) → the monitoring subscription (a separate subscription, bought
+// from and paid to the monitoring provider, with our commission disclosed; the
+// service fee is not stated here, the team explains the plan) → how you want
+// to do your review (with Capi, or with a teammate on WhatsApp; either way the
+// answers are the client's and the team mails the letters).
 // One question per screen, one obvious button.
 //
 // Sales-led path: most customers arrive from a WhatsApp conversation with a

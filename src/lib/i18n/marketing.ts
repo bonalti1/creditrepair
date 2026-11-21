@@ -1,13 +1,25 @@
+import { BRAND } from "../brand";
 import { AFFILIATE_DISCLOSURE, MONITORING_OFFER, monitoringName } from "../monitoring/offer";
 import type { Locale } from "./dictionaries";
 
 // Copy for the pages a visitor sees before the app: the landing page, the
 // /empezar funnel page and onboarding. Spanish is the source of truth. English
 // is a faithful translation of it: the same claims, the same disclaimers and
-// the same commission disclosure, with nothing added. Every English string is
-// run through the advertising claim rules in the test suite.
+// the same commission disclosure, with nothing added. Every string, in both
+// languages, is run through the advertising claim rules in the test suite.
+//
+// What the pages describe is full service: the client says what is wrong on
+// their report, and the team prepares and mails the letters. Sales comes first,
+// so the main button leads to a conversation with the team. Two things these
+// pages never do: promise a result, and say what the service costs. The fee is
+// not written here; the team explains the plan and the agreement carries it.
+// The one price shown is the monitoring provider's, on the onboarding step
+// where the client is about to subscribe to it.
 
+/** The monitoring provider's price, shown only on the onboarding step that offers it. */
 const price = MONITORING_OFFER.priceLabel;
+const brand = BRAND.name;
+const capi = BRAND.assistant;
 
 export interface MarketingCopy {
   landing: {
@@ -16,7 +28,11 @@ export interface MarketingCopy {
     headline: string;
     headlineAccent: string;
     lead: string;
+    /** The main button when there is a WhatsApp number to write to. */
+    talk: string;
+    /** The main button when there is none (the demo): it leads to onboarding. */
     start: string;
+    whatsappText: string;
     demo: string;
     cards: Array<[title: string, body: string]>;
     footer: string;
@@ -87,64 +103,76 @@ export interface MarketingCopy {
 const es: MarketingCopy = {
   landing: {
     signIn: "Entrar",
-    capiHello: "Hola, soy Capi, tu asistente con IA",
+    capiHello: `Hola, soy ${capi}, tu asistente con IA`,
     headline: "Tu crédito,",
-    headlineAccent: "en tus manos.",
-    lead: "Capi lee tu reporte, te lo explica en español y prepara tus cartas de disputa. Tú decides y tú apruebas.",
-    start: "Empezar gratis",
+    headlineAccent: "con un equipo a tu lado.",
+    lead: "Tú nos dices qué está mal en tu reporte. Nuestro equipo prepara y envía las cartas por ti y te mantiene al tanto.",
+    talk: "Habla con nuestro equipo",
+    start: "Empezar",
+    whatsappText: `¡Hola! Quiero saber cómo funciona ${brand}.`,
     demo: "Ver la demo",
     cards: [
-      ["Todo en español", "La app, las explicaciones y la ayuda de nuestro equipo. Puedes escucharlas en vez de leerlas."],
-      ["Tú tienes el control", "Capi prepara todo. Nada se envía hasta que tú lo lees y lo apruebas."],
-      ["Un solo costo", `El software es gratis. Solo necesitas tu suscripción de monitoreo de crédito (${price}/mes).`],
+      [
+        "Tú dices qué está mal",
+        `Revisas tu reporte punto por punto con ${capi}, tu asistente con IA. Solo se disputa lo que tú nos dices que es inexacto.`,
+      ],
+      [
+        "Nosotros enviamos las cartas",
+        "Nuestro equipo prepara las cartas, las envía por correo y te avisa cómo va cada ronda.",
+      ],
+      [
+        "En español y por escrito",
+        "La app y nuestro equipo te atienden en español. Antes de que firmes, el equipo te explica el plan.",
+      ],
     ],
-    footer:
-      "Credalti es una herramienta de software para que tú hagas tus propias disputas. No disputamos por ti, no garantizamos resultados y los resultados varían según cada caso. Capi es un asistente de inteligencia artificial. Disponible en Texas. Esto no es asesoría legal.",
+    footer: `${brand} es una empresa de servicios de crédito. Tú decides qué es inexacto en tu reporte; nuestro equipo prepara y envía las cartas por ti. No garantizamos resultados: los burós de crédito deciden, y los resultados varían según cada caso. ${capi} es un asistente de inteligencia artificial. Disponible en Texas. Esto no es asesoría legal.`,
   },
   empezar: {
-    headline: "Capi, tu asistente de crédito con IA.",
-    headlineAccent: "Tú solo das el OK.",
-    leadBefore:
-      "La IA hace el trabajo pesado: lee tu reporte, encuentra lo negativo, te lo explica, escribe tus cartas y las envía por correo.",
-    leadStrong: "Tú decides qué disputar y tú apruebas",
-    leadAfter: `— 3 toques por ronda, ~5 minutos al mes. El software es gratis. El único costo es tu suscripción de monitoreo de crédito: ${price} al mes, y la cancelas cuando quieras.`,
-    ctaWhatsapp: "Escríbenos por WhatsApp →",
-    ctaStart: "Empezar ahora — es gratis →",
-    whatsappText: "¡Hola! Quiero empezar a revisar mi crédito con Credalti.",
-    underCta: "Sin contratos de servicio · Ayuda en vivo gratis si la quieres · Cancela tu monitoreo cuando quieras",
+    headline: "Tú nos dices qué está mal.",
+    headlineAccent: "Nosotros enviamos las cartas.",
+    leadBefore: `Revisas tu reporte de crédito con ${capi}, tu asistente con IA, y nos dices qué es inexacto y por qué.`,
+    leadStrong: "Nuestro equipo prepara y envía las cartas por ti",
+    leadAfter: "y te mantiene al tanto en cada ronda. Los resultados varían: los burós deciden.",
+    ctaWhatsapp: "Habla con nuestro equipo por WhatsApp →",
+    ctaStart: "Empezar →",
+    whatsappText: `¡Hola! Quiero saber cómo funciona ${brand}.`,
+    underCta: "Primero hablas con una persona · Te explicamos el plan antes de firmar · 3 días hábiles para cancelar sin costo",
     step: (n) => `Paso ${n}`,
     steps: [
       {
-        title: "Conecta tu monitoreo e importa tu reporte",
-        body: `Con ${monitoringName("es")} (${price}/mes, el único costo), importamos tu reporte de los 3 burós — Equifax, Experian y TransUnion — y te mostramos exactamente qué sigue, un paso a la vez.`,
-        alt: "Panel de Credalti mostrando el siguiente paso",
+        title: "Habla con nuestro equipo",
+        body: "Escríbenos por WhatsApp. Una persona te explica cómo trabajamos y el plan, y responde tus dudas. Si decides empezar, te manda tu enlace para entrar a la app y firmas tu acuerdo de servicio.",
+        alt: `Pantalla de inicio de ${brand} con el siguiente paso`,
       },
       {
-        title: "Revisa cada elemento, explicado en palabras simples",
-        body: "Nada de tecnicismos: Capi te explica qué es cada cuenta, cobranza o consulta, y qué verificar. Tú marcas solo lo que crees inexacto, no verificable o desactualizado — y lo confirmas con tu firma electrónica.",
-        alt: "Revisión guiada con confirmación",
+        title: "Revisa tu reporte y dinos qué está mal",
+        body: `Conectas ${monitoringName("es")} y subes tu identificación y un comprobante de domicilio. ${capi} te explica cada cuenta, cobranza o consulta en palabras simples. Tú marcas solo lo que crees inexacto, no verificable o desactualizado, y dices por qué. Esas respuestas son tuyas: nadie las decide por ti.`,
+        alt: "Revisión guiada de un elemento del reporte",
       },
       {
-        title: "Lee tus cartas y envíalas con un botón",
-        body: "Generamos tus cartas de disputa bajo la ley FCRA y te las mostramos completas, con su explicación. Cuando TÚ apruebas, se imprimen y envían por correo — sin impresora, sin filas en el correo. Cada ~40 días, repites con tu reporte actualizado.",
-        alt: "Vista previa de carta de disputa con explicación",
+        title: "Nuestro equipo prepara y envía las cartas",
+        body: "Con lo que tú nos dijiste, el equipo prepara las cartas de disputa y las envía por correo. En la app ves cada carta, explicada, y cómo va. Más o menos cada 40 días revisamos tu reporte de nuevo y te mostramos qué cambió.",
+        alt: "Una carta de disputa con su explicación y su estado",
       },
     ],
     communityTitle: "Hecho para nuestra comunidad",
     community: [
       [
-        "La IA trabaja, tú mandas",
-        "Tu asistente prepara todo y te avisa por WhatsApp. Las compañías que 'lo hacen por ti' son las que acaban demandadas — aquí TÚ tienes el control, y eso te protege.",
+        `Un equipo de personas, y ${capi}`,
+        `Hablas con una persona desde el primer día. En la app, ${capi}, tu asistente con IA, te explica tu reporte paso a paso.`,
       ],
       [
-        "Ayuda humana gratis",
-        "¿Prefieres que alguien te acompañe? Nuestro equipo te guía en vivo por WhatsApp mientras tú decides. Sin costo extra.",
+        "Tú decides, punto por punto",
+        "Solo se disputa lo que tú nos dices que es inexacto. Nadie marca nada por ti ni te dice qué marcar.",
       ],
       [
         "En tu idioma",
-        "Todo en español — la app, las explicaciones y la ayuda. Si prefieres inglés, lo eliges dentro de la app.",
+        "Todo en español: la app, las explicaciones y el equipo. Si prefieres inglés, lo eliges dentro de la app.",
       ],
-      ["Con la ley de tu lado", "Tus cartas usan tus derechos bajo la ley federal FCRA. Tú las lees antes de enviar."],
+      [
+        "Sin promesas",
+        "Nadie puede prometerte un resultado: lo que cambia en tu reporte lo deciden los burós. Lo que sí hacemos es decirte siempre cómo va cada carta.",
+      ],
     ],
     faqTitle: "Preguntas que nos hacen siempre",
     // The questions Hispanic families actually ask before trusting a credit company.
@@ -152,15 +180,23 @@ const es: MarketingCopy = {
     faq: [
       [
         "Ya me estafaron antes. ¿Cómo sé que esto es diferente?",
-        "No te pedimos que confíes a ciegas: tú ves cada carta antes de que salga, tú decides qué disputar, y no firmas contratos. Tampoco prometemos resultados — quien te los promete, te está mintiendo.",
+        "No te pedimos que confíes a ciegas. Antes de que firmes, una persona te explica el plan y te da el acuerdo por escrito. En la app ves cada carta que enviamos y cómo va. Y no prometemos resultados: quien te los promete, te está mintiendo.",
       ],
       [
-        "¿Cuánto cuesta en total?",
-        `Solo ${monitoringName("es")} (${price} al mes), que contratas directo con el servicio de monitoreo. La app, las cartas, el envío por correo y la ayuda de nuestro equipo van incluidos. Cancelas cuando quieras.`,
+        "¿Ustedes disputan por mí?",
+        "Sí, en lo que tú nos indicas. Tú revisas tu reporte y dices qué es inexacto y por qué; esa decisión es solo tuya. Con eso, nuestro equipo prepara las cartas y las envía por correo. No disputamos todo lo negativo, ni información que tú sabes que es correcta.",
+      ],
+      [
+        "¿Cuánto cuesta?",
+        `El servicio de ${brand} tiene una cuota mensual. Nuestro equipo te explica el plan antes de que firmes, y queda escrito en tu acuerdo. Cada cobro es por trabajo que ya se hizo; no se cobra por adelantado. Aparte está ${monitoringName("es")}, que le pagas directo al servicio de monitoreo.`,
+      ],
+      [
+        "¿Y si firmo y cambio de opinión?",
+        "Tienes 3 días hábiles después de firmar para cancelar sin costo. Está escrito en tu acuerdo.",
       ],
       [
         "¿Esto tiene que ver con mi estatus migratorio?",
-        "No. Revisar y disputar tu propio reporte de crédito es un derecho de todo consumidor bajo la ley federal (FCRA). Credalti no te pide información migratoria. (Esto no es asesoría legal.)",
+        `No. Revisar y disputar tu propio reporte de crédito es un derecho de todo consumidor bajo la ley federal (FCRA). ${brand} no te pide información migratoria. (Esto no es asesoría legal.)`,
       ],
       [
         "¿Necesito número de Seguro Social?",
@@ -168,14 +204,10 @@ const es: MarketingCopy = {
       ],
       [
         "No se me da bien la tecnología. ¿Voy a poder?",
-        "Sí. Es un chat, como WhatsApp: el asistente te va diciendo qué sigue. Puedes escuchar las explicaciones en vez de leerlas, y si quieres, una persona del equipo te acompaña en vivo — gratis.",
-      ],
-      [
-        "¿Ustedes disputan por mí?",
-        "No — y eso te protege. El asistente prepara todo (lee tu reporte, escribe las cartas, las envía por correo), pero tú decides y tú apruebas. Son 3 toques por ronda, unos 5 minutos al mes.",
+        `Sí. Es un chat, como WhatsApp: ${capi} te va diciendo qué sigue. Puedes escuchar las explicaciones en vez de leerlas, y una persona del equipo te ayuda por WhatsApp si te atoras.`,
       ],
     ],
-    footer: `Credalti es una herramienta de software para que tú hagas tus propias disputas. No disputamos por ti y no garantizamos resultados — los resultados varían según cada caso. Disputar información correcta y actual no es el propósito de la herramienta. Requiere una suscripción activa de monitoreo de crédito (${price}/mes), que se contrata con un servicio de monitoreo independiente; Credalti recibe una comisión por esa suscripción. Disponible en Texas. Esto no es asesoría legal.`,
+    footer: `${brand} es una empresa de servicios de crédito. Tú decides qué es inexacto en tu reporte; nuestro equipo prepara y envía las cartas por ti. No garantizamos resultados: los burós de crédito deciden, y los resultados varían según cada caso. Nadie puede quitar de un reporte información que es correcta y actual. El servicio requiere una suscripción activa de monitoreo de crédito, que se contrata y se paga aparte con un servicio de monitoreo independiente; ${brand} recibe una comisión por esa suscripción. Disponible en Texas. Esto no es asesoría legal.`,
     more: "Más información",
   },
   onboarding: {
@@ -187,12 +219,11 @@ const es: MarketingCopy = {
         : "Nuestro equipo te envió aquí. Ya anotamos lo que platicaron, así que no tienes que repetirlo.",
     yourGoal: "Tu meta",
     yourState: "Tu estado",
-    welcomeNote:
-      "Dentro de la app te acompaña Capi, un asistente con inteligencia artificial. Tú decides qué disputar y tú apruebas cada carta. Los resultados varían según cada caso.",
+    welcomeNote: `Dentro de la app te acompaña ${capi}, un asistente con inteligencia artificial. Tú nos dices qué está mal en tu reporte y nuestro equipo prepara y envía las cartas por ti. Los resultados varían según cada caso.`,
     yesStart: "Sí, empezar",
     changeAnswers: "Cambiar mis respuestas",
     goalTitle: "¿Para qué quieres mejorar tu crédito?",
-    goalSub: "Tu meta guía tu progreso. Puedes cambiarla después.",
+    goalSub: "Tu meta nos dice qué es importante para ti. Puedes cambiarla después.",
     next: "Continuar",
     stateTitle: "¿En qué estado vives?",
     stateSub: "Abrimos estado por estado, porque cada uno tiene sus propias reglas. Hoy: Texas.",
@@ -203,12 +234,13 @@ const es: MarketingCopy = {
     emailLabel: "Correo electrónico",
     notifyMe: "Avisarme",
     monitoringTitle: "Activa tu monitoreo de crédito",
-    monitoringSub: "Es lo que nos deja ver tu reporte de los 3 burós, y es tu único costo.",
+    monitoringSub:
+      "Es lo que nos deja ver tu reporte de los 3 burós. Es una suscripción aparte, que le pagas al servicio de monitoreo.",
     monitoringRows: (providerName) => [
-      ["Cuánto cuesta", `${price} al mes`],
-      ["Con quién lo contratas", providerName ?? "Un servicio de monitoreo independiente"],
-      ["Qué incluye Credalti", "La app, tus cartas y el envío por correo"],
-      ["Cancelar", "Cuando quieras, directo con el servicio"],
+      ["Monitoreo", `${price} al mes`],
+      ["Se lo pagas a", providerName ?? "Un servicio de monitoreo independiente"],
+      [`Servicio de ${brand}`, "Va aparte. Tu equipo te explica el plan."],
+      ["Cancelar el monitoreo", "Cuando quieras, directo con el servicio"],
     ],
     disclosure: AFFILIATE_DISCLOSURE.es,
     itinQuestion: "¿Usas ITIN en lugar de Seguro Social?",
@@ -217,15 +249,14 @@ const es: MarketingCopy = {
     activate: "Activar mi monitoreo",
     haveIt: "Ya lo tengo, continuar",
     demoReport: "En esta demo usamos un reporte de ejemplo.",
-    assistTitle: "¿Cómo quieres hacerlo?",
-    assistSub: "De cualquier forma, tú decides y tú envías.",
-    withCapi: "Con Capi, mi asistente",
-    withCapiSub: "Capi te explica cada paso en palabras simples.",
+    assistTitle: "¿Cómo quieres hacer tu revisión?",
+    assistSub: "De cualquier forma, las respuestas son tuyas y nuestro equipo envía las cartas.",
+    withCapi: `Con ${capi}, mi asistente`,
+    withCapiSub: `${capi} te explica cada paso en palabras simples.`,
     withPerson: "Con una persona a mi lado",
-    withPersonSub: "Alguien del equipo te acompaña por WhatsApp. Gratis.",
-    assistNote:
-      "La ayuda es educativa: te explicamos y acompañamos, pero cada decisión y cada envío es tuyo. Los resultados varían según cada caso.",
-    assistWhatsappText: "¡Hola! Quiero ayuda en vivo para revisar mi crédito con Credalti.",
+    withPersonSub: "Alguien del equipo te acompaña por WhatsApp.",
+    assistNote: `${capi} y el equipo te explican y te acompañan, pero no te dicen qué marcar: tú dices qué es inexacto. Los resultados varían según cada caso.`,
+    assistWhatsappText: `¡Hola! Quiero ayuda en vivo para revisar mi reporte con ${brand}.`,
     waitlistDone: "Listo. Te avisamos pronto.",
     waitlistDoneSub: "En cuanto abramos en tu estado, serás de los primeros en saberlo.",
     backHome: "Volver al inicio",
@@ -235,86 +266,97 @@ const es: MarketingCopy = {
 const en: MarketingCopy = {
   landing: {
     signIn: "Sign in",
-    capiHello: "Hi, I'm Capi, your AI assistant",
+    capiHello: `Hi, I'm ${capi}, your AI assistant`,
     headline: "Your credit,",
-    headlineAccent: "in your hands.",
-    // "in Spanish or English": the Spanish page says "en español"; both are true
-    // of the app, and a reader of this page is reading it in English.
-    lead: "Capi reads your report, explains it to you in Spanish or English and prepares your dispute letters. You decide and you approve.",
-    start: "Start free",
+    headlineAccent: "with a team by your side.",
+    lead: "You tell us what is wrong on your report. Our team prepares and mails the letters for you and keeps you posted.",
+    talk: "Talk to our team",
+    start: "Get started",
+    whatsappText: `Hi! I want to know how ${brand} works.`,
     demo: "See the demo",
     cards: [
       [
-        "Everything in Spanish",
-        "The app, the explanations and our team's help. You can listen to them instead of reading them.",
+        "You say what is wrong",
+        `You go through your report item by item with ${capi}, your AI assistant. Only what you tell us is inaccurate gets disputed.`,
       ],
-      ["You are in control", "Capi prepares everything. Nothing is sent until you read it and approve it."],
-      ["One single cost", `The software is free. You only need your credit monitoring subscription (${price}/month).`],
+      ["We mail the letters", "Our team prepares the letters, mails them and tells you how each round is going."],
+      [
+        // "in Spanish or English": the Spanish page says "en español"; both are true
+        // of the app, and a reader of this page is reading it in English.
+        "In your language and in writing",
+        "The app and our team work with you in Spanish or English. Before you sign, the team explains the plan to you.",
+      ],
     ],
-    footer:
-      "Credalti is a software tool for doing your own disputes. We do not dispute for you, we make no guarantees about results, and results vary case by case. Capi is an artificial intelligence assistant. Available in Texas. This is not legal advice.",
+    footer: `${brand} is a credit services company. You decide what is inaccurate on your report; our team prepares and mails the letters for you. We do not guarantee results: the credit bureaus decide, and results vary case by case. ${capi} is an artificial intelligence assistant. Available in Texas. This is not legal advice.`,
   },
   empezar: {
-    headline: "Capi, your AI credit assistant.",
-    headlineAccent: "You just give the OK.",
-    leadBefore:
-      "The AI does the heavy lifting: it reads your report, finds the negative items, explains them to you, writes your letters and mails them.",
-    leadStrong: "You decide what to dispute and you approve",
-    leadAfter: `— 3 taps per round, ~5 minutes a month. The software is free. The only cost is your credit monitoring subscription: ${price} a month, and you can cancel it whenever you want.`,
-    ctaWhatsapp: "Message us on WhatsApp →",
-    ctaStart: "Start now — it's free →",
-    whatsappText: "Hi! I want to start reviewing my credit with Credalti.",
-    underCta: "No service contracts · Free live help if you want it · Cancel your monitoring whenever you want",
+    headline: "You tell us what is wrong.",
+    headlineAccent: "We mail the letters.",
+    leadBefore: `You go through your credit report with ${capi}, your AI assistant, and tell us what is inaccurate and why.`,
+    leadStrong: "Our team prepares and mails the letters for you",
+    leadAfter: "and keeps you posted on every round. Results vary: the bureaus decide.",
+    ctaWhatsapp: "Talk to our team on WhatsApp →",
+    ctaStart: "Get started →",
+    whatsappText: `Hi! I want to know how ${brand} works.`,
+    underCta: "You talk to a person first · We explain the plan before you sign · 3 business days to cancel at no cost",
     step: (n) => `Step ${n}`,
     steps: [
       {
-        title: "Connect your monitoring and import your report",
-        body: `With ${monitoringName("en")} (${price}/month, the only cost), we import your 3-bureau report — Equifax, Experian and TransUnion — and show you exactly what comes next, one step at a time.`,
-        alt: "Credalti dashboard showing the next step",
+        title: "Talk to our team",
+        body: "Message us on WhatsApp. A person explains how we work and the plan, and answers your questions. If you decide to start, they send you your link into the app and you sign your service agreement.",
+        alt: `${brand} home screen showing the next step`,
       },
       {
-        title: "Review each item, explained in plain words",
-        body: "No jargon: Capi explains what each account, collection or inquiry is, and what to check. You flag only what you believe is inaccurate, unverifiable or outdated — and you confirm it with your electronic signature.",
-        alt: "Guided review with confirmation",
+        title: "Review your report and tell us what is wrong",
+        body: `You connect ${monitoringName("en")} and upload your ID and a proof of address. ${capi} explains each account, collection or inquiry in plain words. You flag only what you believe is inaccurate, unverifiable or outdated, and you say why. Those answers are yours: nobody makes them for you.`,
+        alt: "Guided review of one item on the report",
       },
       {
-        title: "Read your letters and send them with one button",
-        body: "We generate your dispute letters under the FCRA and show them to you in full, with an explanation. When YOU approve, they are printed and mailed — no printer, no lines at the post office. Every ~40 days, you repeat with your updated report.",
-        alt: "Dispute letter preview with explanation",
+        title: "Our team prepares and mails the letters",
+        body: "From what you told us, the team prepares the dispute letters and mails them. In the app you see each letter, explained, and how it is going. About every 40 days we look at your report again and show you what changed.",
+        alt: "A dispute letter with its explanation and its status",
       },
     ],
     communityTitle: "Made for our community",
     community: [
       [
-        "The AI works, you're in charge",
-        "Your assistant prepares everything and messages you on WhatsApp. The companies that 'do it for you' are the ones that end up sued — here YOU are in control, and that protects you.",
+        `A team of people, and ${capi}`,
+        `You talk to a person from day one. In the app, ${capi}, your AI assistant, explains your report step by step.`,
       ],
       [
-        "Free human help",
-        "Would you rather have someone with you? Our team guides you live on WhatsApp while you decide. No extra cost.",
+        "You decide, item by item",
+        "Only what you tell us is inaccurate gets disputed. Nobody flags anything for you, and nobody tells you what to flag.",
       ],
       [
         "In your language",
-        "Everything in Spanish — the app, the explanations and the help. If you prefer English, you choose it inside the app.",
+        "Everything in Spanish: the app, the explanations and the team. If you prefer English, you choose it inside the app.",
       ],
       [
-        "With the law on your side",
-        "Your letters use your rights under the federal FCRA. You read them before sending.",
+        "No promises",
+        "Nobody can promise you a result: what changes on your report is up to the bureaus. What we do is always tell you how each letter is going.",
       ],
     ],
     faqTitle: "Questions we always get",
     faq: [
       [
         "I've been scammed before. How do I know this is different?",
-        "We don't ask you to trust blindly: you see every letter before it goes out, you decide what to dispute, and you sign no contracts. We don't promise results either — anyone who promises them is lying to you.",
+        "We don't ask you to trust blindly. Before you sign, a person explains the plan and gives you the agreement in writing. In the app you see every letter we mail and how it is going. And we don't promise results: anyone who promises them is lying to you.",
       ],
       [
-        "How much does it cost in total?",
-        `Only ${monitoringName("en")} (${price} a month), which you buy directly from the monitoring service. The app, the letters, the mailing and our team's help are included. You cancel whenever you want.`,
+        "Do you dispute for me?",
+        "Yes, for what you point out to us. You review your report and say what is inaccurate and why; that decision is yours alone. From that, our team prepares the letters and mails them. We do not dispute everything negative, or information you know is correct.",
+      ],
+      [
+        "How much does it cost?",
+        `The ${brand} service has a monthly fee. Our team explains the plan before you sign, and it is written in your agreement. Each charge is for work already done; nothing is charged in advance. Separately there is ${monitoringName("en")}, which you pay directly to the monitoring service.`,
+      ],
+      [
+        "What if I sign and change my mind?",
+        "You have 3 business days after signing to cancel at no cost. It is written in your agreement.",
       ],
       [
         "Does this have anything to do with my immigration status?",
-        "No. Reviewing and disputing your own credit report is a right every consumer has under federal law (FCRA). Credalti does not ask you for immigration information. (This is not legal advice.)",
+        `No. Reviewing and disputing your own credit report is a right every consumer has under federal law (FCRA). ${brand} does not ask you for immigration information. (This is not legal advice.)`,
       ],
       [
         "Do I need a Social Security number?",
@@ -322,14 +364,10 @@ const en: MarketingCopy = {
       ],
       [
         "I'm not good with technology. Will I be able to do it?",
-        "Yes. It's a chat, like WhatsApp: the assistant tells you what comes next. You can listen to the explanations instead of reading them, and if you want, a person from the team stays with you live — free.",
-      ],
-      [
-        "Do you dispute for me?",
-        "No — and that protects you. The assistant prepares everything (reads your report, writes the letters, mails them), but you decide and you approve. It's 3 taps per round, about 5 minutes a month.",
+        `Yes. It's a chat, like WhatsApp: ${capi} tells you what comes next. You can listen to the explanations instead of reading them, and a person from the team helps you on WhatsApp if you get stuck.`,
       ],
     ],
-    footer: `Credalti is a software tool for doing your own disputes. We do not dispute for you and we make no guarantees about results — results vary case by case. Disputing correct, current information is not the purpose of the tool. It requires an active credit monitoring subscription (${price}/month), bought from an independent monitoring service; Credalti earns a commission on that subscription. Available in Texas. This is not legal advice.`,
+    footer: `${brand} is a credit services company. You decide what is inaccurate on your report; our team prepares and mails the letters for you. We do not guarantee results: the credit bureaus decide, and results vary case by case. No one can take correct, current information off a credit report. The service requires an active credit monitoring subscription, bought and paid for separately from an independent monitoring service; ${brand} earns a commission on that subscription. Available in Texas. This is not legal advice.`,
     more: "More information",
   },
   onboarding: {
@@ -341,12 +379,11 @@ const en: MarketingCopy = {
         : "Our team sent you here. We already noted what you talked about, so you don't have to repeat it.",
     yourGoal: "Your goal",
     yourState: "Your state",
-    welcomeNote:
-      "Inside the app you have Capi with you, an artificial intelligence assistant. You decide what to dispute and you approve every letter. Results vary case by case.",
+    welcomeNote: `Inside the app you have ${capi} with you, an artificial intelligence assistant. You tell us what is wrong on your report and our team prepares and mails the letters for you. Results vary case by case.`,
     yesStart: "Yes, start",
     changeAnswers: "Change my answers",
     goalTitle: "What do you want better credit for?",
-    goalSub: "Your goal guides your progress. You can change it later.",
+    goalSub: "Your goal tells us what matters to you. You can change it later.",
     next: "Continue",
     stateTitle: "Which state do you live in?",
     stateSub: "We open state by state, because each one has its own rules. Today: Texas.",
@@ -357,12 +394,13 @@ const en: MarketingCopy = {
     emailLabel: "Email",
     notifyMe: "Notify me",
     monitoringTitle: "Activate your credit monitoring",
-    monitoringSub: "It's what lets us see your 3-bureau report, and it's your only cost.",
+    monitoringSub:
+      "It's what lets us see your 3-bureau report. It is a separate subscription, which you pay to the monitoring service.",
     monitoringRows: (providerName) => [
-      ["What it costs", `${price} a month`],
-      ["Who you buy it from", providerName ?? "An independent monitoring service"],
-      ["What Credalti includes", "The app, your letters and the mailing"],
-      ["Cancel", "Whenever you want, directly with the service"],
+      ["Monitoring", `${price} a month`],
+      ["You pay it to", providerName ?? "An independent monitoring service"],
+      [`${brand} service`, "It is separate. Your team explains the plan."],
+      ["Cancel monitoring", "Whenever you want, directly with the service"],
     ],
     disclosure: AFFILIATE_DISCLOSURE.en,
     itinQuestion: "Do you use an ITIN instead of a Social Security number?",
@@ -371,15 +409,14 @@ const en: MarketingCopy = {
     activate: "Activate my monitoring",
     haveIt: "I already have it, continue",
     demoReport: "In this demo we use a sample report.",
-    assistTitle: "How do you want to do it?",
-    assistSub: "Either way, you decide and you send.",
-    withCapi: "With Capi, my assistant",
-    withCapiSub: "Capi explains each step in plain words.",
+    assistTitle: "How do you want to do your review?",
+    assistSub: "Either way, the answers are yours and our team mails the letters.",
+    withCapi: `With ${capi}, my assistant`,
+    withCapiSub: `${capi} explains each step in plain words.`,
     withPerson: "With a person by my side",
-    withPersonSub: "Someone from the team stays with you on WhatsApp. Free.",
-    assistNote:
-      "The help is educational: we explain and stay with you, but every decision and every mailing is yours. Results vary case by case.",
-    assistWhatsappText: "Hi! I want live help reviewing my credit with Credalti.",
+    withPersonSub: "Someone from the team stays with you on WhatsApp.",
+    assistNote: `${capi} and the team explain and stay with you, but they do not tell you what to flag: you say what is inaccurate. Results vary case by case.`,
+    assistWhatsappText: `Hi! I want live help reviewing my report with ${brand}.`,
     waitlistDone: "Done. We'll let you know soon.",
     waitlistDoneSub: "As soon as we open in your state, you'll be among the first to know.",
     backHome: "Back to home",
