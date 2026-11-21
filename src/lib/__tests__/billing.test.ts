@@ -1585,7 +1585,9 @@ describe("billing: the routes", () => {
     expect(read("src/app/api/health/route.ts")).toMatch(/"Billing \(payment processor\)"/);
     expect(read("src/proxy.ts")).toContain('"/pagos/:path*"');
     // A case paused for payment does not get a new round mailed.
-    expect(read("src/app/api/attacks/approve/route.ts")).toMatch(/code: "billing_past_due"/);
+    // (Both ways a round leaves go through src/lib/rounds/send.ts.)
+    expect(read("src/lib/rounds/send.ts")).toMatch(/"billing_past_due"/);
+    expect(read("src/app/api/attacks/approve/route.ts")).toMatch(/sendRound\(/);
   });
 });
 

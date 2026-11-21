@@ -1014,9 +1014,16 @@ describe("where it is wired", () => {
   const read = (path: string) => readFileSync(path, "utf8");
 
   it("the letters endpoint checks the gate under full service, before anything is mailed", () => {
+    // Under full service the client's approval refuses outright: letters leave only from the staff send.
     const route = read("src/app/api/attacks/approve/route.ts");
-    expect(route).toMatch(/if \(isFullService\) \{[\s\S]*workMayStart\(agreement, new Date\(\)\)[\s\S]*status: 409/);
-    expect(route.indexOf("workMayStart(")).toBeLessThan(route.indexOf("mailLetter({"));
+    expect(route).toMatch(/if \(isFullService\) \{[\s\S]*full_service_team_sends[\s\S]*status: 409/);
+    expect(route.indexOf("isFullService) {")).toBeLessThan(route.indexOf("sendRound("));
+    // The one mailing path (approve and the staff send) checks the gate before anything is mailed.
+    const send = read("src/lib/rounds/send.ts");
+    expect(send).toMatch(/if \(options\.requireAgreement\) \{[\s\S]*workGate\(/);
+    expect(send).toMatch(/workMayStart\(agreement, now\)[\s\S]*refuse\(409/);
+    expect(send.indexOf("await workGate(")).toBeLessThan(send.indexOf("await mail({"));
+    expect(read("src/lib/staff/actions.ts")).toMatch(/requireAgreement: true/);
   });
 
   it("the agreement pages are behind the login gate", () => {

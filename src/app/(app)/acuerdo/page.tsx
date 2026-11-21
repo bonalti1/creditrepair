@@ -13,7 +13,7 @@ import { agreementReadiness } from "@/lib/agreement/readiness";
 import type { AgreementState } from "@/lib/agreement/record";
 import { isFullName, signerNameMatches } from "@/lib/agreement/signature";
 import { resolveTerms, type ResolvedTerms } from "@/lib/agreement/terms";
-import { DEMO_REPORT } from "@/lib/demo";
+import { useClientReport, withReport } from "@/lib/ux/reportStore";
 import { useLocale } from "@/lib/i18n";
 import { useAgreement, type AgreementActionResult } from "@/lib/ux/agreementStore";
 import { useFlags } from "@/lib/ux/flagsStore";
@@ -536,6 +536,8 @@ function Signed({
 }) {
   const es = locale === "es";
   const { flags, roundApproved, hydrated } = useFlags();
+  // The sample report in the demo; the client's own with a database (lib/ux/reportStore.ts).
+  const view = useClientReport();
   const [confirming, setConfirming] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -547,7 +549,7 @@ function Signed({
   const endRequested = Boolean(agreement.serviceEndRequestedAt);
 
   // The same next step Home shows, once the agreement is out of the way.
-  const step = hydrated ? nextAction(sessionJourneyState(DEMO_REPORT.items, flags, roundApproved, agreement), locale, { now }) : null;
+  const step = hydrated && view.ready ? nextAction(withReport(sessionJourneyState(view.items, flags, roundApproved, agreement), view), locale, { now }) : null;
   const next = fromOnboarding
     ? { href: "/onboarding?paso=monitoreo", label: es ? "Continuar: mi monitoreo de crédito" : "Continue: my credit monitoring" }
     : step && step.href !== "/acuerdo"

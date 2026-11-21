@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { DisputeReasonCode } from "../letters/reasons";
+import { isSupabaseConfigured } from "../supabase/config";
+import { fetchClientRound } from "./caseApi";
 import { isDisputeReasonCode } from "./disputeReason";
 
 // Shared review state so the user's decisions follow them across pages
@@ -67,6 +69,18 @@ export function normalizeFlags(raw: unknown): FlagsMap {
   return flags;
 }
 
+/**
+ * The answers a mailed round's letters were built from, as the database keeps
+ * them: every item the round's letters cover counts as confirmed, with the
+ * client's answer when it is still on record. An answer changed afterwards
+ * does not rewrite what was mailed.
+ */
+export function roundSnapshot(flags: FlagsMap, fingerprints: readonly string[], mailedAt: string): FlagsMap {
+  return Object.fromEntries(
+    fingerprints.map((fp) => [fp, flags[fp]?.state === "attested" && flags[fp]?.attestedAt ? flags[fp]! : { state: "attested" as const, attestedAt: mailedAt }]),
+  );
+}
+
 export function useFlags() {
   const [flags, setFlags] = useState<FlagsMap>({});
   const [roundApproved, setRoundApprovedState] = useState(false);
@@ -76,6 +90,42 @@ export function useFlags() {
   const [synced, setSynced] = useState(false);
 
   useEffect(() => {
+    // With a database (supabase/config.ts), the client's own answers and the
+    // rounds the team mailed are the record: nothing this browser kept from
+    // before (or from the demo) is shown, not even for a moment.
+    if (isSupabaseConfigured()) {
+      let cancelled = false;
+      Promise.all([
+        fetch("/api/flags")
+          .then((r) => (r.ok ? (r.json() as Promise<{ authenticated: boolean; flags: unknown }>) : null))
+          .catch(() => null),
+        fetchClientRound().catch(() => null),
+      ])
+        .then(([data, answer]) => {
+          if (cancelled) return;
+          if (data?.authenticated) {
+            const server = normalizeFlags(data.flags);
+            setFlags(server);
+            setSynced(true);
+            const round = answer?.authenticated ? answer.round : null;
+            // The newest round the team mailed: its date, and the answers its letters were built from.
+            setRoundApprovedState(Boolean(round));
+            setRoundMailedAt(round?.mailedAt ?? null);
+            setMailedFlags(round ? roundSnapshot(server, round.fingerprints, round.mailedAt) : null);
+          } else {
+            // Signed out: this device's copy, as in the demo.
+            setFlags(normalizeFlags(load<unknown>(STORAGE_KEY, {})));
+            setRoundApprovedState(load<boolean>(APPROVED_KEY, false));
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setHydrated(true);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     setFlags(normalizeFlags(load<unknown>(STORAGE_KEY, {})));
     setRoundApprovedState(load<boolean>(APPROVED_KEY, false));
     const mailed = load<unknown>(MAILED_KEY, null);

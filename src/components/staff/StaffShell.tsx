@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getBrowserSupabase } from "@/lib/supabase/client";
 import { getStaffData, resetDemo } from "@/lib/staff/data";
 import { can, ROLE_LABEL, STAFF_ROLES, type Capability, type Viewer } from "@/lib/staff/permissions";
 import { demoViewAs } from "@/lib/staff/teamData";
@@ -10,9 +12,11 @@ import Icon, { type IconName } from "@/components/Icon";
 import Logo from "@/components/Logo";
 
 // The frame around every staff screen: logo, the destinations this member's
-// role may open, who is signed in, and a "Demo" pill while the clients are
-// invented. Built for a computer first; on a phone the navigation drops to its
-// own row and scrolls sideways inside it.
+// role may open, who is signed in (a round initial that opens a menu, so the
+// header stays on one line at 1280 pixels with all seven tabs), and a "Demo"
+// pill while the clients are invented. From 1280 pixels the tabs share the
+// header's line; narrower (a laptop at 1024, a phone) they drop to their own
+// row and scroll sideways inside it.
 //
 // In the demo nobody is signed in, so a bar under the header lets the owner
 // look at the console as each role sees it ("Ver como"). It exists only in the
@@ -27,6 +31,67 @@ const NAV: Array<{ href: string; label: string; icon: IconName; needs?: Capabili
   { href: "/equipo/negocio", label: "Negocio", icon: "chart", needs: "business.view" },
   { href: "/equipo/equipo", label: "Equipo", icon: "team", needs: "team.manage" },
 ];
+
+/** "Carmen Ruiz" → "CR"; one name → its first letter. */
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "")).toUpperCase() || "?";
+}
+
+function MemberMenu({ viewer, demo }: { viewer: Viewer; demo: boolean }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+
+  const signOut = async () => {
+    await getBrowserSupabase()?.auth.signOut();
+    window.location.assign("/login");
+  };
+
+  const label = `${viewer.name.split(" ")[0]} · ${ROLE_LABEL[viewer.role]}`;
+  return (
+    <div className="relative" ref={box}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={label}
+        title={label}
+        data-testid="viewer"
+        className="pressable flex h-9 w-9 items-center justify-center rounded-full bg-blue-900 text-[13px] font-semibold text-white"
+      >
+        {initials(viewer.name)}
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-11 z-40 w-60 rounded-2xl border hairline bg-white p-2 shadow-lg">
+          <p className="px-3 pb-2 pt-1.5">
+            <span className="block text-[15px] font-semibold text-slate-900">{viewer.name}</span>
+            <span className="block text-[13px] text-slate-500">{ROLE_LABEL[viewer.role]}</span>
+          </p>
+          {demo ? (
+            <p className="border-t hairline px-3 pb-1 pt-2 text-[12px] leading-snug text-slate-500">En la demo nadie inicia sesión: cambia de rol con «Ver como».</p>
+          ) : (
+            <button type="button" role="menuitem" onClick={signOut} className="w-full rounded-xl px-3 py-2 text-left text-[14px] font-medium text-blue-700 hover:bg-slate-50">
+              Cerrar sesión
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Frame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -50,12 +115,7 @@ function Frame({ children }: { children: React.ReactNode }) {
             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">Equipo</span>
           </Link>
 
-          <div className="order-2 ml-auto flex items-center gap-2 lg:order-3">
-            {viewer && (
-              <span className="hidden text-[13px] text-slate-500 sm:inline" data-testid="viewer">
-                {viewer.name.split(" ")[0]} · {ROLE_LABEL[viewer.role]}
-              </span>
-            )}
+          <div className="order-2 ml-auto flex items-center gap-2 xl:order-3">
             {demo && (
               <span
                 className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-blue-900"
@@ -64,10 +124,13 @@ function Frame({ children }: { children: React.ReactNode }) {
                 Demo
               </span>
             )}
+            {/* Who is signed in, as a round initial that opens a small menu: the name and role, and
+                with a database the way out. It keeps the header to one line beside seven tabs. */}
+            {viewer && <MemberMenu viewer={viewer} demo={demo} />}
           </div>
 
           <nav
-            className="order-3 -mx-4 flex w-[calc(100%+2rem)] items-center gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none] sm:-mx-6 sm:w-[calc(100%+3rem)] sm:px-5 lg:order-2 lg:mx-0 lg:w-auto lg:overflow-visible lg:px-0 lg:pb-0"
+            className="order-3 -mx-4 flex w-[calc(100%+2rem)] items-center gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none] sm:-mx-6 sm:w-[calc(100%+3rem)] sm:px-5 xl:order-2 xl:mx-0 xl:w-auto xl:overflow-visible xl:px-0 xl:pb-0"
             aria-label="Equipo"
           >
             {ready &&

@@ -1,3 +1,4 @@
+import { isDemoMode } from "../supabase/config";
 import { AGREEMENT_VERSION } from "./documents";
 import { STATUTE_TEXTS } from "./statutes";
 import { missingTerms, resolveTerms, TERM_ENV, type ResolvedTerms, type TermKey, type TermsSource } from "./terms";
@@ -65,12 +66,9 @@ export function unverifiedStatuteCitations(): string[] {
 
 // Static reads, so the browser bundle carries them.
 const APPROVED_VERSION = process.env.NEXT_PUBLIC_AGREEMENT_APPROVED_VERSION;
-const HAS_DATABASE = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
-/** The same demo test the rest of the app uses: no Supabase settings, no database. */
-export function isDemoMode(): boolean {
-  return !HAS_DATABASE;
-}
+/** The same demo test the rest of the app uses: no Supabase settings, no database (supabase/config.ts). */
+export { isDemoMode };
 
 export function agreementReadiness(input: ReadinessInput = {}): AgreementReadiness {
   const terms = input.terms ?? resolveTerms();

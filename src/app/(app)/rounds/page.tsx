@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { DEMO_REPORT } from "@/lib/demo";
+import { useClientReport, withReport } from "@/lib/ux/reportStore";
+import ReportPending from "@/components/ReportPending";
 import type { ReportItem } from "@/lib/domain/types";
 import { getStageExplainers } from "@/lib/ux/explainers";
 import { useFlags } from "@/lib/ux/flagsStore";
@@ -50,7 +51,9 @@ export default function Rounds() {
   const { flags, roundFlags, roundApproved, roundMailedAt, hydrated } = useFlags();
   // The agreement is part of the next step, so every screen reads the same one Home does.
   const { agreement } = useAgreement();
-  const items = DEMO_REPORT.items;
+  // The sample report in the demo; the client's own with a database (lib/ux/reportStore.ts).
+  const view = useClientReport();
+  const items = view.items;
   // The round as it was approved: an answer changed afterwards does not rewrite what was mailed.
   const { plan, roundNumber } = useMemo(() => sessionPlan(items, roundFlags), [items, roundFlags]);
   // What is confirmed today, to list what is not in these letters.
@@ -58,7 +61,15 @@ export default function Rounds() {
   // How each mailed letter travels and where it is (mail/clientView.ts).
   const savedMail = useLetterMail();
 
-  if (!hydrated) return null;
+  if (!hydrated || !view.ready) return null;
+  if (view.waiting) {
+    return (
+      <main className="animate-rise space-y-5">
+        <h1 className="px-1 text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{d.rounds.title}</h1>
+        <ReportPending />
+      </main>
+    );
+  }
 
   const fmt = (date: Date) =>
     date.toLocaleDateString(locale === "es" ? "es-MX" : "en-US", { day: "numeric", month: "long" });
@@ -95,7 +106,7 @@ export default function Rounds() {
   const waitingItems = items.filter((i) => confirmedFps.has(i.fingerprint) && !inRound.has(i.fingerprint));
 
   // Nothing mailed: the one next step, the same one Home shows.
-  const step = nextAction(sessionJourneyState(items, flags, sent, agreement), locale);
+  const step = nextAction(withReport(sessionJourneyState(items, flags, sent, agreement), view, roundMailedAt), locale);
 
   return (
     <main className="animate-rise space-y-5">

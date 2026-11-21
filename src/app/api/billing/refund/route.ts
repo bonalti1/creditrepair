@@ -41,7 +41,8 @@ export async function POST(req: Request) {
   const parsed = refundBodySchema.safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ error: z.flattenError(parsed.error) }, { status: 400 });
   const reason = cleanRefundReason(parsed.data.reason);
-  const by = (parsed.data.by ?? "").replace(/\s+/g, " ").trim().slice(0, 80);
+  // The record carries the member's own handle, from their staff record; a "by" sent by the browser is ignored.
+  const by = role.member.handle;
 
   const resolution = getPaymentGateway();
   if (!resolution.configured) {

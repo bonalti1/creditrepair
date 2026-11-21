@@ -18,6 +18,9 @@ const TABLES = [
   "service_agreements",
   "payment_methods", "payment_method_vault", "charges", "refunds", "billing_pauses",
   "mail_events", "furnishers", "furnisher_changes",
+  // The team (0007, 0012) and the console's own records (0014).
+  "staff_members", "staff_invitations", "client_assignments", "team_settings", "prospects", "team_audit",
+  "staff_notes", "exception_marks", "report_samples",
 ];
 
 export async function GET(req: Request) {
@@ -30,7 +33,8 @@ export async function GET(req: Request) {
     checks.push({ name, ok, needed, detail });
 
   const supabaseEnv = set("NEXT_PUBLIC_SUPABASE_URL") && set("NEXT_PUBLIC_SUPABASE_ANON_KEY") && set("SUPABASE_SERVICE_ROLE_KEY");
-  add("Database and login (Supabase)", supabaseEnv, "required", supabaseEnv ? "Keys are set." : "Set the three Supabase variables.");
+  // "Base de datos": with these three set the app runs on the database; without the first two it is the demo (src/lib/supabase/config.ts).
+  add("Database and login (Supabase)", supabaseEnv, "required", supabaseEnv ? "Keys are set: the app runs on the database." : "Set the three Supabase variables (docs/DATABASE.md). Until then the app is the demo.");
 
   if (supabaseEnv) {
     const db = getAdminClient()!;
@@ -41,11 +45,23 @@ export async function GET(req: Request) {
     }
     const { error: columnError } = await db.from("profiles").select("referred_by, state, assisted").limit(1);
     if (columnError) missing.push("profiles columns from migration 0005");
+    const { error: roundColumns } = await db.from("attack_rounds").select("sent_by_name, mail_via, responded_at, results").limit(1);
+    if (roundColumns) missing.push("attack_rounds columns from migration 0014");
+    const { error: pullColumns } = await db.from("report_pulls").select("imported_by_name, reader_key, import_summary").limit(1);
+    if (pullColumns) missing.push("report_pulls columns from migration 0014");
     add(
       "Database tables",
       missing.length === 0,
       "required",
       missing.length === 0 ? "All tables present." : `Missing: ${missing.join(", ")}. Apply the migrations in supabase/migrations in order.`,
+    );
+    // Someone has to be able to open the console: at least one active administrator (docs/DATABASE.md, "Make yourself admin").
+    const { count: admins } = await db.from("staff_members").select("user_id", { head: true, count: "exact" }).eq("role", "admin").eq("active", true);
+    add(
+      "Database: first administrator",
+      (admins ?? 0) > 0,
+      "required",
+      (admins ?? 0) > 0 ? `${admins} active administrator(s).` : "No active administrator yet: run the snippet in docs/DATABASE.md after your first sign-in.",
     );
     const { data: bucket } = await db.storage.getBucket("identity-docs");
     add("ID photo storage", Boolean(bucket) && bucket?.public === false, "required", bucket ? (bucket.public ? "Bucket identity-docs must be private." : "Private bucket present.") : "Bucket identity-docs is missing (migration 0003).");

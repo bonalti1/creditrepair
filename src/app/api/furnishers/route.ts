@@ -32,8 +32,9 @@ export async function POST(req: Request) {
 
   const body = await readJsonBody(req, 8_000);
   if (!body.ok) return NextResponse.json({ error: "Invalid request body" }, { status: body.status });
-  const { by, ...input } = (body.data ?? {}) as Record<string, unknown> & { by?: unknown };
-  const author = (typeof by === "string" ? by : "").replace(/\s+/g, " ").trim().slice(0, 80) || "equipo";
+  // "by" from the browser is ignored: the history line carries the member's own handle, from their staff record.
+  const { by: _by, ...input } = (body.data ?? {}) as Record<string, unknown> & { by?: unknown };
+  const author = role.member.handle;
 
   try {
     const { data: rows, error } = await db.from("furnishers").select("*");

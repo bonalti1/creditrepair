@@ -2,15 +2,17 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { hasSharedSecret } from "@/lib/security/signatures";
+import { isSupabaseConfigured } from "./config";
 
 // Cookie-bound Supabase client for server components and route handlers.
 // Queries through this client run as the signed-in user, so RLS applies.
 // Returns null when Supabase isn't configured (demo mode).
 
 export async function getServerSupabase(): Promise<SupabaseClient | null> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
+  // The demo rule (supabase/config.ts): no settings, no client.
+  if (!isSupabaseConfigured()) return null;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   const cookieStore = await cookies();
   return createServerClient(url, key, {

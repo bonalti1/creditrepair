@@ -13,7 +13,8 @@
     "content:assemble": "tsx content/pipeline/assemble.ts",
     "content:variants": "tsx content/pipeline/variants.ts",
     "content:rank": "tsx content/pipeline/rank.ts",
-    "letters:packet": "tsx scripts/letters-packet.ts"
+    "letters:packet": "tsx scripts/letters-packet.ts",
+    "db:setup-sql": "node scripts/setup-sql.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.56.0",
@@ -25,6 +26,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.17",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",

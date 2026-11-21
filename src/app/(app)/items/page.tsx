@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { DEMO_REPORT } from "@/lib/demo";
+import type { ReportItem } from "@/lib/domain/types";
+import { useClientReport, withReport } from "@/lib/ux/reportStore";
+import ReportPending from "@/components/ReportPending";
 import { getCategoryExplainers, getTermGlossary } from "@/lib/ux/explainers";
 import { crossBureauNote } from "@/lib/ux/crossBureau";
 import { canConfirmDispute, reasonLabel } from "@/lib/ux/disputeReason";
@@ -57,8 +59,10 @@ function glossaryFor(data: Record<string, unknown>, locale: Locale): string[] {
 }
 
 export default function Items() {
-  const items = DEMO_REPORT.items;
-  const { flags, review, clear, roundApproved, hydrated } = useFlags();
+  // The sample report in the demo; the client's own with a database (lib/ux/reportStore.ts).
+  const view = useClientReport();
+  const items = view.items;
+  const { flags, review, clear, roundApproved, roundMailedAt, hydrated } = useFlags();
   // The agreement is part of the next step, so every screen reads the same one Home does.
   const { agreement } = useAgreement();
   const { locale, d } = useLocale();
@@ -71,9 +75,17 @@ export default function Items() {
   const done = pending.length === 0;
   const progressPct = Math.round(((items.length - pending.length) / items.length) * 100);
 
-  if (!hydrated) return null;
+  if (!hydrated || !view.ready) return null;
+  if (view.waiting) {
+    return (
+      <main className="animate-rise space-y-5">
+        <h1 className="px-1 text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{d.items.title}</h1>
+        <ReportPending />
+      </main>
+    );
+  }
 
-  const step = nextAction(sessionJourneyState(items, flags, roundApproved, agreement), locale);
+  const step = nextAction(withReport(sessionJourneyState(items, flags, roundApproved, agreement), view, roundMailedAt), locale);
 
   const reviewAgain = (fingerprint: string) => {
     clear(fingerprint);
@@ -230,7 +242,7 @@ function WizardCard({
   onCorrect,
   onAttest,
 }: {
-  item: (typeof DEMO_REPORT.items)[number];
+  item: ReportItem;
   remaining: number;
   /** A neutral note when the same account is also on another bureau. */
   otherBureaus: string | null;

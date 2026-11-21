@@ -68,9 +68,12 @@ export default function Invitar() {
       });
   }, [loaded, viewer, data]);
 
+  // With a database, the link credits the member by their handle (staff_members.handle): it becomes the
+  // client's profiles.referred_by, which is what lets a salesperson see the people they brought in (migration 0012).
+  const handle = !data.demo && viewer ? viewer.handle : undefined;
   const url = useMemo(
-    () => origin + buildInvitePath({ name, goal, state, refName: me }),
-    [origin, name, goal, state, me],
+    () => origin + buildInvitePath({ name, goal, state, refName: me, ref: handle }),
+    [origin, name, goal, state, me, handle],
   );
   const message = useMemo(() => inviteMessageEs({ name }, url), [name, url]);
   const open = stateStatus(state) === "open";

@@ -6,6 +6,7 @@ import { BILLING_COPY } from "@/lib/ux/billingCopy";
 import { HUMAN_HELP, humanHelpHref } from "@/lib/ux/humanHelp";
 import Icon, { type IconName } from "@/components/Icon";
 import { isFullService } from "@/lib/service/mode";
+import MailingAddress from "@/components/MailingAddress";
 
 // "Más": everything beyond Home and the conversation, as grouped rows that say
 // what each thing is for. Familiar from every phone's Settings screen.
@@ -176,6 +177,9 @@ export default function Mas() {
           </button>
         </div>
       </section>
+
+      {/* With a real account: the return address on every letter (lib/supabase/config.ts decides; nothing in the demo). */}
+      <MailingAddress />
     </main>
   );
 }

@@ -69,8 +69,22 @@ function LoginForm() {
       setError("Ese código no es correcto o ya venció. Pide uno nuevo.");
       return;
     }
-    await supabase.from("profiles").upsert({ id: data.user.id, phone_e164: e164() }, { onConflict: "id" });
-    router.push(next);
+    router.push(await landing(data.user.id, e164()));
+  };
+
+  // Where to go once signed in. A member of the team (asked of the server,
+  // from their own staff record) goes to the console and gets no client
+  // profile; everyone else gets their profile (phone on file) and goes on.
+  const landing = async (userId: string, phoneE164: string | null): Promise<string> => {
+    try {
+      const res = await fetch("/api/staff/me", { cache: "no-store" });
+      const me = (await res.json()) as { staff?: boolean };
+      if (me.staff) return next.startsWith("/equipo") ? next : "/equipo";
+    } catch {
+      // Not known: the client app, where the staff console's own check still applies.
+    }
+    await supabase.from("profiles").upsert({ id: userId, ...(phoneE164 ? { phone_e164: phoneE164 } : {}) }, { onConflict: "id" });
+    return next;
   };
 
   const sendEmail = async (e: React.FormEvent) => {

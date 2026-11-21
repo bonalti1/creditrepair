@@ -99,3 +99,36 @@ export async function loadTeam(db: SupabaseClient, options: { events?: boolean }
     handleOf,
   };
 }
+
+/**
+ * Someone sales added by hand (prospects, migration 0012) just created their
+ * account: the prospect row is marked converted and, when a teammate was
+ * assigned to the prospect and the client has nobody yet, the client keeps that
+ * teammate (client_assignments), with the record in team_audit. The phone is
+ * the one Supabase Auth verified by text message, never one sent by the
+ * browser. Service role; safe to repeat (only open prospects are converted).
+ */
+export async function convertProspect(db: SupabaseClient, userId: string, verifiedPhoneE164: string | null): Promise<boolean> {
+  if (!verifiedPhoneE164 || !/^\+1\d{10}$/.test(verifiedPhoneE164)) return false;
+  const { data: open, error } = await db
+    .from("prospects")
+    .select("id, assigned_to")
+    .eq("phone_e164", verifiedPhoneE164)
+    .is("converted_user_id", null)
+    .limit(1)
+    .maybeSingle();
+  if (error || !open) return false;
+  const now = new Date().toISOString();
+  const { error: convertError } = await db.from("prospects").update({ converted_user_id: userId, converted_at: now }).eq("id", open.id);
+  if (convertError) return false;
+  if (open.assigned_to) {
+    const { data: existing } = await db.from("client_assignments").select("user_id").eq("user_id", userId).maybeSingle();
+    if (!existing) {
+      const { error: assignError } = await db
+        .from("client_assignments")
+        .insert({ user_id: userId, staff_user_id: open.assigned_to, assigned_at: now, assigned_by: null, auto: true });
+      if (!assignError) await db.from("team_audit").insert({ actor: null, kind: "client_assigned", client_id: userId, member: open.assigned_to, detail: { auto: true, fromProspect: open.id } });
+    }
+  }
+  return true;
+}

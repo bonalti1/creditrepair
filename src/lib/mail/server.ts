@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { FurnisherEntry } from "./furnishers";
+import type { FurnisherChange, FurnisherEntry, FurnisherField } from "./furnishers";
 import { eventRecord, mailState, type LobWebhookEvent } from "./tracking";
 import type { MailClass, MailEventKind, MailEventRecord, MailStatus } from "./types";
 
@@ -30,6 +30,37 @@ export function furnisherFromRow(row: Row): FurnisherEntry {
     updatedAt: text(row.updated_at),
     updatedBy: text(row.updated_by_name) || "equipo",
     history: [],
+  };
+}
+
+const HISTORY_FIELD: Record<string, FurnisherField> = {
+  name: "name",
+  aliases: "aliases",
+  address_lines: "addressLines",
+  phone: "phone",
+  notes: "notes",
+  source: "source",
+  verified_on: "verifiedOn",
+};
+const shown = (value: unknown): string => (Array.isArray(value) ? value.map(text).join(" · ") : value == null ? "" : String(value));
+
+/**
+ * A furnisher_changes row (written by the furnishers_history trigger,
+ * migration 0013) as a history line: {"address_lines": {"from": …, "to": …}}
+ * becomes the same field-by-field list the demo keeps (furnishers.ts).
+ */
+export function furnisherChangeFromRow(row: Row): FurnisherChange {
+  const diff = (row.changes as Record<string, { from?: unknown; to?: unknown } | null> | null) ?? {};
+  return {
+    at: new Date(text(row.changed_at)).toISOString(),
+    by: text(row.changed_by_name) || "equipo",
+    changes: Object.entries(diff).flatMap(([column, value]) => {
+      const field = HISTORY_FIELD[column];
+      if (!field) return [];
+      const from = shown(value?.from);
+      const to = shown(value?.to);
+      return from === to ? [] : [{ field, from, to }];
+    }),
   };
 }
 

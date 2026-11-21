@@ -14,15 +14,16 @@ import { demoClientsWithMail } from "../mail/demo";
 import { roundMailPlan } from "../mail/sendPlan";
 import type { MailClass } from "../mail/types";
 import { clientBilling, sendableRound } from "./stage";
+import { isDemoMode } from "../supabase/config";
 import { applyTeamActions, loadTeamActions, resetTeamActions } from "./teamStore";
 import type { DocumentKind, ReportSample, StaffChatMessage, StaffClient, StaffNote } from "./types";
 
 // Where the console gets its clients and records what staff do.
 //
-// The pages only know the StaffData interface. Today the one implementation
-// is the demo: invented clients (demoClients.ts) plus whatever the person at
-// the keyboard did, kept in the browser. The database implementation goes at
-// the bottom of this file, in the marked place.
+// The pages only know the StaffData interface. There are two implementations:
+// the demo (invented clients, demoClients.ts, plus whatever the person at the
+// keyboard did, kept in the browser) and the database one at the bottom of
+// this file. getStaffData() picks by the one demo rule (supabase/config.ts).
 
 export interface RoundRef {
   clientId: string;
@@ -95,6 +96,11 @@ export interface ReportInput {
   report: RawReport;
   /** The teammate saving it. */
   by: string;
+  /**
+   * The text exactly as pasted or uploaded. The database version sends this,
+   * not `report`: the server reads it again with the reader.
+   */
+  source?: string;
 }
 
 export interface SampleInput {
@@ -517,44 +523,158 @@ export function demoRunsBilling(clientId: string, options: { newMethod?: boolean
 
 // ── Database implementation ─────────────────────────────────────────────
 //
-// NOT WRITTEN YET. This is the place for it.
+// Selected by getStaffData() when Supabase is configured (supabase/config.ts,
+// the one demo rule). It runs in the browser and holds no data of its own:
 //
-// Reads: a signed-in member of staff can select the client tables through the
-// "staff read …" policies in supabase/migrations/0007_staff.sql (profiles,
-// monitoring_subscriptions, report_pulls, report_items, item_flags,
-// attack_rounds, letters, letter_items, identity_documents, chat_messages,
-// events) and "staff read agreements" in 0010_service_agreements.sql
-// (service_agreements: the newest row per client gives agreementSignedAt,
-// disclosureAcknowledgedAt, agreementVersion, cancellationDeadline,
-// agreementCancelledAt, cancelledWithinWindow, serviceEndRequestedAt and
-// serviceEndReason). Map those rows to StaffClient.
+// Reads: GET /api/staff/clients. The server reads through the member's OWN
+// connection, so the role-scoped "staff read" policies of migration 0012
+// decide what this person sees, and maps the rows to StaffClient
+// (staff/fromRows.ts). Never the service role for a read.
 //
-// Billing (migration 0011): "staff read payment methods", "staff read
-// charges", "staff read refunds" and "staff read billing pauses" give
-// StaffClient.billing; service_agreements.terms->>'monthlyFee' of the newest
-// signed row gives agreementMonthlyFee. refundCharge calls POST
-// /api/billing/refund and pauseBilling / resumeBilling call POST
-// /api/billing/pause; both routes exist, check is_staff() and write with the
-// service role. There is no route that creates a charge for staff, and there
-// must never be one: charges come only from /api/cron/billing.
+// Writes: each action calls a staff route, which checks the member's role on
+// the server from their own staff_members row (requireCapability), checks they
+// may see the client through their own connection, validates the body, and
+// writes with the service role (staff/actions.ts):
+//   markRoundsSent          POST /api/staff/rounds (rounds/send.ts: the agreement gate,
+//                           attestation on every item, addresses, idempotent)
+//   addNote, resolveException, sendReply   POST /api/staff/case
+//   saveReport, saveReportSample           POST /api/staff/reports (the server reads
+//                           the source again with the reader; it never trusts a parsed report)
+//   refundCharge            POST /api/billing/refund
+//   pauseBilling, resumeBilling            POST /api/billing/pause
+// There is no route that creates a charge for staff, and there must never be
+// one: charges come only from /api/cron/billing.
 //
-// Writes: staff have no write policies. markRoundsSent, addNote,
-// resolveException, saveReport, saveReportSample and sendReply must call
-// server routes that check is_staff() and write with the service role, so
-// every staff action is validated and logged in one place. The route behind
-// markRoundsSent must apply workMayStart (src/lib/agreement/gate.ts) on the
-// server, as /api/attacks/approve does. Notes, handled marks and report
-// samples have no table yet.
-//
-// saveReport: the route must read the source again with the reader on the
-// server (never trust a report parsed in the browser), then write a
-// report_pulls row and its report_items; mergeReport is the specification of
-// what else changes. sendReply: run checkStaffReply on the server, then
-// storeMessage with source "human" and authorName (chat/history.ts,
-// chat_messages.author_name from migration 0009).
-//
-// When it exists, return it from getStaffData() when Supabase is configured.
+// The `author` / `by` arguments are for the demo: the routes sign every record
+// with the member's own handle and ignore them.
 
+interface Answer {
+  ok: boolean;
+  status: number;
+  data: Record<string, unknown>;
+}
+
+async function request(path: string, body?: unknown): Promise<Answer> {
+  try {
+    const res = await fetch(path, body === undefined ? { cache: "no-store" } : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    return { ok: res.ok, status: res.status, data };
+  } catch {
+    return { ok: false, status: 0, data: { message: "No pudimos conectar. Revisa tu conexión e intenta de nuevo." } };
+  }
+}
+
+/** The route's sentence for staff, or a plain one. */
+function messageOf(answer: Answer, fallback: string): string {
+  const { message, error, problems } = answer.data;
+  const lines = Array.isArray(problems) ? problems.filter((p): p is string => typeof p === "string") : [];
+  if (lines.length > 0) return lines.join(" ");
+  if (typeof message === "string" && message) return message;
+  if (typeof error === "string" && error) return error;
+  return fallback;
+}
+
+/** Thrown by markRoundsSent when some rounds did not go. The message says which and why. */
+export class RoundsNotSentError extends Error {
+  constructor(
+    message: string,
+    readonly held: Array<{ clientId: string; roundNumber: number; reason: string }>,
+  ) {
+    super(message);
+    this.name = "RoundsNotSentError";
+  }
+}
+
+export function createDatabaseStaffData(): StaffData {
+  // One read of the list serves every screen until something changes it.
+  let list: Promise<StaffClient[]> | null = null;
+  const invalidate = () => {
+    list = null;
+  };
+  const load = (): Promise<StaffClient[]> => {
+    list ??= request("/api/staff/clients").then((answer) => {
+      if (!answer.ok) {
+        list = null;
+        throw new Error(messageOf(answer, "No pudimos leer los clientes."));
+      }
+      return (answer.data.clients as StaffClient[] | undefined) ?? [];
+    });
+    return list;
+  };
+  const billing = async (path: string, body: unknown): Promise<BillingActionResult> => {
+    const answer = await request(path, body);
+    invalidate();
+    return answer.ok ? { ok: true } : { ok: false, message: messageOf(answer, "No se pudo guardar. Intenta de nuevo.") };
+  };
+
+  return {
+    demo: false,
+    listClients: load,
+    async getClient(id) {
+      return (await load()).find((c) => c.id === id) ?? null;
+    },
+    async markRoundsSent(rounds, options = {}) {
+      if (rounds.length === 0) return;
+      const answer = await request("/api/staff/rounds", { rounds, via: options.via === "print" ? "print" : "mail", mailClasses: options.mailClasses });
+      invalidate();
+      if (!answer.ok) throw new Error(messageOf(answer, "No se pudo enviar. Intenta de nuevo."));
+      const outcomes = (answer.data.outcomes as Array<{ clientId: string; roundNumber: number; sent: boolean; reason?: string }> | undefined) ?? [];
+      const held = outcomes.filter((o) => !o.sent).map((o) => ({ clientId: o.clientId, roundNumber: o.roundNumber, reason: o.reason ?? "No se pudo enviar." }));
+      if (held.length > 0) {
+        const sent = outcomes.length - held.length;
+        throw new RoundsNotSentError(
+          `${sent > 0 ? `Se ${sent === 1 ? "envió 1 ronda" : `enviaron ${sent} rondas`}. ` : ""}${held.length === 1 ? "Una ronda no salió" : `${held.length} rondas no salieron`}: ${held.map((h) => `ronda ${h.roundNumber} — ${h.reason}`).join(" · ")}`,
+          held,
+        );
+      }
+    },
+    async addNote(clientId, text) {
+      const answer = await request("/api/staff/case", { action: "note", clientId, text: text.trim() });
+      invalidate();
+      if (!answer.ok) throw new Error(messageOf(answer, "No se pudo guardar la nota."));
+      return answer.data.note as StaffNote;
+    },
+    async resolveException(clientId, exceptionKey) {
+      const answer = await request("/api/staff/case", { action: "resolve", clientId, key: exceptionKey });
+      invalidate();
+      if (!answer.ok) throw new Error(messageOf(answer, "No se pudo marcar como atendido."));
+    },
+    async saveReport(clientId, { readerKey, source }) {
+      // The server reads the text again itself: a report parsed here is never sent as the record.
+      if (!source) throw new Error("Falta el texto del reporte.");
+      const answer = await request("/api/staff/reports", { action: "import", clientId, readerKey, source });
+      invalidate();
+      if (!answer.ok) throw new Error(messageOf(answer, "No se pudo guardar el reporte."));
+    },
+    async saveReportSample(clientId, { provider, text, fileName }) {
+      const answer = await request("/api/staff/reports", { action: "sample", clientId, provider, text, fileName });
+      invalidate();
+      if (!answer.ok) throw new Error(messageOf(answer, "No se pudo guardar la muestra."));
+      return { sample: answer.data.sample as ReportSample, persisted: true };
+    },
+    async sendReply(clientId, text) {
+      const body = text.trim().slice(0, MAX_REPLY_CHARS);
+      if (!body) return { sent: false, problems: [] };
+      // Checked here too, so the screen answers at once; the route checks again.
+      const problems = checkStaffReply(body);
+      if (problems.length > 0) return { sent: false, problems };
+      const answer = await request("/api/staff/case", { action: "reply", clientId, text: body });
+      invalidate();
+      if (answer.status === 422 && Array.isArray(answer.data.problems)) return { sent: false, problems: answer.data.problems as ReplyProblem[] };
+      if (!answer.ok) throw new Error(messageOf(answer, "No se pudo enviar la respuesta."));
+      return { sent: true, message: answer.data.message as StaffChatMessage };
+    },
+    refundCharge: (_clientId, chargeId, reason) => billing("/api/billing/refund", { chargeId, reason }),
+    pauseBilling: (clientId, reason) => billing("/api/billing/pause", { userId: clientId, action: "pause", reason }),
+    resumeBilling: (clientId) => billing("/api/billing/pause", { userId: clientId, action: "resume" }),
+  };
+}
+
+let databaseData: StaffData | null = null;
+
+/** The console's data: the database when Supabase is configured, the demo otherwise. */
 export function getStaffData(): StaffData {
-  return demoData;
+  if (isDemoMode()) return demoData;
+  databaseData ??= createDatabaseStaffData();
+  return databaseData;
 }

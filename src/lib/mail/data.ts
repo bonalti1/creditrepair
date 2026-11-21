@@ -6,14 +6,15 @@ import {
   type FurnisherEntry,
   type FurnisherInput,
 } from "./furnishers";
+import { isDemoMode } from "../supabase/config";
 import { demoLetterMail } from "./demo";
 import type { MailClass } from "./types";
 
 // Where the console gets the furnisher address book and how it mails.
 //
-// Like StaffData (staff/data.ts), the pages only know this interface. Today
-// the one implementation is the demo: the seed list plus whatever was saved in
-// this browser. The database implementation is marked at the bottom.
+// Like StaffData (staff/data.ts), the pages only know this interface: the
+// demo (the seed list plus whatever was saved in this browser) or the
+// database, at the bottom, picked by the one demo rule (supabase/config.ts).
 
 export type MailMode =
   /** A Lob key is configured on the server: letters really go out. */
@@ -189,15 +190,48 @@ export function resetDemoMail(): void {
 
 // ── Database implementation ─────────────────────────────────────────────
 //
-// NOT WRITTEN YET, like the staff one. The pieces it needs exist:
-//   - mode: "lob" when the server has LOB_API_KEY (ask it; the key never
-//     reaches the browser), else "simulated".
-//   - listFurnishers: select furnishers and furnisher_changes (migration
-//     0013, "staff read" policies) and map them to FurnisherEntry.
-//   - saveFurnisher: POST /api/furnishers, which checks is_staff(), runs
-//     checkFurnisherInput on the server and writes with the service role. The
-//     history line is written by the database itself (furnishers_history trigger).
+// Selected when Supabase is configured (supabase/config.ts), like the staff
+// data. It holds nothing of its own:
+//   - listFurnishers and mode: GET /api/staff/mail, read through the member's
+//     own connection ("staff read furnishers", migration 0013); "lob" when the
+//     server has LOB_API_KEY (the key never reaches the browser), else
+//     "simulated". Until the first read answers, the mode reads "simulated".
+//   - saveFurnisher: POST /api/furnishers, which checks the member's role
+//     (rounds.send), runs checkFurnisherInput on the server and writes with
+//     the service role. The history line is written by the database itself
+//     (furnishers_history trigger), signed with the member's own handle.
 
+export function createDatabaseMailData(): MailData {
+  let mode: MailMode = "simulated";
+  return {
+    get mode() {
+      return mode;
+    },
+    async listFurnishers() {
+      const res = await fetch("/api/staff/mail", { cache: "no-store" });
+      if (!res.ok) throw new Error("No pudimos leer la libreta de direcciones.");
+      const body = (await res.json()) as { mode?: MailMode; furnishers?: FurnisherEntry[] };
+      mode = body.mode === "lob" ? "lob" : "simulated";
+      return [...(body.furnishers ?? [])].sort((a, b) => a.name.localeCompare(b.name, "es"));
+    },
+    async saveFurnisher(input) {
+      try {
+        const res = await fetch("/api/furnishers", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+        const body = (await res.json().catch(() => ({}))) as { entry?: FurnisherEntry; problems?: string[]; error?: string };
+        if (res.ok && body.entry) return { ok: true, entry: body.entry };
+        return { ok: false, problems: body.problems?.length ? body.problems : [body.error || "No se pudo guardar. Intenta de nuevo."] };
+      } catch {
+        return { ok: false, problems: ["No pudimos conectar. Intenta de nuevo."] };
+      }
+    },
+  };
+}
+
+let databaseMail: MailData | null = null;
+
+/** The address book and mail mode: the database when Supabase is configured, the demo otherwise. */
 export function getMailData(): MailData {
-  return demoMail;
+  if (isDemoMode()) return demoMail;
+  databaseMail ??= createDatabaseMailData();
+  return databaseMail;
 }

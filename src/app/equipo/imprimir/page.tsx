@@ -276,8 +276,13 @@ function PrintView() {
   const mark = async () => {
     if (toMark.length === 0 || working) return;
     setWorking(true);
-    await data.markRoundsSent(toMark, { via: "print" });
-    setMarked({ rounds: toMark.length, clients: markClients });
+    try {
+      await data.markRoundsSent(toMark, { via: "print" });
+      setMarked({ rounds: toMark.length, clients: markClients });
+    } catch (error) {
+      // With the database the server checks every round again; one it refuses is not marked.
+      window.alert(error instanceof Error && error.message ? error.message : "No se pudo marcar como enviadas. Intenta de nuevo.");
+    }
     setConfirming(false);
     await reload();
     setWorking(false);

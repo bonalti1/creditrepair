@@ -63,7 +63,7 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/integrations/whatsapp.ts` | WhatsApp Cloud API sender; message copy runs through guardrails |
 | `src/app/api/reports/import` | Import + parse + diff a monitoring pull; deletion celebration |
 | `src/app/api/attacks/build` | Build the draft round plan (requires active monitoring subscription) |
-| `src/app/api/attacks/approve` | The self-serve approval: re-verifies every attestation server-side, renders/varies letters, mails via Lob, schedules the ~40-day next round. The full-service client app has no approve button and does not call it |
+| `src/app/api/attacks/approve` | The self-serve approval (refuses with 409 under full service, where letters leave only from the staff send). Both go through `src/lib/rounds/send.ts` |
 | `src/app/api/coach` | Coach endpoint with post-hoc guardrail lint on output |
 | `src/app/api/webhooks/n8n` | Round triggers / day-40 re-engagement (shared-secret auth) |
 | `supabase/migrations/0001_init.sql` | Full schema with owner-only RLS on every table |
@@ -79,7 +79,7 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/sales/`, `src/app/equipo/invitar` | Sales-first handoff: the salesperson's invite link and the page that builds it — see `docs/SALES-FLOW.md` |
 | `src/lib/brand.ts` | Company name (Credalti), wordmark halves and the assistant's name (Capi); pages and messages read from here |
 | `src/lib/staff/stage.ts` | Staff console logic: a client's stage, what needs a person (exceptions), and the system's next step with its date |
-| `src/lib/staff/data.ts`, `src/lib/staff/demoClients.ts` | Where the console gets clients: the interface, the demo implementation (invented clients), and the marked place for the database one |
+| `src/lib/staff/data.ts`, `src/lib/staff/demoClients.ts` | Where the console gets clients: the interface, the demo implementation (invented clients), and the database one (staff routes) |
 | `src/app/equipo/` | Staff console: home (exceptions, batch send, pipeline), client list, client page, invite. Open in the demo; staff-only when Supabase is configured |
 | `supabase/migrations/0007_staff.sql` | `staff_members`, `is_staff()`, and read-only staff policies on client tables |
 | `src/lib/letters/reasons.ts`, `src/lib/ux/disputeReason.ts`, `src/components/DisputeFields.tsx` | A stated reason for every disputed item: the catalogue, the rule that a reason (and a note for "other") is required to confirm, and the picker both review screens share. The letter prints the reason's sentence on the item's line; the client's own words are never printed |
@@ -100,12 +100,21 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/app/equipo/enviar`, `src/app/equipo/acreedores` | Staff: the send screen (address, class and cost of every letter, "simulado" without a Lob key) and the furnisher address book (search, add, edit, history) |
 | `src/app/api/webhooks/lob`, `src/app/api/furnishers` | Lob tracking webhook (signed, replay window, each event once) and the staff-only address book save |
 | `supabase/migrations/0013_mail_tracking.sql` | Mail class and tracking on `letters`, append-only `mail_events`, no charge for a round whose letters all came back, `furnishers` + `furnisher_changes` (history by trigger) |
+| `supabase/migrations/0014_staff_records.sql` | The console's own records: `staff_notes`, `exception_marks`, `report_samples` (append-only, role-scoped reads), who imported each report, who sent each round and how, round results |
+| `src/lib/supabase/config.ts` | The one demo rule: the app is on the database when `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set, the demo otherwise. Every client, store and data layer asks it |
+| `src/lib/staff/load.ts`, `src/lib/staff/fromRows.ts` | The console on the database: rows read through the member's own connection (RLS decides), mapped to `StaffClient` in one pure module |
+| `src/lib/staff/actions.ts`, `src/app/api/staff/{case,reports,rounds,mail,me}` | Staff writes: role checked on the server, the client checked through the member's own connection, written with the service role |
+| `src/lib/rounds/` | The next round from database rows (`plan.ts`) and the one mailing path (`send.ts`) shared by the staff send and the self-serve approval: agreement gate, attestation, addresses, idempotent |
+| `src/lib/clientCase/server.ts`, `src/app/api/{report,rounds,profile/address}`, `src/lib/ux/reportStore.ts` | The client app on the database: their report (or "Tu equipo está importando tu reporte"), their mailed round and letters, their mailing address |
+| `src/lib/__tests__/db/` | The real migrations in PGlite with a supabase-js adapter: RLS per role, every staff route, and invite → sign → import → answers → send → tracking → charge |
+| `docs/DATABASE.md`, `supabase/first-admin.sql` | The owner's checklist to go from demo to database, and the first administrator |
 
 ## Load-bearing invariants
 
 1. **Attestation before inclusion.** No letter may include an item without a logged,
    timestamped "I believe this item is inaccurate, unverifiable, or outdated"
-   attestation. Enforced in the plan builder AND re-checked in `/api/attacks/approve`.
+   attestation. Enforced in the plan builder AND re-checked in `src/lib/rounds/send.ts`,
+   the one mailing path (the staff send and the self-serve approval).
 2. **The client decides what is disputed; the team sends.** Which items are
    inaccurate, and why, is the client's answer alone. Under full service the
    team prepares and mails the letters and the client approves nothing; in
@@ -128,7 +137,7 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
    only if the client acknowledged the disclosures, signed the contract, has
    not cancelled, and the 3-business-day cancellation window is over
    (`workMayStart` in `src/lib/agreement/gate.ts`), checked in
-   `/api/attacks/approve` and in the staff console's send rules. Unreviewed
+   `src/lib/rounds/send.ts` (every letter that leaves) and in the staff console's send rules. Unreviewed
    agreement text cannot be signed by a real client (`agreementReadiness`).
 
 ## Getting started
@@ -140,11 +149,12 @@ npm run dev
 ```
 
 Without env vars the app runs in demo mode (demo report data, stubbed mail/WhatsApp,
-coach disabled). Apply the migrations in `supabase/migrations/` in order to a Supabase
-project and set the Supabase env vars to enable persistence.
+coach disabled). With the Supabase env vars set and `supabase/setup.sql` applied,
+the staff console and the client app run on the database; the owner's checklist
+is `docs/DATABASE.md`.
 
 ```bash
-npm test            # unit tests (domain logic, compliance rules, security helpers, ad spots)
+npm test            # unit tests, plus the migrations run in PGlite (src/lib/__tests__/db)
 npm run typecheck
 npm run build
 ```
