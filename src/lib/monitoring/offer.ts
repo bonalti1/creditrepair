@@ -14,6 +14,8 @@
 // link can carry a different price or trial, so set NEXT_PUBLIC_MONITORING_PRICE
 // to match the checkout page the link leads to before going live.
 
+import { BRAND } from "../brand";
+
 const signupUrl = process.env.NEXT_PUBLIC_MONITORING_SIGNUP_URL || null;
 
 export const MONITORING_OFFER = {
@@ -47,6 +49,6 @@ export function monitoringName(locale: "es" | "en"): string {
  * whether or not a signup link is on screen (the demo has none).
  */
 export const AFFILIATE_DISCLOSURE = {
-  es: "Transparencia: CreditCapi recibe una comisión del servicio de monitoreo cuando contratas tu suscripción.",
-  en: "Disclosure: CreditCapi earns a commission from the monitoring service when you subscribe.",
+  es: `Transparencia: ${BRAND.name} recibe una comisión del servicio de monitoreo cuando contratas tu suscripción.`,
+  en: `Disclosure: ${BRAND.name} earns a commission from the monitoring service when you subscribe.`,
 } as const;

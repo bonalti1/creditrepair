@@ -3,7 +3,7 @@
   "lockedOn": "2026-11-19",
   "character": {
     "name": "Capi",
-    "role": "CreditCapi's AI assistant, shown in ads as a capybara in work clothes",
+    "role": "Credalti's AI assistant, shown in ads as a capybara in work clothes",
     "look": "A real animal filmed on location, not a cartoon: true capybara head with a long blunt muzzle, dark leathery nose, small natural dark brown eyes that are open, bright and alert, small ears, coarse reddish-brown fur with individual strands, real whiskers, two ivory front teeth visible when he speaks.",
     "wardrobe": "Plain navy cap with no text, small black headset with a boom microphone, navy short-sleeve work shirt, dusty navy denim overalls, brown work boots.",
     "scale": "Stands upright, exactly 3 feet tall: the top of his cap reaches an adult's belt line.",
@@ -60,7 +60,7 @@
   "endCard": {
     "seconds": 3,
     "tagline": "Tu crédito, explicado <b>paso a paso.</b>",
-    "legal": "Software para que tú disputes tu propio reporte. Tú decides y tú envías. Los resultados varían."
+    "legal": "Tú decides qué es inexacto en tu reporte. Nuestro equipo prepara y envía las cartas. Los resultados varían."
   },
   "hook": {
     "sizePx": 84,

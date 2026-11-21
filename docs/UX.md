@@ -1,5 +1,11 @@
 # UX Strategy — 10x more user-friendly than Dispute Beast
 
+> **Written for the do-it-yourself product.** Under full service (the
+> default; see `NEXT_PUBLIC_SERVICE_MODE` in `README.md`) the client still
+> reviews each item and reads every letter, but the team prepares and mails
+> them: there is no approve step, the letters page is read-only with each
+> letter's status, and the rounds page is the team's timeline.
+
 Dispute Beast wins on engine scope (secondary bureaus, escalation) but its UX
 assumes a motivated, English-speaking, credit-literate user on a desktop. Our
 user is Spanish-first, mobile-first, and often doing this for the first time.

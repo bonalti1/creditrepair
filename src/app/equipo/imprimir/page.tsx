@@ -1,0 +1,409 @@
+"use client";
+
+import { Suspense, useLayoutEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { count, longDay } from "@/lib/staff/format";
+import {
+  buildPrintBatch,
+  parseRoundRefs,
+  ROUND_REFS_PARAM,
+  slipLine,
+  slipNames,
+  totalPages,
+  type PrintBatch,
+  type PrintLetter,
+} from "@/lib/staff/printBatch";
+import { RESPONSE_WINDOW_DAYS } from "@/lib/staff/stage";
+import { useStaff } from "@/lib/staff/useStaff";
+import Icon from "@/components/Icon";
+import { PRIMARY_BUTTON, PRIMARY_BUTTON_COMPACT, SECONDARY_BUTTON, SECONDARY_BUTTON_COMPACT } from "@/components/staff/ui";
+
+// Print a batch of letters here, in the office, instead of through a mail
+// service. The screen shows the pages as they come out of the printer; the
+// toolbar above them is the only thing that is not printed.
+//
+// On paper, in this order: one cover for the batch (who, which letters, and
+// boxes to tick as each is printed, signed and mailed), then every letter, each
+// followed by a slip naming the copies that go in its envelope. The copies are
+// the client's own photos, so the slip is a reminder and not the copy itself.
+//
+// The page layout is plain print CSS in physical units, kept in this file so it
+// can be read in one place. Two things in it are deliberate:
+//   - @page has no margin, and each sheet carries its own. With a margin the
+//     browser may print its own header and footer there (address, date, page
+//     number); with none there is nowhere for them to go.
+//   - Each sheet is a table whose empty header and footer rows are the top and
+//     bottom margins. The browser repeats those rows on every page a sheet
+//     runs to, so a long letter keeps its margins on the second page.
+//
+// The recipient's address is placed for a standard #10 window envelope with
+// the sheet folded in thirds: 1 in from the left edge and 2.5 in from the top.
+// The sender and date sit above the window and the letter starts below it.
+
+const PRINT_CSS = `
+@page { size: letter; margin: 0; }
+
+.pl-stack { display: flex; flex-direction: column; align-items: center; gap: 24px; width: max-content; min-width: 100%; }
+.pl-sheet {
+  width: 8.5in; height: 11in; flex: none; table-layout: fixed; border-collapse: collapse;
+  background: #fff; color: #000;
+  box-shadow: 0 0 0 1px rgba(29, 29, 31, 0.08), 0 8px 24px -12px rgba(29, 29, 31, 0.25);
+}
+.pl-sheet td { padding: 0; vertical-align: top; }
+.pl-margin { height: 0.75in; }
+.pl-cell { padding: 0 1in !important; }
+
+.pl-letter { font-family: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif; font-size: 11pt; line-height: 1.35; }
+.pl-head { position: relative; height: 3in; }
+.pl-lines { white-space: pre-line; }
+.pl-date { margin-top: 1.35em; }
+.pl-recipient { position: absolute; top: 1.75in; left: 0; width: 3.4in; line-height: 1.2; white-space: pre-line; overflow-wrap: break-word; }
+.pl-text { white-space: pre-wrap; overflow-wrap: break-word; orphans: 2; widows: 2; }
+.pl-closing { margin-top: 1.35em; break-inside: avoid; }
+.pl-sign { height: 0.55in; }
+.pl-after { margin-top: 1.35em; white-space: pre-wrap; break-inside: avoid; }
+
+.pl-note { font-family: Helvetica, Arial, "Liberation Sans", sans-serif; font-size: 10.5pt; line-height: 1.4; }
+.pl-note h1 { font-size: 18pt; font-weight: 700; line-height: 1.2; margin: 0; letter-spacing: 0; }
+.pl-note p { margin: 0; }
+.pl-kicker { font-size: 9pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #444; }
+.pl-list { width: 100%; border-collapse: collapse; margin-top: 0.3in; }
+.pl-list th { font-size: 8.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; text-align: left; padding: 0 6pt 5pt 0 !important; border-bottom: 1pt solid #000; }
+.pl-list td { padding: 6pt 6pt 6pt 0 !important; border-bottom: 0.5pt solid #999; overflow-wrap: break-word; }
+.pl-list tr { break-inside: avoid; }
+.pl-list .pl-tick { width: 0.72in; text-align: center; padding-right: 0 !important; }
+.pl-box { display: inline-block; width: 11pt; height: 11pt; border: 1pt solid #000; vertical-align: middle; }
+.pl-slip-list { list-style: none; margin: 0.3in 0 0; padding: 0; font-size: 13pt; }
+.pl-slip-list li { display: flex; align-items: center; gap: 10pt; padding: 7pt 0; }
+.pl-small { font-size: 9.5pt; color: #444; }
+
+@media print {
+  html, body { background: #fff !important; }
+  .pl-screen { display: none !important; }
+  nextjs-portal { display: none !important; }
+  .pl-scroll { overflow: visible !important; padding: 0 !important; margin: 0 !important; }
+  .pl-stack { display: block; width: auto; min-width: 0; }
+  .pl-sheet { height: auto; box-shadow: none; break-after: page; }
+  .pl-sheet:last-child { break-after: auto; }
+}
+`;
+
+/** CSS pixels per inch: how the browser maps the sheet's inches on screen. */
+const INCH = 96;
+/** Room for text on a page between the top and bottom margins, in inches. */
+const PAGE_ROOM = 11 - 2 * 0.75;
+/** Room on a letter's first page, below the address block. */
+const FIRST_PAGE_ROOM = PAGE_ROOM - 3;
+
+/** One sheet of paper: its content between a top and a bottom margin that repeat on every page it runs to. */
+function Sheet({ kind, className, children }: { kind: string; className: string; children: React.ReactNode }) {
+  return (
+    <table className={`pl-sheet ${className}`} role="presentation" data-sheet={kind}>
+      <thead>
+        <tr>
+          <td className="pl-margin" />
+        </tr>
+      </thead>
+      <tfoot>
+        <tr>
+          <td className="pl-margin" />
+        </tr>
+      </tfoot>
+      <tbody>
+        <tr>
+          <td className="pl-cell">{children}</td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
+function Box() {
+  return <span className="pl-box" aria-hidden="true" />;
+}
+
+function Cover({ batch, now }: { batch: PrintBatch; now: Date }) {
+  return (
+    <Sheet kind="cover" className="pl-note">
+      <div data-pl-flow="cover">
+        <p className="pl-kicker">Hoja de control · no va en ningún sobre</p>
+        <h1>Lote de cartas para imprimir</h1>
+        <p style={{ marginTop: "4pt" }}>
+          {longDay(now.toISOString())} · {count(batch.counts.rounds, "ronda", "rondas")} de{" "}
+          {count(batch.counts.clients, "cliente", "clientes")} · {count(batch.counts.letters, "carta", "cartas")}
+        </p>
+        <table className="pl-list">
+          <thead>
+            <tr>
+              <th style={{ width: "1.55in" }}>Cliente</th>
+              <th style={{ width: "0.6in" }}>Ronda</th>
+              <th>Carta para</th>
+              <th className="pl-tick">Impresa</th>
+              <th className="pl-tick">Firmada</th>
+              <th className="pl-tick">Enviada</th>
+            </tr>
+          </thead>
+          <tbody>
+            {batch.rounds.flatMap(({ client, round, letters }) =>
+              letters.map((letter, index) => (
+                <tr key={letter.id} data-cover-row={client.id}>
+                  <td>{index === 0 ? letter.clientName : ""}</td>
+                  <td>{index === 0 ? round.number : ""}</td>
+                  <td>{letter.recipient.name}</td>
+                  <td className="pl-tick">
+                    <Box />
+                  </td>
+                  <td className="pl-tick">
+                    <Box />
+                  </td>
+                  <td className="pl-tick">
+                    <Box />
+                  </td>
+                </tr>
+              )),
+            )}
+          </tbody>
+        </table>
+        <p className="pl-small" style={{ marginTop: "0.25in" }}>
+          Después de cada carta que lleva copias sale una hoja «Adjuntar» con lo que va en su sobre. Esas hojas y esta
+          son para el equipo: no van en ningún sobre.
+        </p>
+      </div>
+    </Sheet>
+  );
+}
+
+function LetterSheet({ letter }: { letter: PrintLetter }) {
+  const { parts } = letter;
+  return (
+    <Sheet kind="letter" className="pl-letter">
+      {parts ? (
+        <>
+          <div className="pl-head">
+            <div className="pl-lines">{parts.sender.join("\n")}</div>
+            <div className="pl-date">{parts.date}</div>
+            <div className="pl-recipient" data-pl-recipient>
+              {parts.recipient.join("\n")}
+            </div>
+          </div>
+          <div data-pl-flow="letter" data-pl-room={FIRST_PAGE_ROOM}>
+            <div className="pl-text">{parts.body}</div>
+            {parts.closing && (
+              <div className="pl-closing">
+                <div>{parts.closing.valediction}</div>
+                {/* Room for the signature, by hand. */}
+                <div className="pl-sign" />
+                <div>{parts.closing.name}</div>
+              </div>
+            )}
+            {parts.after && <div className="pl-after">{parts.after}</div>}
+          </div>
+        </>
+      ) : (
+        // A text without the usual header is printed exactly as it is.
+        <div data-pl-flow="letter" data-pl-room={PAGE_ROOM} className="pl-text">
+          {letter.text}
+        </div>
+      )}
+    </Sheet>
+  );
+}
+
+function Slip({ letter }: { letter: PrintLetter }) {
+  return (
+    <Sheet kind="slip" className="pl-note">
+      <p className="pl-kicker">Recordatorio para el equipo · no va en el sobre</p>
+      <h1>{slipLine(letter.enclosures)}</h1>
+      <p style={{ marginTop: "6pt" }}>
+        En el sobre de la carta anterior: {letter.clientName}, ronda {letter.roundNumber}, para {letter.recipient.name}.
+      </p>
+      <ul className="pl-slip-list">
+        {slipNames(letter.enclosures).map((name) => (
+          <li key={name}>
+            <Box />
+            <span>{name.charAt(0).toUpperCase() + name.slice(1)}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="pl-small" style={{ marginTop: "0.3in" }}>
+        Las copias son las fotos que subió el cliente. Se imprimen aparte y van detrás de la carta.
+      </p>
+    </Sheet>
+  );
+}
+
+function PrintView() {
+  const params = useSearchParams();
+  const { data, ready, clients, now, reload } = useStaff();
+  const requested = params.get(ROUND_REFS_PARAM);
+  const refs = useMemo(() => parseRoundRefs(requested), [requested]);
+  const batch = useMemo(() => buildPrintBatch(clients, refs, now), [clients, refs, now]);
+
+  const stackRef = useRef<HTMLDivElement>(null);
+  /** Pages on paper, measured from the sheets on screen (they are the same size as the paper). */
+  const [pages, setPages] = useState<number | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [marked, setMarked] = useState<{ rounds: number; clients: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const stack = stackRef.current;
+    if (!stack) return;
+    const flows = [...stack.querySelectorAll<HTMLElement>("[data-pl-flow]")];
+    const pagesFor = (el: HTMLElement, firstRoom: number) => {
+      const height = el.offsetHeight / INCH;
+      return height <= firstRoom + 0.01 ? 1 : 1 + Math.ceil((height - firstRoom) / PAGE_ROOM);
+    };
+    const cover = flows.filter((el) => el.dataset.plFlow === "cover").map((el) => pagesFor(el, PAGE_ROOM));
+    const letters = flows
+      .filter((el) => el.dataset.plFlow === "letter")
+      .map((el) => pagesFor(el, Number(el.dataset.plRoom) || PAGE_ROOM));
+    setPages(totalPages(cover[0] ?? 1, letters, batch.counts.slips));
+  }, [batch]);
+
+  if (!ready) return null;
+
+  const { counts, toMark } = batch;
+  const markClients = new Set(toMark.map((ref) => ref.clientId)).size;
+  const markSummary = `${count(toMark.length, "ronda", "rondas")} de ${count(markClients, "cliente", "clientes")}`;
+  const shownPages = pages ?? counts.pagesAtLeast;
+
+  const mark = async () => {
+    if (toMark.length === 0 || working) return;
+    setWorking(true);
+    await data.markRoundsSent(toMark);
+    setMarked({ rounds: toMark.length, clients: markClients });
+    setConfirming(false);
+    await reload();
+    setWorking(false);
+  };
+
+  return (
+    <main>
+      <style>{PRINT_CSS}</style>
+
+      <div className="pl-screen">
+        <Link href="/equipo" className="inline-flex items-center gap-1 text-[14px] font-medium text-blue-700">
+          <Icon name="chevron" size={16} className="rotate-180" />
+          Inicio
+        </Link>
+        <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-slate-900">Imprimir cartas</h1>
+
+        {counts.letters === 0 ? (
+          <div className="card mt-5 px-5 py-6 text-[15px] leading-snug text-slate-600" data-testid="print-empty">
+            No hay cartas para imprimir. Elige las rondas en «Listas para enviar», en el inicio, o abre la ronda desde
+            la página del cliente.
+          </div>
+        ) : (
+          <div className="card mt-5 px-5 py-4" data-testid="print-toolbar">
+            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+              <p className="text-[16px] font-semibold tabular-nums text-slate-900" data-testid="print-counts">
+                {count(counts.letters, "carta", "cartas")} · {count(shownPages, "página", "páginas")}
+                <span className="block text-[13px] font-normal text-slate-500">
+                  {count(counts.rounds, "ronda", "rondas")} de {count(counts.clients, "cliente", "clientes")} · 1 hoja de
+                  control · {count(counts.slips, "hoja «Adjuntar»", "hojas «Adjuntar»")}
+                </span>
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={() => window.print()} className={PRIMARY_BUTTON}>
+                  Imprimir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirming(true)}
+                  disabled={toMark.length === 0 || confirming}
+                  className={SECONDARY_BUTTON}
+                >
+                  Marcar como enviadas por correo
+                </button>
+              </div>
+            </div>
+
+            {confirming && toMark.length > 0 && (
+              <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3.5" role="group" aria-labelledby="confirmar-envio" data-testid="mark-confirm">
+                <p id="confirmar-envio" className="text-[15px] font-semibold leading-snug text-slate-900">
+                  ¿Marcar {markSummary} como enviadas por correo?
+                </p>
+                <p className="mt-1 text-[14px] leading-snug text-slate-700">
+                  {batch.rounds
+                    .filter((r) => !r.alreadySent)
+                    .map((r) => `${r.letters[0]!.clientName} (ronda ${r.round.number})`)
+                    .join(" · ")}
+                  . Hazlo cuando los sobres ya estén en el correo: desde ese día el sistema cuenta los{" "}
+                  {RESPONSE_WINDOW_DAYS} días de respuesta.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" onClick={mark} disabled={working} className={PRIMARY_BUTTON_COMPACT}>
+                    Sí, marcar {count(toMark.length, "ronda", "rondas")}
+                  </button>
+                  <button type="button" onClick={() => setConfirming(false)} className={SECONDARY_BUTTON_COMPACT}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {marked && (
+              <p className="mt-4 flex items-start gap-2.5 rounded-2xl bg-green-50 px-4 py-3 text-[14px] leading-snug text-green-700" role="status" data-testid="mark-done">
+                <Icon name="check" size={18} className="mt-px shrink-0" />
+                <span>
+                  {count(marked.rounds, "ronda marcada", "rondas marcadas")} como {marked.rounds === 1 ? "enviada" : "enviadas"} por
+                  correo, de {count(marked.clients, "cliente", "clientes")}. El sistema vuelve a importar cada reporte en{" "}
+                  {RESPONSE_WINDOW_DAYS} días.
+                  {data.demo && " (En la demo solo quedan marcadas.)"}
+                </span>
+              </p>
+            )}
+            {!marked && toMark.length === 0 && (
+              <p className="mt-3 text-[13px] leading-snug text-slate-500">
+                Estas rondas ya están marcadas como enviadas. Lo que ves es una copia.
+              </p>
+            )}
+
+            <p className="mt-3 border-t hairline pt-3 text-xs leading-relaxed text-slate-500">
+              En el cuadro de impresión: papel tamaño Carta, escala 100 %, sin encabezados ni pies de página. Con la hoja
+              doblada en tres, la dirección del destinatario queda en la ventana de un sobre #10. Las copias de
+              identificación y de domicilio son las fotos del cliente y se imprimen aparte
+              {data.demo ? "; en la demo no hay ninguna." : "."}
+            </p>
+          </div>
+        )}
+
+        {batch.skipped.length > 0 && (
+          <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900" data-testid="print-skipped">
+            <p className="font-semibold">No se {batch.skipped.length === 1 ? "incluye" : "incluyen"}:</p>
+            <ul className="mt-1 space-y-0.5">
+              {batch.skipped.map((s) => (
+                <li key={`${s.ref.clientId}:${s.ref.roundNumber}`}>
+                  {s.clientName ?? s.ref.clientId}, ronda {s.ref.roundNumber}. {s.reason}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {counts.letters > 0 && (
+        // Scrolls sideways inside itself on a narrow screen: a sheet is always its real width.
+        <div className="pl-scroll -mx-4 mt-6 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6">
+          <div ref={stackRef} className="pl-stack">
+            <Cover batch={batch} now={now} />
+            {batch.letters.flatMap((letter) => [
+              <LetterSheet key={letter.id} letter={letter} />,
+              ...(letter.enclosures.length > 0 ? [<Slip key={`${letter.id}-slip`} letter={letter} />] : []),
+            ])}
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
+
+export default function ImprimirPage() {
+  return (
+    <Suspense fallback={null}>
+      <PrintView />
+    </Suspense>
+  );
+}

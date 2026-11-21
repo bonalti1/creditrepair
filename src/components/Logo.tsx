@@ -1,8 +1,10 @@
-// CreditCapi brand marks, drawn in code so they stay crisp at any size.
-// The gauge and wordmark follow the brand board (navy "Credit", gold "Capi",
-// a yellow-to-orange gauge with a needle). When the final logo files arrive
-// (SVG with transparent background), swap them in here — every screen uses
-// these two components.
+import { BRAND } from "@/lib/brand";
+
+// Credalti brand marks, drawn in code so they stay crisp at any size.
+// The wordmark is "Cred" in navy (white on dark) and "alti" in the gold
+// gradient, beside a yellow-to-orange gauge with a needle. The text comes from
+// src/lib/brand.ts. When the final logo files arrive (SVG with transparent
+// background), swap them in here — every screen uses these two components.
 
 const GAUGE = ["#fde539", "#fdcb1f", "#fdb203", "#fb9d07", "#f9890b"];
 const NAVY = "#0e2b6b";
@@ -47,7 +49,7 @@ export default function Logo({
 }: {
   /** Wordmark font size in px; the gauge scales with it. */
   size?: number;
-  /** "dark" for navy backgrounds: white "Credit" and a white needle. */
+  /** "dark" for navy backgrounds: white "Cred" and a white needle. */
   tone?: "light" | "dark";
   withMark?: boolean;
 }) {
@@ -57,13 +59,13 @@ export default function Logo({
       className="inline-flex items-center gap-[0.28em] font-display font-black italic leading-none tracking-tight"
       style={{ fontSize: size }}
       role="img"
-      aria-label="CreditCapi"
+      aria-label={BRAND.name}
     >
       {withMark && <GaugeMark height={size * 1.05} needle={dark ? "#ffffff" : NAVY} />}
       <span aria-hidden="true">
-        <span className={dark ? "text-white" : "text-blue-700"}>Credit</span>
+        <span className={dark ? "text-white" : "text-blue-700"}>{BRAND.wordmark[0]}</span>
         <span className="bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text pr-[0.08em] text-transparent">
-          Capi
+          {BRAND.wordmark[1]}
         </span>
       </span>
     </span>
@@ -76,7 +78,7 @@ export function CapiAvatar({ size = 40, ring = true }: { size?: number; ring?: b
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src="/brand/capi.png"
-      alt="Capi"
+      alt={BRAND.assistant}
       width={size}
       height={size}
       className={`shrink-0 rounded-full bg-blue-800 object-cover ${ring ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-white" : ""}`}

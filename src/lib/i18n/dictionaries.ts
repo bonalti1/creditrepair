@@ -35,7 +35,7 @@ const es = {
     matrix: "¿En qué burós aparece cada elemento?",
     matrixNote:
       "Un elemento que aparece en un buró y no en otro, o con datos distintos entre burós, es una señal clásica de posible inexactitud.",
-    ctaNote: "Tú decides qué disputar. La auditoría solo te muestra dónde mirar.",
+    ctaNote: "Tú dices qué es inexacto. La auditoría solo te muestra dónde mirar.",
     print: "Imprimir / guardar PDF",
     clean: "✅ No encontramos elementos de peso alto en tu reporte. ¡Buena señal!",
   },
@@ -75,8 +75,20 @@ const es = {
     looksCorrectSub: "La información coincide con mi realidad. Siguiente.",
     looksWrong: "⚠️ Creo que es inexacto",
     looksWrongSub: "Algo no coincide, no lo reconozco o está desactualizado.",
-    reasonLabel: "¿Qué crees que está mal? (opcional, te ayuda a llevar registro)",
-    reasonPlaceholder: "Ej.: no reconozco esta cuenta / el saldo no coincide",
+    // The reason picker. Neutral on purpose: it asks, it does not recommend.
+    reasonTitle: "¿Cuál es el motivo?",
+    reasonHelp:
+      "Elige la opción que describe lo que tú ves. Es tu propia declaración y se escribe en tu carta, en inglés.",
+    reasonRequired: "Elige un motivo para continuar.",
+    otherNeedsNote: "Con «Otro motivo», escribe con tus palabras cuál es.",
+    identityTheftNote:
+      "Para este motivo hace falta un reporte de robo de identidad de la FTC. Una persona del equipo te va a contactar para seguir con ese paso.",
+    detailsLabel: "Añade detalles con tus palabras (opcional)",
+    detailsLabelOther: "Describe el motivo con tus palabras",
+    detailsPlaceholder: "Escribe aquí",
+    detailsNote: "Lo que escribas aquí no va en la carta. Lo lee el equipo.",
+    reasonOf: (label: string) => `Motivo: ${label}`,
+    inLetter: "En la carta:",
     confirm: "Confirmar y seguir",
     back: "Volver",
     reportSays: "Lo que dice tu reporte:",
@@ -96,6 +108,9 @@ const es = {
     afterMailedNoted:
       "Anotado. Las cartas de esta ronda ya salieron; si tu respuesta cambió, el cambio cuenta desde tu siguiente ronda.",
   },
+  // The letters page. Under full service only the shared lines are shown (title,
+  // empty state, what a letter covers, the notes inside a letter); the approval
+  // lines are self-serve and the page shows the `team` section in their place.
   attack: {
     title: (n: number) => `Tu ronda de cartas #${n}`,
     /** `items` counts only the confirmed items that are inside these letters. */
@@ -129,6 +144,7 @@ const es = {
     trackRound: "Seguir mi ronda →",
     resetDemo: "Reiniciar demo",
   },
+  // The rounds page, self-serve wording. Full service reads the `team` section.
   rounds: {
     title: "Tus rondas",
     subtitle: (resp: number, next: number) =>
@@ -144,6 +160,47 @@ const es = {
     emptyTitle: "Todavía no has enviado cartas",
     emptyBody:
       "Cuando apruebes tus cartas, aquí verás cuándo salieron, cuándo se espera la respuesta de los burós y cuándo toca la siguiente ronda.",
+  },
+  // Full service (src/lib/service/mode.ts): the letters and rounds pages as the
+  // client reads them when the team prepares and mails the letters. The client
+  // approves and sends nothing here; the pages show the work and how it stands.
+  // The `attack` and `rounds` sections above keep the self-serve wording.
+  team: {
+    lettersLead: "Esto es lo que tu equipo envía por ti.",
+    /** `items` counts only the confirmed items that are inside these letters. */
+    lettersSubtitle: (letters: number, items: number) =>
+      `${count(letters, "carta", "cartas")} con ${
+        items === 1 ? "el elemento que tú confirmaste" : `los ${items} elementos que tú confirmaste`
+      }. Nuestro equipo las prepara y las envía por correo. Tú no tienes que aprobar ni enviar nada.`,
+    statusPreparing: "En preparación",
+    statusMailed: (date: string) => `Enviada el ${date}`,
+    statusWaiting: "Esperando respuesta",
+    preparingTitle: "Tu equipo está preparando tus cartas",
+    preparingBody:
+      "Terminaste tu revisión. Con tus respuestas, nuestro equipo prepara las cartas y las envía por correo. Cuando salgan, lo verás aquí.",
+    mailedTitle: "Tus cartas ya salieron",
+    mailedBody: (date: string) =>
+      `Tu equipo las envió por correo el ${date}. Los burós tienen unos 30 días para responder. No tienes que hacer nada.`,
+    changeNote:
+      "Las cartas dicen lo que tú nos dijiste. Si algo no está bien, cambia tu respuesta en la revisión o escríbele a tu equipo.",
+    reviewFirstTitle: "Primero termina tu revisión",
+    reviewFirstBody:
+      "Cuando termines de revisar tu reporte y nos digas qué está mal, nuestro equipo prepara las cartas y las envía por ti. Aquí vas a poder leerlas y ver cómo van.",
+    continueReview: "Seguir con mi revisión →",
+    readLetters: (n: number): string => (n === 1 ? "Leer la carta completa" : "Leer cada carta completa"),
+    trackRound: "Ver cómo va mi ronda →",
+    roundsSubtitle: (resp: number, next: number) =>
+      `Cada ronda: tu equipo envía las cartas → los burós responden (~${resp} días) → revisamos tu reporte de nuevo y te mostramos qué cambió (~día ${next}) → tu equipo prepara la siguiente.`,
+    roundPreparingBody:
+      "Tu equipo está preparando las cartas de esta ronda. Cuando salgan por correo, aquí verás la fecha, cuándo se espera la respuesta de los burós y cuándo toca la siguiente ronda.",
+    lettersInRound: (n: number) => (n === 1 ? "La carta de esta ronda" : `Las ${n} cartas de esta ronda`),
+    waitDays: (n: number) =>
+      `Los burós tienen ~${count(n, "día", "días")} más para responder. No necesitas hacer nada: tu equipo te avisa.`,
+    responseNote:
+      "Los burós responden por correo a tu dirección. Si te llega una carta, guárdala y avísale a tu equipo.",
+    roundsEmptyTitle: "Todavía no hay cartas enviadas",
+    roundsEmptyBody:
+      "Cuando tu equipo envíe tus cartas, aquí verás cuándo salieron, cuándo se espera la respuesta de los burós y cuándo toca la siguiente ronda.",
   },
 };
 
@@ -177,7 +234,7 @@ const en: Dict = {
     matrix: "Which bureaus show each item?",
     matrixNote:
       "An item that appears on one bureau but not another, or with different details across bureaus, is a classic sign of possible inaccuracy.",
-    ctaNote: "You decide what to dispute. The audit just shows you where to look.",
+    ctaNote: "You say what is inaccurate. The audit only shows you where to look.",
     print: "Print / save PDF",
     clean: "✅ We found no high-weight items on your report. Good sign!",
   },
@@ -217,8 +274,19 @@ const en: Dict = {
     looksCorrectSub: "The information matches my reality. Next.",
     looksWrong: "⚠️ I believe it's inaccurate",
     looksWrongSub: "Something doesn't match, I don't recognize it, or it's outdated.",
-    reasonLabel: "What do you think is wrong? (optional — helps you keep a record)",
-    reasonPlaceholder: "E.g.: I don't recognize this account / the balance doesn't match",
+    reasonTitle: "What is the reason?",
+    reasonHelp:
+      "Choose the option that describes what you see. It is your own statement and it is written in your letter, in English.",
+    reasonRequired: "Choose a reason to continue.",
+    otherNeedsNote: "With “Another reason”, write in your own words what it is.",
+    identityTheftNote:
+      "This reason requires an identity theft report from the FTC. A person from the team will contact you to follow up on that step.",
+    detailsLabel: "Add details in your own words (optional)",
+    detailsLabelOther: "Describe the reason in your own words",
+    detailsPlaceholder: "Write here",
+    detailsNote: "What you write here does not go in the letter. The team reads it.",
+    reasonOf: (label: string) => `Reason: ${label}`,
+    inLetter: "In the letter:",
     confirm: "Confirm and continue",
     back: "Back",
     reportSays: "What your report says:",
@@ -284,6 +352,42 @@ const en: Dict = {
     emptyTitle: "You haven't sent any letters yet",
     emptyBody:
       "Once you approve your letters, this is where you'll see when they went out, when the bureaus' response is expected, and when the next round is due.",
+  },
+  team: {
+    lettersLead: "This is what your team mails for you.",
+    lettersSubtitle: (letters: number, items: number) =>
+      `${count(letters, "letter", "letters")} with ${
+        items === 1 ? "the item you confirmed" : `the ${items} items you confirmed`
+      }. Our team prepares them and mails them. You do not have to approve or send anything.`,
+    statusPreparing: "Being prepared",
+    statusMailed: (date: string) => `Mailed on ${date}`,
+    statusWaiting: "Waiting for a response",
+    preparingTitle: "Your team is preparing your letters",
+    preparingBody:
+      "You finished your review. From your answers, our team prepares the letters and mails them. When they go out, you will see it here.",
+    mailedTitle: "Your letters have gone out",
+    mailedBody: (date: string) =>
+      `Your team mailed them on ${date}. The bureaus have about 30 days to respond. There is nothing you need to do.`,
+    changeNote:
+      "The letters say what you told us. If something is not right, change your answer in the review or message your team.",
+    reviewFirstTitle: "Finish your review first",
+    reviewFirstBody:
+      "Once you finish reviewing your report and tell us what is wrong, our team prepares the letters and mails them for you. This is where you will be able to read them and see how they are going.",
+    continueReview: "Continue my review →",
+    readLetters: (n: number) => (n === 1 ? "Read the full letter" : "Read each full letter"),
+    trackRound: "See how my round is going →",
+    roundsSubtitle: (resp: number, next: number) =>
+      `Each round: your team mails the letters → bureaus respond (~${resp} days) → we look at your report again and show you what changed (~day ${next}) → your team prepares the next one.`,
+    roundPreparingBody:
+      "Your team is preparing this round's letters. Once they are mailed, this is where you will see the date, when the bureaus' response is expected, and when the next round is due.",
+    lettersInRound: (n: number) => (n === 1 ? "This round's letter" : `This round's ${n} letters`),
+    waitDays: (n: number) =>
+      `Bureaus have ~${n} more ${n === 1 ? "day" : "days"} to respond. Nothing to do: your team will let you know.`,
+    responseNote:
+      "The bureaus respond by mail to your address. If a letter arrives, keep it and let your team know.",
+    roundsEmptyTitle: "No letters have been mailed yet",
+    roundsEmptyBody:
+      "Once your team mails your letters, this is where you'll see when they went out, when the bureaus' response is expected, and when the next round is due.",
   },
 };
 

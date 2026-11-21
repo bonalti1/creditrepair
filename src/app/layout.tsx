@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Nunito } from "next/font/google";
 import "./globals.css";
+import { BRAND } from "@/lib/brand";
 
 // Inter is the fallback; Apple devices use San Francisco via the system stack
 // declared in globals.css. latin-ext covers Spanish accents and ñ.
 const inter = Inter({ subsets: ["latin", "latin-ext"], display: "swap", variable: "--font-inter" });
-// Rounded display face for the CreditCapi wordmark and big headlines.
+// Rounded display face for the wordmark and big headlines.
 const nunito = Nunito({
   subsets: ["latin", "latin-ext"],
   weight: ["800", "900"],
@@ -15,9 +16,9 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "CreditCapi — Tu asistente de crédito con IA",
+  title: BRAND.title,
   description:
-    "Software gratuito de disputas de crédito en español. Tú revisas, tú apruebas, tú envías. Los resultados varían.",
+    "Servicio de crédito en español. Tú nos dices qué está mal en tu reporte; nuestro equipo prepara y envía las cartas por ti. Los resultados varían.",
 };
 
 export const viewport: Viewport = {

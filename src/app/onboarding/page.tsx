@@ -11,13 +11,17 @@ import { LocaleProvider, useLocale } from "@/lib/i18n";
 import { MARKETING } from "@/lib/i18n/marketing";
 import { MONITORING_OFFER } from "@/lib/monitoring/offer";
 import { GOALS, parseInvite, type Invite } from "@/lib/sales/invite";
+import { BRAND } from "@/lib/brand";
+import { isFullService } from "@/lib/service/mode";
+import { readStoredAgreement } from "@/lib/ux/agreementLocal";
 
 // Onboarding: goal (feeds the mortgage track) → state gate (v1 is TX-only;
 // other states join the waitlist, since expansion is a legal project, not a
-// config change) → the monitoring subscription (the only cost, bought from the
-// monitoring provider, with our commission disclosed) → how you want to do it
-// (alone with the app, or with free live help — the user always decides and
-// sends either way).
+// config change) → the monitoring subscription (a separate subscription, bought
+// from and paid to the monitoring provider, with our commission disclosed; the
+// service fee is not stated here, the team explains the plan) → how you want
+// to do your review (with Capi, or with a teammate on WhatsApp; either way the
+// answers are the client's and the team mails the letters).
 // One question per screen, one obvious button.
 //
 // Sales-led path: most customers arrive from a WhatsApp conversation with a
@@ -31,6 +35,9 @@ import { GOALS, parseInvite, type Invite } from "@/lib/sales/invite";
 // src/lib/i18n/marketing.ts.
 
 const STATES = ["TX", ...ALL_STATES.filter((s) => s !== "TX")];
+
+/** Where the link's answers wait while the client is away signing the agreement. */
+const RETURN_KEY = "bonalti.onboardingReturn";
 
 function save(key: string, value: string) {
   try {
@@ -73,7 +80,26 @@ function Onboarding() {
 
   // Read the invite link once, on arrival.
   useEffect(() => {
-    const parsed = parseInvite(new URLSearchParams(window.location.search));
+    const query = new URLSearchParams(window.location.search);
+    // Back from signing the agreement: pick up at monitoring, with the same invitation.
+    if (query.get("paso") === "monitoreo") {
+      let saved = "";
+      try {
+        saved = window.localStorage.getItem(RETURN_KEY) ?? "";
+      } catch {
+        // ignore
+      }
+      const invited = parseInvite(new URLSearchParams(saved));
+      if (invited) {
+        setInvite(invited);
+        if (invited.goal) setGoal(invited.goal);
+        if (invited.state) setState(invited.state);
+      }
+      setStep("monitoring");
+      setReady(true);
+      return;
+    }
+    const parsed = parseInvite(query);
     if (parsed) {
       setInvite(parsed);
       if (parsed.goal) {
@@ -87,13 +113,28 @@ function Onboarding() {
     setReady(true);
   }, []);
 
+  /**
+   * On to monitoring. Under full service the agreement is signed first: the
+   * client reads their rights and the contract before buying anything, and
+   * comes back here afterwards (see /acuerdo).
+   */
+  const toMonitoring = () => {
+    if (isFullService && !readStoredAgreement()?.signedAt) {
+      save(RETURN_KEY, window.location.search);
+      router.push("/acuerdo?desde=inicio");
+      return;
+    }
+    setStep("monitoring");
+  };
+
   /** After the welcome screen: only ask for what the link did not carry. */
   const afterWelcome = () => {
     if (!goal) return setStep("goal");
     if (!invite?.state) return setStep("state");
     save("bonalti.state", state);
     // A state we are not open in goes to the waitlist form, link or no link.
-    setStep(stateStatus(state) === "open" ? "monitoring" : "state");
+    if (stateStatus(state) === "open") toMonitoring();
+    else setStep("state");
   };
 
   /** After monitoring: an invited customer already has their person; go straight in. */
@@ -134,7 +175,7 @@ function Onboarding() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-10 pt-6">
       <div className="flex items-center justify-between gap-3">
-        <Link href="/" aria-label="CreditCapi" className="flex h-11 items-center">
+        <Link href="/" aria-label={BRAND.name} className="flex h-11 items-center">
           <Logo size={19} />
         </Link>
         <div className="flex items-center gap-3">
@@ -265,7 +306,7 @@ function Onboarding() {
               <button
                 onClick={() => {
                   save("bonalti.state", state);
-                  setStep("monitoring");
+                  toMonitoring();
                 }}
                 className={primaryButton}
               >

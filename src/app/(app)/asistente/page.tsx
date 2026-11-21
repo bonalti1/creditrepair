@@ -7,24 +7,36 @@ import { ATTESTATION_TEXT } from "@/lib/compliance/attestation";
 import { getCategoryExplainers } from "@/lib/ux/explainers";
 import { crossBureauNote, differingAnswerLine } from "@/lib/ux/crossBureau";
 import { useFlags, type FlagsMap } from "@/lib/ux/flagsStore";
-import { messageText, useChatThread, type ChatMsg } from "@/lib/ux/chatStore";
+import { useChatThread, type ChatMsg } from "@/lib/ux/chatStore";
+import { contextText, messageText, messageVoice } from "@/lib/ux/chatMessages";
 import { HUMAN_HELP, humanHelpHref } from "@/lib/ux/humanHelp";
 import { itemCheckHints, itemFacts, itemKindLine, itemLabel, itemReadAloud, itemTitle } from "@/lib/ux/itemDisplay";
-import { approvedMessage, letterCoverage, waitingNote } from "@/lib/ux/roundCopy";
+import { approvedMessage, letterCoverageRows, waitingNote } from "@/lib/ux/roundCopy";
+import { canConfirmDispute, reasonLabel } from "@/lib/ux/disputeReason";
+import type { DisputeReasonCode } from "@/lib/letters/reasons";
 import { sessionPlan } from "@/lib/ux/sessionPlan";
+import { LETTERS_OUT_LINE, reviewCompleteLine, reviewFinishedLine, reviewIntroLine } from "@/lib/ux/reviewChatCopy";
+import { isFullService, SERVICE_MODE } from "@/lib/service/mode";
 import { useLocale } from "@/lib/i18n";
 import { DICTS } from "@/lib/i18n/dictionaries";
+import DisputeFields, { EMPTY_DRAFT } from "@/components/DisputeFields";
 import ItemFacts from "@/components/ItemFacts";
 import SpeakButton from "@/components/SpeakButton";
 import Icon from "@/components/Icon";
 import { InfoNote, WaitingNote } from "@/components/RoundNotes";
 import { CapiAvatar } from "@/components/Logo";
+import TeamMessage from "@/components/TeamMessage";
 
 // The conversation. The client's whole journey lives in one thread with their
-// AI assistant: it leads with proactive messages and action cards; the client
-// decides, attests, and sends — the same three legally load-bearing taps, now
-// inside the chat. Free-text questions go to the guardrailed coach. The
+// AI assistant: it leads with proactive messages and action cards. The client
+// decides and attests, item by item; those answers are theirs alone. What comes
+// next depends on the service mode. Full service (the business today): the
+// team prepares and mails the letters, and the card after the review only
+// shows what goes in each one. Self-serve (kept for later): the same card
+// carries the approve button. Free-text questions go to the guardrailed coach. The
 // assistant is always identified as AI; a human teammate is one tap away.
+// When a teammate answers in the thread, their message is signed with their
+// first name and "del equipo" and looks different from Capi's (TeamMessage).
 // The thread itself is saved (server-side when signed in), so the client picks
 // up the same conversation on any device.
 
@@ -48,9 +60,10 @@ export default function Asistente() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [flagging, setFlagging] = useState(false);
-  const [reason, setReason] = useState("");
-  const [attestChecked, setAttestChecked] = useState(false);
+  /** The reason, the customer's own words and the attestation checkbox for the item on screen. */
+  const [draft, setDraft] = useState(EMPTY_DRAFT);
   const threadRef = useRef<HTMLDivElement>(null);
+  const flagFormRef = useRef<HTMLDivElement>(null);
   /** How many messages were on screen at the last look; null until the thread first shows. */
   const shownCount = useRef<number | null>(null);
   /** True when this visit started the thread (nothing was saved before). */
@@ -91,9 +104,6 @@ export default function Asistente() {
   const say = (esText: string, enText: string) => append([line("assistant", esText, enText)]);
   const youSay = (esText: string, enText: string) => append([line("user", esText, enText)]);
 
-  const confirmedEs = (n: number) => (n === 1 ? "1 elemento confirmado" : `${n} elementos confirmados`);
-  const confirmedEn = (n: number) => (n === 1 ? "1 confirmed item" : `${n} confirmed items`);
-
   // Seed the opening messages once, matched to where the client is. A saved
   // thread is shown as it was left: nothing is added on a return visit.
   useEffect(() => {
@@ -108,31 +118,16 @@ export default function Asistente() {
         `Hi 👋 I'm Capi, your AI credit assistant. I already imported your 3-bureau report: ${DICTS.en.dashboard.items(items.length)}, ${DICTS.en.dashboard.negatives(negatives)}.`,
       ),
     ];
-    if (phase === "review") {
-      opening.push(
-        line(
-          "assistant",
-          `Vamos a revisarlos juntos, uno por uno. Yo te explico cada uno y tú decides. ${pending.length === 1 ? "Queda 1" : `Quedan ${pending.length}`}.`,
-          `Let's review them together, one by one. I explain each and you decide. ${pending.length} left.`,
-        ),
-      );
-    } else if (phase === "attack") {
-      opening.push(
-        line(
-          "assistant",
-          `Tu revisión está completa: ${confirmedEs(confirmedCount)}. Preparé tus cartas. Revísalas y dame el OK.`,
-          `Your review is complete: ${confirmedEn(confirmedCount)}. I prepared your letters. Review them and give me the OK.`,
-        ),
-      );
-    } else if (phase === "waiting") {
-      opening.push(
-        line(
-          "assistant",
-          "Tus cartas van en camino. Los burós tienen ~30 días para responder y yo te aviso aquí con cualquier novedad. ¿Tienes preguntas mientras tanto?",
-          "Your letters are on their way. Bureaus have ~30 days to respond and I'll message you here with any news. Any questions meanwhile?",
-        ),
-      );
-    }
+    // What follows the review is said in the words of the service mode (reviewChatCopy.ts).
+    const second =
+      phase === "review"
+        ? reviewIntroLine(SERVICE_MODE, pending.length)
+        : phase === "attack"
+          ? reviewCompleteLine(SERVICE_MODE, confirmedCount)
+          : phase === "waiting"
+            ? LETTERS_OUT_LINE
+            : null;
+    if (second) opening.push(line("assistant", second.es, second.en));
     append(opening);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, chatHydrated]);
@@ -169,10 +164,14 @@ export default function Asistente() {
     shownCount.current = messages.length;
   }, [messages.length, hydrated, chatHydrated]);
 
-  // Opening the "inaccurate" form is the customer's own tap: show the form.
+  // Opening the "inaccurate" form is the customer's own tap: show the form,
+  // from its first line (the list of reasons is taller than the screen).
   useEffect(() => {
     const box = threadRef.current;
-    if (flagging && box) box.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
+    const form = flagFormRef.current;
+    if (!flagging || !box || !form) return;
+    const top = form.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 12;
+    box.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   }, [flagging]);
 
   /**
@@ -197,10 +196,8 @@ export default function Asistente() {
       // An item reopened after the letters went out: the round itself does not change.
       say(DICTS.es.items.afterMailedNoted, DICTS.en.items.afterMailedNoted);
     } else if (confirmed > 0) {
-      say(
-        "¡Revisaste todo! 🎉 Preparé tus cartas. Revísalas abajo y dame el OK cuando lo tengas claro.",
-        "You reviewed everything! 🎉 I prepared your letters. Review them below and give me the OK when you're sure.",
-      );
+      const finished = reviewFinishedLine(SERVICE_MODE);
+      say(finished.es, finished.en);
     } else {
       say(
         "¡Revisaste todo! 🎉 No marcaste ningún elemento, así que no hay cartas por enviar.",
@@ -216,24 +213,34 @@ export default function Asistente() {
       `${itemLabel(current, "en")}\n${plain(DICTS.en.items.looksCorrect)}`,
     );
     review(current.fingerprint, "correct");
+    setDraft(EMPTY_DRAFT);
     afterDecision(confirmedCount, { ...flags, [current.fingerprint]: { state: "correct" } });
   };
 
+  /** A reason, the customer's words when the reason is "other", and the attestation checkbox. */
+  const canConfirm = current ? canConfirmDispute(current.category, draft) : false;
+
   const confirmFlag = () => {
-    if (!current || !attestChecked) return;
+    if (!current || !canConfirm) return;
+    const reasonCode = draft.reasonCode as DisputeReasonCode;
+    const reason = draft.note.trim();
     youSay(
-      `${itemLabel(current, "es")}\n${ATTESTATION_TEXT.es}`,
-      `${itemLabel(current, "en")}\n${ATTESTATION_TEXT.en}`,
+      `${itemLabel(current, "es")}\n${DICTS.es.items.reasonOf(reasonLabel(reasonCode, "es") ?? "")}\n${ATTESTATION_TEXT.es}`,
+      `${itemLabel(current, "en")}\n${DICTS.en.items.reasonOf(reasonLabel(reasonCode, "en") ?? "")}\n${ATTESTATION_TEXT.en}`,
     );
     const attestedAt = new Date().toISOString();
-    review(current.fingerprint, "attested", { reason, attestedAt });
+    review(current.fingerprint, "attested", { reason, reasonCode, attestedAt });
     setFlagging(false);
-    setReason("");
-    setAttestChecked(false);
-    afterDecision(confirmedCount + 1, { ...flags, [current.fingerprint]: { state: "attested", reason, attestedAt } });
+    setDraft(EMPTY_DRAFT);
+    afterDecision(confirmedCount + 1, {
+      ...flags,
+      [current.fingerprint]: { state: "attested", reason, reasonCode, attestedAt },
+    });
   };
 
+  /** Self-serve only: under full service the team mails the letters and this is never offered. */
   const approve = () => {
+    if (isFullService) return;
     youSay("Apruebo. Envía mis cartas.", "Approved. Send my letters.");
     setRoundApproved(true);
     // Which letters went out, what each covers, and what waits for the next round.
@@ -270,7 +277,8 @@ export default function Asistente() {
     const firstUser = recent.findIndex((m) => m.role === "user");
     const context = (firstUser === -1 ? [] : recent.slice(firstUser)).map((m) => ({
       role: m.role,
-      content: m.text.slice(0, 4000),
+      // A teammate's line is marked, so the coach does not take it for its own.
+      content: contextText(m).slice(0, 4000),
     }));
     // Shown now; the server records coach exchanges itself (remote: false).
     append([{ role: "user", text: q }], { remote: false });
@@ -371,22 +379,29 @@ export default function Asistente() {
       <div ref={threadRef} className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
         {messages.map((m, i) => {
           const shown = messageText(m, locale);
+          const voice = messageVoice(m, locale);
           return (
             <div
               key={i}
               data-newest={i === messages.length - 1 ? "" : undefined}
-              className={`animate-rise flex items-end gap-1.5 ${m.role === "user" ? "justify-end" : ""}`}
+              className={`animate-rise flex items-end gap-1.5 ${voice.kind === "client" ? "justify-end" : ""}`}
             >
-              <div
-                className={`max-w-[80%] whitespace-pre-line break-words px-4 py-2.5 text-[16px] leading-snug ${
-                  m.role === "user"
-                    ? "rounded-[22px] rounded-br-md bg-blue-700 text-white"
-                    : "rounded-[22px] rounded-bl-md bg-slate-100 text-slate-900"
-                }`}
-              >
-                {shown}
-              </div>
-              {m.role === "assistant" && <SpeakButton text={shown} compact />}
+              {voice.kind === "team" && voice.byline ? (
+                // A person wrote this one: signed, outlined, and never labelled as AI.
+                <TeamMessage byline={voice.byline} text={shown} />
+              ) : (
+                <div
+                  className={`max-w-[80%] whitespace-pre-line break-words px-4 py-2.5 text-[16px] leading-snug ${
+                    voice.kind === "client"
+                      ? "rounded-[22px] rounded-br-md bg-blue-700 text-white"
+                      : "rounded-[22px] rounded-bl-md bg-slate-100 text-slate-900"
+                  }`}
+                >
+                  {shown}
+                </div>
+              )}
+              {/* Read-aloud says who wrote a teammate's message before reading it. */}
+              {voice.kind !== "client" && <SpeakButton text={voice.spoken} compact />}
             </div>
           );
         })}
@@ -448,28 +463,12 @@ export default function Asistente() {
                 </button>
               </div>
             ) : (
-              <div className="mt-5">
-                <textarea
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder={d.items.reasonPlaceholder}
-                  aria-label={d.items.reasonLabel}
-                  rows={3}
-                  className="block w-full resize-none rounded-2xl bg-slate-100 px-4 py-3 text-[15px] leading-snug outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-300"
-                />
-                <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl bg-blue-50 p-4 text-[15px] leading-snug text-slate-900">
-                  <input
-                    type="checkbox"
-                    checked={attestChecked}
-                    onChange={(e) => setAttestChecked(e.target.checked)}
-                    className="mt-0.5 h-5 w-5 shrink-0 accent-blue-700"
-                  />
-                  <span>{ATTESTATION_TEXT[locale]}</span>
-                </label>
+              <div ref={flagFormRef} className="mt-5 border-t hairline pt-5">
+                <DisputeFields category={current.category} draft={draft} onChange={setDraft} />
                 <div className="mt-3 grid grid-cols-[1fr_auto] gap-2.5">
                   <button
                     onClick={confirmFlag}
-                    disabled={!attestChecked}
+                    disabled={!canConfirm}
                     className="pressable h-[52px] rounded-full bg-amber-400 text-[16px] font-semibold text-blue-900 disabled:bg-slate-200 disabled:text-slate-500"
                   >
                     {d.items.confirm}
@@ -477,7 +476,7 @@ export default function Asistente() {
                   <button
                     onClick={() => {
                       setFlagging(false);
-                      setAttestChecked(false);
+                      setDraft({ ...draft, attested: false });
                     }}
                     className="pressable h-[52px] rounded-full bg-slate-100 px-5 text-[16px] font-medium text-slate-700"
                   >
@@ -491,9 +490,24 @@ export default function Asistente() {
 
         {phase === "attack" && (
           <div className="animate-rise mt-3 rounded-3xl border hairline bg-white p-5 shadow-[0_8px_24px_-14px_rgba(0,0,0,0.25)]">
-            <p className="text-[20px] font-semibold text-slate-900">{d.attack.title(roundNumber)}</p>
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <p className="text-[20px] font-semibold text-slate-900">{d.attack.title(roundNumber)}</p>
+              {isFullService && (
+                <span
+                  data-testid="letter-status"
+                  className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[13px] font-semibold text-amber-700"
+                >
+                  {d.team.statusPreparing}
+                </span>
+              )}
+            </div>
+            {isFullService && (
+              <p className="mt-1.5 text-[15px] font-semibold leading-snug text-slate-900">{d.team.lettersLead}</p>
+            )}
             <p className="mt-1 text-[14px] leading-snug text-slate-500">
-              {d.attack.subtitle(plan.letters.length, session.inRound.length)}
+              {isFullService
+                ? d.team.lettersSubtitle(plan.letters.length, session.inRound.length)
+                : d.attack.subtitle(plan.letters.length, session.inRound.length)}
             </p>
             {/* Every letter, with what it covers: the recipient alone does not say what is being mailed. */}
             <ul className="mt-3 divide-y divide-slate-100">
@@ -502,9 +516,18 @@ export default function Asistente() {
                   <Icon name="doc" size={18} className="mt-0.5 shrink-0 text-slate-400" />
                   <span className="min-w-0 flex-1">
                     <span className="block break-words font-medium text-slate-900">{l.target.name}</span>
-                    {letterCoverage(l, items, locale).map((c) => (
-                      <span key={c} data-testid="letter-covers" className="block break-words text-[14px] text-slate-600">
-                        {c}
+                    {letterCoverageRows(l, items, session.itemReasons, locale).map((row) => (
+                      <span key={row.key} data-testid="letter-covers" className="mt-1 block break-words text-[14px] text-slate-600">
+                        {row.label}
+                        {/* The reason the customer gave, and the sentence the letter prints for it. */}
+                        {row.reasonLabel && (
+                          <span className="block text-[13px] text-slate-500">{d.items.reasonOf(row.reasonLabel)}</span>
+                        )}
+                        {row.sentence && (
+                          <span data-testid="reason-sentence" className="block text-[13px] text-slate-500">
+                            {d.items.inLetter} <span className="font-serif italic text-slate-700">{row.sentence}</span>
+                          </span>
+                        )}
                       </span>
                     ))}
                   </span>
@@ -513,24 +536,27 @@ export default function Asistente() {
             </ul>
             {waiting && <WaitingNote note={waiting} className="mt-3" />}
             <div className="mt-4 grid gap-2.5">
-              <button
-                onClick={approve}
-                className="pressable h-14 w-full rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500"
-              >
-                {es
-                  ? plan.letters.length === 1 ? "Aprobar y enviar 1 carta" : `Aprobar y enviar ${plan.letters.length} cartas`
-                  : plan.letters.length === 1 ? "Approve and send 1 letter" : `Approve and send ${plan.letters.length} letters`}
-              </button>
+              {/* Full service has no approve step: the team prepares and mails. */}
+              {!isFullService && (
+                <button
+                  onClick={approve}
+                  className="pressable h-14 w-full rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500"
+                >
+                  {es
+                    ? plan.letters.length === 1 ? "Aprobar y enviar 1 carta" : `Aprobar y enviar ${plan.letters.length} cartas`
+                    : plan.letters.length === 1 ? "Approve and send 1 letter" : `Approve and send ${plan.letters.length} letters`}
+                </button>
+              )}
               <Link
                 href="/attack"
                 className="pressable flex h-12 w-full items-center justify-center rounded-full bg-slate-100 text-[16px] font-medium text-slate-900 hover:bg-slate-200"
               >
-                {es
-                  ? plan.letters.length === 1 ? "Leer la carta completa" : "Leer cada carta completa"
-                  : plan.letters.length === 1 ? "Read the full letter" : "Read each full letter"}
+                {d.team.readLetters(plan.letters.length)}
               </Link>
             </div>
-            <p className="mt-3 text-xs leading-relaxed text-slate-500">{d.attack.approveNote}</p>
+            <p className="mt-3 text-xs leading-relaxed text-slate-500">
+              {isFullService ? d.team.changeNote : d.attack.approveNote}
+            </p>
           </div>
         )}
 

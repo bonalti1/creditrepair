@@ -12,6 +12,10 @@ import { resolveActingUser } from "@/lib/supabase/server";
 import { reportError } from "@/lib/observability/errors";
 import { ENCLOSURE_LABELS, isAttachableImage, letterHtml, type EnclosurePage } from "@/lib/letters/enclosures";
 import { loadMonitoringState, monitoringMessageEs } from "@/lib/monitoring/subscription";
+import { itemReasonsFrom } from "@/lib/ux/disputeReason";
+import { workMayStart } from "@/lib/agreement/gate";
+import { loadAgreement } from "@/lib/agreement/server";
+import { isFullService } from "@/lib/service/mode";
 
 // The DIY moment (spec §4.2, legally load-bearing): the USER reviews the attack
 // and presses the button. Only then do we render, print, and mail letters.
@@ -35,6 +39,24 @@ export async function POST(req: Request) {
 
   const db = getAdminClient();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+
+  // Full service: no letter leaves before the client's agreement allows work
+  // to start — disclosure acknowledged, contract signed, not cancelled, and the
+  // 3-business-day cancellation period over (15 U.S.C. §1679d(a)). Checked
+  // here, on the server, whatever the screen showed.
+  if (isFullService) {
+    let agreement;
+    try {
+      agreement = await loadAgreement(db, userId);
+    } catch (error) {
+      await reportError(error, { where: "api/attacks/approve:agreement", userId });
+      return NextResponse.json({ error: "Could not check the service agreement. Nothing was sent." }, { status: 500 });
+    }
+    const gate = workMayStart(agreement, new Date());
+    if (!gate.allowed) {
+      return NextResponse.json({ error: gate.reason.es, code: `agreement_${gate.code}` }, { status: 409 });
+    }
+  }
 
   const { data: round } = await db
     .from("attack_rounds")
@@ -85,6 +107,19 @@ export async function POST(req: Request) {
     return fp ? [{ fingerprint: fp, reason: f.reason, attested: f.attested, attestedAt: f.attested_at }] : [];
   });
   const attestedFps = new Set(flags.filter((f) => f.attested && f.attestedAt).map((f) => f.fingerprint));
+
+  // The standard reason the user picked for each attested item (item_flags.reason_code,
+  // migration 0008). The letter prints its sentence after the item. An item
+  // attested before reasons existed has none and is listed without one. The
+  // user's free-text note (item_flags.reason) is never printed.
+  const itemReasons = itemReasonsFrom(
+    Object.fromEntries(
+      (flagRows ?? []).flatMap((f) => {
+        const fp = itemIdToFp.get(f.item_id);
+        return fp && f.attested && f.attested_at ? [[fp, { reasonCode: f.reason_code as string | null }]] : [];
+      }),
+    ),
+  );
 
   // Rebuild history the same way the build route does, then rebuild the plan
   // server-side — the client never supplies the plan it approves.
@@ -172,6 +207,7 @@ export async function POST(req: Request) {
       date: now.toISOString(),
       roundNumber,
       enclosures,
+      itemReasons,
     });
     const body = await varyLetterWording(baseBody);
 
@@ -200,8 +236,8 @@ export async function POST(req: Request) {
       mail = await mailLetter({
         to: { name: planned.target.name, addressLines: planned.target.addressLines },
         from: { name: user.fullName, addressLines: user.addressLines },
-        // The letter is plain text and is escaped, so a creditor name or a
-        // user-typed reason can never be read as markup by the print renderer.
+        // The letter is plain text and is escaped, so a creditor name can never
+        // be read as markup by the print renderer.
         bodyHtml: letterHtml({ body, fontFamily: font.family, sizePt: font.sizePt, enclosures: enclosurePages }),
         idempotencyKey: letterRow.id,
       });

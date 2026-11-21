@@ -284,6 +284,17 @@ describe("personal-info names for the letter", () => {
   });
 });
 
+// Full service: these steps come after the agreement. A client who signed long
+// ago is past the cancellation window (the agreement's own steps are covered
+// in agreement.test.ts).
+const SIGNED_LONG_AGO = {
+  disclosureAcknowledgedAt: "2026-01-05T15:00:00.000Z",
+  signedAt: "2026-01-05T15:10:00.000Z",
+  cancellationDeadline: "2026-01-09T05:59:59.999Z",
+  cancelledAt: null,
+  serviceEndRequestedAt: null,
+};
+
 describe("the same next step on every screen", () => {
   const items = DEMO_REPORT.items;
   const all = (state: string) =>
@@ -291,14 +302,14 @@ describe("the same next step on every screen", () => {
 
   it("counts only decisions about items on the current report", () => {
     const flags = { ...all("correct"), "left-over-from-an-older-report": { state: "attested" } };
-    const state = sessionJourneyState(items, flags, false);
+    const state = sessionJourneyState(items, flags, false, SIGNED_LONG_AGO);
     expect(state.reviewedCount).toBe(items.length);
     expect(state.attestedCount).toBe(0);
     expect(nextAction(state, "es").key).toBe("review-empty");
   });
 
   it("says the letters are on their way once the round is approved", () => {
-    const step = nextAction(sessionJourneyState(items, all("attested"), true), "es");
+    const step = nextAction(sessionJourneyState(items, all("attested"), true, SIGNED_LONG_AGO), "es");
     expect(step.key).toBe("waiting");
     expect(step.href).toBe("/rounds");
   });
@@ -368,14 +379,18 @@ describe("new customer-facing copy stays within the claim rules", () => {
     const some = { [midland.fingerprint]: { state: "attested" } };
     const every = Object.fromEntries(items.map((i) => [i.fingerprint, { state: "attested" }]));
     for (const locale of ["es", "en"] as const) {
-      for (const state of [
-        sessionJourneyState(items, {}, false),
-        sessionJourneyState(items, some, false),
-        sessionJourneyState(items, every, false),
-        sessionJourneyState(items, every, true),
-      ]) {
-        const step = nextAction(state, locale);
-        clean(`${step.title} ${step.description} ${step.cta}`);
+      for (const agreement of [null, SIGNED_LONG_AGO]) {
+        for (const state of [
+          sessionJourneyState(items, {}, false, agreement),
+          sessionJourneyState(items, some, false, agreement),
+          sessionJourneyState(items, every, false, agreement),
+          sessionJourneyState(items, every, true, agreement),
+        ]) {
+          for (const mode of ["full_service", "self_serve"] as const) {
+            const step = nextAction(state, locale, { mode });
+            clean(`${step.title} ${step.description} ${step.cta}`);
+          }
+        }
       }
     }
   });
@@ -420,8 +435,13 @@ describe("new customer-facing copy stays within the claim rules", () => {
       es.items.attestationRequired,
       es.items.flaggedPending,
       es.attack.approveNote,
-      nextAction(sessionJourneyState(DEMO_REPORT.items, { [midland.fingerprint]: { state: "attested" } }, false), "es")
+      nextAction(sessionJourneyState(DEMO_REPORT.items, { [midland.fingerprint]: { state: "attested" } }, false), "es", { mode: "self_serve" })
         .description,
+      nextAction(
+        sessionJourneyState(DEMO_REPORT.items, { [midland.fingerprint]: { state: "attested" } }, false, SIGNED_LONG_AGO),
+        "es",
+        { mode: "full_service" },
+      ).description,
     ].join(" ");
     expect(sample).not.toMatch(/\((s|a|es)\)/);
     expect(sample).not.toMatch(/atestigu/i);

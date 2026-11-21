@@ -341,3 +341,304 @@ create policy "own aba read" on public.aba_acknowledgments
   for select using (auth.uid() = user_id);
 create policy "own aba create" on public.aba_acknowledgments
   for insert with check (auth.uid() = user_id);
+
+-- ===== 0007_staff.sql =====
+-- Staff access for the console at /equipo.
+--
+-- Credalti is moving to full service: two members of staff run fulfillment for
+-- every client, so they need to see client records. Until now each table was
+-- readable only by the customer who owns the row.
+--
+-- What this adds:
+--   - staff_members: who is on the team, their role, and whether they are active.
+--   - is_staff(): true when the signed-in user is an active member of staff.
+--   - "staff read" policies: an active member of staff can SELECT the client
+--     tables the console shows.
+--
+-- What it does not add, on purpose: staff get no INSERT, UPDATE or DELETE
+-- policy on any table. Everything staff do (send a round, add a note, mark an
+-- exception handled) goes through the server, which checks is_staff() and
+-- writes with the service role, so each action is validated and logged in one
+-- place. In particular no policy lets staff write item_flags: which items are
+-- disputed is the client's own answer.
+--
+-- Add a person (SQL editor, after they have signed in once):
+--   insert into public.staff_members (user_id, role)
+--   select id, 'specialist' from auth.users where phone = '+1XXXXXXXXXX';
+-- Remove access without losing the record: set active = false.
+
+create table public.staff_members (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  -- admin: everything, including the team list. specialist: fulfillment.
+  -- sales: leads and invitations. The console does not yet tell them apart.
+  role text not null check (role in ('admin', 'specialist', 'sales')),
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+alter table public.staff_members enable row level security;
+
+-- Security definer so the check works inside other tables' policies without
+-- giving anyone read access to the team list. search_path is pinned so the
+-- function cannot be pointed at another schema's tables.
+create function public.is_staff()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.staff_members s
+    where s.user_id = auth.uid() and s.active
+  );
+$$;
+
+revoke all on function public.is_staff() from public;
+grant execute on function public.is_staff() to authenticated;
+
+-- A member of staff can see their own row (their role); nobody can see the
+-- whole list or change it through the database API. Rows are managed with the
+-- service role.
+create policy "own staff row" on public.staff_members
+  for select using (auth.uid() = user_id);
+
+-- Read-only access to client records. These sit beside the "own … read"
+-- policies: a customer still sees only their own rows.
+create policy "staff read profiles" on public.profiles
+  for select using (public.is_staff());
+
+create policy "staff read monitoring" on public.monitoring_subscriptions
+  for select using (public.is_staff());
+
+create policy "staff read pulls" on public.report_pulls
+  for select using (public.is_staff());
+
+create policy "staff read items" on public.report_items
+  for select using (public.is_staff());
+
+create policy "staff read flags" on public.item_flags
+  for select using (public.is_staff());
+
+create policy "staff read rounds" on public.attack_rounds
+  for select using (public.is_staff());
+
+create policy "staff read letters" on public.letters
+  for select using (public.is_staff());
+
+create policy "staff read letter items" on public.letter_items
+  for select using (public.is_staff());
+
+-- The rows only (which kinds are on file, and when). The files themselves are
+-- in storage, which staff cannot read yet.
+create policy "staff read documents" on public.identity_documents
+  for select using (public.is_staff());
+
+create policy "staff read chat" on public.chat_messages
+  for select using (public.is_staff());
+
+create policy "staff read events" on public.events
+  for select using (public.is_staff());
+
+-- ===== 0008_dispute_reason.sql =====
+-- A stated reason for every disputed item.
+--
+-- When a customer says an item is inaccurate they now pick a standard reason
+-- ("this account is not mine", "I was never late"…). The letter prints that
+-- reason's sentence after the item, because a dispute that gives no reason is
+-- easy for a bureau to set aside.
+--
+-- item_flags.reason_code holds the code of the reason picked. The list of
+-- reasons lives in the app (src/lib/letters/reasons.ts), and /api/flags only
+-- accepts a code that is on it. The check here guards the shape of the value,
+-- so nothing but a short code can be stored whatever route a write takes.
+--
+-- The column is nullable on purpose: an item confirmed before this change has
+-- no reason code. It still counts, and its line in the letter carries no
+-- reason. item_flags.reason stays what it was, the customer's own words. Those
+-- words are shown to the team and are never printed in a letter.
+
+alter table public.item_flags
+  add column reason_code text
+    check (reason_code ~ '^[a-z_]{2,40}$');
+
+-- ===== 0009_chat_author.sql =====
+-- A teammate's reply in a client's conversation carries the teammate's name.
+--
+-- chat_messages.source = 'human' already marks a message a person wrote
+-- (migration 0004). This adds who: the name the client sees beside the
+-- message ("Ana, del equipo"). It is empty on every message Capi or the
+-- client wrote, and the check keeps it that way, so a name can never be
+-- attached to an AI reply or to a line the client added.
+--
+-- Rows with source 'human' are written by the server only (clients may insert
+-- 'journey' rows and nothing else), so a client cannot put a name here.
+
+alter table public.chat_messages
+  add column author_name text
+  check (author_name is null or (source = 'human' and char_length(author_name) between 1 and 80));
+
+-- ===== 0010_service_agreements.sql =====
+-- Service agreements: the disclosure, the contract, the signature and the
+-- right to cancel.
+--
+-- Credalti now prepares and mails dispute letters for its clients. That makes
+-- it a "credit repair organization" under the federal Credit Repair
+-- Organizations Act (15 U.S.C. §1679 et seq.) and a "credit services
+-- organization" under Texas Finance Code chapter 393. Before any work can be
+-- done for a client, those laws require, in this order:
+--
+--   1. a disclosure statement given as its own document, before the contract,
+--      with the client's acknowledgement kept for two years
+--      (15 U.S.C. §1679c; Tex. Fin. Code §393.105, §393.106);
+--   2. a written, dated contract signed by the client
+--      (15 U.S.C. §1679d; Tex. Fin. Code §393.201);
+--   3. three business days in which the client can cancel without penalty,
+--      during which no service may be provided (15 U.S.C. §1679d(a)(2), §1679e).
+--
+-- One row is one agreement, from the acknowledgement to its end. The app reads
+-- it to decide whether a letter may leave (src/lib/agreement/gate.ts).
+--
+-- Who writes: only the server, with the service role, through
+-- /api/agreement/*. A client reads their own rows; active staff read all rows
+-- (is_staff(), migration 0007). There is no insert, update or delete policy
+-- for anyone else.
+--
+-- What cannot change, even for the server (trigger below):
+--   - the acknowledgement, once written;
+--   - the signature (name, time, version, hash, language, address, browser,
+--     terms and deadline), once written;
+--   - a cancellation, once written;
+--   - no row can be deleted, and the account a row belongs to cannot be
+--     deleted while the row exists (on delete restrict). These are records the
+--     law says to keep; removing one is a deliberate act by the database owner.
+
+create table public.service_agreements (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete restrict,
+  -- AGREEMENT_VERSION of the text shown (src/lib/agreement/documents.ts).
+  document_version text not null check (document_version <> ''),
+
+  -- Step 1: the disclosure statements, acknowledged before the contract is shown.
+  disclosure_acknowledged_at timestamptz not null default now(),
+  disclosure_locale text not null check (disclosure_locale in ('es', 'en')),
+  -- SHA-256 of the disclosure documents exactly as shown.
+  disclosure_hash text not null check (disclosure_hash ~ '^[0-9a-f]{64}$'),
+
+  -- Step 2: the signature. All of these are set together, once.
+  signer_name text,
+  signed_at timestamptz,
+  -- The language the contract was shown in.
+  locale text check (locale in ('es', 'en')),
+  -- SHA-256 of every document exactly as shown when signed.
+  document_hash text check (document_hash ~ '^[0-9a-f]{64}$'),
+  signer_ip text,
+  signer_user_agent text,
+  -- The business terms as printed in the contract (company, address, fee, bond…).
+  terms jsonb,
+  -- The end of the 3rd business day after signing, computed by the server.
+  cancellation_deadline timestamptz,
+
+  -- Cancellation. within_window is true when it happened by the deadline.
+  cancelled_at timestamptz,
+  cancelled_within_window boolean,
+  cancellation_reason text check (cancellation_reason is null or char_length(cancellation_reason) <= 2000),
+
+  -- After the window: the client asked to end the service. A person handles it.
+  service_end_requested_at timestamptz,
+  service_end_reason text check (service_end_reason is null or char_length(service_end_reason) <= 2000),
+
+  created_at timestamptz not null default now(),
+
+  constraint service_agreements_signature_complete check (
+    (signed_at is null and signer_name is null and locale is null and document_hash is null
+      and terms is null and cancellation_deadline is null)
+    or (signed_at is not null and signer_name is not null and btrim(signer_name) <> '' and locale is not null
+      and document_hash is not null and terms is not null and cancellation_deadline is not null)
+  ),
+  -- The disclosure comes first: a contract cannot be signed before it was acknowledged.
+  constraint service_agreements_disclosure_first check (signed_at is null or signed_at > disclosure_acknowledged_at),
+  constraint service_agreements_deadline_after_signature check (
+    cancellation_deadline is null or cancellation_deadline > signed_at
+  ),
+  constraint service_agreements_cancellation_complete check ((cancelled_at is null) = (cancelled_within_window is null)),
+  constraint service_agreements_cancellation_after_signature check (
+    cancelled_at is null or (signed_at is not null and cancelled_at >= signed_at)
+  ),
+  constraint service_agreements_within_window_is_true check (
+    cancelled_within_window is distinct from true or cancelled_at <= cancellation_deadline
+  ),
+  constraint service_agreements_end_after_signature check (
+    service_end_requested_at is null or (signed_at is not null and service_end_requested_at >= signed_at)
+  )
+);
+
+-- A client has at most one agreement in force (signed and not cancelled).
+create unique index service_agreements_one_in_force
+  on public.service_agreements (user_id)
+  where signed_at is not null and cancelled_at is null;
+
+create index service_agreements_user_created on public.service_agreements (user_id, created_at desc);
+
+-- Records, not working data: what was acknowledged and signed stays as it was.
+create function public.service_agreements_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'service_agreements: a row is a record and cannot be deleted';
+  end if;
+
+  if new.id is distinct from old.id
+    or new.user_id is distinct from old.user_id
+    or new.document_version is distinct from old.document_version
+    or new.disclosure_acknowledged_at is distinct from old.disclosure_acknowledged_at
+    or new.disclosure_locale is distinct from old.disclosure_locale
+    or new.disclosure_hash is distinct from old.disclosure_hash
+    or new.created_at is distinct from old.created_at
+  then
+    raise exception 'service_agreements: the disclosure acknowledgement cannot be changed';
+  end if;
+
+  if old.signed_at is not null and (
+    new.signed_at is distinct from old.signed_at
+    or new.signer_name is distinct from old.signer_name
+    or new.locale is distinct from old.locale
+    or new.document_hash is distinct from old.document_hash
+    or new.signer_ip is distinct from old.signer_ip
+    or new.signer_user_agent is distinct from old.signer_user_agent
+    or new.terms is distinct from old.terms
+    or new.cancellation_deadline is distinct from old.cancellation_deadline
+  ) then
+    raise exception 'service_agreements: a signed agreement cannot be changed';
+  end if;
+
+  if old.cancelled_at is not null and (
+    new.cancelled_at is distinct from old.cancelled_at
+    or new.cancelled_within_window is distinct from old.cancelled_within_window
+    or new.cancellation_reason is distinct from old.cancellation_reason
+  ) then
+    raise exception 'service_agreements: a recorded cancellation cannot be changed';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.service_agreements_guard() from public;
+
+create trigger service_agreements_guard
+  before update or delete on public.service_agreements
+  for each row execute function public.service_agreements_guard();
+
+alter table public.service_agreements enable row level security;
+
+-- Read-only for the client it belongs to and for active staff. No write
+-- policy: only the service role, which is not subject to these, writes.
+create policy "own agreement read" on public.service_agreements
+  for select using (auth.uid() = user_id);
+
+create policy "staff read agreements" on public.service_agreements
+  for select using (public.is_staff());

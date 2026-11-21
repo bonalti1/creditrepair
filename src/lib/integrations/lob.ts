@@ -1,5 +1,6 @@
-// Lob client (spec §4.2): after the user presses the approve button (the DIY
-// moment), letters are printed and mailed via Lob. Thin fetch wrapper — no SDK
+// Lob client (spec §4.2): prints and mails letters. Under full service the team
+// sends them (staff may also print a batch locally, staff/printBatch.ts); in
+// self-serve mode they go out when the client presses the approve button. Thin fetch wrapper — no SDK
 // dependency. Returns a queued placeholder when no API key is configured so the
 // rest of the pipeline is testable end-to-end without a Lob account.
 

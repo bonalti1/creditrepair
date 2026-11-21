@@ -4,6 +4,9 @@ import { importReportForUser } from "@/lib/domain/importReport";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { sendWhatsApp } from "@/lib/integrations/whatsapp";
 import { hasSharedSecret } from "@/lib/security/signatures";
+import { workMayStart } from "@/lib/agreement/gate";
+import { loadAgreement } from "@/lib/agreement/server";
+import { isFullService } from "@/lib/service/mode";
 
 // The ~40-day round loop (spec §4.4), as one idempotent endpoint that n8n (or
 // any cron) hits hourly with the shared secret:
@@ -33,6 +36,17 @@ export async function POST(req: Request) {
 
   for (const round of dueRounds ?? []) {
     try {
+      // Full service: a client who cancelled, or asked to end the service, gets
+      // no more work done, and that includes pulling their report again. The
+      // round stays as it is for a person to close.
+      if (isFullService) {
+        const gate = workMayStart(await loadAgreement(db, round.user_id), new Date());
+        if (!gate.allowed) {
+          processed.push({ userId: round.user_id, round: round.round_number, ok: false, error: `agreement_${gate.code}` });
+          continue;
+        }
+      }
+
       const { data: sub } = await db
         .from("monitoring_subscriptions")
         .select("external_id")

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { agreementReadiness } from "@/lib/agreement/readiness";
 import { MONITORING_OFFER } from "@/lib/monitoring/offer";
 import { hasSharedSecret } from "@/lib/security/signatures";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -13,6 +14,7 @@ const set = (name: string) => Boolean(process.env[name]);
 const TABLES = [
   "profiles", "monitoring_subscriptions", "report_pulls", "report_items", "item_flags",
   "attack_rounds", "letters", "letter_items", "aba_acknowledgments", "events", "waitlist", "identity_documents", "chat_messages",
+  "service_agreements",
 ];
 
 export async function GET(req: Request) {
@@ -61,6 +63,27 @@ export async function GET(req: Request) {
   add("Monitoring signup link", Boolean(MONITORING_OFFER.signupUrl), "required", MONITORING_OFFER.signupUrl ? `Set. Price shown: ${MONITORING_OFFER.priceLabel}.` : "NEXT_PUBLIC_MONITORING_SIGNUP_URL is not set; customers cannot subscribe from the app.");
   const provider = process.env.MONITORING_PROVIDER || "demo";
   add("Report source", provider !== "demo", "required", provider === "demo" ? "MONITORING_PROVIDER is demo: everyone sees the sample report." : `Provider: ${provider}.`);
+  // No client can sign, so no work can start, until the agreement is ready (docs/AGREEMENT.md).
+  const agreement = agreementReadiness();
+  add(
+    "Service agreement",
+    agreement.ready,
+    "required",
+    agreement.ready
+      ? `Version ${agreement.version} is approved and complete.`
+      : [
+          agreement.missing.length > 0 ? `Not set: ${agreement.missing.map((m) => m.env).join(", ")}.` : "",
+          agreement.unverifiedStatutes.length > 0
+            ? `Statutory text not yet compared with the official source: ${agreement.unverifiedStatutes.join("; ")}.`
+            : "",
+          agreement.approved
+            ? ""
+            : `NEXT_PUBLIC_AGREEMENT_APPROVED_VERSION is not ${agreement.version}: set it once an attorney approves that version.`,
+        ]
+          .filter(Boolean)
+          .join(" "),
+  );
+  add("Team alerts", set("TEAM_WEBHOOK_URL") || set("SALES_WEBHOOK_URL"), "recommended", "TEAM_WEBHOOK_URL tells the team when a client cancels or asks to end the service.");
   add("Error alerts", set("ERROR_WEBHOOK_URL"), "recommended", "ERROR_WEBHOOK_URL sends failures to Slack or n8n.");
   add("New-lead alerts", set("SALES_WEBHOOK_URL"), "recommended", "SALES_WEBHOOK_URL pings sales when a lead writes in.");
 

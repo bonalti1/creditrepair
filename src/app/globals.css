@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * CreditCapi design tokens. Every screen uses the blue-* scale as the navy
+ * Credalti design tokens. Every screen uses the blue-* scale as the navy
  * accent, amber-* as the gold action colour, and slate-* as neutrals, so the
  * brand is adjusted here and nowhere else.
  *
@@ -9,7 +9,7 @@
  * (slate-400 and darker) passes 4.5:1 on white.
  */
 @theme {
-  /* CreditCapi navy — accent, links, active states. */
+  /* Credalti navy — accent, links, active states. */
   --color-blue-50: #f1f4fc;
   --color-blue-100: #e2e8f9;
   --color-blue-200: #c8d3f2;
@@ -21,7 +21,7 @@
   --color-blue-800: #0a2152;
   --color-blue-900: #06173b;
 
-  /* CreditCapi gold — primary actions (always with navy text) and the gauge. */
+  /* Credalti gold — primary actions (always with navy text) and the gauge. */
   --color-amber-50: #fff8e1;
   --color-amber-100: #ffefc2;
   --color-amber-200: #ffe38a;

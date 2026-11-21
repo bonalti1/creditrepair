@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useLocale } from "@/lib/i18n";
 import { HUMAN_HELP, humanHelpHref } from "@/lib/ux/humanHelp";
 import Icon, { type IconName } from "@/components/Icon";
+import { isFullService } from "@/lib/service/mode";
 
 // "Más": everything beyond Home and the conversation, as grouped rows that say
 // what each thing is for. Familiar from every phone's Settings screen.
@@ -85,17 +86,39 @@ export default function Mas() {
             icon="doc"
             tint="bg-blue-500"
             title={es ? "Mis cartas" : "My letters"}
-            desc={es ? "Lee cada carta completa antes de enviar." : "Read every letter in full before sending."}
+            desc={es ? "Lee cada carta completa, con su explicación." : "Read every letter in full, with its explanation."}
           />
           <Row
             href="/rounds"
             icon="clock"
             tint="bg-slate-500"
             title={d.nav.rounds}
-            desc={es ? "Qué enviaste, cuándo responden y qué sigue." : "What you sent, when they respond, what's next."}
+            desc={es ? "Qué se envió, cuándo responden y qué sigue." : "What was mailed, when they respond, what's next."}
           />
         </div>
       </section>
+
+      {isFullService && (
+        <section>
+          <h2 className="px-1 pb-2 text-[13px] font-semibold uppercase tracking-wide text-slate-500">
+            {es ? "Tu servicio" : "Your service"}
+          </h2>
+          <div className="card overflow-hidden">
+            <Row
+              first
+              href="/acuerdo"
+              icon="clipboard"
+              tint="bg-blue-900"
+              title={es ? "Mi acuerdo" : "My agreement"}
+              desc={
+                es
+                  ? "Tu contrato, tu copia para imprimir y cómo cancelar."
+                  : "Your contract, your copy to print, and how to cancel."
+              }
+            />
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="px-1 pb-2 text-[13px] font-semibold uppercase tracking-wide text-slate-500">

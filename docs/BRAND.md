@@ -1,14 +1,44 @@
-# CreditCapi brand in the product
+# Credalti brand in the product
 
-Consumer brand: **CreditCapi**. The AI assistant is **Capi**, the capybara
-mascot with the headset. Internal and spec name remains Bonalti Credit.
+The company is **Credalti**. The AI assistant is **Capi**, the capybara mascot
+with the headset. Internal and spec name remains Bonalti Credit.
+
+The product was called CreditCapi until November 2026. The name changed with
+the move to full service: Credalti is now a company that does the work for its
+clients, and Capi stays as the assistant clients talk to. The names live in
+`src/lib/brand.ts`, and a test fails if the old name appears anywhere in `src/`.
+
+## What the brand says it does
+
+Full service, in one sentence: **"Tú nos dices qué está mal en tu reporte;
+nuestro equipo prepara y envía las cartas por ti y te mantiene al tanto."**
+Everything a client or a prospect reads is written around it: the landing
+page, `/empezar`, onboarding, the app, Capi and the WhatsApp messages.
+
+Three things hold in every line of copy:
+
+- **Process, never outcome.** We say what we do (prepare and mail letters,
+  keep the client posted). We never say or imply what will happen to a report
+  or a score. The bureaus decide, and results vary.
+- **The client decides what is inaccurate.** No copy suggests that the team
+  picks what to dispute, or that everything negative gets disputed.
+- **No price in the copy.** The service has a monthly fee, separate from the
+  monitoring subscription the client pays to the monitoring provider. Amounts
+  are not written anywhere; "nuestro equipo te explica el plan".
+
+`src/lib/compliance/guardrails.ts` enforces the first two, and the tests run
+every marketing line through it in Spanish and English. How the service is
+delivered is a switch, `NEXT_PUBLIC_SERVICE_MODE` (`src/lib/service/mode.ts`):
+unset means full service; `self_serve` brings back the earlier
+do-it-yourself wording and its approve button, kept for later.
 
 ## Where the brand lives
 
 | What | Where | How to change it |
 | --- | --- | --- |
 | Colours | `@theme` block in `src/app/globals.css` | `blue-*` is navy (accent, links, active states), `amber-*` is gold (primary actions, gauge), `slate-*` is neutral. Edit the values; no component changes needed. |
-| Logo and gauge mark | `src/components/Logo.tsx` (`Logo`, `GaugeMark`) | Drawn in code from the brand board. Replace with the final SVG when it exists; every screen imports from here. |
+| Names | `src/lib/brand.ts` | Company name, the two halves of the wordmark, the assistant's name and the page titles. |
+| Logo and gauge mark | `src/components/Logo.tsx` (`Logo`, `GaugeMark`) | Drawn in code: "Cred" + "alti" beside the gauge from the brand board. Replace with the final SVG when it exists; every screen imports from here. |
 | Capi's face | `public/brand/capi.png`, rendered by `CapiAvatar` | A crop from the brand board, good up to about 96px. Replace with a transparent-background render for anything larger. |
 | App icon | `src/app/icon.svg` | Navy tile with the gold gauge. |
 | Typefaces | `src/app/layout.tsx` | System font (San Francisco on Apple devices, Inter elsewhere) for interface text; Nunito 800/900 via `font-display` for the wordmark and large headlines. |
@@ -18,7 +48,7 @@ mascot with the headset. Internal and spec name remains Bonalti Credit.
 - **Primary actions are gold with navy text** (`bg-amber-400 text-blue-900`).
   Never white text on gold: it fails contrast.
 - **Navy is for text, links and active states** on light backgrounds, and for
-  the hero field on landing pages. On navy, "Credit" is white and "Capi" stays gold.
+  the hero field on landing pages. On navy, "Cred" is white and "alti" stays gold.
 - **The score ring is the logo's gauge**: yellow at the low end, orange at the high end.
 - **Capi is always identified as artificial intelligence** wherever he speaks
   (chat header, first message, WhatsApp prefix).
@@ -28,14 +58,20 @@ mascot with the headset. Internal and spec name remains Bonalti Credit.
 The board's mock website contains lines that break the product's legal
 position. Visual identity is approved for use; these phrases are not:
 
-- "Reparamos, disputamos y mejoramos tu perfil de crédito" — says we do the
-  disputing. The customer disputes; Capi assists.
+- "Reparamos, disputamos y mejoramos tu perfil de crédito" — "reparamos" and
+  "mejoramos" promise an outcome. (Disputing is now what the team does, but
+  only for what the client says is inaccurate: "disputamos por ti los puntos
+  que tú nos indicas", never "disputamos todo".)
 - "Mejora tu crédito hoy", "Aumenta tu puntaje", "Resultados reales" — outcome
   promises.
 - The chip-card mock-up — implies we issue cards or lend money.
 
-Approved pattern: "Tu crédito, en tus manos." / "Capi prepara todo. Tú decides
-y tú apruebas." / "Los resultados varían."
+Approved pattern: "Tu crédito, con un equipo a tu lado." / "Tú nos dices qué
+está mal. Nosotros enviamos las cartas." / "Los resultados varían."
+
+No longer in use: "Tu crédito, en tus manos." and "Tú decides y tú apruebas."
+They described the do-it-yourself product, where the client sent their own
+letters.
 
 ## Ads
 
@@ -44,11 +80,19 @@ style and the end card are locked in `content/brand/lock.json`, and every ad
 script must pass the claim gate before anything is generated. See
 `content/README.md`.
 
+The end card's legal line and the ad text around the video were reworded for
+full service ("Tú decides qué es inexacto. Nuestro equipo prepara y envía las
+cartas."). A video assembled before that change still carries the old end
+card and has to be assembled again before it runs.
+
 ## Open items
 
-- **Trademark:** two registered US marks for CREDITAPI (software that
-  interfaces with credit reporting agencies) differ from CREDITCAPI by one
-  letter. Counsel should clear the name before spend on signage or ads.
+- **Trademark:** a quick web search found no existing "Credalti". That is not
+  a clearance: counsel should run a proper trademark search before spend on
+  signage or ads. (The earlier concern, two registered US marks for CREDITAPI,
+  was about the old name.)
+- **Brand board:** the board still shows the old wordmark. The gauge, colours
+  and Capi are unchanged; the wordmark in the product is drawn in code.
 - **Capi's voice:** not chosen yet; the video model invents one per render.
 - **Final artwork:** logo as SVG, Capi as transparent PNG/SVG in a few poses
   (waving, thumbs up, celebrating) for empty states and celebrations.

@@ -16,7 +16,6 @@ describe("claim guardrails", () => {
     ["Gain 80 points in 2 weeks", "no-points-in-days"],
     ["We can remove accurate information", "no-accurate-removal"],
     ["Podemos eliminar información correcta", "no-accurate-removal"],
-    ["Nosotros disputamos por ti", "diy-positioning"],
     ["We fix your credit", "diy-positioning"],
     ["Reparamos, disputamos y mejoramos tu perfil de crédito", "diy-positioning"],
     ["Lo que yo te voy a arreglar... es tu crédito.", "diy-positioning"],
@@ -136,6 +135,8 @@ describe("wording", () => {
       "src/lib/monitoring/subscription.ts", "src/app/api/webhooks/whatsapp/route.ts",
       "src/app/(app)/asistente/page.tsx", "src/app/(app)/rounds/page.tsx", "src/app/(app)/items/page.tsx",
       "src/app/(app)/audit/page.tsx", "src/app/(app)/dashboard/page.tsx", "src/app/(app)/mas/page.tsx",
+      "src/app/(app)/attack/page.tsx", "src/lib/ux/reviewChatCopy.ts", "src/lib/ux/teamRound.ts",
+      "src/lib/sales/invite.ts", "src/app/equipo/invitar/page.tsx",
     ];
     for (const file of files) {
       const text = readFileSync(file, "utf8");

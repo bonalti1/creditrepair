@@ -20,7 +20,7 @@ export const STATE_RULES: Record<string, StateRule> = {
   // counsel clearance and likely its own registration/bond:
   CA: { status: "waitlist", note: "Credit Services Act — registration + large bond likely if covered. Counsel." },
   FL: { status: "waitlist", note: "Credit Service Organizations Act — registration/bond regime. Counsel." },
-  AZ: { status: "waitlist", note: "Credit services statute — verify applicability to DIY software. Counsel." },
+  AZ: { status: "waitlist", note: "Credit services statute — verify applicability to a full-service company. Counsel." },
   NM: { status: "waitlist", note: "Verify credit services coverage. Counsel." },
   NV: { status: "waitlist", note: "Credit services registration regime. Counsel." },
   IL: { status: "waitlist", note: "Credit Services Organizations Act. Counsel." },

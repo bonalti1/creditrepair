@@ -1,8 +1,8 @@
 # IdentityIQ: the monitoring provider
 
-**Decision (2026-11-19):** CreditCapi uses IdentityIQ (company: IDIQ) for
+**Decision (2026-11-19):** Credalti uses IdentityIQ (company: IDIQ) for
 credit monitoring. The customer subscribes with IdentityIQ and pays them
-directly; CreditCapi is paid by IdentityIQ for the referral. We do not bill
+directly; Credalti is paid by IdentityIQ for the referral. We do not bill
 customers, so Stripe is not needed.
 
 ## What was found, and how sure it is

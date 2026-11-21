@@ -1,29 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fromServerTurn, readStoredThread, type ChatMsg, type ServerTurn } from "./chatMessages";
 
 // The thread with Capi. Signed in: the server copy (chat_messages via
 // /api/chat, RLS-scoped) is the source of truth, so the conversation follows
 // the client across devices. Signed out / demo: localStorage only.
 // Same shape as the review store in flagsStore.ts.
 
-export interface ChatMsg {
-  role: "assistant" | "user";
-  text: string;
-  /**
-   * Scripted lines only: the language `text` is written in, and the same line
-   * in the other language, so the thread follows the language switch. Typed
-   * questions and coach replies carry neither and stay as written. Both live
-   * in this browser only; the server copy stores `text`.
-   */
-  lang?: "es" | "en";
-  alt?: string;
-}
-
-/** What to show for a message in the active language. */
-export function messageText(m: ChatMsg, locale: "es" | "en"): string {
-  return m.alt && m.lang && m.lang !== locale ? m.alt : m.text;
-}
+export { messageText, type ChatMsg } from "./chatMessages";
 
 const STORAGE_KEY = "bonalti.chat.v1";
 const MAX_LOCAL = 200;
@@ -32,24 +17,7 @@ function loadLocal(): ChatMsg[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter(
-        (m): m is ChatMsg =>
-          typeof m === "object" && m !== null &&
-          ((m as ChatMsg).role === "assistant" || (m as ChatMsg).role === "user") &&
-          typeof (m as ChatMsg).text === "string",
-      )
-      .map((m) => {
-        // Messages saved before translations existed have no lang/alt; keep them as they are.
-        const msg: ChatMsg = { role: m.role, text: m.text };
-        if ((m.lang === "es" || m.lang === "en") && typeof m.alt === "string" && m.alt) {
-          msg.lang = m.lang;
-          msg.alt = m.alt;
-        }
-        return msg;
-      });
+    return readStoredThread(raw ? (JSON.parse(raw) as unknown) : []);
   } catch {
     return [];
   }
@@ -74,17 +42,20 @@ export function useChatThread() {
     const local = loadLocal();
     fetch("/api/chat")
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { authenticated: boolean; messages: ChatMsg[] } | null) => {
+      .then((data: { authenticated: boolean; messages: ServerTurn[] } | null) => {
         if (cancelled) return;
         if (data?.authenticated) {
           synced.current = true;
           setSignedIn(true);
           // The server keeps only the text. Where this browser still holds the
           // other-language version of the same line, put it back.
-          const known = new Map(local.filter((m) => m.alt).map((m) => [`${m.role}|${m.text}`, m]));
-          const thread = data.messages.map((m): ChatMsg => {
+          const known = new Map(local.filter((m) => m.alt && !m.author).map((m) => [`${m.role}|${m.text}`, m]));
+          const thread = data.messages.map((turn): ChatMsg => {
+            // A teammate's message (source "human") keeps its author and is never a scripted line.
+            const m = fromServerTurn(turn);
+            if (m.author) return m;
             const mine = known.get(`${m.role}|${m.text}`);
-            return mine ? { role: m.role, text: m.text, lang: mine.lang, alt: mine.alt } : { role: m.role, text: m.text };
+            return mine ? { ...m, lang: mine.lang, alt: mine.alt } : m;
           });
           setMessages(thread);
           saveLocal(thread);

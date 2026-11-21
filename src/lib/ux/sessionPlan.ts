@@ -1,5 +1,7 @@
 import { buildAttackPlan } from "../domain/attack";
 import type { AttackPlan, ItemFlag, PlannedLetter, ReportItem } from "../domain/types";
+import type { DisputeReasonCode } from "../letters/reasons";
+import { isDisputeReasonCode } from "./disputeReason";
 
 // The customer's plan for this session, built one way for every screen that
 // shows it (the chat, the letters page, the rounds page), so the letters they
@@ -19,6 +21,12 @@ export interface SessionPlan {
    * record waits here for the next round. Empty when the first round is round 2.
    */
   waiting: ReportItem[];
+  /**
+   * The standard reason the customer gave for each confirmed item, by
+   * fingerprint: what the letters print after the item. An item confirmed
+   * before reasons existed has no entry and is listed with no reason.
+   */
+  itemReasons: Record<string, DisputeReasonCode>;
 }
 
 /** The report items one letter covers, in report order. A file request covers none. */
@@ -29,14 +37,16 @@ export function letterItems(letter: PlannedLetter, items: ReportItem[]): ReportI
 
 export function sessionPlan(
   items: ReportItem[],
-  flags: Readonly<Record<string, { state: string; reason?: string; attestedAt?: string } | undefined>>,
+  flags: Readonly<Record<string, { state: string; reason?: string; reasonCode?: string; attestedAt?: string } | undefined>>,
 ): SessionPlan {
   const attestedFlags: ItemFlag[] = [];
+  const itemReasons: Record<string, DisputeReasonCode> = {};
   for (const item of items) {
     const f = flags[item.fingerprint];
     // Only a decision the customer confirmed, with its timestamp, can reach a letter.
     if (f && f.state === "attested" && f.attestedAt) {
       attestedFlags.push({ fingerprint: item.fingerprint, reason: f.reason ?? "", attested: true, attestedAt: f.attestedAt });
+      if (isDisputeReasonCode(f.reasonCode)) itemReasons[item.fingerprint] = f.reasonCode;
     }
   }
   const confirmed = new Set(attestedFlags.map((f) => f.fingerprint));
@@ -54,5 +64,6 @@ export function sessionPlan(
     plan,
     inRound: confirmedItems.filter((i) => mailed.has(i.fingerprint)),
     waiting: confirmedItems.filter((i) => !mailed.has(i.fingerprint)),
+    itemReasons,
   };
 }

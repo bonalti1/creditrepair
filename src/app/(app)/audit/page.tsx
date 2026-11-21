@@ -7,6 +7,7 @@ import { useLocale } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/dictionaries";
 import type { ReportItem } from "@/lib/domain/types";
 import { useFlags } from "@/lib/ux/flagsStore";
+import { useAgreement } from "@/lib/ux/agreementStore";
 import { itemTitle } from "@/lib/ux/itemDisplay";
 import { nextAction, sessionJourneyState } from "@/lib/ux/journey";
 import Icon from "@/components/Icon";
@@ -39,9 +40,11 @@ function severity(item: ReportItem): "high" | "medium" | "info" | null {
 export default function Audit() {
   const { locale, d } = useLocale();
   const { flags, roundApproved, hydrated } = useFlags();
+  // The agreement is part of the next step, so every screen reads the same one Home does.
+  const { agreement } = useAgreement();
   const items = DEMO_REPORT.items;
   // Known only once the saved decisions are read; the audit itself shows right away.
-  const step = hydrated ? nextAction(sessionJourneyState(items, flags, roundApproved), locale) : null;
+  const step = hydrated ? nextAction(sessionJourneyState(items, flags, roundApproved, agreement), locale) : null;
   const high = items.filter((i) => severity(i) === "high");
   const medium = items.filter((i) => severity(i) === "medium");
   const info = items.filter((i) => severity(i) === "info");
