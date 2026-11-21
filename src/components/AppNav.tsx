@@ -6,6 +6,7 @@ import { useLocale } from "@/lib/i18n";
 import Icon, { type IconName } from "@/components/Icon";
 import LocaleToggle from "@/components/LocaleToggle";
 import Logo from "@/components/Logo";
+import { BRAND } from "@/lib/brand";
 
 // Three destinations, like a good phone app: where you stand, your assistant,
 // and everything else. Translucent bars keep the content feeling continuous.
@@ -30,7 +31,7 @@ export default function AppNav() {
       <header className="sticky top-0 z-30 border-b hairline bg-white/75 backdrop-blur-xl">
         <div className="mx-auto flex h-12 max-w-2xl items-center justify-between px-4 sm:h-14 sm:px-6">
           {/* Full header height, so the logo is an easy tap. */}
-          <Link href="/" aria-label="CreditCapi" className="flex h-11 items-center">
+          <Link href="/" aria-label={BRAND.name} className="flex h-11 items-center">
             <Logo size={19} />
           </Link>
 

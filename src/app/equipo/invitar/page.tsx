@@ -3,11 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
 import { buildInvitePath, GOALS, inviteMessageEs, type GoalKey } from "@/lib/sales/invite";
-import Logo from "@/components/Logo";
+import { getStaffData } from "@/lib/staff/data";
+import { formatPhone } from "@/lib/staff/format";
 
 // The salesperson's side of the handoff. After the WhatsApp conversation they
 // fill in four things and get a personal link plus a ready message. The
 // customer opens it and lands on a welcome screen with those answers filled in.
+//
+// Opened from a client's page (/equipo/invitar?cliente=<id>) the name, state
+// and WhatsApp number arrive filled in. Only the id travels in the address;
+// the details are looked up here, so no personal data sits in a URL.
 
 const field =
   "h-12 w-full rounded-2xl bg-white px-4 text-[16px] text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-300";
@@ -31,6 +36,16 @@ export default function Invitar() {
     } catch {
       // ignore
     }
+    const clientId = new URLSearchParams(window.location.search).get("cliente");
+    if (!clientId) return;
+    void getStaffData()
+      .getClient(clientId)
+      .then((client) => {
+        if (!client) return;
+        setName(client.firstName);
+        if ((ALL_STATES as readonly string[]).includes(client.state)) setState(client.state);
+        setPhone(formatPhone(client.phone));
+      });
   }, []);
 
   const url = useMemo(
@@ -54,13 +69,8 @@ export default function Invitar() {
   };
 
   return (
-    <main className="mx-auto min-h-dvh max-w-md px-6 pb-12 pt-6">
-      <div className="flex items-center justify-between">
-        <Logo size={19} />
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Equipo</span>
-      </div>
-
-      <h1 className="mt-8 text-[28px] font-semibold tracking-tight text-slate-900">Invitar a un cliente</h1>
+    <main className="animate-rise mx-auto max-w-md pb-6">
+      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">Invitar a un cliente</h1>
       <p className="mt-2 text-[15px] leading-relaxed text-slate-500">
         Llena esto al terminar la conversación. El cliente abre el enlace y ya no repite sus respuestas.
       </p>

@@ -34,7 +34,7 @@ describe("letter templates", () => {
     expect(letter).toContain("- Copy of government-issued photo ID");
     // No unfilled merge fields and no company speaking for the consumer.
     expect(letter).not.toMatch(/\{\{|\}\}|undefined|\[object/);
-    expect(letter).not.toMatch(/\bCreditCapi\b|\bBonalti\b|on behalf of/i);
+    expect(letter).not.toMatch(/\bCredalti\b|\bCreditCapi\b|\bBonalti\b|on behalf of/i);
   });
 
   it("lists exactly the items it was given", () => {

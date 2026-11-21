@@ -7,6 +7,8 @@
 // No personal data goes in an alert: messages are truncated, and callers pass
 // identifiers (route, user id), never report contents.
 
+import { BRAND } from "../brand";
+
 const lastSent = new Map<string, number>();
 const THROTTLE_MS = 5 * 60 * 1000;
 const MAX_KEYS = 500;
@@ -52,7 +54,7 @@ export async function reportError(error: unknown, context: ErrorContext): Promis
   if (!shouldAlert(`${context.where}|${info.name}|${info.message}`)) return;
 
   const lines = [
-    `CreditCapi error in ${context.where}`,
+    `${BRAND.name} error in ${context.where}`,
     `${info.name}: ${info.message}`,
     context.userId ? `user: ${context.userId}` : null,
     process.env.NEXT_PUBLIC_APP_URL ? `app: ${process.env.NEXT_PUBLIC_APP_URL}` : null,

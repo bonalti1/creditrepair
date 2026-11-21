@@ -567,8 +567,8 @@ describe("G. the first pages in English", () => {
     }
     expect(en.landing.footer).toMatch(/artificial intelligence assistant/);
     expect(en.empezar.footer).toMatch(/Disputing correct, current information is not the purpose of the tool/);
-    expect(en.empezar.footer).toMatch(/CreditCapi earns a commission on that subscription/);
-    expect(en.onboarding.disclosure).toBe("Disclosure: CreditCapi earns a commission from the monitoring service when you subscribe.");
+    expect(en.empezar.footer).toMatch(/Credalti earns a commission on that subscription/);
+    expect(en.onboarding.disclosure).toBe("Disclosure: Credalti earns a commission from the monitoring service when you subscribe.");
     expect(en.onboarding.welcomeNote).toMatch(/Results vary case by case/);
     expect(en.onboarding.assistNote).toMatch(/Results vary case by case/);
     // Same price in both languages.
@@ -593,7 +593,7 @@ describe("G. the first pages in English", () => {
 
 describe("I. small copy changes", () => {
   it("says do-it-yourself in plain words, in both footers", () => {
-    const sentence = "CreditCapi es una herramienta de software para que tú hagas tus propias disputas.";
+    const sentence = "Credalti es una herramienta de software para que tú hagas tus propias disputas.";
     clean(sentence);
     for (const footer of [MARKETING.es.landing.footer, MARKETING.es.empezar.footer]) {
       expect(footer.startsWith(sentence)).toBe(true);

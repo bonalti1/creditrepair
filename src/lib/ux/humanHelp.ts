@@ -1,4 +1,5 @@
 import type { Locale } from "../i18n/dictionaries";
+import { BRAND } from "../brand";
 
 // "Talk to a person". A real person answers on WhatsApp, so the path exists
 // only when a WhatsApp number is configured. Without one (the demo) the app
@@ -7,8 +8,8 @@ import type { Locale } from "../i18n/dictionaries";
 const NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || null;
 
 const OPENING = {
-  es: "Hola, necesito ayuda con mi cuenta de CreditCapi.",
-  en: "Hi, I need help with my CreditCapi account.",
+  es: `Hola, necesito ayuda con mi cuenta de ${BRAND.name}.`,
+  en: `Hi, I need help with my ${BRAND.name} account.`,
 } as const;
 
 /** The WhatsApp chat with the team, or null when no number is configured. */

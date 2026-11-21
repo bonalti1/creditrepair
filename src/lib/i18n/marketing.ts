@@ -99,7 +99,7 @@ const es: MarketingCopy = {
       ["Un solo costo", `El software es gratis. Solo necesitas tu suscripción de monitoreo de crédito (${price}/mes).`],
     ],
     footer:
-      "CreditCapi es una herramienta de software para que tú hagas tus propias disputas. No disputamos por ti, no garantizamos resultados y los resultados varían según cada caso. Capi es un asistente de inteligencia artificial. Disponible en Texas. Esto no es asesoría legal.",
+      "Credalti es una herramienta de software para que tú hagas tus propias disputas. No disputamos por ti, no garantizamos resultados y los resultados varían según cada caso. Capi es un asistente de inteligencia artificial. Disponible en Texas. Esto no es asesoría legal.",
   },
   empezar: {
     headline: "Capi, tu asistente de crédito con IA.",
@@ -110,14 +110,14 @@ const es: MarketingCopy = {
     leadAfter: `— 3 toques por ronda, ~5 minutos al mes. El software es gratis. El único costo es tu suscripción de monitoreo de crédito: ${price} al mes, y la cancelas cuando quieras.`,
     ctaWhatsapp: "Escríbenos por WhatsApp →",
     ctaStart: "Empezar ahora — es gratis →",
-    whatsappText: "¡Hola! Quiero empezar a revisar mi crédito con CreditCapi.",
+    whatsappText: "¡Hola! Quiero empezar a revisar mi crédito con Credalti.",
     underCta: "Sin contratos de servicio · Ayuda en vivo gratis si la quieres · Cancela tu monitoreo cuando quieras",
     step: (n) => `Paso ${n}`,
     steps: [
       {
         title: "Conecta tu monitoreo e importa tu reporte",
         body: `Con ${monitoringName("es")} (${price}/mes, el único costo), importamos tu reporte de los 3 burós — Equifax, Experian y TransUnion — y te mostramos exactamente qué sigue, un paso a la vez.`,
-        alt: "Panel de CreditCapi mostrando el siguiente paso",
+        alt: "Panel de Credalti mostrando el siguiente paso",
       },
       {
         title: "Revisa cada elemento, explicado en palabras simples",
@@ -160,7 +160,7 @@ const es: MarketingCopy = {
       ],
       [
         "¿Esto tiene que ver con mi estatus migratorio?",
-        "No. Revisar y disputar tu propio reporte de crédito es un derecho de todo consumidor bajo la ley federal (FCRA). CreditCapi no te pide información migratoria. (Esto no es asesoría legal.)",
+        "No. Revisar y disputar tu propio reporte de crédito es un derecho de todo consumidor bajo la ley federal (FCRA). Credalti no te pide información migratoria. (Esto no es asesoría legal.)",
       ],
       [
         "¿Necesito número de Seguro Social?",
@@ -175,7 +175,7 @@ const es: MarketingCopy = {
         "No — y eso te protege. El asistente prepara todo (lee tu reporte, escribe las cartas, las envía por correo), pero tú decides y tú apruebas. Son 3 toques por ronda, unos 5 minutos al mes.",
       ],
     ],
-    footer: `CreditCapi es una herramienta de software para que tú hagas tus propias disputas. No disputamos por ti y no garantizamos resultados — los resultados varían según cada caso. Disputar información correcta y actual no es el propósito de la herramienta. Requiere una suscripción activa de monitoreo de crédito (${price}/mes), que se contrata con un servicio de monitoreo independiente; CreditCapi recibe una comisión por esa suscripción. Disponible en Texas. Esto no es asesoría legal.`,
+    footer: `Credalti es una herramienta de software para que tú hagas tus propias disputas. No disputamos por ti y no garantizamos resultados — los resultados varían según cada caso. Disputar información correcta y actual no es el propósito de la herramienta. Requiere una suscripción activa de monitoreo de crédito (${price}/mes), que se contrata con un servicio de monitoreo independiente; Credalti recibe una comisión por esa suscripción. Disponible en Texas. Esto no es asesoría legal.`,
     more: "Más información",
   },
   onboarding: {
@@ -207,7 +207,7 @@ const es: MarketingCopy = {
     monitoringRows: (providerName) => [
       ["Cuánto cuesta", `${price} al mes`],
       ["Con quién lo contratas", providerName ?? "Un servicio de monitoreo independiente"],
-      ["Qué incluye CreditCapi", "La app, tus cartas y el envío por correo"],
+      ["Qué incluye Credalti", "La app, tus cartas y el envío por correo"],
       ["Cancelar", "Cuando quieras, directo con el servicio"],
     ],
     disclosure: AFFILIATE_DISCLOSURE.es,
@@ -225,7 +225,7 @@ const es: MarketingCopy = {
     withPersonSub: "Alguien del equipo te acompaña por WhatsApp. Gratis.",
     assistNote:
       "La ayuda es educativa: te explicamos y acompañamos, pero cada decisión y cada envío es tuyo. Los resultados varían según cada caso.",
-    assistWhatsappText: "¡Hola! Quiero ayuda en vivo para revisar mi crédito con CreditCapi.",
+    assistWhatsappText: "¡Hola! Quiero ayuda en vivo para revisar mi crédito con Credalti.",
     waitlistDone: "Listo. Te avisamos pronto.",
     waitlistDoneSub: "En cuanto abramos en tu estado, serás de los primeros en saberlo.",
     backHome: "Volver al inicio",
@@ -252,7 +252,7 @@ const en: MarketingCopy = {
       ["One single cost", `The software is free. You only need your credit monitoring subscription (${price}/month).`],
     ],
     footer:
-      "CreditCapi is a software tool for doing your own disputes. We do not dispute for you, we make no guarantees about results, and results vary case by case. Capi is an artificial intelligence assistant. Available in Texas. This is not legal advice.",
+      "Credalti is a software tool for doing your own disputes. We do not dispute for you, we make no guarantees about results, and results vary case by case. Capi is an artificial intelligence assistant. Available in Texas. This is not legal advice.",
   },
   empezar: {
     headline: "Capi, your AI credit assistant.",
@@ -263,14 +263,14 @@ const en: MarketingCopy = {
     leadAfter: `— 3 taps per round, ~5 minutes a month. The software is free. The only cost is your credit monitoring subscription: ${price} a month, and you can cancel it whenever you want.`,
     ctaWhatsapp: "Message us on WhatsApp →",
     ctaStart: "Start now — it's free →",
-    whatsappText: "Hi! I want to start reviewing my credit with CreditCapi.",
+    whatsappText: "Hi! I want to start reviewing my credit with Credalti.",
     underCta: "No service contracts · Free live help if you want it · Cancel your monitoring whenever you want",
     step: (n) => `Step ${n}`,
     steps: [
       {
         title: "Connect your monitoring and import your report",
         body: `With ${monitoringName("en")} (${price}/month, the only cost), we import your 3-bureau report — Equifax, Experian and TransUnion — and show you exactly what comes next, one step at a time.`,
-        alt: "CreditCapi dashboard showing the next step",
+        alt: "Credalti dashboard showing the next step",
       },
       {
         title: "Review each item, explained in plain words",
@@ -314,7 +314,7 @@ const en: MarketingCopy = {
       ],
       [
         "Does this have anything to do with my immigration status?",
-        "No. Reviewing and disputing your own credit report is a right every consumer has under federal law (FCRA). CreditCapi does not ask you for immigration information. (This is not legal advice.)",
+        "No. Reviewing and disputing your own credit report is a right every consumer has under federal law (FCRA). Credalti does not ask you for immigration information. (This is not legal advice.)",
       ],
       [
         "Do I need a Social Security number?",
@@ -329,7 +329,7 @@ const en: MarketingCopy = {
         "No — and that protects you. The assistant prepares everything (reads your report, writes the letters, mails them), but you decide and you approve. It's 3 taps per round, about 5 minutes a month.",
       ],
     ],
-    footer: `CreditCapi is a software tool for doing your own disputes. We do not dispute for you and we make no guarantees about results — results vary case by case. Disputing correct, current information is not the purpose of the tool. It requires an active credit monitoring subscription (${price}/month), bought from an independent monitoring service; CreditCapi earns a commission on that subscription. Available in Texas. This is not legal advice.`,
+    footer: `Credalti is a software tool for doing your own disputes. We do not dispute for you and we make no guarantees about results — results vary case by case. Disputing correct, current information is not the purpose of the tool. It requires an active credit monitoring subscription (${price}/month), bought from an independent monitoring service; Credalti earns a commission on that subscription. Available in Texas. This is not legal advice.`,
     more: "More information",
   },
   onboarding: {
@@ -361,7 +361,7 @@ const en: MarketingCopy = {
     monitoringRows: (providerName) => [
       ["What it costs", `${price} a month`],
       ["Who you buy it from", providerName ?? "An independent monitoring service"],
-      ["What CreditCapi includes", "The app, your letters and the mailing"],
+      ["What Credalti includes", "The app, your letters and the mailing"],
       ["Cancel", "Whenever you want, directly with the service"],
     ],
     disclosure: AFFILIATE_DISCLOSURE.en,
@@ -379,7 +379,7 @@ const en: MarketingCopy = {
     withPersonSub: "Someone from the team stays with you on WhatsApp. Free.",
     assistNote:
       "The help is educational: we explain and stay with you, but every decision and every mailing is yours. Results vary case by case.",
-    assistWhatsappText: "Hi! I want live help reviewing my credit with CreditCapi.",
+    assistWhatsappText: "Hi! I want live help reviewing my credit with Credalti.",
     waitlistDone: "Done. We'll let you know soon.",
     waitlistDoneSub: "As soon as we open in your state, you'll be among the first to know.",
     backHome: "Back to home",

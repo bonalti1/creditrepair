@@ -11,6 +11,7 @@ import { LocaleProvider, useLocale } from "@/lib/i18n";
 import { MARKETING } from "@/lib/i18n/marketing";
 import { MONITORING_OFFER } from "@/lib/monitoring/offer";
 import { GOALS, parseInvite, type Invite } from "@/lib/sales/invite";
+import { BRAND } from "@/lib/brand";
 
 // Onboarding: goal (feeds the mortgage track) → state gate (v1 is TX-only;
 // other states join the waitlist, since expansion is a legal project, not a
@@ -134,7 +135,7 @@ function Onboarding() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-10 pt-6">
       <div className="flex items-center justify-between gap-3">
-        <Link href="/" aria-label="CreditCapi" className="flex h-11 items-center">
+        <Link href="/" aria-label={BRAND.name} className="flex h-11 items-center">
           <Logo size={19} />
         </Link>
         <div className="flex items-center gap-3">

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
+import { BRAND } from "@/lib/brand";
 
 // Passwordless sign-in built for people who live on their phone: a text-message
 // code is the default (no email required, nothing to remember); an email link
@@ -195,7 +196,7 @@ function LoginForm() {
 export default function Login() {
   return (
     <main className="mx-auto max-w-md px-6 py-14">
-      <Link href="/" aria-label="CreditCapi">
+      <Link href="/" aria-label={BRAND.name}>
         <Logo size={24} />
       </Link>
       <h1 className="mt-10 font-display text-[34px] font-black leading-tight text-blue-700">Entrar</h1>

@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-// Session refresh + auth gate for app pages. When Supabase isn't configured,
-// everything passes through (demo mode) so the product is explorable with
-// zero setup.
+// Session refresh + auth gate for app pages and the staff console. When
+// Supabase isn't configured, everything passes through (demo mode) so the
+// product is explorable with zero setup.
 // (Next.js 16 calls this file "proxy"; it was "middleware" before. It runs on
 // the Node.js runtime.)
 
@@ -47,5 +47,8 @@ export const config = {
     "/attack/:path*",
     "/rounds/:path*",
     "/goal/:path*",
+    // The staff console. Signed in is the first check; being an active member
+    // of staff is the second, in src/app/equipo/layout.tsx.
+    "/equipo/:path*",
   ],
 };

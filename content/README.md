@@ -1,6 +1,6 @@
 # Content kit: ads that stay on brand and inside the rules
 
-Everything needed to make a CreditCapi video ad the same way every time. It is
+Everything needed to make a Credalti video ad the same way every time. It is
 written to be lifted into ALTO Control later: plain data files plus four small
 scripts, no dependency on the web app except the claim rules.
 

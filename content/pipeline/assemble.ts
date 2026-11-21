@@ -57,15 +57,15 @@ function endCardHtml(spot: Spot, lock: Lock): string {
   const [w, h] = SIZES[spot.format];
   const vertical = spot.format === "9:16";
   const logo = vertical
-    ? `<div class="mark">${gaugeSvg(210)}</div><div class="word">Credit<span class="capi">Capi</span></div>`
-    : `<div class="row">${gaugeSvg(190)}<div class="word">Credit<span class="capi">Capi</span></div></div>`;
+    ? `<div class="mark">${gaugeSvg(210)}</div><div class="word">Cred<span class="alti">alti</span></div>`
+    : `<div class="row">${gaugeSvg(190)}<div class="word">Cred<span class="alti">alti</span></div></div>`;
   return `<!doctype html><html><head><meta charset="utf-8">${FONTS}<style>
 html,body{margin:0;width:${w}px;height:${h}px;overflow:hidden}
 body{background:linear-gradient(180deg,#0a2152,#06173b);font-family:Nunito,sans-serif;color:#fff;position:relative}
 .stack{position:absolute;left:0;right:0;top:${vertical ? 500 : 250}px;display:flex;flex-direction:column;align-items:center;text-align:center}
 .row{display:flex;align-items:center;gap:36px}
 .word{margin-top:${vertical ? 26 : 0}px;font-weight:900;font-style:italic;font-size:${vertical ? 164 : 176}px;letter-spacing:-3px;line-height:1}
-.capi{background:linear-gradient(90deg,#ffc21a,#f9890b);-webkit-background-clip:text;color:transparent;padding-right:14px}
+.alti{background:linear-gradient(90deg,#ffc21a,#f9890b);-webkit-background-clip:text;color:transparent;padding-right:14px}
 .tag{margin-top:${vertical ? 64 : 44}px;font-weight:800;font-size:${vertical ? 78 : 64}px;line-height:1.12;letter-spacing:-0.5px}
 .tag b{color:#ffc21a;font-weight:800;${vertical ? "display:block" : ""}}
 .legal{margin-top:${vertical ? 72 : 60}px;max-width:${vertical ? 820 : 1500}px;font-family:Inter,sans-serif;font-weight:500;font-size:${vertical ? 31 : 27}px;line-height:1.42;color:#c8d3f2}

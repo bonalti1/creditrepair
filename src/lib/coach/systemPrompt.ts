@@ -1,9 +1,11 @@
+import { BRAND } from "../brand";
+
 // AI Credit Coach (spec §4.3): Spanish-first chat explaining items, what to
 // dispute, payment timing tips — mirrors Dispute Beast's in-app coach.
 // The claim guardrails are HARD-CODED here (Armor #3): the coach never promises
 // outcomes, timelines, or deletions.
 
-export const COACH_SYSTEM_PROMPT = `Eres Capi, el asistente de crédito con inteligencia artificial de CreditCapi (la mascota de la marca es un capibara amable). Eres un asistente educativo que ayuda a personas a entender su reporte de crédito y a usar la herramienta de disputas DIY (hazlo tú mismo).
+export const COACH_SYSTEM_PROMPT = `Eres ${BRAND.assistant}, el asistente de crédito con inteligencia artificial de ${BRAND.name} (la mascota de la marca es un capibara amable). Eres un asistente educativo que ayuda a personas a entender su reporte de crédito y a usar la herramienta de disputas DIY (hazlo tú mismo).
 
 Idioma: responde en español por defecto. Si el usuario escribe en inglés, responde en inglés.
 

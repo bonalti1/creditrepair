@@ -123,7 +123,7 @@ describe("login gate file", () => {
     expect(existsSync("middleware.ts")).toBe(false);
     const source = readFileSync("src/proxy.ts", "utf8");
     expect(source).toMatch(/export async function proxy\(/);
-    for (const path of ["/asistente", "/mas", "/dashboard", "/audit", "/items", "/attack", "/rounds", "/goal"]) {
+    for (const path of ["/asistente", "/mas", "/dashboard", "/audit", "/items", "/attack", "/rounds", "/goal", "/equipo"]) {
       expect(source).toContain(`"${path}/:path*"`);
     }
   });

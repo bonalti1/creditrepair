@@ -23,7 +23,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 // always knows). A human teammate takes over threads without the 🤖 prefix.
 const AI_PREFIX = "🤖 ";
 const FALLBACK =
-  "¡Gracias por tu mensaje! Soy Capi, el asistente de IA de CreditCapi. Para revisar tu reporte y preparar tus cartas, entra a la app. Si tienes una pregunta sobre tu crédito, escríbela y te respondo aquí mismo. Si prefieres hablar con una persona del equipo, dilo y te conectamos. 🙂";
+  "¡Gracias por tu mensaje! Soy Capi, el asistente de IA de Credalti. Para revisar tu reporte y preparar tus cartas, entra a la app. Si tienes una pregunta sobre tu crédito, escríbela y te respondo aquí mismo. Si prefieres hablar con una persona del equipo, dilo y te conectamos. 🙂";
 
 // Sales comes first. Someone writing in who is not yet a customer (no profile
 // with that phone number) is a lead, and leads are handled by a person. Capi
@@ -31,7 +31,7 @@ const FALLBACK =
 // it never talks over the salesperson. Customers get Capi as before.
 // Set WHATSAPP_LEAD_REPLIES=ai to let Capi answer leads too.
 const LEAD_GREETING =
-  "¡Hola! Soy Capi, el asistente de IA de CreditCapi. Gracias por escribir. Una persona de nuestro equipo te responde aquí mismo en un momento para ayudarte a empezar. 🙂";
+  "¡Hola! Soy Capi, el asistente de IA de Credalti. Gracias por escribir. Una persona de nuestro equipo te responde aquí mismo en un momento para ayudarte a empezar. 🙂";
 const LEAD_GREETING_WINDOW_MS = 24 * 60 * 60_000;
 
 // Per-sender cap on AI replies: 12 in 5 minutes is far above a real

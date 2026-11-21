@@ -1,4 +1,5 @@
 import { ALL_STATES } from "../compliance/states";
+import { BRAND } from "../brand";
 
 // The handoff from sales to the software. A salesperson talks with the lead on
 // WhatsApp, then sends a personal link. The link carries what the conversation
@@ -84,8 +85,8 @@ export function inviteMessageEs(invite: Partial<Invite>, url: string): string {
   const name = cleanName(invite.name);
   const greeting = name ? `¡Listo, ${name}!` : "¡Listo!";
   return [
-    `${greeting} Aquí está tu enlace para entrar a CreditCapi:`,
+    `${greeting} Aquí está tu enlace para entrar a ${BRAND.name}:`,
     url,
-    "Ahí ves tu reporte y Capi, el asistente con IA, te explica cada punto. Tú decides qué disputar y tú apruebas cada carta. Yo sigo aquí por si tienes dudas.",
+    `Ahí ves tu reporte y ${BRAND.assistant}, el asistente con IA, te explica cada punto. Tú decides qué disputar y tú apruebas cada carta. Yo sigo aquí por si tienes dudas.`,
   ].join("\n\n");
 }

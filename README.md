@@ -1,6 +1,13 @@
-# CreditCapi — DIY Credit Dispute SaaS
+# Credalti — credit dispute software
 
-*(Consumer brand: CreditCapi, with the AI assistant "Capi". Internal/spec name: Bonalti Credit.)*
+*(Company: Credalti, with the AI assistant "Capi". Called CreditCapi until November 2026. Internal/spec name: Bonalti Credit.)*
+
+**Where this is going:** Credalti is moving to full service: the company
+prepares and sends the disputes for its clients, with software automated enough
+for two staff to run fulfillment. The first piece of that is the staff console
+at `/equipo` (demo data for now; see `src/lib/staff/`). The client app described
+below still works as it did, as a do-it-yourself tool; its switch to full
+service, contracts and billing are later phases.
 
 Consumer-facing DIY credit dispute software. Spanish-first, Texas launch.
 The software is free; revenue is the required credit monitoring subscription
@@ -50,6 +57,11 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/letters/enclosures.ts` | ID and proof-of-address photos attached as pages behind each mailed letter |
 | `supabase/setup.sql` | Every migration in order, for pasting into the Supabase SQL editor (a test keeps it in sync) |
 | `src/lib/sales/`, `src/app/equipo/invitar` | Sales-first handoff: the salesperson's invite link and the page that builds it — see `docs/SALES-FLOW.md` |
+| `src/lib/brand.ts` | Company name (Credalti), wordmark halves and the assistant's name (Capi); pages and messages read from here |
+| `src/lib/staff/stage.ts` | Staff console logic: a client's stage, what needs a person (exceptions), and the system's next step with its date |
+| `src/lib/staff/data.ts`, `src/lib/staff/demoClients.ts` | Where the console gets clients: the interface, the demo implementation (invented clients), and the marked place for the database one |
+| `src/app/equipo/` | Staff console: home (exceptions, batch send, pipeline), client list, client page, invite. Open in the demo; staff-only when Supabase is configured |
+| `supabase/migrations/0007_staff.sql` | `staff_members`, `is_staff()`, and read-only staff policies on client tables |
 | `content/` | Ad content kit: locked mascot, spot files, claim gate, assembly and transcript check — see `content/README.md` |
 
 ## Load-bearing invariants

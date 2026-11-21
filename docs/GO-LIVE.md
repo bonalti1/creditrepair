@@ -25,7 +25,7 @@ name shown. Never paste a key into a chat or an email.
 >
 > Hello,
 >
-> We are launching CreditCapi, a Spanish-first web app for consumers in Texas.
+> We are launching Credalti, a Spanish-first web app for consumers in Texas.
 > It helps a consumer read their own 3-bureau report and prepare their own
 > dispute letters; the consumer makes every decision and sends their own
 > disputes. We would like to refer our users to IdentityIQ for credit
@@ -53,14 +53,14 @@ name shown. Never paste a key into a chat or an email.
 
 > Subject: Review before launch — consumer credit dispute software (Texas)
 >
-> We are preparing to launch CreditCapi, a Spanish-language web app where a
+> We are preparing to launch Credalti, a Spanish-language web app where a
 > consumer reviews their own credit report and sends their own dispute
 > letters. The software is free to the consumer; we are paid a referral
 > commission by the credit monitoring company (IdentityIQ). I am attaching our
 > brief with the main questions. Since it was written, these came up and I
 > would like to cover them in the same session:
 >
-> 1. **Name.** There are registered US marks for CREDITAPI. Is CREDITCAPI safe to use?
+> 1. **Name.** The name is now CREDALTI. A quick web search found no existing use of it. Is it safe to use?
 > 2. **Commission.** We tell users in writing that we earn a commission when
 >    they subscribe to monitoring through our link. Is the wording sufficient?
 >    Does being paid this way change how the product is classified?
@@ -97,7 +97,7 @@ Also set, with no account needed:
 
 | Variable | Value |
 | --- | --- |
-| `NEXT_PUBLIC_APP_URL` | The app's address, for example `https://app.creditcapi.com` |
+| `NEXT_PUBLIC_APP_URL` | The app's address, for example `https://app.credalti.com` |
 | `NEXT_PUBLIC_WHATSAPP_NUMBER` | The sales WhatsApp number, digits only, with country code |
 | `NEXT_PUBLIC_MONITORING_SIGNUP_URL` | The partner link from IdentityIQ (when you have it) |
 | `NEXT_PUBLIC_MONITORING_PRICE` | The price on that link's checkout page, for example `$31.49` |
