@@ -1,52 +1,21 @@
-import type { LetterTarget, ReportItem, UserProfile } from "../domain/types";
+import { BUREAU_TEMPLATES } from "./bureauTemplates";
+import { CREDITOR_COLLECTOR_TEMPLATES } from "./creditorCollectorTemplates";
+import { IDENTITY_ACCESS_TEMPLATES } from "./identityAccessTemplates";
+import { header, itemLines, signature as SIGNATURE, type LetterContext, type LetterTemplate } from "./parts";
 
 // Letter generation (spec §4.2): rules engine + merge-field templates.
 // Letters are written in first person BY THE USER — the user disputes, we provide
 // the tool. Letters mail in English (bureau operational language); the UI that
 // explains them is Spanish-first.
+//
+// This file is the home of the original ten templates, which the round engine
+// uses by key. Their wording is unchanged. The wider library lives in the
+// sibling *Templates.ts files and is merged into the one TEMPLATES map below;
+// metadata for every template is in library.ts.
 
-export interface LetterContext {
-  user: UserProfile;
-  target: LetterTarget;
-  items: ReportItem[];
-  date: string; // ISO date the letter is generated
-  roundNumber: number;
-  /** Enclosure labels (e.g. "Copy of government-issued ID") appended after the signature. */
-  enclosures?: string[];
-}
+export type { LetterContext } from "./parts";
 
-function itemLines(items: ReportItem[]): string {
-  return items
-    .map((i) => {
-      const d = i.data as Record<string, unknown>;
-      const detail = [d.accountNumberMasked, d.date, d.status].filter(Boolean).join(" · ");
-      return `- ${i.name}${detail ? ` (${detail})` : ""}`;
-    })
-    .join("\n");
-}
-
-function header(ctx: LetterContext): string {
-  return [
-    ctx.user.fullName,
-    ...ctx.user.addressLines,
-    "",
-    new Date(ctx.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
-    "",
-    ctx.target.name,
-    ...ctx.target.addressLines,
-    "",
-  ].join("\n");
-}
-
-const SIGNATURE = (ctx: LetterContext) => {
-  let sig = `\nSincerely,\n\n${ctx.user.fullName}`;
-  if (ctx.enclosures && ctx.enclosures.length > 0) {
-    sig += `\n\nEnclosures:\n${ctx.enclosures.map((e) => `- ${e}`).join("\n")}`;
-  }
-  return sig;
-};
-
-export const TEMPLATES: Record<string, (ctx: LetterContext) => string> = {
+const ORIGINAL_TEMPLATES: Record<string, LetterTemplate> = {
   personal_info_cleanup: (ctx) =>
     header(ctx) +
     `Re: Request to update personal information on my credit file
@@ -191,6 +160,17 @@ If my file contains information I believe to be inaccurate, unverifiable, or out
 ` +
     SIGNATURE(ctx),
 };
+
+/** Every letter template, original and library, by key. The originals always win a key clash. */
+export const TEMPLATES: Record<string, LetterTemplate> = {
+  ...BUREAU_TEMPLATES,
+  ...CREDITOR_COLLECTOR_TEMPLATES,
+  ...IDENTITY_ACCESS_TEMPLATES,
+  ...ORIGINAL_TEMPLATES,
+};
+
+/** The ten keys the round engine relies on. */
+export const ORIGINAL_TEMPLATE_KEYS: readonly string[] = Object.keys(ORIGINAL_TEMPLATES);
 
 export function renderLetter(templateKey: string, ctx: LetterContext): string {
   const template = TEMPLATES[templateKey];
