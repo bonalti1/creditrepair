@@ -181,7 +181,7 @@ describe("print view: the batch", () => {
     // The printed letters keep the date they were marked as mailed.
     expect(after.letters[0]!.text).toContain("December 5, 2026");
     const page = readFileSync("src/app/equipo/imprimir/page.tsx", "utf8");
-    expect(page).toContain("data.markRoundsSent(toMark)");
+    expect(page).toContain("data.markRoundsSent(toMark, { via: \"print\" })");
     expect(page).toContain("window.print()");
   });
 

@@ -6,7 +6,7 @@ import { getStaffData, resetDemo } from "@/lib/staff/data";
 import Icon, { type IconName } from "@/components/Icon";
 import Logo from "@/components/Logo";
 
-// The frame around every staff screen: logo, three destinations, and a "Demo"
+// The frame around every staff screen: logo, the destinations, and a "Demo"
 // pill while the clients are invented. Built for a computer first; on a phone
 // the navigation drops to its own row.
 
@@ -14,6 +14,7 @@ const NAV: Array<{ href: string; label: string; icon: IconName }> = [
   { href: "/equipo", label: "Inicio", icon: "home" },
   { href: "/equipo/clientes", label: "Clientes", icon: "person" },
   { href: "/equipo/invitar", label: "Invitar", icon: "mail" },
+  { href: "/equipo/acreedores", label: "Acreedores", icon: "doc" },
 ];
 
 export default function StaffShell({ children }: { children: React.ReactNode }) {

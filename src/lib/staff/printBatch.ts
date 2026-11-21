@@ -1,7 +1,8 @@
 import type { LetterTarget } from "../domain/types";
 import type { RoundRef } from "./data";
 import { letterEnclosures, staffLetterText } from "./letters";
-import { sendableRound, sendBlockReason } from "./stage";
+import { letterDestination } from "../mail/sendPlan";
+import { sendableRound, sendBlockReason, type StaffContext } from "./stage";
 import { fullName, type DocumentKind, type StaffClient, type StaffLetter, type StaffRound } from "./types";
 
 // Printing a batch of letters locally, as an alternative to a mail service:
@@ -44,6 +45,11 @@ export function roundRefsHref(refs: RoundRef[]): string {
 }
 
 export const ROUND_REFS_PARAM = PARAM;
+
+/** The send screen for these rounds (/equipo/enviar): classes, addresses and cost before anything goes out. */
+export function sendRefsHref(refs: RoundRef[]): string {
+  return `/equipo/enviar?${PARAM}=${encodeURIComponent(roundRefsParam(refs))}`;
+}
 
 // ── What goes in the envelope ───────────────────────────────────────────
 
@@ -176,7 +182,13 @@ export interface PrintBatch {
   counts: PrintCounts;
 }
 
-function printLetter(client: StaffClient, round: StaffRound, letter: StaffLetter, now: Date): PrintLetter {
+function printLetter(client: StaffClient, round: StaffRound, letter: StaffLetter, now: Date, context: StaffContext): PrintLetter {
+  // A letter to a creditor or collector is printed with the address from the
+  // address book (the one it is mailed to), never the one the report printed.
+  if (context.furnishers && letter.recipient.type === "furnisher" && round.status === "ready") {
+    const destination = letterDestination(letter, context.furnishers);
+    if (destination.to) letter = { ...letter, recipient: { ...letter.recipient, name: destination.to.name, addressLines: destination.to.addressLines } };
+  }
   const text = staffLetterText(client, round, letter, now);
   return {
     id: letter.id,
@@ -198,7 +210,7 @@ function printLetter(client: StaffClient, round: StaffRound, letter: StaffLetter
  * someone needs a second copy. A round still being prepared, or held back
  * because the report is too old, is left out and listed with the reason.
  */
-export function buildPrintBatch(clients: StaffClient[], refs: RoundRef[], now: Date): PrintBatch {
+export function buildPrintBatch(clients: StaffClient[], refs: RoundRef[], now: Date, context: StaffContext = {}): PrintBatch {
   const byId = new Map(clients.map((client) => [client.id, client]));
   const rounds: PrintRound[] = [];
   const skipped: SkippedRound[] = [];
@@ -226,12 +238,12 @@ export function buildPrintBatch(clients: StaffClient[], refs: RoundRef[], now: D
         skip("La ronda todavía está en preparación.");
         continue;
       }
-      if (sendableRound(client, now)?.number !== round.number) {
-        skip(sendBlockReason(client, now) ?? "La ronda todavía no se puede enviar.");
+      if (sendableRound(client, now, context)?.number !== round.number) {
+        skip(sendBlockReason(client, now, context) ?? "La ronda todavía no se puede enviar.");
         continue;
       }
     }
-    rounds.push({ client, round, letters: round.letters.map((l) => printLetter(client, round, l, now)), alreadySent });
+    rounds.push({ client, round, letters: round.letters.map((l) => printLetter(client, round, l, now, context)), alreadySent });
   }
 
   const letters = rounds.flatMap((r) => r.letters);

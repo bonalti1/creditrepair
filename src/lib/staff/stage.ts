@@ -7,6 +7,9 @@ import { ROUND_CYCLE_DAYS } from "../domain/attack";
 import { FRESH_REPORT_DAYS } from "../monitoring/subscription";
 import { RESPONSE_WINDOW_DAYS } from "../ux/journey";
 import { itemLabel } from "../ux/itemDisplay";
+import type { FurnisherEntry } from "../mail/furnishers";
+import { addressBookHref, missingFurnisherAddresses } from "../mail/sendPlan";
+import { responseWindowStart, returnReasonEs } from "../mail/tracking";
 import { billingContextFor } from "./billing";
 import { REQUIRED_DOCUMENTS, type DocumentKind, type StaffClient, type StaffLetter, type StaffRound } from "./types";
 
@@ -348,6 +351,7 @@ export const EXCEPTION_KINDS = [
   "agreement_unsigned",
   "identity_theft_report_missing",
   "service_end_requested",
+  "furnisher_address_missing",
 ] as const;
 
 export type ExceptionKind = (typeof EXCEPTION_KINDS)[number];
@@ -366,6 +370,7 @@ export const EXCEPTION_LABEL: Record<ExceptionKind, string> = {
   agreement_unsigned: "Acuerdo sin firmar",
   identity_theft_report_missing: "Robo de identidad sin reporte",
   service_end_requested: "Pidió terminar el servicio",
+  furnisher_address_missing: "Falta la dirección de un acreedor",
 };
 
 export interface StaffException {
@@ -381,6 +386,17 @@ export interface StaffException {
   action: "whatsapp" | "open_client";
   /** When the situation began (ISO), oldest first within a severity. Null when unknown. */
   since: string | null;
+  /** Where the button goes, when it is not the client's letters (open_client) or a WhatsApp chat. */
+  href?: string;
+}
+
+/**
+ * What the exceptions and the send rules may also consult. The furnisher
+ * address book lives outside the client record; without it, the checks that
+ * need it are skipped, so every place that SENDS passes it (data.ts).
+ */
+export interface StaffContext {
+  furnishers?: readonly FurnisherEntry[];
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
@@ -424,15 +440,17 @@ export function identityTheftItemsWithoutReport(client: StaffClient): Array<{ la
 function responseOverdue(client: StaffClient, now: Date): StaffRound | null {
   const latest = latestRound(client);
   if (!latest || latest.status !== "mailed" || !latest.mailedAt) return null;
-  if (daysSince(latest.mailedAt, now) <= RESPONSE_WINDOW_DAYS) return null;
+  // The window runs from receipt when the post office recorded it (mail/tracking.ts: responseWindowStart).
+  const start = responseWindowStart(latest) ?? latest.mailedAt;
+  if (daysSince(start, now) <= RESPONSE_WINDOW_DAYS) return null;
   // A report pulled once the window closed would already show the answers.
-  const windowEnd = addDays(latest.mailedAt, RESPONSE_WINDOW_DAYS);
+  const windowEnd = addDays(start, RESPONSE_WINDOW_DAYS);
   if (client.report && new Date(client.report.pulledAt).getTime() >= windowEnd.getTime()) return null;
   return latest;
 }
 
 /** Every exception that applies right now, whether or not someone marked it handled. */
-function openExceptions(client: StaffClient, now: Date): StaffException[] {
+function openExceptions(client: StaffClient, now: Date, context: StaffContext = {}): StaffException[] {
   // A cancelled client has nothing in flight, so nothing can be wrong with it.
   if (client.agreementCancelledAt) return [];
 
@@ -571,12 +589,32 @@ function openExceptions(client: StaffClient, now: Date): StaffException[] {
         kind: "letter_returned",
         severity: "high",
         sentence:
-          letter.mailStatus === "returned"
+          (letter.mailStatus === "returned"
             ? `El correo devolvió la carta para ${letter.recipient.name} de la ronda ${round.number}.`
-            : `El correo no pudo entregar la carta para ${letter.recipient.name} de la ronda ${round.number}.`,
+            : `El correo no pudo entregar la carta para ${letter.recipient.name} de la ronda ${round.number}.`) +
+          (letter.mail?.returnReason ? ` Motivo: ${returnReasonEs(letter.mail.returnReason)}.` : ""),
         actionLabel: "Revisar la carta",
         action: "open_client",
-        since: round.mailedAt,
+        since: letter.mail?.returnedAt ?? round.mailedAt,
+      });
+    }
+  }
+
+  // A prepared round with a letter to a creditor or collector whose dispute
+  // address is not in the book (or not checked): it cannot go until a person
+  // adds it. The button opens the address book with the company filled in.
+  const pending = latestRound(client);
+  if (context.furnishers && pending && pending.status === "ready") {
+    for (const gap of missingFurnisherAddresses(pending, context.furnishers)) {
+      found.push({
+        key: `furnisher_address_missing:${gap.company}`,
+        kind: "furnisher_address_missing",
+        severity: "high",
+        sentence: `La ronda ${pending.number} tiene una carta para ${gap.company} y falta su dirección verificada para disputas. La ronda no se envía hasta tenerla.`,
+        actionLabel: "Agregar la dirección",
+        action: "open_client",
+        since: null,
+        href: addressBookHref(gap.company, gap.entryId),
       });
     }
   }
@@ -627,8 +665,8 @@ function isQuiet(client: StaffClient, key: string, now: Date): boolean {
  * does. An exception someone marked as handled stays out for
  * HANDLED_QUIET_DAYS and returns if the situation is still the same.
  */
-export function clientExceptions(client: StaffClient, now: Date): StaffException[] {
-  return openExceptions(client, now).filter((e) => !isQuiet(client, e.key, now));
+export function clientExceptions(client: StaffClient, now: Date, context: StaffContext = {}): StaffException[] {
+  return openExceptions(client, now, context).filter((e) => !isQuiet(client, e.key, now));
 }
 
 export interface HandledException extends StaffException {
@@ -638,8 +676,8 @@ export interface HandledException extends StaffException {
 }
 
 /** Exceptions that still apply but that someone marked as handled, and are quiet for now. */
-export function handledExceptions(client: StaffClient, now: Date): HandledException[] {
-  return openExceptions(client, now)
+export function handledExceptions(client: StaffClient, now: Date, context: StaffContext = {}): HandledException[] {
+  return openExceptions(client, now, context)
     .filter((e) => isQuiet(client, e.key, now))
     .map((e) => {
       const handledAt = client.handled[e.key]!;
@@ -703,7 +741,7 @@ function nextWorkStep(client: StaffClient, now: Date): AutomaticStep | null {
   if (stage === "waiting_on_bureaus") {
     const round = latestRound(client);
     if (!round?.mailedAt || responseOverdue(client, now)) return null;
-    const due = addDays(round.mailedAt, RESPONSE_WINDOW_DAYS);
+    const due = addDays(responseWindowStart(round) ?? round.mailedAt, RESPONSE_WINDOW_DAYS);
     return { text: `Re-importar el reporte ${onDay(due, now)}`, at: due.toISOString() };
   }
 
@@ -780,7 +818,7 @@ export function nextStep(client: StaffClient, now: Date): NextStep {
  * out only under an agreement that allows work to start, and on a current
  * report only; a handled mark does not lift this.
  */
-export function sendBlockReason(client: StaffClient, now: Date): string | null {
+export function sendBlockReason(client: StaffClient, now: Date, context: StaffContext = {}): string | null {
   // The agreement comes before everything else: no signature, a cancellation,
   // the cancellation window or a request to stop each hold every letter.
   const gate = agreementGate(client, now);
@@ -804,16 +842,24 @@ export function sendBlockReason(client: StaffClient, now: Date): string | null {
   if (identityTheft) {
     return "El cliente indicó robo de identidad y falta su reporte de robo de identidad (FTC). No se envían cartas hasta tenerlo en archivo.";
   }
+  // Never to a guessed address: a creditor or collector letter needs a checked one.
+  const round = latestRound(client);
+  if (context.furnishers && round?.status === "ready") {
+    const gaps = missingFurnisherAddresses(round, context.furnishers);
+    if (gaps.length > 0) {
+      return `Falta la dirección verificada para disputas de ${listEs(gaps.map((g) => g.company))}. Agrégala en Acreedores y la ronda queda lista.`;
+    }
+  }
   return null;
 }
 
 /** The round that can be mailed now, or null. This is what "Listas para enviar" lists. */
-export function sendableRound(client: StaffClient, now: Date): StaffRound | null {
+export function sendableRound(client: StaffClient, now: Date, context: StaffContext = {}): StaffRound | null {
   const stage = clientStage(client, now);
   if (stage !== "ready_to_send" && stage !== "next_round_ready") return null;
   const round = latestRound(client);
   if (!round || round.status !== "ready" || round.letters.length === 0) return null;
-  return sendBlockReason(client, now) ? null : round;
+  return sendBlockReason(client, now, context) ? null : round;
 }
 
 /** Distinct report items a round's letters cover. */

@@ -12,6 +12,8 @@ import { RESPONSE_WINDOW_DAYS, NEXT_ROUND_DAYS, nextAction, sessionJourneyState 
 import { letterCoverage, waitingListNote } from "@/lib/ux/roundCopy";
 import { sessionPlan } from "@/lib/ux/sessionPlan";
 import { roundMailedDate, teamRoundStatus } from "@/lib/ux/teamRound";
+import { clientLetterMail, clientResponseWindowStart, letterCameBack, letterMailLine } from "@/lib/mail/clientView";
+import { letterMailKey, useLetterMail } from "@/lib/ux/letterMail";
 import { isFullService } from "@/lib/service/mode";
 import { useLocale } from "@/lib/i18n";
 import Icon from "@/components/Icon";
@@ -53,6 +55,8 @@ export default function Rounds() {
   const { plan, roundNumber } = useMemo(() => sessionPlan(items, roundFlags), [items, roundFlags]);
   // What is confirmed today, to list what is not in these letters.
   const confirmedNow = useMemo(() => sessionPlan(items, flags).attestedFlags, [items, flags]);
+  // How each mailed letter travels and where it is (mail/clientView.ts).
+  const savedMail = useLetterMail();
 
   if (!hydrated) return null;
 
@@ -72,8 +76,15 @@ export default function Rounds() {
 
   const mailedAt = roundMailedDate(sent, roundMailedAt) ?? new Date();
   const elapsedDays = Math.max(0, Math.floor((Date.now() - mailedAt.getTime()) / DAY_MS));
-  const daysLeft = Math.max(0, RESPONSE_WINDOW_DAYS - elapsedDays);
-  const responseDue = new Date(mailedAt.getTime() + RESPONSE_WINDOW_DAYS * DAY_MS);
+  const letterMail = plan.letters.map((l) =>
+    clientLetterMail({ templateKey: l.templateKey, targetType: l.target.type }, sent ? mailedAt.toISOString() : null, savedMail[letterMailKey(l.target.key, l.templateKey)]),
+  );
+  // The bureaus' 30 days run from receipt: a certified letter's delivery date when the post office
+  // recorded one, else the mailing date (mail/clientView.ts: clientResponseWindowStart).
+  const windowStart = new Date(clientResponseWindowStart(mailedAt.toISOString(), letterMail));
+  const windowDays = Math.max(0, Math.floor((Date.now() - windowStart.getTime()) / DAY_MS));
+  const daysLeft = Math.max(0, RESPONSE_WINDOW_DAYS - windowDays);
+  const responseDue = new Date(windowStart.getTime() + RESPONSE_WINDOW_DAYS * DAY_MS);
   const nextRoundAt = new Date(mailedAt.getTime() + NEXT_ROUND_DAYS * DAY_MS);
 
   // The items in this round's letters: the ones a bureau response will be about.
@@ -146,6 +157,17 @@ export default function Rounds() {
                 <span className="min-w-0 break-words">
                   <span className="font-medium text-slate-900">{l.target.name}</span> —{" "}
                   {(stages[l.templateKey] ?? stages[l.stage])?.name ?? l.stage}
+                  {/* "Enviada el … · Certificada · Entregada el …" once the letter is out. */}
+                  {sent && letterMailLine(letterMail[i]!, locale) && (
+                    <span
+                      data-testid="letter-mail-status"
+                      className={`mt-1 block text-[13px] font-medium ${
+                        letterCameBack(letterMail[i]!) ? "text-amber-700" : letterMail[i]!.status === "delivered" ? "text-green-700" : "text-slate-600"
+                      }`}
+                    >
+                      {letterMailLine(letterMail[i]!, locale)}
+                    </span>
+                  )}
                   {/* What the letter covers, by name. */}
                   {letterCoverage(l, items, locale).map((c) => (
                     <span key={c} data-testid="letter-covers" className="mt-0.5 block text-[14px] text-slate-700">

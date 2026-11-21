@@ -9,7 +9,12 @@ import { demoClientUploads } from "@/lib/staff/data";
 import { count, formatBytes, formatPhone, longDay, relativeDay, shortDateTime, shortDay } from "@/lib/staff/format";
 import { staffLetterText } from "@/lib/staff/letters";
 import { exceptionMessage, STAFF_MESSAGE_RULES, whatsappHref } from "@/lib/staff/messages";
-import { roundRefsHref } from "@/lib/staff/printBatch";
+import { roundRefsHref, sendRefsHref } from "@/lib/staff/printBatch";
+import type { FurnisherEntry } from "@/lib/mail/furnishers";
+import { addressBookHref, chosenMailClass, letterAsItWillGo, letterDestination } from "@/lib/mail/sendPlan";
+import { returnReasonEs } from "@/lib/mail/tracking";
+import { useMail } from "@/lib/mail/useMail";
+import { MailClassChip, MailTimeline, SimulatedPill, TrackingLink } from "@/components/staff/MailBits";
 import {
   agreementLine,
   clientAgreement,
@@ -20,7 +25,6 @@ import {
   identityTheftItemsWithoutReport,
   missingDocuments,
   nextStep,
-  RESPONSE_WINDOW_DAYS,
   reviewProgress,
   sendableRound,
   sendBlockReason,
@@ -126,7 +130,81 @@ function AnswerReason({ answer }: { answer: ItemAnswer | undefined }) {
   );
 }
 
-function Letter({ client, round, letter, now }: { client: StaffClient; round: StaffRound; letter: StaffLetter; now: Date }) {
+/**
+ * How the letter travels: its class, the address it goes (or went) to, the
+ * USPS tracking number with its link, and what the post office reported.
+ * A prepared letter to a creditor or collector shows the address book's
+ * address, or that it has none yet.
+ */
+function LetterMailInfo({ round, letter, furnishers }: { round: StaffRound; letter: StaffLetter; furnishers: readonly FurnisherEntry[] }) {
+  const mail = letter.mail;
+  if (!mail) {
+    if (round.status !== "ready" && round.status !== "draft") return null;
+    const destination = letterDestination(letter, furnishers);
+    return (
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] leading-snug" data-testid="letter-mail">
+        <MailClassChip mailClass={chosenMailClass(letter)} />
+        {destination.to ? (
+          letter.recipient.type === "furnisher" && <span className="text-slate-500">Dirección de la libreta de acreedores</span>
+        ) : (
+          <span className="text-red-700">
+            {destination.blocker}{" "}
+            {destination.missingCompany && (
+              <Link href={addressBookHref(destination.missingCompany, destination.entryId)} className="font-semibold underline underline-offset-2">
+                Agregar la dirección
+              </Link>
+            )}
+          </span>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2" data-testid="letter-mail">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] leading-snug text-slate-600">
+        <MailClassChip mailClass={mail.mailClass} />
+        {mail.provider === "simulated" && <SimulatedPill title="Registro de demostración o sin clave de Lob: no salió por correo." />}
+        {mail.provider === "print" && <span className="text-slate-500">Impresa en la oficina</span>}
+        {mail.mailedAt && <span>Enviada el {shortDay(mail.mailedAt)}</span>}
+        {/* First class: the mail service's estimate, not a USPS scan (mail/tracking.ts). */}
+        {mail.deliveredAt && (
+          <span className="font-medium text-green-700">
+            · entregada el {shortDay(mail.deliveredAt)}
+            {mail.mailClass === "first_class" ? " (estimado del correo)" : ""}
+          </span>
+        )}
+        {mail.returnedAt && (
+          <span className="font-medium text-red-700">
+            · devuelta el {shortDay(mail.returnedAt)}
+            {mail.returnReason ? ` (${returnReasonEs(mail.returnReason)})` : ""}
+          </span>
+        )}
+      </div>
+      {mail.trackingNumber && (
+        <p className="mt-1 text-[13px] leading-snug text-slate-600">
+          Rastreo USPS: <TrackingLink trackingNumber={mail.trackingNumber} />
+        </p>
+      )}
+      <MailTimeline mail={mail} />
+    </div>
+  );
+}
+
+function Letter({
+  client,
+  round,
+  letter: recorded,
+  now,
+  furnishers,
+}: {
+  client: StaffClient;
+  round: StaffRound;
+  letter: StaffLetter;
+  now: Date;
+  furnishers: readonly FurnisherEntry[];
+}) {
+  // A creditor's or collector's letter shows the address it will go to (the address book's), never the report's.
+  const letter = useMemo(() => letterAsItWillGo(recorded, round, furnishers), [recorded, round, furnishers]);
   // The text as it is mailed, with the reason the client gave after each item.
   // Letters are in English: that is the language the bureaus work in.
   const body = useMemo(() => staffLetterText(client, round, letter, now), [client, round, letter, now]);
@@ -144,6 +222,7 @@ function Letter({ client, round, letter, now }: { client: StaffClient; round: St
         </div>
         <Chip tone={MAIL_STATUS[letter.mailStatus].tone}>{MAIL_STATUS[letter.mailStatus].label}</Chip>
       </div>
+      <LetterMailInfo round={round} letter={letter} furnishers={furnishers} />
       {letter.items.length === 0 ? (
         <p className="mt-1 text-[13px] leading-snug text-slate-500">Pide una copia del expediente del cliente. No disputa ningún punto.</p>
       ) : (
@@ -189,9 +268,11 @@ function Letter({ client, round, letter, now }: { client: StaffClient; round: St
 
 export default function ClientePage() {
   const { id } = useParams<{ id: string }>();
-  const { data, ready, clients, now, reload } = useStaff();
+  const { data, ready: clientsReady, clients, now, reload } = useStaff();
+  // The furnisher address book: letters to creditors and collectors go only to a checked address in it.
+  const { furnishers, ready: bookReady } = useMail();
+  const ready = clientsReady && bookReady;
   const [note, setNote] = useState("");
-  const [sentRound, setSentRound] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
   const [importNote, setImportNote] = useState<string | null>(null);
   const client = clients.find((c) => c.id === id) ?? null;
@@ -217,10 +298,10 @@ export default function ClientePage() {
 
   const stage = clientStage(client, now);
   const step = nextStep(client, now);
-  const exceptions = clientExceptions(client, now);
-  const handled = handledExceptions(client, now);
-  const round = sendableRound(client, now);
-  const blocked = stage === "ready_to_send" || stage === "next_round_ready" ? sendBlockReason(client, now) : null;
+  const exceptions = clientExceptions(client, now, { furnishers });
+  const handled = handledExceptions(client, now, { furnishers });
+  const round = sendableRound(client, now, { furnishers });
+  const blocked = stage === "ready_to_send" || stage === "next_round_ready" ? sendBlockReason(client, now, { furnishers }) : null;
   // The agreement record, as rows: what is on file and when.
   const deadline = client.agreementSignedAt ? deadlineOf(clientAgreement(client)) : null;
   const acknowledgedAt = clientAgreement(client).disclosureAcknowledgedAt;
@@ -263,12 +344,6 @@ export default function ClientePage() {
   ];
   const samples = client.reportSamples ?? [];
 
-  const send = async () => {
-    if (!round) return;
-    await data.markRoundsSent([{ clientId: client.id, roundNumber: round.number }]);
-    setSentRound(round.number);
-    await reload();
-  };
   const markHandled = async (key: string) => {
     await data.resolveException(client.id, key);
     await reload();
@@ -309,10 +384,11 @@ export default function ClientePage() {
                 </p>
                 <p className="text-[17px] font-medium leading-snug text-slate-900">{step.text}</p>
               </div>
+              {/* The send screen shows each letter's address, mail class and cost before anything goes out. */}
               {round && (
-                <button type="button" onClick={send} className={`${PRIMARY_BUTTON} shrink-0`}>
+                <Link href={sendRefsHref([{ clientId: client.id, roundNumber: round.number }])} className={`${PRIMARY_BUTTON} shrink-0`}>
                   Enviar ronda {round.number} · {count(round.letters.length, "carta", "cartas")}
-                </button>
+                </Link>
               )}
               {stage === "lead" && (
                 <Link href={`/equipo/invitar?cliente=${client.id}`} className={`${PRIMARY_BUTTON} shrink-0`}>
@@ -324,15 +400,6 @@ export default function ClientePage() {
             {blocked && (
               <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900">
                 La ronda está preparada, pero todavía no se puede enviar. {blocked}
-              </p>
-            )}
-            {sentRound !== null && (
-              <p className="mt-4 flex items-start gap-2.5 rounded-2xl bg-green-50 px-4 py-3 text-[14px] leading-snug text-green-700" role="status">
-                <Icon name="check" size={18} className="mt-px shrink-0" />
-                <span>
-                  Ronda {sentRound} enviada. El sistema vuelve a importar el reporte en {RESPONSE_WINDOW_DAYS} días.
-                  {data.demo && " (En la demo no se envía nada por correo.)"}
-                </span>
               </p>
             )}
           </section>
@@ -362,6 +429,10 @@ export default function ClientePage() {
                         >
                           {exception.actionLabel}
                         </a>
+                      ) : exception.href ? (
+                        <Link href={exception.href} className={ROW_BUTTON}>
+                          {exception.actionLabel}
+                        </Link>
                       ) : (
                         <a href="#cartas" className={ROW_BUTTON}>
                           {exception.actionLabel}
@@ -570,7 +641,7 @@ export default function ClientePage() {
                     </div>
                     <ul>
                       {r.letters.map((letter) => (
-                        <Letter key={letter.id} client={client} round={r} letter={letter} now={now} />
+                        <Letter key={letter.id} client={client} round={r} letter={letter} now={now} furnishers={furnishers} />
                       ))}
                     </ul>
                   </div>

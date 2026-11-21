@@ -59,7 +59,7 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/letters/variation.ts` | Claude-powered per-letter wording variation (e-OSCAR countermeasure) |
 | `src/lib/letters/fonts.ts` | Print/handwritten font rotation, deterministic per letter |
 | `src/lib/coach/systemPrompt.ts` | Capi's instructions, Spanish-first, per service mode: explains the service, never promises a result, never picks items, never quotes a price, hands over to the team |
-| `src/lib/integrations/lob.ts` | Lob mail client (stubbed without API key) |
+| `src/lib/integrations/lob.ts` | Lob mail client: first class or certified (with electronic return receipt), parsed addresses, idempotency key; simulated without an API key. Which request details are verified is listed at the top |
 | `src/lib/integrations/whatsapp.ts` | WhatsApp Cloud API sender; message copy runs through guardrails |
 | `src/app/api/reports/import` | Import + parse + diff a monitoring pull; deletion celebration |
 | `src/app/api/attacks/build` | Build the draft round plan (requires active monitoring subscription) |
@@ -90,6 +90,10 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/app/(app)/acuerdo`, `src/app/api/agreement`, `src/lib/ux/agreementStore.ts` | The client's side: disclosures first, then the contract and signature, the printable copy, cancelling; the endpoints that record each step |
 | `supabase/migrations/0010_service_agreements.sql` | `service_agreements`: acknowledgement, signature, cancellation. Read-only for clients and staff, written by the server, and unchangeable once written |
 | `content/` | Ad content kit: locked mascot, spot files, claim gate, assembly and transcript check — see `content/README.md` |
+| `src/lib/mail/` | Mail: classes per kind of letter (`classes.ts`), US address parsing (`address.ts`), the Lob price table and cost preview (`pricing.ts`, prices unverified), tracking events → status and the response-window rule (`tracking.ts`), the furnisher address book and name matching (`furnishers.ts`), the per-round send plan and its blockers (`sendPlan.ts`, `sendBatch.ts`), recording webhook events (`server.ts`) |
+| `src/app/equipo/enviar`, `src/app/equipo/acreedores` | Staff: the send screen (address, class and cost of every letter, "simulado" without a Lob key) and the furnisher address book (search, add, edit, history) |
+| `src/app/api/webhooks/lob`, `src/app/api/furnishers` | Lob tracking webhook (signed, replay window, each event once) and the staff-only address book save |
+| `supabase/migrations/0013_mail_tracking.sql` | Mail class and tracking on `letters`, append-only `mail_events`, no charge for a round whose letters all came back, `furnishers` + `furnisher_changes` (history by trigger) |
 
 ## Load-bearing invariants
 
