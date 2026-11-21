@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { ASSISTANT_NAME } from "../brand";
 import { rowToTurn, type ChatTurn } from "../chat/history";
 import { checkClaimGuardrails, checkMarketingCopy } from "../compliance/guardrails";
 import { checkStaffReply, displayName, lastTeamMessage, openQuestions, threadAuthor } from "../staff/conversation";
@@ -32,13 +33,13 @@ const reply = (text: string, at = later.toISOString(), authorName = "Ana"): Staf
 });
 
 describe("staff conversation: who wrote each message", () => {
-  it("labels the client, Capi as AI, and a teammate by name", () => {
+  it("labels the client, the assistant as AI, and a teammate by name", () => {
     expect(threadAuthor({ id: "1", at: "", role: "user", source: "coach", text: "Hola" })).toEqual({ voice: "client", label: "Cliente" });
     expect(threadAuthor({ id: "2", at: "", role: "user", source: "journey", text: "Hola" }).label).toBe("Cliente");
-    expect(threadAuthor({ id: "3", at: "", role: "assistant", source: "journey", text: "Hola" })).toEqual({ voice: "capi", label: "Capi (IA)" });
-    expect(threadAuthor({ id: "4", at: "", role: "assistant", source: "coach", text: "Hola" }).label).toBe("Capi (IA)");
+    expect(threadAuthor({ id: "3", at: "", role: "assistant", source: "journey", text: "Hola" })).toEqual({ voice: "assistant", label: `${ASSISTANT_NAME} (IA)` });
+    expect(threadAuthor({ id: "4", at: "", role: "assistant", source: "coach", text: "Hola" }).label).toBe(`${ASSISTANT_NAME} (IA)`);
     expect(threadAuthor(reply("Hola", "", "carmen"))).toEqual({ voice: "team", label: "Carmen" });
-    // A teammate's message with no name on record is still a person's, never Capi's.
+    // A teammate's message with no name on record is still a person's, never the assistant's.
     expect(threadAuthor({ id: "5", at: "", role: "assistant", source: "human", text: "Hola" })).toEqual({ voice: "team", label: "Equipo" });
     expect(displayName("  ana maría  lópez ")).toBe("Ana María López");
   });
@@ -52,8 +53,8 @@ describe("staff conversation: who wrote each message", () => {
       expect(new Set(c.conversation!.map((m) => m.id)).size).toBe(times.length);
     }
     const voices = new Set(withThread.flatMap((c) => c.conversation!.map((m) => threadAuthor(m).voice)));
-    expect([...voices].sort()).toEqual(["capi", "client", "team"]);
-    // The client with the escalated question has it in her thread, followed by Capi handing it over.
+    expect([...voices].sort()).toEqual(["assistant", "client", "team"]);
+    // The client with the escalated question has it in her thread, followed by the assistant handing it over.
     const asked = clients.find((c) => openQuestions(c).length > 0)!;
     const question = openQuestions(asked)[0]!;
     const index = asked.conversation!.findIndex((m) => m.role === "user" && m.text === question.text);
@@ -69,7 +70,7 @@ describe("staff conversation: who wrote each message", () => {
         expect(checkClaimGuardrails(m.text), m.text).toEqual([]);
         if (m.source === "human") expect(checkStaffReply(m.text), m.text).toEqual([]);
       }
-      // When a thread opens with Capi's greeting, the greeting says he is AI.
+      // When a thread opens with the assistant's greeting, the greeting says it is AI.
       const first = (c.conversation ?? []).find((m) => m.role === "assistant" && m.source === "journey");
       if (first && c.conversation![0] === first) expect(first.text).toMatch(/con IA/);
     }
@@ -165,7 +166,7 @@ describe("staff conversation: replying (demo)", () => {
 });
 
 describe("the client's chat: a message written by a person", () => {
-  const capi: ChatMsg = { role: "assistant", text: "Hola, soy Capi." };
+  const assistant: ChatMsg = { role: "assistant", text: `Hola, soy ${ASSISTANT_NAME}.` };
   const mine: ChatMsg = { role: "user", text: "¿Cuánto tardan?" };
   const team: ChatMsg = { role: "assistant", text: "Hola, ya revisé tu cuenta.", author: { kind: "team", name: "ana lópez" } };
 
@@ -180,18 +181,19 @@ describe("the client's chat: a message written by a person", () => {
     expect(teamFirstName("  carmen ")).toBe("Carmen");
   });
 
-  it("never passes for Capi: no AI label, its own look, and read-aloud says who wrote it", () => {
+  it("never passes for the assistant: no AI label, its own look, and read-aloud says who wrote it", () => {
     const voice = messageVoice(team, "es");
-    expect(voice.byline).not.toMatch(/Capi|IA|AI|asistente/i);
+    expect(voice.byline).not.toContain(ASSISTANT_NAME);
+    expect(voice.byline).not.toMatch(/IA|AI|asistente/i);
     expect(voice.spoken.startsWith("Ana, del equipo: ")).toBe(true);
-    // Capi stays the only AI voice, unsigned; the client is the client.
-    expect(messageVoice(capi, "es")).toEqual({ kind: "capi", ai: true, byline: null, spoken: "Hola, soy Capi." });
+    // The assistant stays the only AI voice, unsigned; the client is the client.
+    expect(messageVoice(assistant, "es")).toEqual({ kind: "assistant", ai: true, byline: null, spoken: `Hola, soy ${ASSISTANT_NAME}.` });
     expect(messageVoice(mine, "es")).toEqual({ kind: "client", ai: false, byline: null, spoken: "¿Cuánto tardan?" });
-    // The screen draws a teammate's message with its own component, not Capi's bubble.
+    // The screen draws a teammate's message with its own component, not the assistant's bubble.
     const page = readFileSync("src/app/(app)/asistente/page.tsx", "utf8");
     expect(page).toMatch(/voice\.kind === "team" && voice\.byline \? \(\s*(\/\/[^\n]*\n\s*)?<TeamMessage/);
     const bubble = readFileSync("src/components/TeamMessage.tsx", "utf8");
-    expect(bubble).not.toMatch(/bg-slate-100/); // Capi's grey
+    expect(bubble).not.toMatch(/bg-slate-100/); // the assistant's grey
     expect(bubble).not.toMatch(/Asistente con IA|AI assistant/);
   });
 
@@ -223,7 +225,7 @@ describe("the client's chat: a message written by a person", () => {
       { role: "user", text: "¿Cuánto tardan los burós?" },
       { role: "assistant", text: "Unos 30 días." },
     ]);
-    expect(read.map((m) => messageVoice(m, "es").kind)).toEqual(["capi", "client", "capi"]);
+    expect(read.map((m) => messageVoice(m, "es").kind)).toEqual(["assistant", "client", "assistant"]);
     expect(messageText(read[0]!, "en")).toBe("Noted. 6 left.");
     expect(readStoredThread("nada")).toEqual([]);
     // A saved teammate message keeps its author; a malformed one loses it and reads as before.
@@ -234,7 +236,7 @@ describe("the client's chat: a message written by a person", () => {
 
   it("marks a teammate's line in what the coach is given, so the model does not take it for its own", () => {
     expect(contextText(team)).toBe("[Mensaje de Ana del equipo, no de la IA] Hola, ya revisé tu cuenta.");
-    expect(contextText(capi)).toBe("Hola, soy Capi.");
+    expect(contextText(assistant)).toBe(`Hola, soy ${ASSISTANT_NAME}.`);
     expect(contextText(mine)).toBe("¿Cuánto tardan?");
   });
 });

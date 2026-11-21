@@ -124,7 +124,7 @@ export async function storeMessage(db: SupabaseClient, row: StoreRow): Promise<b
     source: row.source,
     body: text,
     external_id: row.externalId ?? null,
-    // Sent only when there is a name, so rows written by Capi or the client
+    // Sent only when there is a name, so rows written by the assistant or the client
     // are stored the same way on a database without the column (before 0009).
     ...(authorName ? { author_name: authorName } : {}),
   });

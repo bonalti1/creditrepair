@@ -95,7 +95,7 @@ Open each one, then copy the values named in the last column into Render
 | 1 | **Render** | Hosting. Already set up: the demo runs at `creditcapi-demo.onrender.com`. | (this is where the others go) |
 | 2 | **Supabase** | Database and login. Create a project. Step by step: `docs/DATABASE.md` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (secret) |
 | 3 | **A text-message provider** (Twilio, paid per message) connected in Supabase (Authentication → Providers → Phone). Supabase does not send texts itself | Login codes by text | set inside Supabase, not Render |
-| 4 | **Anthropic** | Capi, and letter wording | `ANTHROPIC_API_KEY` |
+| 4 | **Anthropic** | BONALTI (the AI assistant), and letter wording | `ANTHROPIC_API_KEY` |
 | 5 | **Lob** | Prints and mails the letters, first class or certified, and reports tracking | `LOB_API_KEY` (start with the test key), `LOB_WEBHOOK_SECRET` |
 | 6 | **Meta for Developers + WhatsApp Business** | WhatsApp messages | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, and a word you invent for `WHATSAPP_WEBHOOK_VERIFY_TOKEN` |
 | 7 | **n8n** | The hourly clock for rounds | a long random password you invent for `N8N_WEBHOOK_SECRET` |
@@ -166,7 +166,7 @@ Then run one full pass yourself (the database part in detail: `docs/DATABASE.md`
 - [ ] In the console, "Enviar" the round (it waits until the client has signed and the 3-day window is over)
 - [ ] With Lob's **test** key, confirm the letter appears in Lob's dashboard with
       the ID pages behind it; check how the address sits on the first page
-- [ ] Send a WhatsApp message from a number that is not a customer: Capi should
+- [ ] Send a WhatsApp message from a number that is not a customer: BONALTI should
       greet once and then stay quiet
 - [ ] Only then switch Lob to the live key
 
@@ -192,4 +192,4 @@ Then run one full pass yourself (the database part in detail: `docs/DATABASE.md`
 | IdentityIQ: partner link and price | The subscribe button and naming IdentityIQ in the app |
 | IdentityIQ: paid-ads permission | Any ad spend |
 | Attorney | Launch itself; Texas registration and bond; the service agreement text (`docs/AGREEMENT.md`) |
-| You: final logo, Capi's voice | Brand polish on ads |
+| You: final logo, brand kit parts 1–2, BONALTI's voice, new ads with BONALTI and Alti | Brand polish on ads |

@@ -5,16 +5,16 @@ import type { EscalatedQuestion, StaffChatMessage, StaffClient } from "./types";
 
 // The client's in-app conversation, as the team reads it and answers in it.
 //
-// Every message says who wrote it: the client, Capi (always marked as AI) or a
+// Every message says who wrote it: the client, the assistant (always marked as AI) or a
 // teammate by name. A teammate's reply is checked against the claim rules
 // before it is sent: staff may not promise results in writing, any more than
 // an ad may.
 
-export type ThreadVoice = "client" | "capi" | "team";
+export type ThreadVoice = "client" | "assistant" | "team";
 
 export interface ThreadAuthor {
   voice: ThreadVoice;
-  /** "Cliente", "Capi (IA)" or the teammate's name. */
+  /** "Cliente", the assistant's name with "(IA)", or the teammate's name. */
   label: string;
 }
 
@@ -34,7 +34,7 @@ export function threadAuthor(message: StaffChatMessage): ThreadAuthor {
   if (message.source === "human") {
     return { voice: "team", label: displayName(message.authorName ?? "") || "Equipo" };
   }
-  return { voice: "capi", label: `${BRAND.assistant} (IA)` };
+  return { voice: "assistant", label: `${BRAND.assistant} (IA)` };
 }
 
 /** Why each claim rule exists, in the words a teammate needs when a reply is held back. */
@@ -78,7 +78,7 @@ export function checkStaffReply(text: string): ReplyProblem[] {
 
 export const MAX_REPLY_CHARS = MAX_MESSAGE_CHARS;
 
-/** Questions Capi passed to the team that nobody has answered yet, oldest first. */
+/** Questions the assistant passed to the team that nobody has answered yet, oldest first. */
 export function openQuestions(client: Pick<StaffClient, "questions">): EscalatedQuestion[] {
   return client.questions.filter((q) => !q.answeredAt).sort((a, b) => a.askedAt.localeCompare(b.askedAt));
 }

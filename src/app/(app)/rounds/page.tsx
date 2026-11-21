@@ -18,6 +18,7 @@ import { letterMailKey, useLetterMail } from "@/lib/ux/letterMail";
 import { isFullService } from "@/lib/service/mode";
 import { useLocale } from "@/lib/i18n";
 import Icon from "@/components/Icon";
+import { CharacterAvatar } from "@/components/Character";
 import { InfoNote } from "@/components/RoundNotes";
 
 // Rounds, with a real timeline: when letters mailed, when the FCRA ~30-day
@@ -231,9 +232,14 @@ export default function Rounds() {
         </section>
       ) : (
         <section className="card px-6 pb-6 pt-8 text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-900">
-            <Icon name="clock" size={26} />
-          </span>
+          {/* Full service: the team mails the letters, so the team character stands here. */}
+          {isFullService ? (
+            <CharacterAvatar character="team" size={72} className="mx-auto" />
+          ) : (
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-900">
+              <Icon name="clock" size={26} />
+            </span>
+          )}
           <h2 className="mt-4 text-[22px] font-semibold leading-snug text-slate-900">
             {isFullService ? d.team.roundsEmptyTitle : d.rounds.emptyTitle}
           </h2>

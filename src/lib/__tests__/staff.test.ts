@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { ASSISTANT_NAME } from "../brand";
 import { checkClaimGuardrails } from "../compliance/guardrails";
 import { DEMO_RAW_REPORT } from "../demo";
 import { ROUND_CYCLE_DAYS } from "../domain/attack";
@@ -314,7 +315,7 @@ describe("staff: clientExceptions", () => {
       client({ questions: [{ id: "q1", askedAt, text: "¿Puedo usar mi ITIN?", answeredAt }] });
     const [e] = clientExceptions(asked(null), NOW);
     expect(e!.kind).toBe("question_waiting");
-    expect(e!.sentence).toBe("Hizo una pregunta que Capi pasó al equipo: «¿Puedo usar mi ITIN?» Espera desde hace 2 días.");
+    expect(e!.sentence).toBe(`Hizo una pregunta que ${ASSISTANT_NAME} pasó al equipo: «¿Puedo usar mi ITIN?» Espera desde hace 2 días.`);
     expect(clientExceptions(asked(null, ago(0, 3)), NOW)[0]!.sentence).toMatch(/Espera desde hoy\.$/);
     expect(kinds(asked(ago(1)))).toEqual([]);
   });

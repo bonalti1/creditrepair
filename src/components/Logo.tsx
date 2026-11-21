@@ -71,18 +71,3 @@ export default function Logo({
     </span>
   );
 }
-
-/** Capi, the assistant's face. Small sizes only (the source art is a crop). */
-export function CapiAvatar({ size = 40, ring = true }: { size?: number; ring?: boolean }) {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src="/brand/capi.png"
-      alt={BRAND.assistant}
-      width={size}
-      height={size}
-      className={`shrink-0 rounded-full bg-blue-800 object-cover ${ring ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-white" : ""}`}
-      style={{ width: size, height: size }}
-    />
-  );
-}

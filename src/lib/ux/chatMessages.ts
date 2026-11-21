@@ -1,18 +1,18 @@
 // One message of the client's thread, and who wrote it.
 //
-// Three voices can appear in the thread: the client, Capi (the AI assistant)
+// Three voices can appear in the thread: the client, the AI assistant
 // and, when a teammate answers, a person. The rules for telling them apart
 // live here, away from the screen, so they can be tested:
 //
 // - A message is a person's only when it says so itself (`author`). The server
 //   sets that from chat_messages.source = 'human'; nothing the client types
 //   can produce it.
-// - A person's message is never presented as Capi's: it carries the
+// - A person's message is never presented as the assistant's: it carries the
 //   teammate's first name and "del equipo", and no AI label.
 // - A message saved before `author` existed has none and renders as before.
 
 export interface ChatAuthor {
-  /** A person on the team. The only kind there is: Capi and the client need no author. */
+  /** A person on the team. The only kind there is: the assistant and the client need no author. */
   kind: "team";
   /** The teammate's name as stored. May be empty when the server has no name for them. */
   name: string;
@@ -29,7 +29,7 @@ export interface ChatMsg {
    */
   lang?: "es" | "en";
   alt?: string;
-  /** Present only on a message a teammate wrote. Absent on Capi's and the client's. */
+  /** Present only on a message a teammate wrote. Absent on the assistant's and the client's. */
   author?: ChatAuthor;
 }
 
@@ -46,8 +46,8 @@ export function teamFirstName(name: string): string {
 
 export interface MessageVoice {
   /** Whose words these are. */
-  kind: "client" | "capi" | "team";
-  /** True only for Capi: the one voice that is artificial intelligence. */
+  kind: "client" | "assistant" | "team";
+  /** True only for the assistant: the one voice that is artificial intelligence. */
   ai: boolean;
   /** Team only: the line shown above the bubble, "Ana · del equipo". Null otherwise. */
   byline: string | null;
@@ -64,7 +64,7 @@ const TEAM = {
 export function messageVoice(m: ChatMsg, locale: "es" | "en"): MessageVoice {
   const text = messageText(m, locale);
   if (m.role === "user") return { kind: "client", ai: false, byline: null, spoken: text };
-  if (m.author?.kind !== "team") return { kind: "capi", ai: true, byline: null, spoken: text };
+  if (m.author?.kind !== "team") return { kind: "assistant", ai: true, byline: null, spoken: text };
   const first = teamFirstName(m.author.name);
   const byline = first ? `${first} · ${TEAM[locale].label}` : TEAM[locale].unnamed;
   const speaker = first ? `${first}, ${TEAM[locale].label}` : TEAM[locale].unnamed;

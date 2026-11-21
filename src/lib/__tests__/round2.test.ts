@@ -290,7 +290,7 @@ describe("B. what this round mails and what waits", () => {
     ]);
   });
 
-  it("has Capi say which letters went out and which confirmed items wait", () => {
+  it("has the assistant say which letters went out and which confirmed items wait", () => {
     const session = sessionPlan(items, four);
     const es = approvedMessage(session, items, "es");
     expect(es).toContain("Estas 2 cartas se imprimen y van por correo:");

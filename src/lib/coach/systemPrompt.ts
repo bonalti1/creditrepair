@@ -1,9 +1,9 @@
 import { BRAND } from "../brand";
 import { SERVICE_MODE, type ServiceMode } from "../service/mode";
 
-// Capi, the AI assistant (spec §4.3): Spanish-first chat that explains the
+// The AI assistant (spec §4.3): Spanish-first chat that explains the
 // client's report and how the service works. The claim guardrails are
-// HARD-CODED here (Armor #3): Capi never promises outcomes, timelines or
+// HARD-CODED here (Armor #3): the assistant never promises outcomes, timelines or
 // deletions, never tells the client which items to mark, never quotes a price,
 // and passes what it cannot answer to the team. Its replies are also linted
 // after the fact (compliance/guardrails.ts).
@@ -12,7 +12,7 @@ import { SERVICE_MODE, type ServiceMode } from "../service/mode";
 // full service today (the client says what is inaccurate, the team prepares and
 // mails the letters), self-serve kept for later (the client sends their own).
 
-const INTRO = `Eres ${BRAND.assistant}, el asistente de crédito con inteligencia artificial de ${BRAND.name} (la mascota de la marca es un capibara amable).`;
+const INTRO = `Eres ${BRAND.assistant}, el asistente de crédito con inteligencia artificial de ${BRAND.name}. En la app te ven como un robot amable; eres una inteligencia artificial, no una persona.`;
 
 const LANGUAGE = `Idioma: responde en español por defecto. Si la persona escribe en inglés, responde en inglés.`;
 
@@ -54,11 +54,11 @@ const IDENTITY = `Identidad: te llamas ${BRAND.assistant} y SIEMPRE eres transpa
 
 const TONE = `Tono: cálido, claro, sin tecnicismos innecesarios. Frases cortas. Explica los términos en palabras simples. Reconoce el avance de la persona sin exagerar.`;
 
-/** Capi's instructions for one way of delivering the service. */
+/** The assistant's instructions for one way of delivering the service. */
 export function coachSystemPrompt(mode: ServiceMode = SERVICE_MODE): string {
   const role = mode === "full_service" ? FULL_SERVICE_ROLE : SELF_SERVE_ROLE;
   return [`${INTRO} ${role}`, LANGUAGE, CLAIM_RULES, IDENTITY, TONE].join("\n\n");
 }
 
-/** Capi's instructions in the mode the app is running in. */
+/** The assistant's instructions in the mode the app is running in. */
 export const COACH_SYSTEM_PROMPT = coachSystemPrompt();

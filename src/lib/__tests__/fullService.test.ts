@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { ASSISTANT_NAME } from "@/lib/brand";
 import { COACH_SYSTEM_PROMPT, coachSystemPrompt } from "@/lib/coach/systemPrompt";
 import { assertClaimGuardrails, checkClaimGuardrails, checkMarketingCopy } from "@/lib/compliance/guardrails";
 import { DICTS } from "@/lib/i18n/dictionaries";
@@ -112,7 +113,7 @@ describe("claim rules: the process may be described, per mode", () => {
   it("still lets self-serve copy say that the client sends", () => {
     for (const text of [
       "Tú decides qué disputar y tú apruebas.",
-      "Capi prepara todo. Tú decides y tú envías. Los resultados varían.",
+      "El asistente prepara todo. Tú decides y tú envías. Los resultados varían.",
       "You review each item and you send your own disputes. Results vary.",
       "No disputamos por ti.",
       "We do not dispute for you.",
@@ -362,7 +363,7 @@ describe("what a client reads in the app, under full service", () => {
     expect(letters.slice(readOnly, letters.indexOf(") : (", readOnly))).not.toMatch(/setRoundApproved|approveButton/);
   });
 
-  it("has Capi say in the chat who prepares and mails the letters", () => {
+  it("has the assistant say in the chat who prepares and mails the letters", () => {
     for (const mode of MODES) {
       for (const line of [reviewIntroLine(mode, 1), reviewIntroLine(mode, 6), reviewCompleteLine(mode, 1), reviewCompleteLine(mode, 4), reviewFinishedLine(mode), LETTERS_OUT_LINE]) {
         expect(checkMarketingCopy(line.es, mode), line.es).toEqual([]);
@@ -459,10 +460,10 @@ describe("WhatsApp messages", () => {
     expect(renderMessage({ kind: "attack_ready", roundNumber: 2 }, "self_serve")).toMatch(/Tú decides, tú envías\./);
   });
 
-  it("introduce Capi as AI and hand a lead to a person", () => {
+  it("introduce the assistant as AI and hand a lead to a person", () => {
     for (const text of [CLIENT_FALLBACK_REPLY, LEAD_GREETING]) {
       expect(checkMarketingCopy(text), text).toEqual([]);
-      expect(text).toMatch(/Soy Capi, el asistente de IA de Credalti/);
+      expect(text).toContain(`Soy ${ASSISTANT_NAME}, el asistente de IA de Credalti`);
       expect(text).not.toMatch(/preparar tus cartas|\$/);
     }
     expect(LEAD_GREETING).toMatch(/Una persona de nuestro equipo te responde aquí mismo/);
@@ -471,7 +472,7 @@ describe("WhatsApp messages", () => {
   });
 });
 
-describe("Capi's instructions", () => {
+describe("the assistant's instructions", () => {
   const full = coachSystemPrompt("full_service");
   const self = coachSystemPrompt("self_serve");
 

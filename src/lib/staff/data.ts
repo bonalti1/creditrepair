@@ -64,7 +64,7 @@ export interface StaffData {
    * A teammate's reply in the client's conversation, stored with source
    * "human" and the teammate's name. A reply that breaks a claim rule is not
    * sent: the problems come back instead. A reply that is sent also answers
-   * the questions Capi had passed to the team.
+   * the questions the assistant had passed to the team.
    */
   sendReply(clientId: string, text: string, author: string): Promise<ReplyResult>;
   /**
@@ -220,7 +220,7 @@ export function applyDemoActions(clients: StaffClient[], actions: DemoActions): 
 
 /**
  * The actions with a teammate's reply added. The reply also answers every
- * question Capi had passed to the team before it, through the same "answered"
+ * question the assistant had passed to the team before it, through the same "answered"
  * mark that resolveException writes. Pure: returns new actions.
  */
 export function withReply(actions: DemoActions, client: StaffClient, message: StaffChatMessage): DemoActions {

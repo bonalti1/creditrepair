@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
 import Icon from "@/components/Icon";
 import LocaleToggle from "@/components/LocaleToggle";
-import Logo, { CapiAvatar } from "@/components/Logo";
+import Logo from "@/components/Logo";
+import { CharacterAvatar, CharacterFigure } from "@/components/Character";
 import { LocaleProvider, useLocale } from "@/lib/i18n";
 import { MARKETING } from "@/lib/i18n/marketing";
 import { MONITORING_OFFER } from "@/lib/monitoring/offer";
@@ -20,8 +21,11 @@ import { readStoredAgreement } from "@/lib/ux/agreementLocal";
 // config change) → the monitoring subscription (a separate subscription, bought
 // from and paid to the monitoring provider, with our commission disclosed; the
 // service fee is not stated here, the team explains the plan) → how you want
-// to do your review (with Capi, or with a teammate on WhatsApp; either way the
-// answers are the client's and the team mails the letters).
+// to do your review (with the AI assistant, or with a teammate on WhatsApp;
+// either way the answers are the client's and the team mails the letters).
+// Characters: the invited welcome is from the team, so Alti (the face of the
+// team, never a specific person) greets; on the review choice BONALTI marks the
+// AI assistant and Alti marks "a person by my side".
 // One question per screen, one obvious button.
 //
 // Sales-led path: most customers arrive from a WhatsApp conversation with a
@@ -192,8 +196,12 @@ function Onboarding() {
 
       {step === "welcome" && invite && (
         <div className="animate-rise flex flex-1 flex-col pt-10">
-          <CapiAvatar size={72} ring={false} />
-          <h1 className="mt-6 font-display text-[34px] font-black leading-tight text-blue-700">
+          {/* Alti stands on a white card, feet on its lower edge, with the team's name beside him. */}
+          <div className="card flex items-end gap-5 overflow-hidden px-6 pt-5">
+            <CharacterFigure character="team" height={150} />
+            <p className="self-center font-display text-[22px] font-black leading-tight text-blue-700">{c.teamTag}</p>
+          </div>
+          <h1 className="mt-5 font-display text-[34px] font-black leading-tight text-blue-700">
             {c.hello(invite.name)}
           </h1>
           <p className="mt-3 text-[17px] leading-relaxed text-slate-500">
@@ -401,19 +409,17 @@ function Onboarding() {
           <p className="mt-3 text-[17px] text-slate-500">{c.assistSub}</p>
           <div className="mt-8 space-y-3">
             <button onClick={() => finish(false)} className="card pressable flex w-full items-center gap-4 p-5 text-left">
-              <CapiAvatar size={48} ring={false} />
+              <CharacterAvatar character="assistant" view="headThreeQuarter" size={52} decorative />
               <span className="min-w-0 flex-1">
-                <span className="block text-[17px] font-semibold text-slate-900">{c.withCapi}</span>
+                <span className="block text-[17px] font-semibold text-slate-900">{c.withAssistant}</span>
                 <span className="block text-[15px] leading-snug text-slate-500">
-                  {c.withCapiSub}
+                  {c.withAssistantSub}
                 </span>
               </span>
               <Icon name="chevron" size={18} className="shrink-0 text-slate-300" />
             </button>
             <button onClick={() => finish(true)} className="card pressable flex w-full items-center gap-4 p-5 text-left">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
-                <Icon name="person" size={24} />
-              </span>
+              <CharacterAvatar character="team" size={52} />
               <span className="min-w-0 flex-1">
                 <span className="block text-[17px] font-semibold text-slate-900">{c.withPerson}</span>
                 <span className="block text-[15px] leading-snug text-slate-500">

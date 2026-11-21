@@ -2,7 +2,7 @@ import { SERVICE_MODE, type ServiceMode } from "../service/mode";
 
 // Armor #3 (spec §3): claim guardrails, enforced in the content pipeline (ES
 // and EN). Used to lint anything a client or a prospect reads: landing pages,
-// WhatsApp templates, Capi's replies, staff replies, ad scripts.
+// WhatsApp templates, the assistant's replies, staff replies, ad scripts.
 //
 // Two levels: checkClaimGuardrails (everything we send) and checkMarketingCopy
 // (ads and sales copy, which adds outcome-promise rules).

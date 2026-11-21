@@ -18,21 +18,27 @@ import { STAFF_MESSAGE_RULES } from "@/lib/staff/messages";
 import type { StaffClient } from "@/lib/staff/types";
 import { rememberStaffName, staffName } from "@/lib/staff/useStaff";
 import { messageVoice } from "@/lib/ux/chatMessages";
+import { CharacterAvatar } from "@/components/Character";
 import Icon from "@/components/Icon";
 import TeamMessage from "@/components/TeamMessage";
 import { DeniedNote, PRIMARY_BUTTON, SectionTitle } from "@/components/staff/ui";
 
 // The client's conversation in the app, and a box to answer in it.
 //
-// Every message is labelled with who wrote it: the client, Capi (always
+// Every message is labelled with who wrote it: the client, the assistant (always
 // marked as AI) or a teammate by name. A reply written here is stored as a
 // person's message, signed with the teammate's name. It is checked against
 // the claim rules first: a reply that promises a result is not sent, and the
 // teammate is shown the phrase and the reason.
+//
+// Only the assistant's messages carry a character (the robot's head beside
+// its "(IA)" label). A teammate's message is labelled with that person's own
+// name and never with the team character: a mascot must never look like the
+// author of words a real person wrote.
 
 const BUBBLE: Record<ThreadVoice, string> = {
   client: "bg-slate-100 text-slate-900",
-  capi: "border border-slate-200 bg-white text-slate-700",
+  assistant: "border border-slate-200 bg-white text-slate-700",
   team: "border border-blue-200 bg-blue-50 text-blue-900",
 };
 
@@ -141,9 +147,12 @@ export default function Conversation({
                 const ours = author.voice !== "client";
                 return (
                   <div key={message.id} data-voice={author.voice} className={`flex flex-col ${ours ? "items-end" : "items-start"}`}>
-                    <p className="mb-1 px-1 text-xs text-slate-500">
+                    <p className="mb-1 flex items-center gap-1.5 px-1 text-xs text-slate-500">
+                      {author.voice === "assistant" && <CharacterAvatar character="assistant" size={20} decorative />}
                       <span className="font-semibold text-slate-700">{author.label}</span>
-                      {author.voice === "team" && " · equipo"} · {shortDateTime(message.at)}
+                      <span>
+                        {author.voice === "team" && " · equipo"} · {shortDateTime(message.at)}
+                      </span>
                     </p>
                     <div
                       className={`max-w-[85%] whitespace-pre-line break-words rounded-2xl px-3.5 py-2 text-[15px] leading-snug ${BUBBLE[author.voice]}`}
@@ -173,7 +182,7 @@ export default function Conversation({
               </div>
               <p className="mt-2 text-xs leading-relaxed text-slate-500">
                 Así aparece el último mensaje del equipo en el chat del cliente: con el nombre de quien escribe y «del
-                equipo», distinto de los mensajes de Capi y sin la etiqueta de IA. En la demo el chat del cliente no
+                equipo», distinto de los mensajes de {BRAND.assistant} y sin la etiqueta de IA. En la demo el chat del cliente no
                 está conectado con esta consola, así que el mensaje no le llega a nadie.
               </p>
             </details>
@@ -191,7 +200,7 @@ export default function Conversation({
                 data-testid="open-question"
                 className="mb-3 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900"
               >
-                <span className="font-semibold">Pregunta que Capi pasó al equipo ({relativeDay(question.askedAt, now)}):</span>{" "}
+                <span className="font-semibold">Pregunta que {BRAND.assistant} pasó al equipo ({relativeDay(question.askedAt, now)}):</span>{" "}
                 «{question.text}» Tu respuesta aquí la contesta y quita el aviso.
               </p>
             ))}

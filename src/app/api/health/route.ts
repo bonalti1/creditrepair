@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { BRAND } from "@/lib/brand";
 import { agreementReadiness } from "@/lib/agreement/readiness";
 import { billingReadiness } from "@/lib/billing/readiness";
 import { MONITORING_OFFER } from "@/lib/monitoring/offer";
@@ -67,7 +68,7 @@ export async function GET(req: Request) {
     add("ID photo storage", Boolean(bucket) && bucket?.public === false, "required", bucket ? (bucket.public ? "Bucket identity-docs must be private." : "Private bucket present.") : "Bucket identity-docs is missing (migration 0003).");
   }
 
-  add("Capi (Anthropic)", set("ANTHROPIC_API_KEY"), "required", set("ANTHROPIC_API_KEY") ? "Key is set." : "Without it Capi answers with a fixed fallback and letters are not reworded.");
+  add(`${BRAND.assistant} (Anthropic)`, set("ANTHROPIC_API_KEY"), "required", set("ANTHROPIC_API_KEY") ? "Key is set." : `Without it ${BRAND.assistant} answers with a fixed fallback and letters are not reworded.`);
   add("Mail (Lob)", set("LOB_API_KEY"), "required", set("LOB_API_KEY") ? "Key is set." : "Without it letters are recorded but NOT mailed.");
   add(
     "Mail tracking (Lob webhook)",

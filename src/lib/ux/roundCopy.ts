@@ -151,7 +151,7 @@ export function waitingListNote(locale: Locale): string {
 }
 
 /**
- * Capi's message once the customer approves: which letters went out, what each
+ * The assistant's message once the customer approves: which letters went out, what each
  * covers, and which confirmed items wait for the next round.
  */
 export function approvedMessage(
