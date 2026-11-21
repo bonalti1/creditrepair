@@ -11,6 +11,8 @@ import { countByState, useFlags } from "@/lib/ux/flagsStore";
 import { letterCoverage, waitingNote } from "@/lib/ux/roundCopy";
 import { sessionPlan } from "@/lib/ux/sessionPlan";
 import { roundMailedDate, teamRoundStatus } from "@/lib/ux/teamRound";
+import { clientLetterMail, letterCameBack, letterMailLine } from "@/lib/mail/clientView";
+import { letterMailKey, useLetterMail } from "@/lib/ux/letterMail";
 import { isFullService } from "@/lib/service/mode";
 import { useLocale } from "@/lib/i18n";
 import IdentityDocs from "@/components/IdentityDocs";
@@ -39,6 +41,8 @@ export default function Attack() {
   const { flags, roundFlags, roundApproved, roundMailedAt, setRoundApproved, hydrated } = useFlags();
   const { locale, d } = useLocale();
   const [openLetter, setOpenLetter] = useState<number | null>(null);
+  // How each mailed letter travels and where it is (mail/clientView.ts).
+  const savedMail = useLetterMail();
 
   const counts = countByState(flags);
 
@@ -171,10 +175,19 @@ export default function Attack() {
               !isFullService
                 ? null
                 : status === "mailed"
-                  ? [
-                      { label: d.team.statusMailed(mailedOn), done: true },
-                      { label: d.team.statusWaiting, done: false },
-                    ]
+                  ? (() => {
+                      // "Enviada el … · Certificada · Entregada el …": one line from the letter's mail record.
+                      const mail = clientLetterMail(
+                        { templateKey: letter.templateKey, targetType: letter.target.type },
+                        mailedAt?.toISOString() ?? null,
+                        savedMail[letterMailKey(letter.target.key, letter.templateKey)],
+                      );
+                      const line = letterMailLine(mail, locale);
+                      return [
+                        { label: line ?? d.team.statusMailed(mailedOn), done: !letterCameBack(mail) },
+                        ...(letterCameBack(mail) ? [] : [{ label: d.team.statusWaiting, done: false }]),
+                      ];
+                    })()
                   : [{ label: d.team.statusPreparing, done: false }]
             }
           />

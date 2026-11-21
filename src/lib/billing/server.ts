@@ -77,7 +77,13 @@ export function paymentMethodFromRow(row: Row): PaymentMethodSummary {
   };
 }
 
-/** A round and its letters as billing reads them. A letter the mail service failed counts as returned. */
+/**
+ * A round and its letters as billing reads them. A letter counts as returned
+ * when the mail service failed it, or when the post office returned it or
+ * could not deliver it (letters.mail_status, written by the Lob tracking
+ * webhook: migration 0013). A round whose letters ALL came back is not
+ * charged without a person (rules.ts: all_letters_returned).
+ */
 export function billableRoundFromRows(round: Row, letters: Row[]): BillableRound {
   const mailedAt = iso(round.mailed_at);
   return {
@@ -91,7 +97,7 @@ export function billableRoundFromRows(round: Row, letters: Row[]): BillableRound
           letter.target_type === "bureau" && BUREAU_SHORT[text(letter.target_key)]
             ? BUREAU_SHORT[text(letter.target_key)]!
             : text(letter.target_name),
-        returned: letter.status === "failed",
+        returned: letter.status === "failed" || letter.mail_status === "returned" || letter.mail_status === "undeliverable",
       })),
   };
 }
@@ -127,7 +133,7 @@ export async function loadBilling(db: SupabaseClient, userId: string, options: {
   const [agreementRow, roundRows, letterRows, methodRows, chargeRows, refundRows, pauseRows] = await Promise.all([
     loadAgreementRow(db, userId),
     rows(db.from("attack_rounds").select("id, round_number, status, mailed_at").eq("user_id", userId), "attack_rounds"),
-    rows(db.from("letters").select("round_id, target_type, target_key, target_name, status").eq("user_id", userId), "letters"),
+    rows(db.from("letters").select("round_id, target_type, target_key, target_name, status, mail_status").eq("user_id", userId), "letters"),
     rows(db.from("payment_methods").select("*").eq("user_id", userId).is("removed_at", null).limit(1), "payment_methods"),
     rows(db.from("charges").select("*").eq("user_id", userId).order("work_date", { ascending: true }), "charges"),
     rows(db.from("refunds").select("*").eq("user_id", userId), "refunds"),

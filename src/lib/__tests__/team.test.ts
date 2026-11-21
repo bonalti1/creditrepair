@@ -630,7 +630,8 @@ describe("team: what the staff routes accept", () => {
     // Every route that acts for staff checks a capability.
     const staffRoutes = sourceFiles("src/app/api").filter((f) => /getStaffAccess|requireCapability/.test(read(f)));
     for (const route of staffRoutes) expect(read(route), route).toMatch(/requireCapability\(/);
-    expect(staffRoutes.length).toBe(4);
+    expect(read("src/app/api/furnishers/route.ts")).toMatch(/requireCapability\("rounds\.send"\)/);
+    expect(staffRoutes.length).toBe(5);
   });
 });
 

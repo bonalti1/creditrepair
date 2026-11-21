@@ -17,6 +17,7 @@ const TABLES = [
   "attack_rounds", "letters", "letter_items", "aba_acknowledgments", "events", "waitlist", "identity_documents", "chat_messages",
   "service_agreements",
   "payment_methods", "payment_method_vault", "charges", "refunds", "billing_pauses",
+  "mail_events", "furnishers", "furnisher_changes",
 ];
 
 export async function GET(req: Request) {
@@ -52,6 +53,14 @@ export async function GET(req: Request) {
 
   add("Capi (Anthropic)", set("ANTHROPIC_API_KEY"), "required", set("ANTHROPIC_API_KEY") ? "Key is set." : "Without it Capi answers with a fixed fallback and letters are not reworded.");
   add("Mail (Lob)", set("LOB_API_KEY"), "required", set("LOB_API_KEY") ? "Key is set." : "Without it letters are recorded but NOT mailed.");
+  add(
+    "Mail tracking (Lob webhook)",
+    !set("LOB_API_KEY") || set("LOB_WEBHOOK_SECRET"),
+    "required",
+    set("LOB_WEBHOOK_SECRET")
+      ? "Secret is set: /api/webhooks/lob accepts signed deliveries."
+      : "LOB_WEBHOOK_SECRET is not set: /api/webhooks/lob refuses every delivery, so no letter shows as delivered or returned.",
+  );
   const whatsapp = set("WHATSAPP_ACCESS_TOKEN") && set("WHATSAPP_PHONE_NUMBER_ID");
   add("WhatsApp sending", whatsapp, "required", whatsapp ? "Keys are set." : "Without it no WhatsApp message is sent.");
   add(

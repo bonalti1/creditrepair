@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { buildAttackPlan, ROUND_CYCLE_DAYS, type ItemHistory } from "@/lib/domain/attack";
-import type { EscalationStage, ItemFlag, ReportItem, UserProfile } from "@/lib/domain/types";
+import type { EscalationStage, ItemFlag, PlannedLetter, ReportItem, UserProfile } from "@/lib/domain/types";
 import { renderLetter } from "@/lib/letters/templates";
 import { varyLetterWording } from "@/lib/letters/variation";
 import { pickFont } from "@/lib/letters/fonts";
-import { mailLetter } from "@/lib/integrations/lob";
+import { MailAddressError, mailLetter } from "@/lib/integrations/lob";
+import { defaultMailClass } from "@/lib/mail/classes";
+import { resolveFurnisherAddress } from "@/lib/mail/furnishers";
+import { furnisherFromRow } from "@/lib/mail/server";
 import { sendWhatsApp } from "@/lib/integrations/whatsapp";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { resolveActingUser } from "@/lib/supabase/server";
@@ -208,6 +211,33 @@ export async function POST(req: Request) {
     (priorLetters ?? []).map((l) => [letterKey(l.target_type, l.target_key, l.template_key), l]),
   );
 
+  // Letters to a creditor or collector go only to an address a person checked
+  // and dated in the furnisher address book (migration 0013), never to the
+  // address the credit report printed. Checked for every letter before any is
+  // mailed, so a round never goes out half-sent for want of an address.
+  const { data: furnisherRows, error: furnisherError } = await db
+    .from("furnishers")
+    .select("id, name, aliases, address_lines, phone, notes, source, verified_on, updated_at, updated_by_name");
+  if (furnisherError) {
+    await reportError(new Error(furnisherError.message), { where: "api/attacks/approve:furnishers", userId });
+    return NextResponse.json({ error: "Could not read the furnisher address book. Nothing was sent." }, { status: 500 });
+  }
+  const book = (furnisherRows ?? []).map((row) => furnisherFromRow(row as Record<string, unknown>));
+  const destinations = new Map<PlannedLetter, { name: string; addressLines: string[] }>();
+  const missing: string[] = [];
+  for (const planned of plan.letters) {
+    if (planned.target.type !== "furnisher") {
+      destinations.set(planned, { name: planned.target.name, addressLines: planned.target.addressLines });
+      continue;
+    }
+    const resolved = resolveFurnisherAddress(book, planned.target.name);
+    if (resolved.ok) destinations.set(planned, { name: resolved.entry.name, addressLines: resolved.addressLines });
+    else missing.push(resolved.message);
+  }
+  if (missing.length > 0) {
+    return NextResponse.json({ error: missing.join(" "), code: "furnisher_address_missing" }, { status: 409 });
+  }
+
   const now = new Date();
   const mailedLetters = [];
   for (const planned of plan.letters) {
@@ -216,6 +246,10 @@ export async function POST(req: Request) {
       mailedLetters.push({ id: prior.id as string, target: planned.target.name, stage: planned.stage });
       continue;
     }
+    const destination = destinations.get(planned)!;
+    const target = { ...planned.target, name: destination.name, addressLines: destination.addressLines };
+    // The class for this kind of letter (mail/classes.ts): certified for follow-ups, furnishers and collectors.
+    const mailClass = defaultMailClass(planned.templateKey, planned.target.type);
 
     const letterItems = planned.itemFingerprints
       .map((fp) => items.find((i) => i.fingerprint === fp))
@@ -223,7 +257,7 @@ export async function POST(req: Request) {
 
     const baseBody = renderLetter(planned.templateKey, {
       user,
-      target: planned.target,
+      target,
       items: letterItems,
       date: now.toISOString(),
       roundNumber,
@@ -237,12 +271,13 @@ export async function POST(req: Request) {
       round_id: round.id,
       target_type: planned.target.type,
       target_key: planned.target.key,
-      target_name: planned.target.name,
-      target_address_lines: planned.target.addressLines,
+      target_name: target.name,
+      target_address_lines: target.addressLines,
       template_key: planned.templateKey,
       escalation_stage: planned.stage,
       body,
       status: "draft",
+      mail_class: mailClass,
     };
     const { data: letterRow, error: letterError } = prior
       ? await db.from("letters").update(letterFields).eq("id", prior.id).select("id").single()
@@ -255,14 +290,23 @@ export async function POST(req: Request) {
     let mail;
     try {
       mail = await mailLetter({
-        to: { name: planned.target.name, addressLines: planned.target.addressLines },
+        to: { name: target.name, addressLines: target.addressLines },
+        // The return address is the client's own: the letter is theirs (see lob.ts).
         from: { name: user.fullName, addressLines: user.addressLines },
         // The letter is plain text and is escaped, so a creditor name can never
         // be read as markup by the print renderer.
         bodyHtml: letterHtml({ body, fontFamily: font.family, sizePt: font.sizePt, enclosures: enclosurePages }),
         idempotencyKey: letterRow.id,
+        mailClass,
+        description: `Round ${roundNumber} letter ${letterRow.id}`,
+        metadata: { letter_id: String(letterRow.id), round: String(roundNumber) },
       });
     } catch (error) {
+      if (error instanceof MailAddressError) {
+        // An address that cannot be read is not a mail-service failure: it is
+        // refused before anything is sent, and someone has to fix the address.
+        return NextResponse.json({ error: error.message, code: `address_${error.which}`, mailed: mailedLetters }, { status: 422 });
+      }
       // The mail provider refused this letter. Leave it as a draft, tell the
       // operator, and stop: the round stays in "draft" so the user can approve
       // again. On the retry, letters that already went out are skipped and this
@@ -276,7 +320,17 @@ export async function POST(req: Request) {
 
     await db
       .from("letters")
-      .update({ font_family: font.family, lob_id: mail.externalId, status: "queued", mailed_at: now.toISOString() })
+      .update({
+        font_family: font.family,
+        lob_id: mail.externalId,
+        status: "queued",
+        mailed_at: now.toISOString(),
+        // Tracking (migration 0013). Without a Lob key nothing reached a post office: "simulated".
+        mail_provider: mail.provider === "lob" ? "lob" : "simulated",
+        mail_status: "in_transit",
+        tracking_number: mail.trackingNumber,
+        mail_updated_at: now.toISOString(),
+      })
       .eq("id", letterRow.id);
 
     if (letterItems.length > 0) {

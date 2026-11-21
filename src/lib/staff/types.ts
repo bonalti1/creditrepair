@@ -2,6 +2,7 @@ import type { BillingAccount } from "../billing/types";
 import type { ChatRole, ChatSource } from "../chat/history";
 import type { EscalationStage, ItemCategory, LetterTarget, NormalizedReport, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
+import type { LetterMail, MailClass } from "../mail/types";
 
 // The staff-side view of one client: everything the console needs to say where
 // a person is and why, in one object. It mirrors what the database already
@@ -57,6 +58,18 @@ export interface StaffLetter {
    */
   itemReasons?: Record<string, DisputeReasonCode>;
   mailStatus: MailStatus;
+  /**
+   * How this letter is to be mailed, chosen on the send screen; absent means
+   * the default for its kind (mail/classes.ts: defaultMailClass).
+   */
+  mailClass?: MailClass;
+  /**
+   * How it was mailed and what the post office has said since (mail_events,
+   * migration 0013): class, tracking number, the mailing and delivery dates,
+   * and each tracking event. Absent until it is sent, and on letters recorded
+   * before tracking existed. `mailStatus` above is kept equal to its status.
+   */
+  mail?: LetterMail;
 }
 
 /**

@@ -9,6 +9,10 @@ import { mergeReport, planImport } from "../reports/merge";
 import { checkStaffReply, MAX_REPLY_CHARS, openQuestions, type ReplyProblem } from "./conversation";
 import { buildDemoClients } from "./demoClients";
 import { sampleMethod } from "./billing";
+import { applyDemoSends, demoFurnisherBook, loadDemoSends, recordDemoSend, resetDemoMail } from "../mail/data";
+import { demoClientsWithMail } from "../mail/demo";
+import { roundMailPlan } from "../mail/sendPlan";
+import type { MailClass } from "../mail/types";
 import { clientBilling, sendableRound } from "./stage";
 import { applyTeamActions, loadTeamActions, resetTeamActions } from "./teamStore";
 import type { DocumentKind, ReportSample, StaffChatMessage, StaffClient, StaffNote } from "./types";
@@ -30,8 +34,12 @@ export interface StaffData {
   readonly demo: boolean;
   listClients(): Promise<StaffClient[]>;
   getClient(id: string): Promise<StaffClient | null>;
-  /** Mail prepared rounds. In the demo they are only marked as sent. */
-  markRoundsSent(rounds: RoundRef[]): Promise<void>;
+  /**
+   * Mail prepared rounds. In the demo they are only marked as sent. A round is
+   * left out if it may not be sent now (sendableRound, with the furnisher
+   * address book) or if any of its letters has no address to go to.
+   */
+  markRoundsSent(rounds: RoundRef[], options?: SendOptions): Promise<void>;
   addNote(clientId: string, text: string, author: string): Promise<StaffNote>;
   /**
    * Mark an exception as handled (see clientExceptions for how long it stays
@@ -73,6 +81,13 @@ export interface StaffData {
 }
 
 export type BillingActionResult = { ok: true } | { ok: false; message: string };
+
+/** How a send goes out: the class chosen for each letter (letter id → class), and whether it was printed here. */
+export interface SendOptions {
+  mailClasses?: Record<string, MailClass>;
+  /** "print": printed in the office and mailed by hand (/equipo/imprimir). Otherwise through the mail service. */
+  via?: "mail" | "print";
+}
 
 export interface ReportInput {
   /** The reader that read it. */
@@ -303,16 +318,21 @@ function createDemoData(): StaffData & {
   let actions: DemoActions | null = null;
 
   const state = () => {
-    base ??= buildDemoClients(new Date());
+    if (!base) {
+      const now = new Date();
+      // The invented clients, with what a mail service would have reported for their letters (mail/demo.ts).
+      base = demoClientsWithMail(buildDemoClients(now), now);
+    }
     actions ??= loadActions();
     return { base, actions };
   };
   const current = () => {
     const s = state();
     // The team's own record (teamStore.ts): people added by hand join the
-    // invented ones first, then assignments and senders are applied.
+    // invented ones first, then assignments and senders are applied, then the
+    // rounds sent from the send screen (mail/demo.ts).
     const team = loadTeamActions();
-    return applyTeamActions(applyDemoActions([...s.base, ...team.added], s.actions), team);
+    return applyDemoSends(applyTeamActions(applyDemoActions([...s.base, ...team.added], s.actions), team), loadDemoSends());
   };
 
   return {
@@ -323,18 +343,28 @@ function createDemoData(): StaffData & {
     async getClient(id) {
       return current().find((c) => c.id === id) ?? null;
     },
-    async markRoundsSent(rounds) {
+    async markRoundsSent(rounds, options = {}) {
       const { actions: a } = state();
       const now = new Date();
       const at = now.toISOString();
       const clients = current();
+      const furnishers = demoFurnisherBook();
       for (const { clientId, roundNumber } of rounds) {
         // The same rule the screens show, applied again where the round is
         // marked: a round goes out only if it may be sent right now (agreement
-        // in force and past its cancellation window, current report…).
+        // in force and past its cancellation window, current report, a checked
+        // address for every creditor and collector…).
         const client = clients.find((c) => c.id === clientId);
-        if (!client || sendableRound(client, now)?.number !== roundNumber) continue;
+        const round = client ? sendableRound(client, now, { furnishers }) : null;
+        if (!client || !round || round.number !== roundNumber) continue;
+        const plan = roundMailPlan(client, round, furnishers, now, options.mailClasses);
+        if (plan.blockers.length > 0) continue;
         a.sent[clientId] = { ...a.sent[clientId], [String(roundNumber)]: at };
+        recordDemoSend(clientId, roundNumber, {
+          via: options.via === "print" ? "print" : "simulated",
+          classes: Object.fromEntries(plan.letters.map((l) => [l.letter.id, l.mailClass])),
+          addresses: Object.fromEntries(plan.letters.flatMap((l) => (l.to ? [[l.letter.id, l.to]] : []))),
+        });
       }
       saveActions(a);
     },
@@ -461,6 +491,7 @@ const demoData = createDemoData();
 export function resetDemo(): void {
   demoData.reset();
   resetTeamActions();
+  resetDemoMail();
 }
 
 /**

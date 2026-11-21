@@ -6,7 +6,8 @@ import { count, shortDay } from "@/lib/staff/format";
 import { exceptionMessage, whatsappHref } from "@/lib/staff/messages";
 import { exceptionVisibleTo } from "@/lib/staff/permissions";
 import { nextStepFor } from "@/lib/staff/clientList";
-import { roundRefsHref } from "@/lib/staff/printBatch";
+import { roundRefsHref, sendRefsHref } from "@/lib/staff/printBatch";
+import { useMail } from "@/lib/mail/useMail";
 import {
   ACTOR_LABEL,
   clientExceptions,
@@ -53,12 +54,13 @@ function greeting(now: Date): string {
 }
 
 export default function EquipoHome() {
-  const { data, ready, clients, now, reload, viewer, can } = useStaff();
+  const { data, ready: clientsReady, clients, now, reload, viewer, can } = useStaff();
   // What this member's role takes care of: sales follows people until the work starts; only some roles send.
   const sends = can("rounds.send");
+  // The furnisher address book: a round with a letter to a company that has no checked address is held.
+  const { furnishers, ready: bookReady } = useMail();
+  const ready = clientsReady && bookReady;
   const [selected, setSelected] = useState<Set<string> | null>(null);
-  const [sentCount, setSentCount] = useState(0);
-  const [sending, setSending] = useState(false);
 
   const view = useMemo(() => {
     const exceptions: Array<{ client: StaffClient; exception: StaffException }> = [];
@@ -69,9 +71,9 @@ export default function EquipoHome() {
     for (const client of clients) {
       const stage = clientStage(client, now);
       byStage[stage] += 1;
-      const own = clientExceptions(client, now).filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
+      const own = clientExceptions(client, now, { furnishers }).filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
       own.forEach((exception) => exceptions.push({ client, exception }));
-      const round = sends ? sendableRound(client, now) : null;
+      const round = sends ? sendableRound(client, now, { furnishers }) : null;
       if (round) sendable.push({ client, round });
       // A client who cancelled is not moving along on their own: they are out.
       if (own.length === 0 && !round && stage !== "cancelled") quiet.push(client);
@@ -85,7 +87,7 @@ export default function EquipoHome() {
     const when = (client: StaffClient) => nextStepFor(client, now, viewer).at ?? "9999";
     quiet.sort((a, b) => when(a).localeCompare(when(b)));
     return { exceptions, sendable, quiet, byStage };
-  }, [clients, now, viewer, sends]);
+  }, [clients, now, viewer, sends, furnishers]);
 
   // Every prepared round starts selected: sending them all is the routine.
   useEffect(() => {
@@ -102,16 +104,6 @@ export default function EquipoHome() {
     if (next.has(clientId)) next.delete(clientId);
     else next.add(clientId);
     setSelected(next);
-  };
-
-  const sendChosen = async () => {
-    if (chosen.length === 0 || sending) return;
-    setSending(true);
-    await data.markRoundsSent(chosen.map((s) => ({ clientId: s.client.id, roundNumber: s.round.number })));
-    setSentCount(chosen.length);
-    setSelected(new Set(view.sendable.filter((s) => !selected?.has(s.client.id)).map((s) => s.client.id)));
-    await reload();
-    setSending(false);
   };
 
   const markHandled = async (clientId: string, key: string) => {
@@ -191,7 +183,7 @@ export default function EquipoHome() {
                         {exception.actionLabel}
                       </a>
                     ) : (
-                      <Link href={`/equipo/clientes/${client.id}#cartas`} className={ROW_BUTTON}>
+                      <Link href={exception.href ?? `/equipo/clientes/${client.id}#cartas`} className={ROW_BUTTON}>
                         {exception.actionLabel}
                       </Link>
                     )}
@@ -267,15 +259,6 @@ export default function EquipoHome() {
             </SectionTitle>
 
             <div className="card overflow-hidden">
-              {sentCount > 0 && (
-                <p className="flex items-start gap-2.5 bg-green-50 px-5 py-3.5 text-[14px] leading-snug text-green-700" role="status">
-                  <Icon name="check" size={18} className="mt-px shrink-0" />
-                  <span>
-                    {count(sentCount, "ronda enviada", "rondas enviadas")}. El sistema vuelve a importar cada reporte
-                    en {RESPONSE_WINDOW_DAYS} días.
-                  </span>
-                </p>
-              )}
 
               {view.sendable.length === 0 ? (
                 <p className="px-5 py-5 text-[14px] leading-snug text-slate-500">
@@ -285,7 +268,7 @@ export default function EquipoHome() {
                 <>
                   <ul>
                     {view.sendable.map(({ client, round }, index) => (
-                      <li key={client.id} className={`flex items-center gap-3 px-5 py-3 ${index > 0 || sentCount > 0 ? "border-t hairline" : ""}`}>
+                      <li key={client.id} className={`flex items-center gap-3 px-5 py-3 ${index > 0 ? "border-t hairline" : ""}`}>
                         <input
                           id={`send-${client.id}`}
                           type="checkbox"
@@ -317,14 +300,20 @@ export default function EquipoHome() {
                   </ul>
                   <div className="border-t hairline px-5 py-4">
                     <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={sendChosen}
-                        disabled={chosen.length === 0 || sending}
-                        className={`${PRIMARY_BUTTON_COMPACT} ${chosen.length === 0 ? "col-span-2" : ""}`}
-                      >
-                        {chosen.length === 0 ? "Elige qué enviar" : `Enviar ${count(chosen.length, "ronda", "rondas")}`}
-                      </button>
+                      {/* Sending opens the send screen: addresses, mail class per letter and cost, then confirm. */}
+                      {chosen.length === 0 ? (
+                        <button type="button" disabled className={`${PRIMARY_BUTTON_COMPACT} col-span-2`}>
+                          Elige qué enviar
+                        </button>
+                      ) : (
+                        <Link
+                          href={sendRefsHref(chosen.map((s) => ({ clientId: s.client.id, roundNumber: s.round.number })))}
+                          className={PRIMARY_BUTTON_COMPACT}
+                          data-testid="send-batch-link"
+                        >
+                          Enviar {count(chosen.length, "ronda", "rondas")}
+                        </Link>
+                      )}
                       {/* The other way to get them out: print here, mail by hand. */}
                       {chosen.length > 0 && (
                         <Link
@@ -337,8 +326,9 @@ export default function EquipoHome() {
                       )}
                     </div>
                     <p className="pt-2.5 text-xs leading-relaxed text-slate-500">
-                      Cada carta lleva solo lo que el cliente confirmó como inexacto. «Imprimir» abre las cartas para
-                      imprimirlas aquí y enviarlas a mano.
+                      Cada carta lleva solo lo que el cliente confirmó como inexacto. «Enviar» muestra a dónde va cada
+                      carta, cómo va y cuánto cuesta antes de confirmar. «Imprimir» abre las cartas para imprimirlas
+                      aquí y enviarlas a mano.
                       {data.demo && " En la demo no se envía nada: solo quedan marcadas como enviadas."}
                     </p>
                   </div>
