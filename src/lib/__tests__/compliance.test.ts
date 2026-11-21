@@ -27,7 +27,7 @@ describe("claim guardrails", () => {
 
   it.each([
     "Tú decides qué disputar y tú apruebas.",
-    "Capi prepara todo. Tú decides y tú envías. Los resultados varían.",
+    "El asistente prepara todo. Tú decides y tú envías. Los resultados varían.",
     "Tu ronda de cartas #2 está lista para TU aprobación.",
     "De carros no sé nada. Lo mío es tu crédito. Te lo explico, y tú decides.",
     "You review each item and you send your own disputes. Results vary.",

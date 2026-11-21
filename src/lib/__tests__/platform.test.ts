@@ -99,7 +99,7 @@ describe("chat history helpers", () => {
 
   it("gives the model a thread that opens with the client and is capped", () => {
     const turns = [
-      { role: "assistant" as const, text: "Hola, soy Capi." },
+      { role: "assistant" as const, text: "Hola, soy tu asistente." },
       { role: "user" as const, text: "¿Qué es una cobranza?" },
       { role: "assistant" as const, text: "Es una deuda enviada a un cobrador." },
       { role: "user" as const, text: "¿Y qué hago?" },

@@ -4,10 +4,14 @@ import Link from "next/link";
 import { useLocale } from "@/lib/i18n";
 import { MARKETING } from "@/lib/i18n/marketing";
 import LocaleToggle from "@/components/LocaleToggle";
-import Logo, { CapiAvatar } from "@/components/Logo";
+import Logo from "@/components/Logo";
+import { CharacterAvatar, CharacterFigure } from "@/components/Character";
 
-// Landing. The brand board in product form: navy field, gold action, Capi up
-// front. Copy discipline: it describes the service (the client says what is
+// Landing. The brand board in product form: navy field, gold action, and the
+// two characters together: BONALTI, the AI assistant, and Alti, the face of
+// the human team. On a phone they stand below the buttons, so the headline and
+// the main action stay on the first screen; on a wide screen they stand beside
+// the headline. Copy discipline: it describes the service (the client says what is
 // wrong, the team prepares and mails the letters) and never a result. No
 // guarantees, no "we remove / we fix", no price; results vary. The words live
 // in src/lib/i18n/marketing.ts, in Spanish and English.
@@ -39,30 +43,60 @@ export default function LandingContent() {
           </div>
         </header>
 
-        <div className="mx-auto max-w-3xl px-6 pt-10 text-center sm:pt-16">
-          <div className="inline-flex items-center gap-3 rounded-full bg-white/10 py-1.5 pl-1.5 pr-5">
-            <CapiAvatar size={44} ring={false} />
-            <span className="text-[15px] font-medium text-blue-100">{c.capiHello}</span>
+        <div className="mx-auto max-w-5xl px-6 pt-10 sm:pt-16 lg:grid lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:items-end lg:gap-8">
+          <div className="mx-auto max-w-3xl text-center lg:mx-0 lg:pb-16 lg:text-left">
+            <div className="inline-flex items-center gap-3 rounded-full bg-white/10 py-1.5 pl-1.5 pr-5">
+              <CharacterAvatar character="assistant" size={44} tone="ivory" decorative />
+              <span className="text-balance text-left text-[15px] font-medium leading-snug text-blue-100">{c.assistantHello}</span>
+            </div>
+
+            <h1 className="mt-6 font-display text-[46px] font-black leading-[1.02] sm:text-[72px] lg:text-[64px]">
+              {c.headline} <span className="text-amber-400">{c.headlineAccent}</span>
+            </h1>
+            <p className="mx-auto mt-5 max-w-xl text-[19px] leading-relaxed text-blue-100 sm:text-[21px] lg:mx-0">{c.lead}</p>
+
+            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
+              <a
+                href={ctaHref}
+                className="pressable flex h-14 w-full items-center justify-center rounded-full bg-amber-400 px-10 text-[17px] font-bold text-blue-900 hover:bg-amber-300 sm:w-auto"
+              >
+                {ctaLabel}
+              </a>
+              <Link
+                href="/dashboard"
+                className="pressable flex h-14 w-full items-center justify-center rounded-full bg-white/10 px-10 text-[17px] font-semibold text-white hover:bg-white/15 sm:w-auto"
+              >
+                {c.demo}
+              </Link>
+            </div>
           </div>
 
-          <h1 className="mt-6 font-display text-[46px] font-black leading-[1.02] sm:text-[72px]">
-            {c.headline} <span className="text-amber-400">{c.headlineAccent}</span>
-          </h1>
-          <p className="mx-auto mt-5 max-w-xl text-[19px] leading-relaxed text-blue-100 sm:text-[21px]">{c.lead}</p>
-
-          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a
-              href={ctaHref}
-              className="pressable flex h-14 w-full items-center justify-center rounded-full bg-amber-400 px-10 text-[17px] font-bold text-blue-900 hover:bg-amber-300 sm:w-auto"
-            >
-              {ctaLabel}
-            </a>
-            <Link
-              href="/dashboard"
-              className="pressable flex h-14 w-full items-center justify-center rounded-full bg-white/10 px-10 text-[17px] font-semibold text-white hover:bg-white/15 sm:w-auto"
-            >
-              {c.demo}
-            </Link>
+          {/* Alti turns toward BONALTI and BONALTI toward Alti: the team and the assistant, side by side. */}
+          <div className="relative mt-12 flex items-end justify-center gap-2 sm:gap-4 lg:mt-0">
+            <figure className="flex flex-col items-center">
+              <CharacterFigure
+                character="team"
+                view="threeQuarter"
+                height={250}
+                heightClassName="h-[250px] lg:h-[400px]"
+                priority
+              />
+              <figcaption className="mt-3 whitespace-nowrap rounded-full bg-white/10 px-3 py-1 text-center text-[13px] font-medium text-blue-100">
+                {c.teamTag}
+              </figcaption>
+            </figure>
+            <figure className="flex flex-col items-center">
+              <CharacterFigure
+                character="assistant"
+                view="threeQuarter"
+                height={140}
+                heightClassName="h-[140px] lg:h-[205px]"
+                priority
+              />
+              <figcaption className="mt-3 whitespace-nowrap rounded-full bg-white/10 px-3 py-1 text-center text-[13px] font-medium text-blue-100">
+                {c.assistantTag}
+              </figcaption>
+            </figure>
           </div>
         </div>
 

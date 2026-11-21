@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fromServerTurn, readStoredThread, type ChatMsg, type ServerTurn } from "./chatMessages";
 
-// The thread with Capi. Signed in: the server copy (chat_messages via
+// The thread with the assistant. Signed in: the server copy (chat_messages via
 // /api/chat, RLS-scoped) is the source of truth, so the conversation follows
 // the client across devices. Signed out / demo: localStorage only.
 // Same shape as the review store in flagsStore.ts.

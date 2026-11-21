@@ -125,7 +125,7 @@ export async function sendStaffReply(
   text: string,
 ): Promise<ActionResult<{ message: StaffChatMessage }>> {
   const body = text.trim();
-  // The same claim rules ads, WhatsApp and Capi pass (compliance/guardrails.ts).
+  // The same claim rules ads, WhatsApp and the assistant pass (compliance/guardrails.ts).
   const problems = checkStaffReply(body);
   if (problems.length > 0) return fail(422, "La respuesta no se envió: rompe una regla.", "claim_rules", problems);
   if ((await memberCanSee(reader, clientId, "case")) !== "client") return fail(404, NOT_YOURS, "not_visible");

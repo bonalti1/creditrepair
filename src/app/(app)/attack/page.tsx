@@ -20,6 +20,7 @@ import { useLocale } from "@/lib/i18n";
 import IdentityDocs from "@/components/IdentityDocs";
 import MailingAddress from "@/components/MailingAddress";
 import Icon from "@/components/Icon";
+import { CharacterAvatar } from "@/components/Character";
 import { WaitingNote } from "@/components/RoundNotes";
 
 // The letters page: no black box. Every letter is readable in full, with an
@@ -98,9 +99,7 @@ export default function Attack() {
           {d.nav.attack}
         </h1>
         <section data-testid="review-first" className="card px-6 pb-6 pt-8 text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-900">
-            <Icon name="search" size={26} />
-          </span>
+          <CharacterAvatar character="assistant" size={72} className="mx-auto" />
           <h2 className="mt-4 text-[22px] font-semibold leading-snug text-slate-900">{d.team.reviewFirstTitle}</h2>
           <p className="mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-slate-500">{d.team.reviewFirstBody}</p>
           <Link
@@ -126,9 +125,8 @@ export default function Attack() {
           {d.attack.title(1)}
         </h1>
         <section className="card px-6 pb-6 pt-8 text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-900">
-            <Icon name="search" size={26} />
-          </span>
+          {/* The review is done with the assistant, so its character points the way back to it. */}
+          <CharacterAvatar character="assistant" size={72} className="mx-auto" />
           <h2 className="mt-4 text-[22px] font-semibold leading-snug text-slate-900">{d.attack.emptyTitle}</h2>
           <p className="mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-slate-500">
             {d.attack.emptyBody}

@@ -60,14 +60,14 @@ export function renderMessage(event: WhatsAppEvent, mode: ServiceMode = SERVICE_
   }
 }
 
-// What Capi says on WhatsApp without the model. Every automated message is
+// What the assistant says on WhatsApp without the model. Every automated message is
 // sent with the AI mark in front (see the webhook), and says it is AI itself.
 
 /** To a client, when the coach is not available or its reply was held back. */
 export const CLIENT_FALLBACK_REPLY = `¡Gracias por tu mensaje! Soy ${BRAND.assistant}, el asistente de IA de ${BRAND.name}. En la app puedes revisar tu reporte y ver cómo van tus cartas. Si tienes una pregunta sobre tu crédito, escríbela y te respondo aquí mismo. Si prefieres hablar con una persona del equipo, dilo y te conectamos. 🙂`;
 
 /**
- * To someone who is not a client yet. Sales comes first: Capi introduces
+ * To someone who is not a client yet. Sales comes first: the assistant introduces
  * itself once, says a person will write, and then stays quiet.
  */
 export const LEAD_GREETING = `¡Hola! Soy ${BRAND.assistant}, el asistente de IA de ${BRAND.name}. Gracias por escribir. Una persona de nuestro equipo te responde aquí mismo en un momento para explicarte cómo trabajamos. 🙂`;

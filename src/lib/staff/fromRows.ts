@@ -430,7 +430,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
           text: text(m.body),
         };
       });
-    // A question Capi passed to the team (events.kind "question_escalated"),
+    // A question the assistant passed to the team (events.kind "question_escalated"),
     // answered by a handled mark or by the team's next reply.
     const questions: EscalatedQuestion[] = (eventsBy.get(id) ?? [])
       .filter((e) => e.kind === "question_escalated")

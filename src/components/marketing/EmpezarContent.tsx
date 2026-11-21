@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useLocale } from "@/lib/i18n";
 import { MARKETING } from "@/lib/i18n/marketing";
 import LocaleToggle from "@/components/LocaleToggle";
-import Logo, { CapiAvatar } from "@/components/Logo";
+import Logo from "@/components/Logo";
+import { CharacterAvatar, CharacterFigure, type Character } from "@/components/Character";
 
 // /empezar — the paid-traffic funnel page (Meta Click-to-WhatsApp + Google).
 // Structure mirrors what converts in this category (what we do → numbered
@@ -16,6 +17,14 @@ import Logo, { CapiAvatar } from "@/components/Logo";
 // src/lib/i18n/marketing.ts (ES and EN).
 
 const STEP_IMAGES = ["/screens/journey.png", "/screens/revisar.png", "/screens/carta.png"];
+
+// Who stands beside each step: BONALTI where the assistant explains the
+// report (step 2), Alti where the team prepares and mails the letters (step 3).
+const STEP_CHARACTERS: Array<{ character: Character; height: number } | null> = [
+  null,
+  { character: "assistant", height: 120 },
+  { character: "team", height: 230 },
+];
 
 export default function EmpezarContent() {
   const { locale } = useLocale();
@@ -32,8 +41,10 @@ export default function EmpezarContent() {
             <Logo size={24} tone="dark" />
             <LocaleToggle tone="dark" />
           </div>
-          <div className="mt-7 flex justify-center">
-            <CapiAvatar size={88} ring={false} />
+          {/* The team and the assistant: Alti (people) and BONALTI (AI). */}
+          <div className="mt-7 flex justify-center -space-x-3">
+            <CharacterAvatar character="team" size={76} className="ring-4 ring-blue-800" />
+            <CharacterAvatar character="assistant" size={76} tone="ivory" className="ring-4 ring-blue-800" />
           </div>
           <h1 className="mt-5 font-display text-[40px] font-black leading-[1.05] sm:text-[60px]">
             {c.headline} <span className="text-amber-400">{c.headlineAccent}</span>
@@ -59,18 +70,32 @@ export default function EmpezarContent() {
         <div className="mx-auto max-w-4xl space-y-14 px-6">
           {c.steps.map((s, index) => {
             const n = index + 1;
+            const beside = STEP_CHARACTERS[index];
             return (
               <div key={n} className="grid items-center gap-8 sm:grid-cols-2">
                 <div className={n % 2 === 0 ? "sm:order-2" : ""}>
                   <span className="inline-block rounded-full bg-blue-100 px-3 py-1 text-sm font-bold text-blue-700">
                     {c.step(n)}
                   </span>
+                  {beside && (
+                    <span className="ml-2 inline-block text-sm font-semibold text-slate-500">
+                      {beside.character === "assistant" ? c.assistantTag : c.teamTag}
+                    </span>
+                  )}
                   <h2 className="mt-3 font-display text-[26px] font-extrabold leading-tight text-blue-700">{s.title}</h2>
                   <p className="mt-2 text-slate-600">{s.body}</p>
                 </div>
-                <div className={n % 2 === 0 ? "sm:order-1" : ""}>
+                <div className={`flex items-end justify-center gap-3 ${n % 2 === 0 ? "sm:order-1" : ""}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={STEP_IMAGES[index]} alt={s.alt} className="card mx-auto w-full max-w-[300px]" />
+                  <img
+                    src={STEP_IMAGES[index]}
+                    alt={s.alt}
+                    width={780}
+                    height={1688}
+                    loading="lazy"
+                    className={`card h-auto min-w-0 ${beside ? "w-[62%] max-w-[260px]" : "w-full max-w-[300px]"}`}
+                  />
+                  {beside && <CharacterFigure character={beside.character} height={beside.height} />}
                 </div>
               </div>
             );

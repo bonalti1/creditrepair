@@ -5,6 +5,7 @@ import Link from "next/link";
 import AgreementDocumentCard, { Blocks, DraftBanner } from "@/components/agreement/AgreementDocument";
 import Icon, { type IconName } from "@/components/Icon";
 import IdentityDocs from "@/components/IdentityDocs";
+import { CharacterAvatar } from "@/components/Character";
 import { cancellationDeadline, firstWorkingDay } from "@/lib/agreement/businessDays";
 import { AGREEMENT_VERSION, agreementDocuments, type AgreementDocument } from "@/lib/agreement/documents";
 import { clockTime, deadlineMoment, longDate, recordMoment } from "@/lib/agreement/format";
@@ -649,7 +650,7 @@ function Signed({
             </li>
             <li className="flex gap-3.5 border-t hairline px-5 py-4">
               <StepNumber n={3} />
-              <span className="min-w-0">
+              <span className="min-w-0 flex-1">
                 <span className="block text-[17px] font-medium text-slate-900" data-testid="team-starts">
                   {inWindow && starts
                     ? es
@@ -669,6 +670,8 @@ function Signed({
                       : "Your time to cancel at no cost is over. Your team prepares and mails your letters about what you confirm."}
                 </span>
               </span>
+              {/* The team's step: Alti stands for the team (never one person, never the AI). */}
+              <CharacterAvatar character="team" size={48} className="self-center" />
             </li>
           </ol>
         </section>
@@ -864,7 +867,7 @@ function NotReady({ locale }: { locale: L }) {
       </section>
       {help && (
         <a href={help} target="_blank" rel="noopener noreferrer" className={SECONDARY}>
-          <Icon name="person" size={18} className="mr-2" />
+          <CharacterAvatar character="team" size={32} decorative className="-ml-2 mr-2" />
           {es ? "Hablar con una persona" : "Talk to a person"}
         </a>
       )}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { BRAND } from "@/lib/brand";
 import { COACH_SYSTEM_PROMPT } from "@/lib/coach/systemPrompt";
 import { checkClaimGuardrails } from "@/lib/compliance/guardrails";
 import { loadWhatsAppThread, storeMessage, toE164, toModelMessages } from "@/lib/chat/history";
@@ -27,10 +28,10 @@ const AI_PREFIX = "🤖 ";
 const FALLBACK = CLIENT_FALLBACK_REPLY;
 
 // Sales comes first. Someone writing in who is not yet a customer (no profile
-// with that phone number) is a lead, and leads are handled by a person. Capi
+// with that phone number) is a lead, and leads are handled by a person. The assistant
 // introduces itself once, says a teammate will write, and then stays quiet so
-// it never talks over the salesperson. Customers get Capi as before.
-// Set WHATSAPP_LEAD_REPLIES=ai to let Capi answer leads too; it is then told
+// it never talks over the salesperson. Customers get the assistant as before.
+// Set WHATSAPP_LEAD_REPLIES=ai to let the assistant answer leads too; it is then told
 // that the person is not a client yet, so it explains the service and leaves
 // prices and everything else to the team.
 const LEAD_GREETING_WINDOW_MS = 24 * 60 * 60_000;
@@ -58,7 +59,7 @@ async function notifySales(phoneE164: string): Promise<void> {
     await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: `Nuevo prospecto por WhatsApp: ${phoneE164}. Capi ya lo saludó; falta que le escriba una persona.` }),
+      body: JSON.stringify({ text: `Nuevo prospecto por WhatsApp: ${phoneE164}. ${BRAND.assistant} ya lo saludó; falta que le escriba una persona.` }),
       signal: AbortSignal.timeout(4000),
     });
   } catch {

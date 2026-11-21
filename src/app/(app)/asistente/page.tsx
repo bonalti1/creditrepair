@@ -25,7 +25,8 @@ import ItemFacts from "@/components/ItemFacts";
 import SpeakButton from "@/components/SpeakButton";
 import Icon from "@/components/Icon";
 import { InfoNote, WaitingNote } from "@/components/RoundNotes";
-import { CapiAvatar } from "@/components/Logo";
+import { CharacterAvatar } from "@/components/Character";
+import { ASSISTANT_NAME } from "@/lib/brand";
 import TeamMessage from "@/components/TeamMessage";
 
 // The conversation. The client's whole journey lives in one thread with their
@@ -37,7 +38,13 @@ import TeamMessage from "@/components/TeamMessage";
 // carries the approve button. Free-text questions go to the guardrailed coach. The
 // assistant is always identified as AI; a human teammate is one tap away.
 // When a teammate answers in the thread, their message is signed with their
-// first name and "del equipo" and looks different from Capi's (TeamMessage).
+// first name and "del equipo" and looks different from the assistant's (TeamMessage).
+//
+// Faces: the assistant's messages and the header carry BONALTI, the AI
+// assistant. A teammate's message never gets a character: it is signed with
+// the real person's name, so nobody's words are put in a mascot's mouth. Alti,
+// the face of the team as a whole, appears only on the "Persona" button, which
+// leads to the team, not to any one message.
 // The thread itself is saved (server-side when signed in), so the client picks
 // up the same conversation on any device.
 
@@ -118,8 +125,8 @@ export default function Asistente() {
     const opening: Msg[] = [
       line(
         "assistant",
-        `Hola 👋 Soy Capi, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós: ${DICTS.es.dashboard.items(items.length)}, ${DICTS.es.dashboard.negatives(negatives)}.`,
-        `Hi 👋 I'm Capi, your AI credit assistant. I already imported your 3-bureau report: ${DICTS.en.dashboard.items(items.length)}, ${DICTS.en.dashboard.negatives(negatives)}.`,
+        `Hola 👋 Soy ${ASSISTANT_NAME}, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós: ${DICTS.es.dashboard.items(items.length)}, ${DICTS.es.dashboard.negatives(negatives)}.`,
+        `Hi 👋 I'm ${ASSISTANT_NAME}, your AI credit assistant. I already imported your 3-bureau report: ${DICTS.en.dashboard.items(items.length)}, ${DICTS.en.dashboard.negatives(negatives)}.`,
       ),
     ];
     // What follows the review is said in the words of the service mode (reviewChatCopy.ts).
@@ -154,7 +161,7 @@ export default function Asistente() {
   };
 
   // Where the thread sits. A thread started on this visit stays at the top, so
-  // Capi's greeting is the first thing read. A saved thread opens at its newest
+  // The assistant's greeting is the first thing read. A saved thread opens at its newest
   // message. After that, the view moves only when a message is added.
   useEffect(() => {
     if (!hydrated || !chatHydrated || messages.length === 0) return;
@@ -344,10 +351,11 @@ export default function Asistente() {
   const hints = current ? itemCheckHints(current, locale, 3) : [];
   const otherBureaus = current ? crossBureauNote(current, items, flags, locale) : null;
   const humanButton =
-    "pressable flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-4 text-[14px] font-semibold text-slate-900";
+    "pressable flex h-11 shrink-0 items-center gap-2 rounded-full bg-slate-100 pl-1.5 pr-4 text-[14px] font-semibold text-slate-900";
+  // Alti stands for the team the button leads to; the button's label says what it does.
   const humanLabel = (
     <>
-      <Icon name="person" size={16} />
+      <CharacterAvatar character="team" size={32} decorative />
       {es ? "Persona" : "Person"}
     </>
   );
@@ -355,10 +363,10 @@ export default function Asistente() {
   return (
     <main className="card animate-rise -mt-1 flex h-[calc(100dvh-9.75rem)] flex-col overflow-hidden sm:h-[calc(100dvh-8.5rem)]">
       <header className="flex items-center gap-3 border-b hairline px-4 py-3">
-        <CapiAvatar size={42} />
+        <CharacterAvatar character="assistant" size={44} decorative />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[16px] font-semibold leading-tight text-slate-900">
-            Capi
+            {ASSISTANT_NAME}
           </span>
           <span className="flex items-center gap-1.5 text-xs text-slate-500">
             <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
@@ -391,18 +399,27 @@ export default function Asistente() {
         {messages.map((m, i) => {
           const shown = messageText(m, locale);
           const voice = messageVoice(m, locale);
+          // BONALTI's face on the assistant's lines only, once per run of them (on the last).
+          const next = messages[i + 1];
+          const lastOfRun = !next || messageVoice(next, locale).kind !== "assistant";
           return (
             <div
               key={i}
               data-newest={i === messages.length - 1 ? "" : undefined}
               className={`animate-rise flex items-end gap-1.5 ${voice.kind === "client" ? "justify-end" : ""}`}
             >
+              {voice.kind === "assistant" &&
+                (lastOfRun ? (
+                  <CharacterAvatar character="assistant" size={28} decorative className="mb-0.5" />
+                ) : (
+                  <span aria-hidden="true" className="w-7 shrink-0" />
+                ))}
               {voice.kind === "team" && voice.byline ? (
                 // A person wrote this one: signed, outlined, and never labelled as AI.
                 <TeamMessage byline={voice.byline} text={shown} />
               ) : (
                 <div
-                  className={`max-w-[80%] whitespace-pre-line break-words px-4 py-2.5 text-[16px] leading-snug ${
+                  className={`max-w-[78%] whitespace-pre-line break-words px-4 py-2.5 text-[16px] leading-snug ${
                     voice.kind === "client"
                       ? "rounded-[22px] rounded-br-md bg-blue-700 text-white"
                       : "rounded-[22px] rounded-bl-md bg-slate-100 text-slate-900"

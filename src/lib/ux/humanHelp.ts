@@ -28,12 +28,12 @@ export const HUMAN_HELP = {
     es: "En esta demo no hay personas conectadas. Con tu cuenta real, aquí se abre un chat de WhatsApp con nuestro equipo.",
     en: "No one is online in this demo. With a real account, this opens a WhatsApp chat with our team.",
   },
-  /** Capi's answer in the chat, demo. */
+  /** The assistant's answer in the chat, demo. */
   demoChat: {
     es: "En esta demo no hay personas conectadas. Con tu cuenta real, el botón «Persona» abre un chat de WhatsApp con nuestro equipo. Mientras tanto sigo yo aquí: ¿en qué te ayudo?",
     en: "No one is online in this demo. With a real account, the “Person” button opens a WhatsApp chat with our team. Meanwhile I'm still here: how can I help?",
   },
-  /** Capi's answer in the chat when a typed question asks for a person, live. */
+  /** The assistant's answer in the chat when a typed question asks for a person, live. */
   liveChat: {
     es: "Para hablar con una persona, toca «Persona» aquí arriba: se abre un chat de WhatsApp con nuestro equipo.",
     en: "To talk to a person, tap “Person” at the top: it opens a WhatsApp chat with our team.",

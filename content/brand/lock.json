@@ -2,6 +2,9 @@
   "version": 1,
   "lockedOn": "2026-11-19",
   "character": {
+    "status": "retired",
+    "retiredOn": "2026-11-21",
+    "retiredNote": "The capybara mascot was replaced by the brand kit's two characters (see \"characters\" below). Every ad made with it shows the old mascot and must be remade before it runs again. Kept only as the record of what the existing ads used; do not generate anything new from it.",
     "name": "Capi",
     "role": "Credalti's AI assistant, shown in ads as a capybara in work clothes",
     "look": "A real animal filmed on location, not a cartoon: true capybara head with a long blunt muzzle, dark leathery nose, small natural dark brown eyes that are open, bright and alert, small ears, coarse reddish-brown fur with individual strands, real whiskers, two ivory front teeth visible when he speaks.",
@@ -16,6 +19,7 @@
     ]
   },
   "references": {
+    "status": "retired",
     "closeup": {
       "file": "capi-reference-closeup.jpg",
       "higgsfieldJobId": "973edccc-9401-48a0-918c-97704560f586"
@@ -23,6 +27,33 @@
     "wide": {
       "file": "capi-reference-wide.jpg",
       "higgsfieldJobId": "05c7bd73-a89f-47e5-9296-5e8c076efe26"
+    }
+  },
+  "characters": {
+    "lockedOn": "2026-11-21",
+    "source": "Owner's brand kit, part 3 of 3 (web-ready): transparent PNG and WebP at @1x and @2x. Parts 1 and 2 not received yet.",
+    "rule": "Locked art: never edit, redraw, recolour, re-crop or regenerate the characters. Place them on navy or ivory/white; on very dark or saturated backgrounds a light 1-2 px rim may show.",
+    "assistant": {
+      "name": "BONALTI",
+      "role": "Credalti's AI assistant, always identified as AI",
+      "look": "A friendly robot: gold and cream shell, navy body, glowing amber face, a checkmark on his chest.",
+      "files": {
+        "front": ["public/brand/characters/bonalti_front@1x.webp", "public/brand/characters/bonalti_front@2x.webp"],
+        "threeQuarter": ["public/brand/characters/bonalti_three_quarter@1x.webp", "public/brand/characters/bonalti_three_quarter@2x.webp"],
+        "headFront": ["public/brand/characters/bonalti_head_front@1x.webp", "public/brand/characters/bonalti_head_front@2x.webp"],
+        "headThreeQuarter": ["public/brand/characters/bonalti_head_three_quarter@1x.webp", "public/brand/characters/bonalti_head_three_quarter@2x.webp"]
+      }
+    },
+    "team": {
+      "name": "Alti",
+      "role": "The face of Credalti's human team. Never the author of a message, never a particular teammate, never presented as AI.",
+      "look": "A young man in a navy overshirt with the Credalti logo, a lanyard badge reading ALTI, a gold shoulder strap with a checkmark device.",
+      "files": {
+        "front": ["public/brand/characters/alti_front@1x.webp", "public/brand/characters/alti_front@2x.webp"],
+        "threeQuarter": ["public/brand/characters/alti_three_quarter@1x.webp", "public/brand/characters/alti_three_quarter@2x.webp"],
+        "headFront": ["public/brand/characters/alti_head_front@1x.webp", "public/brand/characters/alti_head_front@2x.webp"],
+        "headThreeQuarter": ["public/brand/characters/alti_head_three_quarter@1x.webp", "public/brand/characters/alti_head_three_quarter@2x.webp"]
+      }
     }
   },
   "look": "Photoreal live-action TV commercial, deadpan comedy, shot on 35mm, late-afternoon golden light, locked-off camera on a tripod, natural film grain.",

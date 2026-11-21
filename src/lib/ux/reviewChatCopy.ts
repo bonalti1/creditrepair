@@ -1,6 +1,6 @@
 import type { ServiceMode } from "../service/mode";
 
-// Capi's scripted lines around the end of the review: the place in the chat
+// The assistant's scripted lines around the end of the review: the place in the chat
 // where the two service modes say different things. Under full service the
 // team prepares and mails the letters, and the client has nothing to approve.
 // Under self-serve the client reads the letters and gives the OK.

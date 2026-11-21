@@ -157,7 +157,7 @@ export interface ReportSample {
 
 /**
  * One message of the client's in-app conversation (chat_messages), as staff
- * read it. `role: "user"` is the client. `role: "assistant"` is Capi, unless
+ * read it. `role: "user"` is the client. `role: "assistant"` is the assistant, unless
  * `source` is "human": then a teammate wrote it and `authorName` says who.
  */
 export interface StaffChatMessage {

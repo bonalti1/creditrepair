@@ -4,6 +4,18 @@ Everything needed to make a Credalti video ad the same way every time. It is
 written to be lifted into ALTO Control later: plain data files plus four small
 scripts, no dependency on the web app except the claim rules.
 
+## Characters changed: the existing ads must be remade
+
+The capybara mascot ("Capi") was retired on 2026-11-21. The brand kit replaced
+it with two characters: **BONALTI**, the robot AI assistant, and **Alti**, the
+face of the human team (see `docs/BRAND.md`). Their locked art is recorded in
+`brand/lock.json` → `characters`; the old `character` block and its reference
+stills are marked `"status": "retired"` and kept only as the record of what
+the existing ads used. Every video made so far, including the mechanic spot
+below, shows the old mascot and must be remade before it runs again. Nothing
+here has been regenerated; the rows below still describe the old mascot until
+a new spot is written.
+
 ## What is locked
 
 | What | Where | Notes |

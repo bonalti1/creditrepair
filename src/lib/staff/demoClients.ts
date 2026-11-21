@@ -1,3 +1,4 @@
+import { BRAND } from "../brand";
 import { cancellationDeadline } from "../agreement/businessDays";
 import { AGREEMENT_VERSION } from "../agreement/documents";
 import { resolveTerms } from "../agreement/terms";
@@ -24,7 +25,7 @@ import type {
 // DEMO DATA. Nobody in this file exists.
 //
 // Thirty-six invented clients for the staff console, spread across every
-// stage, every kind of exception and every state of billing. A few have a conversation with Capi on file. Names are made up, phone numbers use the
+// stage, every kind of exception and every state of billing. A few have a conversation with the assistant on file. Names are made up, phone numbers use the
 // reserved fictional range (555-01xx), addresses are placeholders and the
 // reports are variations of the app's demo report (src/lib/demo.ts).
 //
@@ -310,7 +311,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
 
   /**
    * A stretch of a client's in-app conversation. Each line is who wrote it
-   * ("client", "capi" for a scripted line, "coach" for an AI answer to a typed
+   * ("client", "assistant" for a scripted line, "coach" for an AI answer to a typed
    * question, or a teammate's name), and the text. Lines are a minute apart,
    * starting at `startIso`.
    */
@@ -319,7 +320,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
       const at = new Date(new Date(startIso).getTime() + index * 60 * 1000).toISOString();
       const id = `${clientId}-m-${at}`;
       if (who === "client") return { id, at, role: "user", source: "coach", text };
-      if (who === "capi") return { id, at, role: "assistant", source: "journey", text };
+      if (who === "assistant") return { id, at, role: "assistant", source: "journey", text };
       if (who === "coach") return { id, at, role: "assistant", source: "coach", text };
       return { id, at, role: "assistant", source: "human", authorName: who, text };
     });
@@ -344,7 +345,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
     documents: ["government_id"], lastActivityDaysAgo: 8,
   });
 
-  // 4. Everything in, waiting for her report; she asked something Capi passed on.
+  // 4. Everything in, waiting for her report; she asked something the assistant passed on.
   const itzel = make({
     id: "c04", first: "Itzel", last: "Bahena", phone: "+15125550104", city: "Austin", zip: "78701",
     salesperson: "carmen", createdDaysAgo: 9, signedUpDaysAgo: 8, agreementDaysAgo: 7,
@@ -355,9 +356,9 @@ export function buildDemoClients(now: Date): StaffClient[] {
   ];
   itzel.conversation = [
     ...thread("c04", ago(2, 3), [
-      ["capi", "Hola 👋 Soy Capi, tu asistente de crédito con IA. Para empezar activa tu monitoreo de crédito: en cuanto esté listo importo tu reporte y lo revisamos juntos."],
+      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA. Para empezar activa tu monitoreo de crédito: en cuanto esté listo importo tu reporte y lo revisamos juntos.`],
     ]),
-    // Her question, at the moment Capi passed it to the team.
+    // Her question, at the moment the assistant passed it to the team.
     ...thread("c04", ago(1), [
       ["client", "¿Puedo activar el monitoreo con mi ITIN en lugar del número de Seguro Social?"],
       ["coach", "No tengo una respuesta segura para eso y prefiero no adivinar. Ya le pasé tu pregunta al equipo: una persona te responde aquí mismo."],
@@ -373,7 +374,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
 
   fidel.conversation = [
     ...thread("c05", ago(2), [
-      ["capi", "Hola 👋 Soy Capi, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós. Vamos a revisarlo juntos, punto por punto: yo te explico cada uno y tú decides."],
+      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós. Vamos a revisarlo juntos, punto por punto: yo te explico cada uno y tú decides.`],
     ]),
     ...thread("c05", ago(0, 3), [
       ["client", "¿Qué es una consulta dura?"],
@@ -511,10 +512,10 @@ export function buildDemoClients(now: Date): StaffClient[] {
   }
   dolores.conversation = [
     ...thread("c16", ago(3), [
-      ["capi", "Hola 👋 Soy Capi, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós. Vamos a revisarlo juntos, punto por punto: yo te explico cada uno y tú decides."],
+      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós. Vamos a revisarlo juntos, punto por punto: yo te explico cada uno y tú decides.`],
     ]),
     ...thread("c16", ago(1), [
-      ["capi", "Anotado. Para este motivo hace falta un reporte de robo de identidad de la FTC. Una persona del equipo te va a contactar para seguir con ese paso."],
+      ["assistant", "Anotado. Para este motivo hace falta un reporte de robo de identidad de la FTC. Una persona del equipo te va a contactar para seguir con ese paso."],
       ["client", "¿Y cómo saco ese reporte de la FTC?"],
       ["coach", "Se llena en IdentityTheft.gov, el sitio de la FTC, y no tiene costo. Una persona del equipo te va a escribir para ayudarte con ese paso."],
     ]),

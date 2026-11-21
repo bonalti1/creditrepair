@@ -14,7 +14,7 @@ import { getServerSupabase } from "@/lib/supabase/server";
 //   resolve  mark one of the console's notices as handled (clients.followup;
 //            sales only the notices that are theirs, permissions.ts)
 //   reply    write to the client in their app (clients.reply). The same claim
-//            rules ads and Capi pass; the client sees the teammate's first
+//            rules ads and the assistant pass; the client sees the teammate's first
 //            name, from their own staff record.
 //
 // The role is checked here from the caller's own row; whether they may see

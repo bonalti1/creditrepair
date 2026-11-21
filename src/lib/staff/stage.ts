@@ -1,3 +1,4 @@
+import { BRAND } from "../brand";
 import { firstWorkingDay } from "../agreement/businessDays";
 import { deadlineOf, workMayStart, type AgreementRecord, type GateResult } from "../agreement/gate";
 import { accountStanding, casePausedForPayment, unpaidCharge } from "../billing/dunning";
@@ -142,7 +143,7 @@ export const STAGES: Record<Stage, StageInfo> = {
   client_review_pending: {
     label: "En revisión del cliente",
     short: "Revisión",
-    description: "El cliente revisa su reporte con Capi y dice qué es inexacto. Solo el cliente puede responder.",
+    description: `El cliente revisa su reporte con ${BRAND.assistant} y dice qué es inexacto. Solo el cliente puede responder.`,
     actor: "client",
   },
   ready_to_send: {
@@ -627,7 +628,7 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
       key: `question:${question.id}`,
       kind: "question_waiting",
       severity: "high",
-      sentence: `Hizo una pregunta que Capi pasó al equipo: «${clip(question.text, 110)}» ${waiting}`,
+      sentence: `Hizo una pregunta que ${BRAND.assistant} pasó al equipo: «${clip(question.text, 110)}» ${waiting}`,
       actionLabel: "Responderle por WhatsApp",
       action: "whatsapp",
       since: question.askedAt,

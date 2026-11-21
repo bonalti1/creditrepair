@@ -5,6 +5,7 @@ import { useLocale } from "@/lib/i18n";
 import { BILLING_COPY } from "@/lib/ux/billingCopy";
 import { HUMAN_HELP, humanHelpHref } from "@/lib/ux/humanHelp";
 import Icon, { type IconName } from "@/components/Icon";
+import { CharacterAvatar } from "@/components/Character";
 import { isFullService } from "@/lib/service/mode";
 import MailingAddress from "@/components/MailingAddress";
 
@@ -19,6 +20,7 @@ function Row({
   desc,
   first,
   external,
+  leading,
 }: {
   href: string;
   icon: IconName;
@@ -27,12 +29,16 @@ function Row({
   desc: string;
   first?: boolean;
   external?: boolean;
+  /** Shown in place of the tinted icon. */
+  leading?: React.ReactNode;
 }) {
   const body = (
     <>
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white ${tint}`}>
-        <Icon name={icon} size={20} />
-      </span>
+      {leading ?? (
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white ${tint}`}>
+          <Icon name={icon} size={20} />
+        </span>
+      )}
       <span className="min-w-0 flex-1">
         <span className="block text-[17px] font-medium text-slate-900">{title}</span>
         <span className="block text-[13px] leading-snug text-slate-500">{desc}</span>
@@ -141,15 +147,15 @@ export default function Mas() {
               href={humanHref}
               icon="person"
               tint="bg-green-600"
+              leading={<CharacterAvatar character="team" size={40} />}
               title={humanTitle}
               desc={HUMAN_HELP.liveRow[locale]}
             />
           ) : (
             // Demo: not a link, and it says why.
+            // Alti stands for the team (never a particular person, never the AI).
             <div className="flex items-center gap-3.5 px-4 py-3.5">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-400 text-white">
-                <Icon name="person" size={20} />
-              </span>
+              <CharacterAvatar character="team" size={40} />
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
                   <span className="text-[17px] font-medium text-slate-900">{humanTitle}</span>

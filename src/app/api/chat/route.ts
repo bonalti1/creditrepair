@@ -5,7 +5,7 @@ import { loadAppThread, MAX_MESSAGE_CHARS } from "@/lib/chat/history";
 import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
 
-// The in-app thread with Capi, stored per user. Runs as the signed-in user
+// The in-app thread with the assistant, stored per user. Runs as the signed-in user
 // through the cookie-bound client, so row-level security enforces ownership and
 // limits what a client may write: its own scripted "journey" lines only.
 // AI replies are stored by /api/coach, never accepted from the browser.

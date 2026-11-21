@@ -2,7 +2,7 @@ import Icon from "@/components/Icon";
 
 // A message a person on the team wrote, as the client sees it in their chat.
 //
-// It must never be taken for Capi: Capi's bubbles are grey and unsigned (the
+// It must never be taken for the assistant: the assistant's bubbles are grey and unsigned (the
 // header says he is AI); this one is white with a navy outline and is signed
 // above with the teammate's first name and "del equipo". No AI label appears
 // on it. Used by the client's chat and by the staff console's "as the client
