@@ -7,6 +7,7 @@ import Icon, { type IconName } from "@/components/Icon";
 import LocaleToggle from "@/components/LocaleToggle";
 import Logo from "@/components/Logo";
 import { BRAND } from "@/lib/brand";
+import { isDemoMode } from "@/lib/supabase/config";
 
 // Three destinations, like a good phone app: where you stand, your assistant,
 // and everything else. Translucent bars keep the content feeling continuous.
@@ -50,9 +51,12 @@ export default function AppNav() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
-              {d.nav.demo}
-            </span>
+            {/* Only the demo is labelled as one: with a database these are the client's own records. */}
+            {isDemoMode() && (
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
+                {d.nav.demo}
+              </span>
+            )}
             <LocaleToggle />
           </div>
         </div>

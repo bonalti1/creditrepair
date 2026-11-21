@@ -121,6 +121,8 @@ function SendView() {
   const [choices, setChoices] = useState<Record<string, MailClass>>({});
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<{ rounds: number; letters: number; total: string } | null>(null);
+  // With the database, a round can still be refused by the server's own checks, or the mail service can fail.
+  const [failure, setFailure] = useState<string | null>(null);
   const batch = useMemo(() => buildSendBatch(clients, refs, now, furnishers, choices), [clients, refs, now, furnishers, choices]);
 
   if (!clientsReady || !bookReady) return null;
@@ -131,8 +133,13 @@ function SendView() {
     setSending(true);
     const rounds = batch.ready.map((p) => ({ clientId: p.client.id, roundNumber: p.round.number }));
     const mailClasses = Object.fromEntries(batch.ready.flatMap((p) => p.letters.map((l) => [l.letter.id, l.mailClass])));
-    await data.markRoundsSent(rounds, { mailClasses, via: "mail" });
-    setSent({ rounds: rounds.length, letters: batch.letters, total: formatMills(batch.totalMills) });
+    setFailure(null);
+    try {
+      await data.markRoundsSent(rounds, { mailClasses, via: "mail" });
+      setSent({ rounds: rounds.length, letters: batch.letters, total: formatMills(batch.totalMills) });
+    } catch (error) {
+      setFailure(error instanceof Error && error.message ? error.message : "No se pudo enviar. Intenta de nuevo.");
+    }
     await reload();
     setSending(false);
   };
@@ -166,6 +173,13 @@ function SendView() {
               Volver al inicio
             </Link>
           </span>
+        </p>
+      )}
+
+      {failure && (
+        <p className="mt-5 flex items-start gap-2.5 rounded-2xl bg-red-50 px-4 py-3 text-[14px] leading-snug text-red-700" role="alert" data-testid="send-failure">
+          <Icon name="clock" size={18} className="mt-px shrink-0" />
+          <span>{failure}</span>
         </p>
       )}
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { DEMO_REPORT, DEMO_SCORE_HISTORY, demoImportedAt, firstScoresForTrend } from "@/lib/demo";
+import { demoImportedAt, firstScoresForTrend } from "@/lib/demo";
 import { useLocale } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/dictionaries";
 import type { ReportItem } from "@/lib/domain/types";
@@ -10,6 +10,8 @@ import { useFlags } from "@/lib/ux/flagsStore";
 import { useAgreement } from "@/lib/ux/agreementStore";
 import { itemTitle } from "@/lib/ux/itemDisplay";
 import { nextAction, sessionJourneyState } from "@/lib/ux/journey";
+import { useClientReport, withReport } from "@/lib/ux/reportStore";
+import ReportPending from "@/components/ReportPending";
 import Icon from "@/components/Icon";
 
 // The Credit Audit — Credit Repair Cloud's conversion weapon, handed directly
@@ -39,12 +41,14 @@ function severity(item: ReportItem): "high" | "medium" | "info" | null {
 
 export default function Audit() {
   const { locale, d } = useLocale();
-  const { flags, roundApproved, hydrated } = useFlags();
+  const { flags, roundApproved, roundMailedAt, hydrated } = useFlags();
   // The agreement is part of the next step, so every screen reads the same one Home does.
   const { agreement } = useAgreement();
-  const items = DEMO_REPORT.items;
+  // The sample report in the demo; the client's own with a database (lib/ux/reportStore.ts).
+  const view = useClientReport();
+  const { report, items } = view;
   // Known only once the saved decisions are read; the audit itself shows right away.
-  const step = hydrated ? nextAction(sessionJourneyState(items, flags, roundApproved, agreement), locale) : null;
+  const step = hydrated ? nextAction(withReport(sessionJourneyState(items, flags, roundApproved, agreement), view, roundMailedAt), locale) : null;
   const high = items.filter((i) => severity(i) === "high");
   const medium = items.filter((i) => severity(i) === "medium");
   const info = items.filter((i) => severity(i) === "info");
@@ -58,12 +62,23 @@ export default function Audit() {
   }
 
   // A change is shown only between two real pulls; one pull is a starting point.
-  const first = firstScoresForTrend(DEMO_SCORE_HISTORY);
-  // The demo report reads as imported today. The date is worked out in the
-  // browser after mount, so the server's day never disagrees with the visitor's.
+  const first = firstScoresForTrend(view.scoreHistory);
+  // The demo report reads as imported today; the client's own report carries its date. The date is
+  // worked out in the browser after mount, so the server's day never disagrees with the visitor's.
   const [importedAt, setImportedAt] = useState<Date | null>(null);
-  useEffect(() => setImportedAt(demoImportedAt()), []);
+  const pulledAt = view.live ? view.report.pulledAt : null;
+  useEffect(() => setImportedAt(pulledAt === null ? demoImportedAt() : pulledAt ? new Date(pulledAt) : null), [pulledAt]);
   const fmtDate = importedAt ? importedAt.toLocaleDateString(locale === "es" ? "es-MX" : "en-US") : "";
+
+  if (!view.ready) return null;
+  if (view.waiting) {
+    return (
+      <main className="animate-rise space-y-5">
+        <h1 className="px-1 text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{d.audit.title}</h1>
+        <ReportPending />
+      </main>
+    );
+  }
 
   return (
     <main className="animate-rise space-y-5">
@@ -86,7 +101,7 @@ export default function Audit() {
         <h2 className="px-1 pb-2 text-[13px] font-semibold uppercase tracking-wide text-slate-500">{d.audit.scores}</h2>
         <div className="card overflow-hidden">
           {BUREAUS.map((b, index) => {
-            const score = DEMO_REPORT.scores[b];
+            const score = report.scores[b];
             const delta = score && first?.[b] ? score - first[b] : null;
             return (
               <div key={b} className={`flex items-center gap-3 px-5 py-4 ${index > 0 ? "border-t hairline" : ""}`}>

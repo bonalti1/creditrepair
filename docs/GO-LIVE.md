@@ -93,8 +93,8 @@ Open each one, then copy the values named in the last column into Render
 | # | Account | What it is for | Variables to set in Render |
 | --- | --- | --- | --- |
 | 1 | **Render** | Hosting. Already set up: the demo runs at `creditcapi-demo.onrender.com`. | (this is where the others go) |
-| 2 | **Supabase** | Database and login. Create a project. | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` |
-| 3 | **A text-message provider** connected in Supabase (Authentication → Providers → Phone) | Login codes by text | set inside Supabase, not Render |
+| 2 | **Supabase** | Database and login. Create a project. Step by step: `docs/DATABASE.md` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (secret) |
+| 3 | **A text-message provider** (Twilio, paid per message) connected in Supabase (Authentication → Providers → Phone). Supabase does not send texts itself | Login codes by text | set inside Supabase, not Render |
 | 4 | **Anthropic** | Capi, and letter wording | `ANTHROPIC_API_KEY` |
 | 5 | **Lob** | Prints and mails the letters, first class or certified, and reports tracking | `LOB_API_KEY` (start with the test key), `LOB_WEBHOOK_SECRET` |
 | 6 | **Meta for Developers + WhatsApp Business** | WhatsApp messages | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, and a word you invent for `WHATSAPP_WEBHOOK_VERIFY_TOKEN` |
@@ -127,9 +127,13 @@ In short:
 
 ## Step 3 — Three one-time setups
 
-1. **Database.** In Supabase, open the SQL editor, paste the whole file
-   `supabase/setup.sql`, and run it once. (It has been run against a test
-   database: it applies cleanly and the privacy rules hold.)
+1. **Database.** Follow `docs/DATABASE.md`: run `supabase/setup.sql` once in
+   the SQL editor, check the ID-photo bucket, connect the SMS provider, put the
+   keys in Render, and make yourself the first administrator
+   (`supabase/first-admin.sql`). The moment the Supabase keys are set, the
+   app stops being the demo: the console and the client app read and write the
+   database. (The migrations are tested against a real Postgres on every test
+   run, with the privacy rules applied: `src/lib/__tests__/db/`.)
 2. **WhatsApp webhook.** In the Meta app, set the webhook address to
    `https://YOUR-APP/api/webhooks/whatsapp` and enter the same word you chose
    for `WHATSAPP_WEBHOOK_VERIFY_TOKEN`. Subscribe to "messages".
@@ -150,13 +154,16 @@ header `x-webhook-secret`. It lists every integration as set or missing, checks
 the database tables, and says whether the app is ready for customers. It never
 shows a key.
 
-Then run one full pass yourself:
+Then run one full pass yourself (the database part in detail: `docs/DATABASE.md`, step 7):
 
-- [ ] Open `/equipo/invitar`, create a link for yourself, open it on your phone
-- [ ] Sign in with your phone number
+- [ ] Sign in at `/login` with your own number: you land on the console (`/equipo`), with no "Demo" pill
+- [ ] Open `/equipo/invitar`, create a link for a test client with a **second** phone, open it on that phone
+- [ ] Sign in with that phone number; write the mailing address in "Mis cartas"
 - [ ] Upload a photo of an ID and a proof of address
+- [ ] In the console, import the test client's report ("Importar reporte")
 - [ ] Review the items and confirm one. The letters page should show the
       letters as being prepared by the team, with no approve button
+- [ ] In the console, "Enviar" the round (it waits until the client has signed and the 3-day window is over)
 - [ ] With Lob's **test** key, confirm the letter appears in Lob's dashboard with
       the ID pages behind it; check how the address sits on the first page
 - [ ] Send a WhatsApp message from a number that is not a customer: Capi should

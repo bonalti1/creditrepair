@@ -5,7 +5,9 @@ import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
 import { requireCapability } from "@/lib/staff/access";
 import { clientsBodySchema } from "@/lib/staff/api";
+import { loadStaffClients } from "@/lib/staff/load";
 import { loadTeam } from "@/lib/staff/server";
+import { getServerSupabase } from "@/lib/supabase/server";
 import { assignmentProblem, checkNewClient, prospectRecord, roundRobinNext, SYSTEM_ACTOR, withAssignment } from "@/lib/staff/team";
 
 // Two things staff do to the client list that are not about a client's case:
@@ -20,6 +22,37 @@ import { assignmentProblem, checkNewClient, prospectRecord, roundRobinNext, SYST
 //
 // The caller's role is checked here, from their own row, before anything is
 // read. Writes use the service role, and every change goes to team_audit.
+//
+// GET: the console's clients (src/lib/staff/load.ts), for any active member,
+// read through the member's OWN connection so the role-scoped read policies of
+// migration 0012 decide who appears and how much of each case: never the
+// service role. `?id=` reads one client.
+
+const idSchema = z.string().uuid();
+
+export async function GET(req: Request) {
+  const limited = rateLimit(req, "staff-clients-read", { limit: 120, windowMs: 60_000 });
+  if (limited) return limited;
+  // Every role has follow-up: this is the "any active member" check.
+  const allowed = await requireCapability("clients.followup");
+  if (!allowed.ok) return allowed.response;
+  const { member } = allowed;
+  const id = new URL(req.url).searchParams.get("id");
+  if (id !== null && !idSchema.safeParse(id).success) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  const reader = await getServerSupabase();
+  if (!reader) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  try {
+    const clients = await loadStaffClients(reader, id ? { clientId: id } : {});
+    if (id) {
+      const client = clients[0] ?? null;
+      return client ? NextResponse.json({ client }) : NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    return NextResponse.json({ clients });
+  } catch (error) {
+    await reportError(error, { where: "api/staff/clients:read", userId: member.userId });
+    return NextResponse.json({ error: "Could not read the clients." }, { status: 500 });
+  }
+}
 
 export async function POST(req: Request) {
   const limited = rateLimit(req, "staff-clients", { limit: 30, windowMs: 60_000 });

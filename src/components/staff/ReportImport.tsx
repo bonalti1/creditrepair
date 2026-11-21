@@ -311,7 +311,7 @@ export default function ReportImport({
     if (!reviewed || reviewed.preview.blocked || busy) return;
     setBusy(true);
     try {
-      await data.saveReport(client.id, { readerKey: reader.key, report: reviewed.raw, by: staffAuthor() });
+      await data.saveReport(client.id, { readerKey: reader.key, report: reviewed.raw, by: staffAuthor(), source });
       const p = reviewed.preview;
       await onSaved(
         `Reporte del ${longDay(p.reportDate)} guardado: ${count(p.total, "punto", "puntos")}.${

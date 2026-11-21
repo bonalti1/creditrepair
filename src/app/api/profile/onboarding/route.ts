@@ -4,6 +4,8 @@ import { ALL_STATES } from "@/lib/compliance/states";
 import { GOALS } from "@/lib/sales/invite";
 import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
+import { convertProspect } from "@/lib/staff/server";
+import { getAdminClient } from "@/lib/supabase/admin";
 import { getServerSupabase, getSessionUser } from "@/lib/supabase/server";
 
 // Saves what onboarding established (goal, state, guided or not, who referred
@@ -46,5 +48,13 @@ export async function POST(req: Request) {
 
   const { error } = await supabase.from("profiles").upsert(update, { onConflict: "id" });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Someone sales added by hand now has an account: they become this client,
+  // matched by the phone Supabase Auth verified (never one from the request).
+  const db = getAdminClient();
+  if (db) {
+    const phone = user.phone ? `+${user.phone.replace(/^\+/, "")}` : null;
+    await convertProspect(db, user.id, phone).catch(() => false);
+  }
   return NextResponse.json({ ok: true, referredBy: existing?.referred_by ?? referredBy ?? null });
 }

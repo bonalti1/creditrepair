@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { DEMO_REPORT, DEMO_SCORE_HISTORY, firstScoresForTrend } from "@/lib/demo";
+import { firstScoresForTrend } from "@/lib/demo";
 import { useAgreement } from "@/lib/ux/agreementStore";
 import { useFlags } from "@/lib/ux/flagsStore";
 import { nextAction, sessionJourneyState } from "@/lib/ux/journey";
+import { useClientReport, withReport } from "@/lib/ux/reportStore";
+import ReportPending from "@/components/ReportPending";
 import { useLocale } from "@/lib/i18n";
 import Icon, { type IconName } from "@/components/Icon";
 
@@ -74,23 +76,25 @@ function average(scores: Partial<Record<string, number>>): number | null {
 }
 
 export default function Home() {
-  const { flags, roundApproved, hydrated } = useFlags();
+  const { flags, roundApproved, roundMailedAt, hydrated } = useFlags();
   // The agreement comes first in the journey, so Home waits for it too.
   const { agreement, hydrated: agreementReady } = useAgreement();
   const { locale, d } = useLocale();
   const es = locale === "es";
-  const items = DEMO_REPORT.items;
+  // The sample report in the demo; the client's own with a database (lib/ux/reportStore.ts).
+  const view = useClientReport();
+  const { report, items } = view;
   const negatives = items.filter((i) => i.negative);
 
-  if (!hydrated || !agreementReady) return null;
+  if (!hydrated || !agreementReady || !view.ready) return null;
 
   // Built by the shared helper so Home, Review, Audit and Rounds agree on the next step.
-  const step = nextAction(sessionJourneyState(items, flags, roundApproved, agreement), locale);
+  const step = nextAction(withReport(sessionJourneyState(items, flags, roundApproved, agreement), view, roundMailedAt), locale);
 
-  const score = average(DEMO_REPORT.scores);
+  const score = average(report.scores);
   // A change is shown only between two real pulls. With one pull (the demo, or
   // a customer's first day) today's score is the starting point and nothing more.
-  const firstScores = firstScoresForTrend(DEMO_SCORE_HISTORY);
+  const firstScores = firstScoresForTrend(view.scoreHistory);
   const firstScore = firstScores ? average(firstScores) : null;
   const delta = score !== null && firstScore !== null ? score - firstScore : null;
 
@@ -149,13 +153,15 @@ export default function Home() {
         ))}
       </section>
 
-      <section>
+      {view.waiting && <ReportPending compact showLink={false} />}
+
+      {!view.waiting && <section>
         <h2 className="px-1 pb-2 text-[13px] font-semibold uppercase tracking-wide text-slate-500">
           {es ? "Tus burós" : "Your bureaus"}
         </h2>
         <div className="card overflow-hidden">
           {BUREAUS.map(([key, label], index) => {
-            const bureauScore = DEMO_REPORT.scores[key];
+            const bureauScore = report.scores[key];
             const first = firstScores?.[key];
             const bureauDelta = bureauScore && first ? bureauScore - first : null;
             const neg = negatives.filter((i) => i.bureau === key).length;
@@ -187,7 +193,7 @@ export default function Home() {
           })}
         </div>
         <p className="px-1 pt-2 text-xs leading-relaxed text-slate-500">{d.audit.scoreNote}</p>
-      </section>
+      </section>}
     </main>
   );
 }

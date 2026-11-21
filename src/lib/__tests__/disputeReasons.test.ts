@@ -351,10 +351,11 @@ describe("the flags route validates the reason against the catalogue", () => {
     expect(route).toContain("reasonApplies(reasonCode, item.category)");
     expect(route).toContain("reason_code: reasonCode");
     expect(route).toMatch(/select\("state, reason, reason_code, attested_at/);
-    // The approval route reads the code from item_flags and hands it to the letters.
-    const approve = readFileSync("src/app/api/attacks/approve/route.ts", "utf8");
-    expect(approve).toContain("f.reason_code");
-    expect(approve).toMatch(/enclosures,\s+itemReasons,/);
+    // The mailing path (the approval and the staff send) reads the code from item_flags and hands it to the letters.
+    expect(readFileSync("src/lib/rounds/plan.ts", "utf8")).toContain("f.reason_code");
+    const send = readFileSync("src/lib/rounds/send.ts", "utf8");
+    expect(send).toContain("attestedFlagsFromRows(flagRows, itemIdToFp)");
+    expect(send).toMatch(/enclosures,\s+itemReasons,/);
   });
 
   it("migration 0008 adds a nullable reason_code with a shape check every catalogue code passes", () => {

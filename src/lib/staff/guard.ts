@@ -58,12 +58,13 @@ export function guardStaffData(data: StaffData, viewer: Viewer | null, hooks: Gu
     async getClient(id) {
       return visible(id);
     },
-    async markRoundsSent(rounds) {
+    async markRoundsSent(rounds, options) {
       need("rounds.send");
       const mine: RoundRef[] = [];
       for (const ref of rounds) if (await visible(ref.clientId)) mine.push(ref);
       if (mine.length === 0) return;
-      await data.markRoundsSent(mine);
+      // The classes chosen on the send screen and whether the batch was printed go through as they are.
+      await data.markRoundsSent(mine, options);
       // Only what actually went out (the data layer skips a round that may not be sent).
       const after = await Promise.all(mine.map((ref) => data.getClient(ref.clientId)));
       const sent = mine.filter((ref, i) => after[i]?.rounds.some((r) => r.number === ref.roundNumber && r.mailedAt));

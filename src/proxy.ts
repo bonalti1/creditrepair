@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 // Session refresh + auth gate for app pages and the staff console. When
 // Supabase isn't configured, everything passes through (demo mode) so the
@@ -8,9 +9,10 @@ import { createServerClient } from "@supabase/ssr";
 // the Node.js runtime.)
 
 export async function proxy(req: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return NextResponse.next();
+  // The demo rule (supabase/config.ts): no settings, no login gate.
+  if (!isSupabaseConfigured()) return NextResponse.next();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   let res = NextResponse.next({ request: req });
   const supabase = createServerClient(url, key, {

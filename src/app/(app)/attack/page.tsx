@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { DEMO_REPORT } from "@/lib/demo";
+import type { ReportItem } from "@/lib/domain/types";
+import { useClientReport } from "@/lib/ux/reportStore";
+import ReportPending from "@/components/ReportPending";
 import { renderLetter } from "@/lib/letters/templates";
 import type { PlannedLetter } from "@/lib/domain/types";
 import type { ItemReasons } from "@/lib/letters/parts";
@@ -16,6 +18,7 @@ import { letterMailKey, useLetterMail } from "@/lib/ux/letterMail";
 import { isFullService } from "@/lib/service/mode";
 import { useLocale } from "@/lib/i18n";
 import IdentityDocs from "@/components/IdentityDocs";
+import MailingAddress from "@/components/MailingAddress";
 import Icon from "@/components/Icon";
 import { WaitingNote } from "@/components/RoundNotes";
 
@@ -49,17 +52,35 @@ export default function Attack() {
   // Round 1 handles personal-info cleanup; if the user attested no personal-info
   // items, the plan jumps straight to round 2 so the round isn't empty.
   // Once the letters are out, the page keeps showing them as they went out.
-  const session = useMemo(() => sessionPlan(DEMO_REPORT.items, roundFlags), [roundFlags]);
+  // The sample report in the demo; the client's own with a database (lib/ux/reportStore.ts).
+  const view = useClientReport();
+  const reportItems = view.items;
+  const session = useMemo(() => sessionPlan(reportItems, roundFlags), [reportItems, roundFlags]);
   const { attestedFlags, roundNumber, plan, inRound, itemReasons } = session;
   // Confirmed items that are not in these letters, said plainly.
   const waiting = waitingNote(session, locale);
 
-  if (!hydrated) return null;
+  if (!hydrated || !view.ready) return null;
+  if (view.waiting) {
+    return (
+      <main className="animate-rise space-y-5">
+        <h1 className="px-1 text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{d.nav.attack}</h1>
+        <ReportPending showLink={false} />
+        {/* The team needs these before it can mail anything, so they can be given from the start. */}
+        <MailingAddress />
+        <div className="card overflow-hidden [&>div]:mt-0 [&>div]:rounded-none [&>div]:border-0 [&>div]:p-5">
+          <IdentityDocs />
+        </div>
+      </main>
+    );
+  }
+  // The letters carry the client's own name and address; the demo, placeholders.
+  const sender = view.profile && view.profile.fullName ? { id: "me", fullName: view.profile.fullName, addressLines: view.profile.addressLines, locale: "es" as const } : DEMO_USER;
 
   // Full service: where the team's work stands. Never set from this page.
   const status = teamRoundStatus({
-    totalItems: DEMO_REPORT.items.length,
-    reviewedCount: DEMO_REPORT.items.filter((i) => flags[i.fingerprint]).length,
+    totalItems: reportItems.length,
+    reviewedCount: reportItems.filter((i) => flags[i.fingerprint]).length,
     letterCount: plan.letters.length,
     mailed: roundApproved,
   });
@@ -90,6 +111,7 @@ export default function Attack() {
           </Link>
         </section>
         {/* The team needs these before it can mail anything, so they can be uploaded from the start. */}
+        <MailingAddress />
         <div className="card overflow-hidden [&>div]:mt-0 [&>div]:rounded-none [&>div]:border-0 [&>div]:p-5">
           <IdentityDocs />
         </div>
@@ -169,6 +191,8 @@ export default function Attack() {
             onToggle={() => setOpenLetter(openLetter === idx ? null : idx)}
             roundNumber={roundNumber}
             itemReasons={itemReasons}
+            reportItems={reportItems}
+            sender={sender}
             first={idx === 0}
             date={mailedAt}
             status={
@@ -193,6 +217,9 @@ export default function Attack() {
           />
         ))}
       </div>
+
+      {/* The return address on every letter. Shown only with a real account. */}
+      <MailingAddress />
 
       {/* IdentityDocs brings its own bordered box; present it as a card like the rest of the page. */}
       <div className="card overflow-hidden [&>div]:mt-0 [&>div]:rounded-none [&>div]:border-0 [&>div]:p-5">
@@ -259,11 +286,15 @@ function LetterCard({
   onToggle,
   roundNumber,
   itemReasons,
+  reportItems,
+  sender,
   first,
   date,
   status,
 }: {
   letter: PlannedLetter;
+  reportItems: ReportItem[];
+  sender: typeof DEMO_USER;
   open: boolean;
   onToggle: () => void;
   roundNumber: number;
@@ -279,19 +310,19 @@ function LetterCard({
   const stages = getStageExplainers(locale);
   const explainer = stages[letter.templateKey] ?? stages[letter.stage] ?? null;
 
-  const coverage = letterCoverage(letter, DEMO_REPORT.items, locale);
+  const coverage = letterCoverage(letter, reportItems, locale);
 
   const body = useMemo(() => {
-    const items = DEMO_REPORT.items.filter((i) => letter.itemFingerprints.includes(i.fingerprint));
+    const items = reportItems.filter((i) => letter.itemFingerprints.includes(i.fingerprint));
     return renderLetter(letter.templateKey, {
-      user: DEMO_USER,
+      user: sender,
       target: letter.target,
       items,
       date: (date ?? new Date()).toISOString(),
       roundNumber,
       itemReasons,
     });
-  }, [letter, roundNumber, itemReasons, date]);
+  }, [letter, roundNumber, itemReasons, date, reportItems, sender]);
 
   return (
     <div className={first ? "" : "border-t hairline"}>

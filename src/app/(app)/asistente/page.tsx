@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { DEMO_REPORT } from "@/lib/demo";
+import { useClientReport } from "@/lib/ux/reportStore";
+import ReportPending from "@/components/ReportPending";
 import { ATTESTATION_TEXT } from "@/lib/compliance/attestation";
 import { getCategoryExplainers } from "@/lib/ux/explainers";
 import { crossBureauNote, differingAnswerLine } from "@/lib/ux/crossBureau";
@@ -69,7 +70,9 @@ export default function Asistente() {
   /** True when this visit started the thread (nothing was saved before). */
   const freshThread = useRef(false);
 
-  const items = DEMO_REPORT.items;
+  // The sample report in the demo; the client's own with a database (lib/ux/reportStore.ts).
+  const view = useClientReport();
+  const items = view.items;
   const pending = useMemo(() => items.filter((i) => !flags[i.fingerprint]), [items, flags]);
   const current = pending[0];
   const negatives = items.filter((i) => i.negative).length;
@@ -107,7 +110,8 @@ export default function Asistente() {
   // Seed the opening messages once, matched to where the client is. A saved
   // thread is shown as it was left: nothing is added on a return visit.
   useEffect(() => {
-    if (!hydrated || !chatHydrated || seeded.current) return;
+    // With a database the thread opens only once the client's own report is known (and there is one).
+    if (!hydrated || !chatHydrated || !view.ready || view.waiting || seeded.current) return;
     seeded.current = true;
     if (messages.length > 0) return;
     freshThread.current = true;
@@ -130,7 +134,7 @@ export default function Asistente() {
     if (second) opening.push(line("assistant", second.es, second.en));
     append(opening);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, chatHydrated]);
+  }, [hydrated, chatHydrated, view.ready]);
 
   /**
    * Bring the newest message into view. It goes to the top of the view, or the
@@ -325,7 +329,14 @@ export default function Asistente() {
     }
   };
 
-  if (!hydrated || !chatHydrated) return null;
+  if (!hydrated || !chatHydrated || !view.ready) return null;
+  if (view.waiting) {
+    return (
+      <main className="animate-rise space-y-5">
+        <ReportPending />
+      </main>
+    );
+  }
   const explainer = current ? getCategoryExplainers(locale)[current.category] : null;
   const heading = current ? itemTitle(current, locale) : null;
   const facts = current ? itemFacts(current, locale) : [];

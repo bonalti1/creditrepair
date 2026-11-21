@@ -13,16 +13,21 @@ export async function GET() {
   const user = await getSessionUser();
   if (!supabase || !user) return NextResponse.json({ authenticated: false, flags: {} });
 
+  // Two plain reads (the answers, then their items' fingerprints), both under the client's own row level security.
   const { data, error } = await supabase
     .from("item_flags")
-    .select("state, reason, reason_code, attested_at, report_items!inner(fingerprint)")
+    .select("state, reason, reason_code, attested_at, item_id")
     .eq("user_id", user.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const itemIds = [...new Set((data ?? []).map((row) => row.item_id as string))];
+  const { data: items, error: itemsError } =
+    itemIds.length > 0 ? await supabase.from("report_items").select("id, fingerprint").in("id", itemIds) : { data: [], error: null };
+  if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 500 });
+  const fingerprintOf = new Map((items ?? []).map((item) => [item.id as string, item.fingerprint as string]));
 
   const flags: Record<string, { state: string; reason?: string; reasonCode?: string; attestedAt?: string }> = {};
   for (const row of data ?? []) {
-    const items = row.report_items as unknown as { fingerprint: string } | { fingerprint: string }[];
-    const fingerprint = Array.isArray(items) ? items[0]?.fingerprint : items.fingerprint;
+    const fingerprint = fingerprintOf.get(row.item_id as string);
     if (!fingerprint) continue;
     flags[fingerprint] = {
       state: row.state,
