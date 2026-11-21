@@ -1,7 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { getStaffData } from "./data";
+import { guardStaffData } from "./guard";
+import { can, visibleClients, type Capability, type Viewer } from "./permissions";
+import type { TeamState } from "./team";
+import { demoViewer, getTeamData } from "./teamData";
+import { loadTeamActions, saveTeamActions } from "./teamStore";
 import type { StaffClient } from "./types";
 
 // The console's clients for a page, loaded in the browser. `now` is taken
@@ -10,8 +15,24 @@ import type { StaffClient } from "./types";
 
 const SALES_NAME_KEY = "bonalti.salesName"; // set on the invite page
 
-/** The name staff notes are signed with: what they typed on the invite page, or "equipo". */
+// ── Who is using the console ────────────────────────────────────────────
+//
+// With a database, the server knows who is signed in: the layout reads the
+// member's row (access.ts getStaffMember) and the shell provides it here. In
+// the demo there is nobody signed in, so the demo team stands in and the
+// header's "Ver como" picks whose view to show.
+
+/** The signed-in member, provided by the console's shell. Null in the demo. */
+export const StaffViewerContext = createContext<Viewer | null>(null);
+
+/** Fired when the demo switches whose view it shows. */
+export const VIEWER_CHANGED = "credalti:staff-viewer";
+
+let currentViewer: Viewer | null = null;
+
+/** The name staff notes are signed with: the member using the console, else what they typed on the invite page, or "equipo". */
 export function staffAuthor(): string {
+  if (currentViewer) return currentViewer.handle;
   try {
     const name = window.localStorage.getItem(SALES_NAME_KEY)?.trim();
     return name ? name.toLowerCase() : "equipo";
@@ -20,8 +41,9 @@ export function staffAuthor(): string {
   }
 }
 
-/** The teammate's name as they typed it, or "" when they have not given one. Signs replies to clients. */
+/** The teammate's first name (the member using the console), else as they typed it, or "". Signs replies to clients. */
 export function staffName(): string {
+  if (currentViewer) return currentViewer.name.split(" ")[0] ?? "";
   try {
     return window.localStorage.getItem(SALES_NAME_KEY)?.trim() ?? "";
   } catch {
@@ -39,17 +61,80 @@ export function rememberStaffName(name: string): void {
 }
 
 export function useStaff() {
-  const data = getStaffData();
-  const [state, setState] = useState<{ clients: StaffClient[]; now: Date } | null>(null);
+  const raw = getStaffData();
+  const teamData = getTeamData();
+  const signedIn = useContext(StaffViewerContext);
+  const [state, setState] = useState<{ all: StaffClient[]; team: TeamState; viewer: Viewer | null; now: Date } | null>(null);
 
   const reload = useCallback(async () => {
-    const clients = await data.listClients();
-    setState({ clients, now: new Date() });
-  }, [data]);
+    const [all, team] = await Promise.all([raw.listClients(), teamData.load()]);
+    const viewer = signedIn ?? (raw.demo ? demoViewer(team, loadTeamActions().viewAs) : null);
+    currentViewer = viewer;
+    setState({ all, team, viewer, now: new Date() });
+  }, [raw, teamData, signedIn]);
 
   useEffect(() => {
     void reload();
+    const again = () => void reload();
+    window.addEventListener(VIEWER_CHANGED, again);
+    return () => window.removeEventListener(VIEWER_CHANGED, again);
   }, [reload]);
 
-  return { data, ready: state !== null, clients: state?.clients ?? [], now: state?.now ?? new Date(0), reload };
+  const viewer = state?.viewer ?? null;
+  // Every read and every action goes through the viewer's permissions.
+  const data = useMemo(
+    () =>
+      guardStaffData(raw, viewer, {
+        // The demo records who sent each round; the database route records it on the server.
+        onRoundsSent: (rounds, by) => {
+          if (!raw.demo) return;
+          const actions = loadTeamActions();
+          const sentBy = { ...actions.sentBy };
+          for (const { clientId, roundNumber } of rounds) sentBy[clientId] = { ...sentBy[clientId], [String(roundNumber)]: by };
+          saveTeamActions({ ...actions, sentBy });
+        },
+      }),
+    [raw, viewer],
+  );
+  const clients = useMemo(() => visibleClients(viewer, state?.all ?? []), [viewer, state]);
+
+  return {
+    data,
+    team: teamData,
+    ready: state !== null,
+    /** The clients this member may see. */
+    clients,
+    now: state?.now ?? new Date(0),
+    reload,
+    viewer,
+    members: state?.team.members ?? [],
+    settings: state?.team.settings ?? { autoAssign: false, lastAutoAssigned: null },
+    teamEvents: state?.team.events ?? [],
+    can: (capability: Capability) => can(viewer?.role, capability),
+  };
+}
+
+/**
+ * Only who is looking, without loading the clients: for the console's frame.
+ * In the demo it follows "Ver como".
+ */
+export function useViewer(): { viewer: Viewer | null; ready: boolean } {
+  const signedIn = useContext(StaffViewerContext);
+  const [state, setState] = useState<{ viewer: Viewer | null } | null>(null);
+  useEffect(() => {
+    if (signedIn) {
+      setState({ viewer: signedIn });
+      return;
+    }
+    const read = async () => {
+      const raw = getStaffData();
+      const team = await getTeamData().load();
+      setState({ viewer: raw.demo ? demoViewer(team, loadTeamActions().viewAs) : null });
+    };
+    void read();
+    const again = () => void read();
+    window.addEventListener(VIEWER_CHANGED, again);
+    return () => window.removeEventListener(VIEWER_CHANGED, again);
+  }, [signedIn]);
+  return { viewer: state?.viewer ?? null, ready: state !== null };
 }

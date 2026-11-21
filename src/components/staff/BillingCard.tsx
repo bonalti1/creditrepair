@@ -13,7 +13,7 @@ import { cardLabel } from "@/lib/staff/timeline";
 import type { StaffClient } from "@/lib/staff/types";
 import { staffAuthor } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
-import { Chip, SectionTitle, WAITING_TONE } from "@/components/staff/ui";
+import { Chip, DeniedNote, SectionTitle, WAITING_TONE } from "@/components/staff/ui";
 
 // Billing for one client, as the team reads it: the payment method on file,
 // every charge with the work it paid for, and one sentence about what the
@@ -56,11 +56,17 @@ export default function BillingCard({
   data,
   now,
   onChanged,
+  refundDenied = null,
+  pauseDenied = null,
 }: {
   client: StaffClient;
   data: StaffData;
   now: Date;
   onChanged: () => Promise<void> | void;
+  /** Set when the viewer's role may not return a charge: the reason, shown instead of the control. */
+  refundDenied?: string | null;
+  /** Set when the viewer's role may not pause or resume billing: the reason, shown instead of the controls. */
+  pauseDenied?: string | null;
 }) {
   const [refunding, setRefunding] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -160,9 +166,11 @@ export default function BillingCard({
             <p className="text-[14px] leading-snug text-blue-900">
               <span className="font-semibold">Cobros en pausa</span> desde el {shortDay(pause.at)}, por {who(pause.by)}: «{pause.reason}»
             </p>
+            {!pauseDenied && (
             <button type="button" onClick={resume} disabled={busy} className={`${SMALL_BUTTON} mt-2.5 bg-white text-blue-900 hover:bg-slate-50`}>
               Reanudar cobros
             </button>
+            )}
           </div>
         )}
 
@@ -195,7 +203,7 @@ export default function BillingCard({
                     </p>
                   )}
 
-                  {standing === "paid" && !open && (
+                  {standing === "paid" && !open && !refundDenied && (
                     <button
                       type="button"
                       onClick={() => {
@@ -254,7 +262,13 @@ export default function BillingCard({
           </p>
         )}
 
-        {!pause && client.agreementSignedAt && !client.agreementCancelledAt && (
+        {(refundDenied || pauseDenied) && (
+          <div className="border-t hairline px-5 py-3" data-testid="billing-denied">
+            <DeniedNote>{[refundDenied, pauseDenied].filter(Boolean).join(" ")}</DeniedNote>
+          </div>
+        )}
+
+        {!pause && !pauseDenied && client.agreementSignedAt && !client.agreementCancelledAt && (
           <div className="border-t hairline px-5 py-3.5">
             {!pausing ? (
               <button

@@ -14,7 +14,7 @@ Legend: ✅ have it · 🟡 partly · ❌ missing · — not planned here
 
 | CRC feature | Credalti today | |
 | --- | --- | --- |
-| Leads and clients with statuses, assignment, referrer | Stages set automatically from what the client has done; salesperson recorded on the invite. No adding or editing clients by hand, no assigning to a team member | 🟡 |
+| Leads and clients with statuses, assignment, referrer | Stages set automatically from what the client has done; salesperson recorded on the invite. Add a prospect by hand (with the same invite message), assign to a teammate, round-robin for new clients, filters, bulk assign / send / CSV. No editing a client's details by hand | ✅ |
 | Web lead form, affiliate signup, self-signup with checkout | Landing page, WhatsApp lead handoff, waitlist, invite links. No embeddable form or affiliate signup. No checkout at signup, on purpose (no charge before work) | 🟡 |
 | Client portal, mobile app, Spanish | Phone-first app, Spanish first with English, chat assistant, one next step on every screen. No app-store app | ✅ |
 | Agreement with e-signature record, Spanish | Disclosures, contract, cancellation notice, authorization, typed signature with a fingerprint of the exact text, printable copy, cancellation window enforced. Text pending attorney | ✅ |
@@ -36,13 +36,13 @@ Legend: ✅ have it · 🟡 partly · ❌ missing · — not planned here
 | Payment gateway and transaction log | Adapter only; no processor connected; no CSV export | ❌ |
 | Failed-payment follow-up | Retries on day 3 and 7 with a plain message, then the case pauses and resumes on payment | ✅ |
 | Affiliate portal, commissions, payouts | None | ❌ |
-| Team members, roles, permissions | Roles stored (admin, specialist, sales) but not yet limiting what each person sees; no team screen | 🟡 |
+| Team members, roles, permissions | Admin, specialist and sales limit what each person sees and does, in the console, in every staff route and in the database's read policies. Team screen: add by email or phone, change role, deactivate (never delete) | ✅ |
 | Marketing Hub (CRM, SMS, pipelines, funnels) | Not here; planned for ALTO Control | — |
-| Business stats, activity log | Staff home counts by stage, per-client history. No business dashboard (next on the list) | 🟡 |
+| Business stats, activity log | Business dashboard (clients, work, money, team, sales) with a written definition for every number; who-did-what log per client and for the team | ✅ |
 | Zapier / API | n8n webhooks and a health endpoint; no public API | 🟡 |
 | Monitoring partner and commissions | IdentityIQ link with disclosure; no commission tracking | 🟡 |
 
-**Count:** 11 ✅ · 10 🟡 · 5 ❌ · 1 not planned, out of 27.
+**Count:** 14 ✅ · 7 🟡 · 5 ❌ · 1 not planned, out of 27.
 
 ## Where Credalti is built to be better
 
@@ -85,7 +85,9 @@ None of this is proven until real clients use it.
 1. Real database behind the staff console and client app.
 2. Certified mail with tracking.
 3. Importing her clients from a CRC export.
-4. Team roles that limit what each person sees, and a team screen.
-5. Business dashboard.
-6. Furnisher address book.
-7. Affiliates (here or in ALTO Control).
+4. Furnisher address book.
+5. Affiliates (here or in ALTO Control).
+
+Done since this list was written: team roles that limit what each person
+sees, a team screen, assignment, and the business dashboard (on demo data,
+like the rest of the console).

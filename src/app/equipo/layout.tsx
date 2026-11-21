@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
-import { getStaffAccess } from "@/lib/staff/access";
+import { getStaffAccess, getStaffMember } from "@/lib/staff/access";
 import Logo from "@/components/Logo";
 import StaffShell from "@/components/staff/StaffShell";
 
@@ -36,5 +36,9 @@ export default async function EquipoLayout({ children }: { children: React.React
     );
   }
 
-  return <StaffShell>{children}</StaffShell>;
+  // With a database, the member's role decides what each screen shows (and
+  // every staff route checks it again). In the demo there is nobody signed in.
+  const member = access === "allowed" ? await getStaffMember() : null;
+  const viewer = member ? { handle: member.handle, name: member.name, role: member.role } : null;
+  return <StaffShell viewer={viewer}>{children}</StaffShell>;
 }

@@ -23,7 +23,7 @@ import type {
 // ─────────────────────────────────────────────────────────────────────────
 // DEMO DATA. Nobody in this file exists.
 //
-// Twenty-three invented clients for the staff console, spread across every
+// Thirty-six invented clients for the staff console, spread across every
 // stage, every kind of exception and every state of billing. A few have a conversation with Capi on file. Names are made up, phone numbers use the
 // reserved fictional range (555-01xx), addresses are placeholders and the
 // reports are variations of the app's demo report (src/lib/demo.ts).
@@ -597,10 +597,183 @@ export function buildDemoClients(now: Date): StaffClient[] {
   });
   baltazar.rounds = [round(baltazar, 1, "mailed", { mailedDaysAgo: 2 })];
 
+  // ── Months of history (for the business dashboard) ────────────────────
+  // Clients from the last half year whose story is further along: several
+  // rounds mailed about 40 days apart, the reports that came back after each
+  // one, a few leads who never signed, and two who cancelled before any work
+  // was done. None of them needs a person today and none has a round to send,
+  // so the "needs a person" picture above is unchanged.
+  //
+  // What a later report no longer lists is recorded on the round it answered
+  // (RoundResult, "removed"), exactly as an import records it: only what the
+  // reports themselves show.
+  function buildHistoryClients(): StaffClient[] {
+    interface ReportState {
+      shape: Shape;
+      withoutOldAddress?: boolean;
+    }
+    /**
+     * Rounds mailed and answered, oldest first. `states` are the reports: the
+     * first one the client reviewed, then the one that answered each round
+     * (so one more than the rounds answered). The newest is the client's report.
+     */
+    const withHistory = (client: StaffClient, states: ReportState[], rounds: Array<{ mailed: number; responded?: number }>) => {
+      const person = people.get(client.id)!;
+      const pulledDaysAgo = (k: number) => (k === 0 ? rounds[0]!.mailed + 4 : rounds[k - 1]!.responded!);
+      const reports = states.map((state, k) => {
+        const raw = rawReport(person, state.shape);
+        raw.pulledAt = ago(pulledDaysAgo(k));
+        if (state.withoutOldAddress) {
+          raw.bureaus.equifax!.personalInfo = raw.bureaus.equifax!.personalInfo.filter((p) => p.field !== "address");
+        }
+        return parseReport(raw);
+      });
+      const answers = answersFor(reports[0]!, reports[0]!.items.length, ago(pulledDaysAgo(0) - 1));
+      client.report = reports[reports.length - 1]!;
+      client.answers = answers;
+      client.rounds = rounds.map((r, i) => {
+        const status: RoundStatus = r.responded !== undefined ? "responded" : "mailed";
+        const built = round(client, i + 1, status, { mailedDaysAgo: r.mailed, respondedDaysAgo: r.responded }, { report: reports[i]!, answers });
+        const next = r.responded !== undefined ? reports[i + 1] : undefined;
+        if (!next) return built;
+        const still = new Set(next.items.map((item) => item.fingerprint));
+        const gone = [...new Set(built.letters.flatMap((l) => l.items.map((item) => item.fingerprint)))].filter((fp) => !still.has(fp));
+        return gone.length > 0
+          ? { ...built, results: gone.map((fingerprint) => ({ fingerprint, outcome: "removed" as const, reportDate: next.pulledAt })) }
+          : built;
+      });
+    };
+
+    const both: StaffClient["documents"] = ["government_id", "proof_of_address"];
+    const later: ReportState = { shape: "base", withoutOldAddress: true };
+
+    // 24. Five rounds since spring; the fifth went out 25 days ago.
+    const rosa = make({
+      id: "c24", first: "Rosa", last: "Delgado", phone: "+17135550124", city: "Houston", zip: "77004",
+      salesperson: "ana", createdDaysAgo: 200, signedUpDaysAgo: 198, agreementDaysAgo: 197, documents: both,
+      lastActivityDaysAgo: 4, paymentMethodDaysAgo: 196,
+    });
+    withHistory(rosa, [{ shape: "medical" }, { shape: "medical", withoutOldAddress: true }, later, later, later], [
+      { mailed: 188, responded: 157 }, { mailed: 147, responded: 116 }, { mailed: 106, responded: 75 }, { mailed: 66, responded: 35 }, { mailed: 25 },
+    ]);
+    rosa.conversation = thread("c24", ago(4, 5), [
+      ["client", "¿Ya salieron mis cartas de esta ronda?"],
+      ["marta", "Hola Rosa, soy Marta, del equipo. Sí, tu ronda 5 salió hace unos días. Te avisamos aquí cuando llegue tu reporte nuevo."],
+      ["client", "Gracias, Marta."],
+    ]);
+
+    // 25. Four rounds; the fourth is with the bureaus.
+    const gerardo = make({
+      id: "c25", first: "Gerardo", last: "Fuentes", phone: "+12105550125", city: "San Antonio", zip: "78209",
+      salesperson: "luis", createdDaysAgo: 170, signedUpDaysAgo: 168, agreementDaysAgo: 160, documents: both,
+      lastActivityDaysAgo: 9, paymentMethodDaysAgo: 159,
+    });
+    withHistory(gerardo, [{ shape: "extra_inquiry" }, { shape: "extra_inquiry", withoutOldAddress: true }, later, later], [
+      { mailed: 150, responded: 119 }, { mailed: 110, responded: 79 }, { mailed: 70, responded: 39 }, { mailed: 29 },
+    ]);
+
+    // 26. Three rounds answered; the system prepares round 4 in two days.
+    const patricia = make({
+      id: "c26", first: "Patricia", last: "Lozano", phone: "+12145550126", city: "Dallas", zip: "75208",
+      salesperson: "carmen", createdDaysAgo: 140, signedUpDaysAgo: 139, agreementDaysAgo: 133, documents: both,
+      lastActivityDaysAgo: 6, paymentMethodDaysAgo: 132,
+    });
+    withHistory(patricia, [{ shape: "medical" }, { shape: "medical", withoutOldAddress: true }, later, later], [
+      { mailed: 120, responded: 89 }, { mailed: 80, responded: 49 }, { mailed: 38, responded: 6 },
+    ]);
+
+    // 27. Three rounds; the third went out 17 days ago.
+    const hector = make({
+      id: "c27", first: "Héctor", last: "Valdez", phone: "+15125550127", city: "Austin", zip: "78702",
+      salesperson: "luis", createdDaysAgo: 110, signedUpDaysAgo: 108, agreementDaysAgo: 107, documents: both,
+      lastActivityDaysAgo: 12, paymentMethodDaysAgo: 106,
+    });
+    withHistory(hector, [{ shape: "extra_inquiry" }, { shape: "extra_inquiry", withoutOldAddress: true }, later], [
+      { mailed: 98, responded: 67 }, { mailed: 57, responded: 26 }, { mailed: 17 },
+    ]);
+
+    // 28. A slow start (37 days from signing to round 1); round 2 is out.
+    const silvia = make({
+      id: "c28", first: "Silvia", last: "Cárdenas", phone: "+19155550128", city: "El Paso", zip: "79903",
+      salesperson: "ana", createdDaysAgo: 95, signedUpDaysAgo: 94, agreementDaysAgo: 92, documents: both,
+      lastActivityDaysAgo: 13, paymentMethodDaysAgo: 91,
+    });
+    withHistory(silvia, [{ shape: "medical" }, later], [{ mailed: 55, responded: 24 }, { mailed: 13 }]);
+
+    // 29. Two rounds; the second is with the bureaus.
+    const tomas = make({
+      id: "c29", first: "Tomás", last: "Guerrero", phone: "+19565550129", city: "Laredo", zip: "78041",
+      salesperson: "carmen", createdDaysAgo: 80, signedUpDaysAgo: 79, agreementDaysAgo: 78, documents: both,
+      lastActivityDaysAgo: 2, paymentMethodDaysAgo: 77,
+    });
+    withHistory(tomas, [{ shape: "base" }, later], [{ mailed: 70, responded: 39 }, { mailed: 29 }]);
+    tomas.conversation = thread("c29", ago(2, 6), [
+      ["client", "Me llegó una carta de Equifax a mi casa. ¿Se la mando a ustedes?"],
+      ["marta", "Hola Tomás, soy Marta. Sí, por favor: tómale una foto y súbela en la app, en «Documentos». La revisamos con tu reporte nuevo."],
+    ]);
+
+    // 30. Round 1 answered 24 days ago and round 2 not yet out: behind the 40-day cycle.
+    const adriana = make({
+      id: "c30", first: "Adriana", last: "Pineda", phone: "+19565550130", city: "McAllen", zip: "78503",
+      salesperson: "luis", createdDaysAgo: 65, signedUpDaysAgo: 64, agreementDaysAgo: 63, documents: both,
+      lastActivityDaysAgo: 20, paymentMethodDaysAgo: 62,
+    });
+    withHistory(adriana, [{ shape: "extra_inquiry" }, later], [{ mailed: 55, responded: 24 }]);
+
+    // 31 and 32. Leads who never created their account.
+    const julio = make({
+      id: "c31", first: "Julio", last: "Becerra", phone: "+17135550131", city: "Houston", zip: "77005",
+      salesperson: "ana", createdDaysAgo: 75, lastActivityDaysAgo: 70,
+    });
+    const marisol = make({
+      id: "c32", first: "Marisol", last: "Treviño", phone: "+12105550132", city: "San Antonio", zip: "78210",
+      salesperson: "luis", createdDaysAgo: 50, lastActivityDaysAgo: 47,
+    });
+
+    // 33. Signed and cancelled the next day, inside the window. Nothing was done or charged.
+    const diego = make({
+      id: "c33", first: "Diego", last: "Arellano", phone: "+13615550133", city: "Corpus Christi", zip: "78404",
+      salesperson: "carmen", createdDaysAgo: 122, signedUpDaysAgo: 120, agreementDaysAgo: 118, lastActivityDaysAgo: 117,
+    });
+    diego.agreementCancelledAt = ago(117);
+    diego.cancelledWithinWindow = true;
+
+    // 34. Reviewed her report, then cancelled after the window, before any round went out. Nothing was charged.
+    const lorena = make({
+      id: "c34", first: "Lorena", last: "Saucedo", phone: "+14325550134", city: "Odessa", zip: "79761",
+      salesperson: "ana", createdDaysAgo: 62, signedUpDaysAgo: 60, agreementDaysAgo: 58, documents: both,
+      report: { pulledDaysAgo: 54, shape: "base" }, answeredDaysAgo: 50, lastActivityDaysAgo: 45,
+    });
+    lorena.agreementCancelledAt = ago(45);
+    lorena.cancelledWithinWindow = false;
+    lorena.notes = [{ id: "c34-n1", at: ago(45), author: "ana", text: "Canceló: prefiere esperar a después de su mudanza. No se le cobró nada." }];
+
+    // 35. Added by hand from a phone call; the invitation went out.
+    const norma = make({
+      id: "c35", first: "Norma", last: "Ybarra", phone: "+19035550135", city: "Tyler", zip: "75702",
+      salesperson: "carmen", createdDaysAgo: 25, lastActivityDaysAgo: 25,
+    });
+    norma.addedBy = "carmen";
+    norma.goal = "auto";
+
+    // 36. Round 1 went out 24 days ago.
+    const fabian = make({
+      id: "c36", first: "Fabián", last: "Mora", phone: "+12545550136", city: "Killeen", zip: "76541",
+      salesperson: "luis", createdDaysAgo: 40, signedUpDaysAgo: 39, agreementDaysAgo: 38, documents: both,
+      lastActivityDaysAgo: 10, paymentMethodDaysAgo: 37,
+    });
+    withHistory(fabian, [{ shape: "medical" }], [{ mailed: 24 }]);
+
+    return [rosa, gerardo, patricia, hector, silvia, tomas, adriana, julio, marisol, diego, lorena, norma, fabian];
+  }
+
+  const history = buildHistoryClients();
+
   const clients = [
     mariana, yolanda, rigoberto, itzel, fidel, lourdes, anselmo, brenda,
     ramiro, ernesto, graciela, heriberto, paulina, samuel, noemi, dolores,
     estela, octavio, rebeca, leticia, joaquin, ximena, baltazar,
+    ...history,
   ];
 
   // ── Billing ───────────────────────────────────────────────────────────
@@ -667,6 +840,63 @@ export function buildDemoClients(now: Date): StaffClient[] {
 
   // Ximena: declined once, two days ago; the next try is tomorrow.
   ximena.billing = { paymentMethod: sampleMethod(ago(5), "7718"), charges: [declined(ximena, 1, 2)], pause: null };
+
+  // ── Who works each client ─────────────────────────────────────────────
+  // The demo team is in team.ts (buildDemoTeam): Carmen administers and works
+  // cases, Marta is the specialist, Ana and Luis sell. Leads and people who
+  // have not signed are nobody's yet, and two signed clients are still waiting
+  // for someone. Since the round-robin was switched on (120 days ago) new
+  // clients went to Marta by themselves; before that Carmen assigned them.
+  // A round records who sent it: whoever had the client then.
+  {
+    const toCarmen = new Set(["c10", "c11", "c14", "c15", "c19", "c26", "c29", "c33"]);
+    const unassigned = new Set(["c01", "c02", "c03", "c04", "c31", "c32", "c35"]);
+    const autoSince = now.getTime() - 120 * DAY_MS;
+    for (const client of clients) {
+      if (unassigned.has(client.id)) continue;
+      const at = client.agreementSignedAt ?? client.signedUpAt ?? client.createdAt;
+      const first = client.id === "c11" ? "marta" : toCarmen.has(client.id) ? "carmen" : "marta";
+      const auto = first === "marta" && new Date(at).getTime() >= autoSince;
+      client.assignedTo = first;
+      client.assignments = [{ at, to: first, by: auto ? "sistema" : "carmen", auto }];
+      for (const r of client.rounds) if (r.mailedAt) r.sentBy = first;
+    }
+    // Graciela's returned letter: Carmen took her case over from Marta.
+    graciela.assignedTo = "carmen";
+    graciela.assignments = [...(graciela.assignments ?? []), { at: ago(5), to: "carmen", by: "carmen", auto: false }];
+    graciela.notes = [{ id: "c11-n1", at: ago(5), author: "carmen", text: "Me quedo con su caso mientras resolvemos la carta devuelta." }];
+  }
+
+  // Three rounds above were answered by the report now on file, and the demo
+  // wrote them before results were recorded: record what that report no
+  // longer lists, as an import does (reports/merge.ts).
+  for (const client of [paulina, samuel, leticia]) {
+    const still = new Set(client.report!.items.map((item) => item.fingerprint));
+    const pulled = new Date(client.report!.pulledAt).getTime();
+    client.rounds = client.rounds.map((r) => {
+      if (r.status !== "responded" || r.results || !r.respondedAt || Math.abs(new Date(r.respondedAt).getTime() - pulled) > DAY_MS) return r;
+      const gone = [...new Set(r.letters.flatMap((l) => l.items.map((item) => item.fingerprint)))].filter((fp) => !still.has(fp));
+      return gone.length > 0 ? { ...r, results: gone.map((fingerprint) => ({ fingerprint, outcome: "removed" as const, reportDate: client.report!.pulledAt })) } : r;
+    });
+  }
+
+  // Gerardo's round 3: the first try was declined, the retry three days later went through.
+  {
+    const gerardo = clients.find((c) => c.id === "c25")!;
+    gerardo.billing = {
+      ...gerardo.billing,
+      charges: gerardo.billing.charges.map((charge) => {
+        if (charge.roundNumber !== 3) return charge;
+        const paidAt = new Date(new Date(charge.createdAt).getTime() + 3 * DAY_MS).toISOString();
+        return { ...charge, attempts: 2, lastAttemptAt: paidAt, chargedAt: paidAt };
+      }),
+    };
+  }
+
+  // What sales wrote down about some of them.
+  const goals: Record<string, string> = { c01: "mortgage", c02: "auto", c03: "card", c04: "general", c31: "mortgage", c32: "card" };
+  for (const client of clients) if (goals[client.id]) client.goal = goals[client.id];
+  mariana.email = "mariana.robles@ejemplo.com";
 
   return clients;
 }

@@ -2,15 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { count } from "@/lib/staff/format";
+import { count, shortDay } from "@/lib/staff/format";
 import { exceptionMessage, whatsappHref } from "@/lib/staff/messages";
+import { exceptionVisibleTo } from "@/lib/staff/permissions";
+import { nextStepFor } from "@/lib/staff/clientList";
 import { roundRefsHref } from "@/lib/staff/printBatch";
 import {
   ACTOR_LABEL,
   clientExceptions,
   clientStage,
   HANDLED_QUIET_DAYS,
-  nextStep,
   RESPONSE_WINDOW_DAYS,
   roundItemCount,
   sendableRound,
@@ -52,7 +53,9 @@ function greeting(now: Date): string {
 }
 
 export default function EquipoHome() {
-  const { data, ready, clients, now, reload } = useStaff();
+  const { data, ready, clients, now, reload, viewer, can } = useStaff();
+  // What this member's role takes care of: sales follows people until the work starts; only some roles send.
+  const sends = can("rounds.send");
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const [sentCount, setSentCount] = useState(0);
   const [sending, setSending] = useState(false);
@@ -66,9 +69,9 @@ export default function EquipoHome() {
     for (const client of clients) {
       const stage = clientStage(client, now);
       byStage[stage] += 1;
-      const own = clientExceptions(client, now);
+      const own = clientExceptions(client, now).filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
       own.forEach((exception) => exceptions.push({ client, exception }));
-      const round = sendableRound(client, now);
+      const round = sends ? sendableRound(client, now) : null;
       if (round) sendable.push({ client, round });
       // A client who cancelled is not moving along on their own: they are out.
       if (own.length === 0 && !round && stage !== "cancelled") quiet.push(client);
@@ -79,10 +82,10 @@ export default function EquipoHome() {
         (a.exception.since ?? "").localeCompare(b.exception.since ?? ""),
     );
     // What the system does soonest comes first (a charge tomorrow, a retry), then whoever a person is waited on.
-    const when = (client: StaffClient) => nextStep(client, now).at ?? "9999";
+    const when = (client: StaffClient) => nextStepFor(client, now, viewer).at ?? "9999";
     quiet.sort((a, b) => when(a).localeCompare(when(b)));
     return { exceptions, sendable, quiet, byStage };
-  }, [clients, now]);
+  }, [clients, now, viewer, sends]);
 
   // Every prepared round starts selected: sending them all is the routine.
   useEffect(() => {
@@ -122,15 +125,23 @@ export default function EquipoHome() {
     view.exceptions.length === 0
       ? "nada necesita una persona"
       : `${count(view.exceptions.length, "cosa necesita", "cosas necesitan")} una persona`,
-    view.sendable.length === 0
-      ? "ninguna ronda por enviar"
-      : `${count(view.sendable.length, "ronda lista", "rondas listas")} para enviar`,
+    ...(sends
+      ? [
+          view.sendable.length === 0
+            ? "ninguna ronda por enviar"
+            : `${count(view.sendable.length, "ronda lista", "rondas listas")} para enviar`,
+        ]
+      : []),
     `${count(view.quiet.length, "cliente avanza solo", "clientes avanzan solos")}`,
   ];
+  const leads = clients.filter((c) => clientStage(c, now) === "lead");
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{greeting(now)}</h1>
+      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">
+        {greeting(now)}
+        {viewer ? `, ${viewer.name.split(" ")[0]}` : ""}
+      </h1>
       <p className="mt-1 text-[15px] leading-relaxed text-slate-500">
         {today}. Hoy: {summary.join(" · ")}.
       </p>
@@ -207,6 +218,35 @@ export default function EquipoHome() {
         </section>
 
         <div className="space-y-6">
+          {!sends && (
+            <section aria-labelledby="prospectos">
+              <SectionTitle aside={<span className="text-[13px] tabular-nums text-slate-500">{leads.length}</span>}>
+                <span id="prospectos">Tus prospectos</span>
+              </SectionTitle>
+              <div className="card px-5 py-4">
+                {leads.length === 0 ? (
+                  <p className="text-[14px] leading-snug text-slate-500">No tienes prospectos sin cuenta.</p>
+                ) : (
+                  <ul className="space-y-2.5">
+                    {leads.slice(0, 6).map((client) => (
+                      <li key={client.id} className="text-[13px] leading-snug">
+                        <Link href={`/equipo/clientes/${client.id}`} className="font-medium text-slate-900 underline-offset-2 hover:underline">
+                          {fullName(client)}
+                        </Link>
+                        <span className="block text-slate-500">Sin cuenta todavía · primer contacto el {shortDay(client.createdAt)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {can("clients.add") && (
+                  <Link href="/equipo/clientes" className="mt-3 block text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
+                    Agregar un cliente
+                  </Link>
+                )}
+              </div>
+            </section>
+          )}
+          {sends && (
           <section aria-labelledby="listas">
             <SectionTitle
               aside={
@@ -306,6 +346,7 @@ export default function EquipoHome() {
               )}
             </div>
           </section>
+          )}
 
           <section aria-labelledby="solo">
             <SectionTitle>
@@ -320,7 +361,7 @@ export default function EquipoHome() {
               {view.quiet.length > 0 && (
                 <ul className="mt-3 space-y-2.5">
                   {view.quiet.slice(0, 6).map((client) => {
-                    const step = nextStep(client, now);
+                    const step = nextStepFor(client, now, viewer);
                     return (
                       <li key={client.id} className="text-[13px] leading-snug">
                         <Link

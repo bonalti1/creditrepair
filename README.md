@@ -89,6 +89,12 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/agreement/` | The service agreement full service requires (CROA, Texas Finance Code ch. 393): the documents and the statutory text, the 3-business-day cancellation window, the gate that holds every letter until work may start, the business terms the owner fills in, and readiness — see `docs/AGREEMENT.md`. **Draft: no attorney has reviewed the text** |
 | `src/app/(app)/acuerdo`, `src/app/api/agreement`, `src/lib/ux/agreementStore.ts` | The client's side: disclosures first, then the contract and signature, the printable copy, cancelling; the endpoints that record each step |
 | `supabase/migrations/0010_service_agreements.sql` | `service_agreements`: acknowledgement, signature, cancellation. Read-only for clients and staff, written by the server, and unchangeable once written |
+| `src/lib/staff/permissions.ts`, `src/lib/staff/guard.ts` | Team roles (admin, specialist, sales): the capability matrix, which clients each role sees, and the wrapper every console page acts through. Staff routes check the same matrix on the server (`requireCapability` in `access.ts`) |
+| `src/lib/staff/team.ts`, `teamData.ts`, `teamStore.ts`, `src/app/equipo/equipo` | The team screen: add by email or phone, change role, deactivate (never delete), round-robin assignment; people added by hand; the demo's record of it |
+| `src/lib/staff/metrics.ts`, `src/app/equipo/negocio` | Business dashboard (administrators): every number with its written definition; removals counted only from recorded round results |
+| `src/lib/staff/activity.ts`, `src/app/equipo/actividad` | Who did what, per client and for the team, built from the records |
+| `src/app/api/staff/` | Staff routes for the team and for adding / assigning clients; role checked on the server |
+| `supabase/migrations/0012_team.sql` | Team details, invitations, assignments, prospects, an append-only `team_audit`, and the "staff read" policies scoped by role |
 | `content/` | Ad content kit: locked mascot, spot files, claim gate, assembly and transcript check — see `content/README.md` |
 
 ## Load-bearing invariants

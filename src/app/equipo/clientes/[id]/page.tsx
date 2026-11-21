@@ -19,7 +19,6 @@ import {
   handledExceptions,
   identityTheftItemsWithoutReport,
   missingDocuments,
-  nextStep,
   RESPONSE_WINDOW_DAYS,
   reviewProgress,
   sendableRound,
@@ -27,6 +26,10 @@ import {
   STAGES,
 } from "@/lib/staff/stage";
 import { clientTimeline } from "@/lib/staff/timeline";
+import { clientActivity } from "@/lib/staff/activity";
+import { historyFor, nextStepFor } from "@/lib/staff/clientList";
+import { deniedReason, exceptionVisibleTo } from "@/lib/staff/permissions";
+import { memberName } from "@/lib/staff/team";
 import { deadlineOf } from "@/lib/agreement/gate";
 import {
   fullName,
@@ -44,12 +47,15 @@ import { reasonLabel } from "@/lib/ux/disputeReason";
 import { itemFacts, itemTitle } from "@/lib/ux/itemDisplay";
 import Icon from "@/components/Icon";
 import ItemFacts from "@/components/ItemFacts";
+import ActivityList from "@/components/staff/ActivityList";
+import AssignmentCard from "@/components/staff/AssignmentCard";
 import BillingCard from "@/components/staff/BillingCard";
 import Conversation from "@/components/staff/Conversation";
 import ReportImport from "@/components/staff/ReportImport";
 import {
   ActorTag,
   Chip,
+  DeniedNote,
   PRIMARY_BUTTON,
   QUIET_BUTTON,
   ROW_BUTTON,
@@ -189,7 +195,7 @@ function Letter({ client, round, letter, now }: { client: StaffClient; round: St
 
 export default function ClientePage() {
   const { id } = useParams<{ id: string }>();
-  const { data, ready, clients, now, reload } = useStaff();
+  const { data, team, ready, clients, now, reload, viewer, members, can } = useStaff();
   const [note, setNote] = useState("");
   const [sentRound, setSentRound] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
@@ -208,6 +214,7 @@ export default function ClientePage() {
     return (
       <main className="animate-rise">
         <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">No encontramos a este cliente</h1>
+        <p className="mt-2 text-[15px] text-slate-500">Puede que no exista o que no esté entre los clientes que tu rol te deja ver.</p>
         <Link href="/equipo/clientes" className="mt-4 inline-block text-[15px] font-medium text-blue-700">
           Volver a clientes
         </Link>
@@ -216,10 +223,14 @@ export default function ClientePage() {
   }
 
   const stage = clientStage(client, now);
-  const step = nextStep(client, now);
-  const exceptions = clientExceptions(client, now);
-  const handled = handledExceptions(client, now);
-  const round = sendableRound(client, now);
+  const step = nextStepFor(client, now, viewer);
+  // What this member's role is shown and may do (permissions.ts; the data layer checks again).
+  const caseView = can("case.view");
+  const exceptions = clientExceptions(client, now).filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
+  const handled = handledExceptions(client, now).filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
+  const prepared = sendableRound(client, now);
+  const round = can("rounds.send") ? prepared : null;
+  const activity = clientActivity(client, members).filter((e) => e.actor !== "client");
   const blocked = stage === "ready_to_send" || stage === "next_round_ready" ? sendBlockReason(client, now) : null;
   // The agreement record, as rows: what is on file and when.
   const deadline = client.agreementSignedAt ? deadlineOf(clientAgreement(client)) : null;
@@ -251,7 +262,7 @@ export default function ClientePage() {
       : []),
   ];
   const review = reviewProgress(client);
-  const timeline = clientTimeline(client, now);
+  const timeline = historyFor(clientTimeline(client, now), viewer);
   const missing = missingDocuments(client);
   const rounds = [...client.rounds].sort((a, b) => b.number - a.number);
   // An identity theft claim needs its own document: it is listed as soon as it is being waited on.
@@ -292,7 +303,8 @@ export default function ClientePage() {
       </div>
       <p className="mt-1 text-[14px] text-slate-500">
         {client.state === "TX" ? "Texas" : client.state} · con ventas desde el {shortDay(client.createdAt)} · vendedor:{" "}
-        {client.salesperson} · última actividad {relativeDay(client.lastActivityAt, now)}
+        {memberName(members, client.salesperson)} · trabaja el caso: {client.assignedTo ? memberName(members, client.assignedTo) : "nadie todavía"} · última
+        actividad {relativeDay(client.lastActivityAt, now)}
       </p>
 
       <div className="mt-6 grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -314,7 +326,8 @@ export default function ClientePage() {
                   Enviar ronda {round.number} · {count(round.letters.length, "carta", "cartas")}
                 </button>
               )}
-              {stage === "lead" && (
+              {prepared && !round && <DeniedNote>{deniedReason("rounds.send")}</DeniedNote>}
+              {stage === "lead" && can("clients.invite") && (
                 <Link href={`/equipo/invitar?cliente=${client.id}`} className={`${PRIMARY_BUTTON} shrink-0`}>
                   Preparar su invitación
                 </Link>
@@ -392,8 +405,17 @@ export default function ClientePage() {
             </section>
           )}
 
-          <Conversation client={client} data={data} now={now} onSent={reload} />
+          {!caseView && (
+            <p className="card px-5 py-4 text-[14px] leading-snug text-slate-600" data-testid="case-hidden">
+              {deniedReason("case.view")} Aquí ves su etapa, su acuerdo, sus documentos y sus notas.
+            </p>
+          )}
 
+          {caseView && (
+            <Conversation client={client} data={data} now={now} onSent={reload} replyDenied={can("clients.reply") ? null : deniedReason("clients.reply")} />
+          )}
+
+          {caseView && (
           <section aria-labelledby="reporte">
             <SectionTitle
               aside={
@@ -401,7 +423,7 @@ export default function ClientePage() {
                   {client.report && (
                     <span className="text-[13px] text-slate-500">Reporte del {longDay(client.report.pulledAt)}</span>
                   )}
-                  {!importing && (
+                  {!importing && can("reports.import") && (
                     <button
                       type="button"
                       onClick={() => {
@@ -532,7 +554,9 @@ export default function ClientePage() {
               </div>
             )}
           </section>
+          )}
 
+          {caseView && (
           <section aria-labelledby="cartas" className="scroll-mt-28">
             <SectionTitle>
               <span id="cartas" className="scroll-mt-28">Rondas y cartas</span>
@@ -578,6 +602,7 @@ export default function ClientePage() {
               </div>
             )}
           </section>
+          )}
         </div>
 
         <aside className="min-w-0 space-y-6">
@@ -604,6 +629,7 @@ export default function ClientePage() {
                   <li key={rule}>{rule}</li>
                 ))}
               </ul>
+              {can("clients.invite") && (
               <dl className="mt-4 space-y-2.5 border-t hairline pt-4 text-[14px]">
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-slate-500">Invitación</dt>
@@ -617,8 +643,11 @@ export default function ClientePage() {
                   </dd>
                 </div>
               </dl>
+              )}
             </div>
           </section>
+
+          <AssignmentCard client={client} viewer={viewer} members={members} team={team} canAssign={can("clients.assign")} onChanged={reload} />
 
           <section aria-labelledby="acuerdo" data-testid="agreement-record">
             <SectionTitle>
@@ -645,7 +674,16 @@ export default function ClientePage() {
             </div>
           </section>
 
-          <BillingCard client={client} data={data} now={now} onChanged={reload} />
+          {can("billing.view") && (
+            <BillingCard
+              client={client}
+              data={data}
+              now={now}
+              onChanged={reload}
+              refundDenied={can("billing.refund") ? null : deniedReason("billing.refund")}
+              pauseDenied={can("billing.pause") ? null : deniedReason("billing.pause")}
+            />
+          )}
 
           <section aria-labelledby="documentos">
             <SectionTitle>
@@ -723,6 +761,21 @@ export default function ClientePage() {
                 </li>
               ))}
             </ol>
+          </section>
+
+          <section aria-labelledby="actividad" data-testid="client-activity">
+            <SectionTitle
+              aside={
+                <Link href={`/equipo/actividad?cliente=${client.id}`} className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
+                  Ver todo
+                </Link>
+              }
+            >
+              <span id="actividad">Quién hizo qué</span>
+            </SectionTitle>
+            <div className="card overflow-hidden">
+              <ActivityList entries={activity.slice(0, 6)} now={now} showClient={false} />
+            </div>
           </section>
 
           <section aria-labelledby="notas">

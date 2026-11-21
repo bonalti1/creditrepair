@@ -10,6 +10,7 @@ import { checkStaffReply, MAX_REPLY_CHARS, openQuestions, type ReplyProblem } fr
 import { buildDemoClients } from "./demoClients";
 import { sampleMethod } from "./billing";
 import { clientBilling, sendableRound } from "./stage";
+import { applyTeamActions, loadTeamActions, resetTeamActions } from "./teamStore";
 import type { DocumentKind, ReportSample, StaffChatMessage, StaffClient, StaffNote } from "./types";
 
 // Where the console gets its clients and records what staff do.
@@ -308,7 +309,10 @@ function createDemoData(): StaffData & {
   };
   const current = () => {
     const s = state();
-    return applyDemoActions(s.base, s.actions);
+    // The team's own record (teamStore.ts): people added by hand join the
+    // invented ones first, then assignments and senders are applied.
+    const team = loadTeamActions();
+    return applyTeamActions(applyDemoActions([...s.base, ...team.added], s.actions), team);
   };
 
   return {
@@ -456,6 +460,7 @@ const demoData = createDemoData();
 /** Demo only: forget everything done in this browser and start again. */
 export function resetDemo(): void {
   demoData.reset();
+  resetTeamActions();
 }
 
 /**

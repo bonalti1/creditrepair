@@ -238,3 +238,52 @@ export interface StaffClient {
 
 export const fullName = (client: Pick<StaffClient, "firstName" | "lastName">): string =>
   `${client.firstName} ${client.lastName}`.trim();
+
+// ── Team: roles, assignment and who did what ────────────────────────────
+//
+// Additions for the team screen, roles and the activity log
+// (permissions.ts, team.ts, activity.ts). All optional on the records above,
+// so a record made before they existed still reads.
+
+/** Same values as staff_members.role (migration 0007). */
+export type StaffRole = "admin" | "specialist" | "sales";
+
+/** One time a client was given to a teammate (or taken from one). Oldest first on the client. */
+export interface ClientAssignment {
+  at: string;
+  /** Handle of the teammate the client was given to; null when the client was left unassigned. */
+  to: string | null;
+  /** Handle of whoever did it, or "sistema" for the automatic round-robin. */
+  by: string;
+  /** True when the round-robin did it. */
+  auto: boolean;
+}
+
+/**
+ * Fields the team features add to a client. Kept in their own interface and
+ * merged into StaffClient below, so the record above stays as it was.
+ */
+export interface StaffClientTeamFields {
+  /** Handle of the teammate who works this client. Absent or null: nobody yet. */
+  assignedTo?: string | null;
+  /** Every assignment, oldest first. Absent: never assigned. */
+  assignments?: ClientAssignment[];
+  /** Email, when the client gave one to sales. Optional. */
+  email?: string | null;
+  /** The goal sales wrote down (sales/invite.ts GOALS key). */
+  goal?: string | null;
+  /** Handle of the teammate who added this person by hand; absent when they came another way. */
+  addedBy?: string | null;
+}
+
+/** Fields the team features add to a round. */
+export interface StaffRoundTeamFields {
+  /** Handle of the teammate who mailed (or marked as mailed) the round. Absent on older records. */
+  sentBy?: string | null;
+}
+
+// Declaration merging keeps the additions apart from the original fields.
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientTeamFields {}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffRound extends StaffRoundTeamFields {}

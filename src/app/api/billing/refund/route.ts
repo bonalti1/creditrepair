@@ -8,7 +8,7 @@ import { chargeFromRow } from "@/lib/billing/server";
 import { reportError } from "@/lib/observability/errors";
 import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
-import { getStaffAccess } from "@/lib/staff/access";
+import { getStaffAccess, requireCapability } from "@/lib/staff/access";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/supabase/server";
 
@@ -29,6 +29,9 @@ export async function POST(req: Request) {
   const access = await getStaffAccess();
   if (access === "demo") return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   if (access !== "allowed") return NextResponse.json({ error: "Staff only" }, { status: 403 });
+  // Staff is not enough: the role decides, here on the server (only an administrator returns money; src/lib/staff/permissions.ts).
+  const role = await requireCapability("billing.refund");
+  if (!role.ok) return role.response;
   const staff = await getSessionUser();
   const db = getAdminClient();
   if (!db || !staff) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });

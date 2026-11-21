@@ -20,7 +20,7 @@ import { rememberStaffName, staffName } from "@/lib/staff/useStaff";
 import { messageVoice } from "@/lib/ux/chatMessages";
 import Icon from "@/components/Icon";
 import TeamMessage from "@/components/TeamMessage";
-import { PRIMARY_BUTTON, SectionTitle } from "@/components/staff/ui";
+import { DeniedNote, PRIMARY_BUTTON, SectionTitle } from "@/components/staff/ui";
 
 // The client's conversation in the app, and a box to answer in it.
 //
@@ -44,11 +44,14 @@ export default function Conversation({
   data,
   now,
   onSent,
+  replyDenied = null,
 }: {
   client: StaffClient;
   data: StaffData;
   now: Date;
   onSent: () => void | Promise<void>;
+  /** Set when the viewer's role may read the conversation but not answer in it: the reason, shown instead of the box. */
+  replyDenied?: string | null;
 }) {
   const id = useId();
   const threadRef = useRef<HTMLDivElement>(null);
@@ -176,6 +179,11 @@ export default function Conversation({
             </details>
           )}
 
+          {replyDenied ? (
+            <div className="border-t hairline px-5 py-3.5">
+              <DeniedNote>{replyDenied}</DeniedNote>
+            </div>
+          ) : (
           <div className="border-t hairline px-5 py-4">
             {waiting.map((question) => (
               <p
@@ -269,6 +277,7 @@ export default function Conversation({
               </ul>
             </div>
           </div>
+          )}
         </div>
       )}
     </section>
