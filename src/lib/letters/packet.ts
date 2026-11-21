@@ -154,7 +154,8 @@ export function coverNote(entries: PacketEntry[]): Array<{ heading: string; para
       heading: "What this is",
       paragraphs: [
         `This packet contains all ${entries.length} letter templates in the Credalti letter library. Every one is a DRAFT pending attorney review; each is marked "attorney_pending" in the software. ${entries.filter((e) => e.original).length} of them, marked "${ORIGINAL_STATUS}", are the letters the software already sends. The rest are new and are not used anywhere yet.`,
-        "Each letter is sent by the consumer, in the consumer's own name and over the consumer's own signature. No letter mentions Credalti or any company acting for the consumer. The consumer chooses the items, states the facts, reads the letter and approves it before it is mailed.",
+        "Each letter is written in the consumer's own name and over the consumer's own signature, and no letter mentions Credalti. Credalti is a credit repair company. The client tells us which items are wrong and why, and that statement is recorded with a date before any letter is prepared. Credalti then prepares each letter and mails it for the client, under the client's written authorization.",
+        "How the letters are sent is the point we most need your advice on: see the first item under \"What we are asking you to check\".",
       ],
     },
     {
@@ -173,6 +174,7 @@ export function coverNote(entries: PacketEntry[]): Array<{ heading: string; para
     {
       heading: "What we are asking you to check",
       bullets: [
+        "Whether letters that Credalti prepares and mails may go out in the client's name without saying so; what authorization the client must sign for that (for example a limited power of attorney); and whether any of these letters should disclose Credalti's role.",
         "Each citation and each description of what a statute provides. The citations were checked by web search against passages quoted from the U.S. Code, the FTC, the CFPB and the Federal Reserve; the official texts could not be opened directly from our build environment, so please treat every citation as unconfirmed until you have checked it.",
         "Whether each letter says only what the listed client facts support, and whether the listed facts are the right ones to require.",
         "Tone: whether anything reads as a threat, a demand, an accusation or a promise.",
