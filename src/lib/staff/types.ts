@@ -2,6 +2,7 @@ import type { BillingAccount } from "../billing/types";
 import type { ChatRole, ChatSource } from "../chat/history";
 import type { EscalationStage, ItemCategory, LetterTarget, NormalizedReport, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
+import type { LetterMail, MailClass } from "../mail/types";
 
 // The staff-side view of one client: everything the console needs to say where
 // a person is and why, in one object. It mirrors what the database already
@@ -57,6 +58,18 @@ export interface StaffLetter {
    */
   itemReasons?: Record<string, DisputeReasonCode>;
   mailStatus: MailStatus;
+  /**
+   * How this letter is to be mailed, chosen on the send screen; absent means
+   * the default for its kind (mail/classes.ts: defaultMailClass).
+   */
+  mailClass?: MailClass;
+  /**
+   * How it was mailed and what the post office has said since (mail_events,
+   * migration 0013): class, tracking number, the mailing and delivery dates,
+   * and each tracking event. Absent until it is sent, and on letters recorded
+   * before tracking existed. `mailStatus` above is kept equal to its status.
+   */
+  mail?: LetterMail;
 }
 
 /**
@@ -238,3 +251,52 @@ export interface StaffClient {
 
 export const fullName = (client: Pick<StaffClient, "firstName" | "lastName">): string =>
   `${client.firstName} ${client.lastName}`.trim();
+
+// ── Team: roles, assignment and who did what ────────────────────────────
+//
+// Additions for the team screen, roles and the activity log
+// (permissions.ts, team.ts, activity.ts). All optional on the records above,
+// so a record made before they existed still reads.
+
+/** Same values as staff_members.role (migration 0007). */
+export type StaffRole = "admin" | "specialist" | "sales";
+
+/** One time a client was given to a teammate (or taken from one). Oldest first on the client. */
+export interface ClientAssignment {
+  at: string;
+  /** Handle of the teammate the client was given to; null when the client was left unassigned. */
+  to: string | null;
+  /** Handle of whoever did it, or "sistema" for the automatic round-robin. */
+  by: string;
+  /** True when the round-robin did it. */
+  auto: boolean;
+}
+
+/**
+ * Fields the team features add to a client. Kept in their own interface and
+ * merged into StaffClient below, so the record above stays as it was.
+ */
+export interface StaffClientTeamFields {
+  /** Handle of the teammate who works this client. Absent or null: nobody yet. */
+  assignedTo?: string | null;
+  /** Every assignment, oldest first. Absent: never assigned. */
+  assignments?: ClientAssignment[];
+  /** Email, when the client gave one to sales. Optional. */
+  email?: string | null;
+  /** The goal sales wrote down (sales/invite.ts GOALS key). */
+  goal?: string | null;
+  /** Handle of the teammate who added this person by hand; absent when they came another way. */
+  addedBy?: string | null;
+}
+
+/** Fields the team features add to a round. */
+export interface StaffRoundTeamFields {
+  /** Handle of the teammate who mailed (or marked as mailed) the round. Absent on older records. */
+  sentBy?: string | null;
+}
+
+// Declaration merging keeps the additions apart from the original fields.
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientTeamFields {}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffRound extends StaffRoundTeamFields {}

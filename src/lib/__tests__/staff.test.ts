@@ -11,6 +11,8 @@ import type { BillingAccount } from "../billing/types";
 import { paidUpBilling, sampleMethod } from "../staff/billing";
 import { applyDemoActions, EMPTY_ACTIONS, type DemoActions } from "../staff/data";
 import { buildDemoClients } from "../staff/demoClients";
+import { seededBook } from "../mail/data";
+import { demoClientsWithMail } from "../mail/demo";
 import { formatPhone, relativeDay } from "../staff/format";
 import { exceptionMessage, STAFF_MESSAGE_RULES, whatsappHref, whatsappNumber } from "../staff/messages";
 import {
@@ -477,9 +479,10 @@ describe("staff: demo clients", () => {
   // Read a few minutes after the data was built, as a page does.
   const later = new Date(NOW.getTime() + 5 * 60 * 1000);
 
-  it("are about two dozen invented people in Texas with fictional phone numbers", () => {
+  it("are a few dozen invented people in Texas with fictional phone numbers", () => {
     expect(clients.length).toBeGreaterThanOrEqual(13);
-    expect(clients.length).toBeLessThanOrEqual(23);
+    // 23 until the business dashboard: 13 clients with months of history were added (c24–c36).
+    expect(clients.length).toBeLessThanOrEqual(36);
     expect(new Set(clients.map((c) => c.id)).size).toBe(clients.length);
     for (const c of clients) {
       expect(c.state).toBe("TX");
@@ -494,7 +497,11 @@ describe("staff: demo clients", () => {
   it("cover every stage and every kind of exception", () => {
     const stages = new Set(clients.map((c) => clientStage(c, later)));
     expect([...stages].sort()).toEqual([...STAGE_ORDER].sort());
-    const found = new Set<ExceptionKind>(clients.flatMap((c) => clientExceptions(c, later).map((e) => e.kind)));
+    // As the console shows them: with the demo's mail records and Rosario (mail/demo.ts), and the
+    // furnisher address book, which is where a letter waits for a creditor's address.
+    const found = new Set<ExceptionKind>(
+      demoClientsWithMail(clients, NOW).flatMap((c) => clientExceptions(c, later, { furnishers: seededBook() }).map((e) => e.kind)),
+    );
     expect([...found].sort()).toEqual([...EXCEPTION_KINDS].sort());
   });
 
@@ -504,7 +511,8 @@ describe("staff: demo clients", () => {
     const nothing = clients.filter((c) => clientExceptions(c, later).length === 0 && !sendableRound(c, later));
     expect(needPerson.length).toBe(11);
     expect(ready.length).toBe(3);
-    expect(nothing.length).toBe(9);
+    // 9 before the 13 history clients (c24–c36), none of whom needs a person or has a round to send.
+    expect(nothing.length).toBe(22);
     expect(clients.some((c) => nextAutomaticStep(c, later))).toBe(true);
   });
 
@@ -605,7 +613,9 @@ describe("staff: what the console says", () => {
   const later = new Date(NOW.getTime() + 5 * 60 * 1000);
 
   it("drafted WhatsApp messages pass the claim rules and never say what to mark", () => {
-    const drafts = clients.flatMap((c) => clientExceptions(c, later).map((e) => exceptionMessage(c, e)));
+    const drafts = demoClientsWithMail(clients, NOW).flatMap((c) =>
+      clientExceptions(c, later, { furnishers: seededBook() }).map((e) => exceptionMessage(c, e)),
+    );
     expect(drafts.length).toBeGreaterThanOrEqual(EXCEPTION_KINDS.length);
     for (const text of drafts) {
       expect(checkClaimGuardrails(text)).toEqual([]);

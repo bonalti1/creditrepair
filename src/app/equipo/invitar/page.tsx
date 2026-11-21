@@ -10,8 +10,10 @@ import {
   SALES_MAY_SAY,
   type GoalKey,
 } from "@/lib/sales/invite";
-import { getStaffData } from "@/lib/staff/data";
 import { formatPhone } from "@/lib/staff/format";
+import { deniedReason } from "@/lib/staff/permissions";
+import { useStaff } from "@/lib/staff/useStaff";
+import { NoAccess } from "@/components/staff/ui";
 
 // The salesperson's side of the handoff. After the WhatsApp conversation they
 // fill in four things and get a personal link plus a ready message. The
@@ -22,7 +24,8 @@ import { formatPhone } from "@/lib/staff/format";
 //
 // Opened from a client's page (/equipo/invitar?cliente=<id>) the name, state
 // and WhatsApp number arrive filled in. Only the id travels in the address;
-// the details are looked up here, so no personal data sits in a URL.
+// the details are looked up here, so no personal data sits in a URL. The look
+// up goes through the viewer's permissions: only a client they may see fills in.
 
 const field =
   "h-12 w-full rounded-2xl bg-white px-4 text-[16px] text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-300";
@@ -31,6 +34,7 @@ const STATES = ["TX", ...ALL_STATES.filter((s) => s !== "TX")];
 const ME = "bonalti.salesName";
 
 export default function Invitar() {
+  const { data, ready: loaded, viewer, can } = useStaff();
   const [me, setMe] = useState("");
   const [name, setName] = useState("");
   const [goal, setGoal] = useState<GoalKey>("general");
@@ -46,9 +50,15 @@ export default function Invitar() {
     } catch {
       // ignore
     }
+  }, []);
+
+  // The member using the console signs the invitation; then the client, when the page came from their file.
+  useEffect(() => {
+    if (!loaded) return;
+    if (viewer) setMe(viewer.name.split(" ")[0] ?? "");
     const clientId = new URLSearchParams(window.location.search).get("cliente");
     if (!clientId) return;
-    void getStaffData()
+    void data
       .getClient(clientId)
       .then((client) => {
         if (!client) return;
@@ -56,7 +66,7 @@ export default function Invitar() {
         if ((ALL_STATES as readonly string[]).includes(client.state)) setState(client.state);
         setPhone(formatPhone(client.phone));
       });
-  }, []);
+  }, [loaded, viewer, data]);
 
   const url = useMemo(
     () => origin + buildInvitePath({ name, goal, state, refName: me }),
@@ -77,6 +87,8 @@ export default function Invitar() {
       // Clipboard blocked: the text is on screen to select by hand.
     }
   };
+
+  if (loaded && !can("clients.invite")) return <NoAccess title="Invitar a un cliente" reason={deniedReason("clients.invite")} />;
 
   return (
     <main className="animate-rise mx-auto max-w-md pb-6">

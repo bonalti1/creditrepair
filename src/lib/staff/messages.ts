@@ -66,6 +66,9 @@ const BODY: Record<ExceptionKind, (client: StaffClient, exception: StaffExceptio
     "Recibimos tu solicitud para terminar el servicio y ya no se envía ninguna carta más. Te escribo para confirmarlo contigo y resolver cualquier duda que tengas.",
   agreement_unsigned: () =>
     "Tu cuenta ya está creada. Para empezar solo falta que firmes el acuerdo de servicio. Si tienes preguntas sobre el acuerdo, con gusto te las respondo por aquí.",
+  // The team's own task (an address to look up), but if the client has a letter from that company, its address helps.
+  furnisher_address_missing: () =>
+    "Estamos preparando tus cartas. ¿Tienes alguna carta o estado de cuenta reciente de la empresa a la que le escribimos? Si nos mandas una foto, nos ayuda a confirmar su dirección.",
 };
 
 /** The drafted message for one exception. */

@@ -16,6 +16,7 @@ import {
 } from "@/lib/staff/printBatch";
 import { RESPONSE_WINDOW_DAYS } from "@/lib/staff/stage";
 import { useStaff } from "@/lib/staff/useStaff";
+import { useMail } from "@/lib/mail/useMail";
 import Icon from "@/components/Icon";
 import { PRIMARY_BUTTON, PRIMARY_BUTTON_COMPACT, SECONDARY_BUTTON, SECONDARY_BUTTON_COMPACT } from "@/components/staff/ui";
 
@@ -235,10 +236,13 @@ function Slip({ letter }: { letter: PrintLetter }) {
 
 function PrintView() {
   const params = useSearchParams();
-  const { data, ready, clients, now, reload } = useStaff();
+  const { data, ready: clientsReady, clients, now, reload } = useStaff();
+  // Letters to creditors and collectors print with the address book's address, and wait without one.
+  const { furnishers, ready: bookReady } = useMail();
+  const ready = clientsReady && bookReady;
   const requested = params.get(ROUND_REFS_PARAM);
   const refs = useMemo(() => parseRoundRefs(requested), [requested]);
-  const batch = useMemo(() => buildPrintBatch(clients, refs, now), [clients, refs, now]);
+  const batch = useMemo(() => buildPrintBatch(clients, refs, now, { furnishers }), [clients, refs, now, furnishers]);
 
   const stackRef = useRef<HTMLDivElement>(null);
   /** Pages on paper, measured from the sheets on screen (they are the same size as the paper). */
@@ -272,7 +276,7 @@ function PrintView() {
   const mark = async () => {
     if (toMark.length === 0 || working) return;
     setWorking(true);
-    await data.markRoundsSent(toMark);
+    await data.markRoundsSent(toMark, { via: "print" });
     setMarked({ rounds: toMark.length, clients: markClients });
     setConfirming(false);
     await reload();

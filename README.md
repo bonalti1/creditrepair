@@ -59,7 +59,7 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/letters/variation.ts` | Claude-powered per-letter wording variation (e-OSCAR countermeasure) |
 | `src/lib/letters/fonts.ts` | Print/handwritten font rotation, deterministic per letter |
 | `src/lib/coach/systemPrompt.ts` | Capi's instructions, Spanish-first, per service mode: explains the service, never promises a result, never picks items, never quotes a price, hands over to the team |
-| `src/lib/integrations/lob.ts` | Lob mail client (stubbed without API key) |
+| `src/lib/integrations/lob.ts` | Lob mail client: first class or certified (with electronic return receipt), parsed addresses, idempotency key; simulated without an API key. Which request details are verified is listed at the top |
 | `src/lib/integrations/whatsapp.ts` | WhatsApp Cloud API sender; message copy runs through guardrails |
 | `src/app/api/reports/import` | Import + parse + diff a monitoring pull; deletion celebration |
 | `src/app/api/attacks/build` | Build the draft round plan (requires active monitoring subscription) |
@@ -89,7 +89,17 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/agreement/` | The service agreement full service requires (CROA, Texas Finance Code ch. 393): the documents and the statutory text, the 3-business-day cancellation window, the gate that holds every letter until work may start, the business terms the owner fills in, and readiness — see `docs/AGREEMENT.md`. **Draft: no attorney has reviewed the text** |
 | `src/app/(app)/acuerdo`, `src/app/api/agreement`, `src/lib/ux/agreementStore.ts` | The client's side: disclosures first, then the contract and signature, the printable copy, cancelling; the endpoints that record each step |
 | `supabase/migrations/0010_service_agreements.sql` | `service_agreements`: acknowledgement, signature, cancellation. Read-only for clients and staff, written by the server, and unchangeable once written |
+| `src/lib/staff/permissions.ts`, `src/lib/staff/guard.ts` | Team roles (admin, specialist, sales): the capability matrix, which clients each role sees, and the wrapper every console page acts through. Staff routes check the same matrix on the server (`requireCapability` in `access.ts`) |
+| `src/lib/staff/team.ts`, `teamData.ts`, `teamStore.ts`, `src/app/equipo/equipo` | The team screen: add by email or phone, change role, deactivate (never delete), round-robin assignment; people added by hand; the demo's record of it |
+| `src/lib/staff/metrics.ts`, `src/app/equipo/negocio` | Business dashboard (administrators): every number with its written definition; removals counted only from recorded round results |
+| `src/lib/staff/activity.ts`, `src/app/equipo/actividad` | Who did what, per client and for the team, built from the records |
+| `src/app/api/staff/` | Staff routes for the team and for adding / assigning clients; role checked on the server |
+| `supabase/migrations/0012_team.sql` | Team details, invitations, assignments, prospects, an append-only `team_audit`, and the "staff read" policies scoped by role |
 | `content/` | Ad content kit: locked mascot, spot files, claim gate, assembly and transcript check — see `content/README.md` |
+| `src/lib/mail/` | Mail: classes per kind of letter (`classes.ts`), US address parsing (`address.ts`), the Lob price table and cost preview (`pricing.ts`, prices unverified), tracking events → status and the response-window rule (`tracking.ts`), the furnisher address book and name matching (`furnishers.ts`), the per-round send plan and its blockers (`sendPlan.ts`, `sendBatch.ts`), recording webhook events (`server.ts`) |
+| `src/app/equipo/enviar`, `src/app/equipo/acreedores` | Staff: the send screen (address, class and cost of every letter, "simulado" without a Lob key) and the furnisher address book (search, add, edit, history) |
+| `src/app/api/webhooks/lob`, `src/app/api/furnishers` | Lob tracking webhook (signed, replay window, each event once) and the staff-only address book save |
+| `supabase/migrations/0013_mail_tracking.sql` | Mail class and tracking on `letters`, append-only `mail_events`, no charge for a round whose letters all came back, `furnishers` + `furnisher_changes` (history by trigger) |
 
 ## Load-bearing invariants
 

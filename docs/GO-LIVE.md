@@ -96,7 +96,7 @@ Open each one, then copy the values named in the last column into Render
 | 2 | **Supabase** | Database and login. Create a project. | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` |
 | 3 | **A text-message provider** connected in Supabase (Authentication → Providers → Phone) | Login codes by text | set inside Supabase, not Render |
 | 4 | **Anthropic** | Capi, and letter wording | `ANTHROPIC_API_KEY` |
-| 5 | **Lob** | Prints and mails the letters | `LOB_API_KEY` (start with the test key) |
+| 5 | **Lob** | Prints and mails the letters, first class or certified, and reports tracking | `LOB_API_KEY` (start with the test key), `LOB_WEBHOOK_SECRET` |
 | 6 | **Meta for Developers + WhatsApp Business** | WhatsApp messages | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, and a word you invent for `WHATSAPP_WEBHOOK_VERIFY_TOKEN` |
 | 7 | **n8n** | The hourly clock for rounds | a long random password you invent for `N8N_WEBHOOK_SECRET` |
 | 8 | **Slack or n8n webhook** (optional) | Alerts | `ERROR_WEBHOOK_URL`, `SALES_WEBHOOK_URL` |
@@ -137,6 +137,11 @@ In short:
    Trigger" every hour, then "HTTP Request" — POST to
    `https://YOUR-APP/api/cron/rounds` with header `x-webhook-secret` set to
    your `N8N_WEBHOOK_SECRET`.
+4. **Mail tracking.** In the Lob dashboard, Webhooks → Create: address
+   `https://YOUR-APP/api/webhooks/lob`, and select the letter events (the
+   ordinary ones and the "certified" ones). Copy the webhook's secret into
+   `LOB_WEBHOOK_SECRET`. Use "send test event" once and confirm
+   `/api/health` shows mail tracking as set.
 
 ## Step 4 — Check it
 
@@ -162,6 +167,15 @@ Then run one full pass yourself:
 
 - [ ] Open each `source` link in `src/lib/domain/bureaus.ts` and confirm the address
 - [ ] Mail one letter to yourself
+- [ ] In `/equipo/acreedores`, add the dispute address of each creditor and
+      collector your clients' letters go to, with the source and today's date.
+      A letter to a company without one waits, and the home screen says which
+- [ ] Check the details marked `UNVERIFIED` against Lob's documentation
+      (`src/lib/integrations/lob.ts`, `src/lib/mail/pricing.ts`,
+      `src/lib/mail/tracking.ts`, `src/lib/security/signatures.ts`): they could
+      not be opened from the build environment
+- [ ] Mail one certified letter to yourself with the test key, then the live
+      key, and watch its tracking reach the client page
 
 ## What is still waiting on other people
 

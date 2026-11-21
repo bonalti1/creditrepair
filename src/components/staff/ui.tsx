@@ -78,3 +78,28 @@ export const ROW_BUTTON =
 /** Everything else. */
 export const QUIET_BUTTON =
   "pressable inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[14px] font-medium text-slate-600 hover:bg-slate-100";
+
+/** A whole screen the viewer's role may not open, with the reason. */
+export function NoAccess({ title, reason }: { title: string; reason: string }) {
+  return (
+    <main className="animate-rise">
+      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{title}</h1>
+      <div className="card mt-5 max-w-xl px-5 py-5">
+        <p className="text-[15px] leading-relaxed text-slate-700">{reason}</p>
+        <p className="mt-2 text-[14px] leading-relaxed text-slate-500">
+          Si lo necesitas para tu trabajo, pídeselo a una persona administradora.
+        </p>
+      </div>
+    </main>
+  );
+}
+
+/** One quiet line where a control would be, saying why the viewer does not have it. */
+export function DeniedNote({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="flex items-start gap-2 text-[13px] leading-snug text-slate-500" data-testid="denied-note">
+      <span aria-hidden="true" className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
+      <span>{children}</span>
+    </p>
+  );
+}

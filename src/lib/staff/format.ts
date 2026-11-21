@@ -58,3 +58,8 @@ export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/** "TX" → "Texas"; any other state is written as its code. */
+export function stateName(code: string): string {
+  return code === "TX" ? "Texas" : code;
+}

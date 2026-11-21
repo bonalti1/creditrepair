@@ -2,15 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { count } from "@/lib/staff/format";
+import { count, shortDay } from "@/lib/staff/format";
 import { exceptionMessage, whatsappHref } from "@/lib/staff/messages";
-import { roundRefsHref } from "@/lib/staff/printBatch";
+import { exceptionVisibleTo } from "@/lib/staff/permissions";
+import { nextStepFor } from "@/lib/staff/clientList";
+import { roundRefsHref, sendRefsHref } from "@/lib/staff/printBatch";
+import { useMail } from "@/lib/mail/useMail";
 import {
   ACTOR_LABEL,
   clientExceptions,
   clientStage,
   HANDLED_QUIET_DAYS,
-  nextStep,
   RESPONSE_WINDOW_DAYS,
   roundItemCount,
   sendableRound,
@@ -52,10 +54,13 @@ function greeting(now: Date): string {
 }
 
 export default function EquipoHome() {
-  const { data, ready, clients, now, reload } = useStaff();
+  const { data, ready: clientsReady, clients, now, reload, viewer, can } = useStaff();
+  // What this member's role takes care of: sales follows people until the work starts; only some roles send.
+  const sends = can("rounds.send");
+  // The furnisher address book: a round with a letter to a company that has no checked address is held.
+  const { furnishers, ready: bookReady } = useMail();
+  const ready = clientsReady && bookReady;
   const [selected, setSelected] = useState<Set<string> | null>(null);
-  const [sentCount, setSentCount] = useState(0);
-  const [sending, setSending] = useState(false);
 
   const view = useMemo(() => {
     const exceptions: Array<{ client: StaffClient; exception: StaffException }> = [];
@@ -66,9 +71,9 @@ export default function EquipoHome() {
     for (const client of clients) {
       const stage = clientStage(client, now);
       byStage[stage] += 1;
-      const own = clientExceptions(client, now);
+      const own = clientExceptions(client, now, { furnishers }).filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
       own.forEach((exception) => exceptions.push({ client, exception }));
-      const round = sendableRound(client, now);
+      const round = sends ? sendableRound(client, now, { furnishers }) : null;
       if (round) sendable.push({ client, round });
       // A client who cancelled is not moving along on their own: they are out.
       if (own.length === 0 && !round && stage !== "cancelled") quiet.push(client);
@@ -79,10 +84,10 @@ export default function EquipoHome() {
         (a.exception.since ?? "").localeCompare(b.exception.since ?? ""),
     );
     // What the system does soonest comes first (a charge tomorrow, a retry), then whoever a person is waited on.
-    const when = (client: StaffClient) => nextStep(client, now).at ?? "9999";
+    const when = (client: StaffClient) => nextStepFor(client, now, viewer).at ?? "9999";
     quiet.sort((a, b) => when(a).localeCompare(when(b)));
     return { exceptions, sendable, quiet, byStage };
-  }, [clients, now]);
+  }, [clients, now, viewer, sends, furnishers]);
 
   // Every prepared round starts selected: sending them all is the routine.
   useEffect(() => {
@@ -101,16 +106,6 @@ export default function EquipoHome() {
     setSelected(next);
   };
 
-  const sendChosen = async () => {
-    if (chosen.length === 0 || sending) return;
-    setSending(true);
-    await data.markRoundsSent(chosen.map((s) => ({ clientId: s.client.id, roundNumber: s.round.number })));
-    setSentCount(chosen.length);
-    setSelected(new Set(view.sendable.filter((s) => !selected?.has(s.client.id)).map((s) => s.client.id)));
-    await reload();
-    setSending(false);
-  };
-
   const markHandled = async (clientId: string, key: string) => {
     await data.resolveException(clientId, key);
     await reload();
@@ -122,15 +117,23 @@ export default function EquipoHome() {
     view.exceptions.length === 0
       ? "nada necesita una persona"
       : `${count(view.exceptions.length, "cosa necesita", "cosas necesitan")} una persona`,
-    view.sendable.length === 0
-      ? "ninguna ronda por enviar"
-      : `${count(view.sendable.length, "ronda lista", "rondas listas")} para enviar`,
+    ...(sends
+      ? [
+          view.sendable.length === 0
+            ? "ninguna ronda por enviar"
+            : `${count(view.sendable.length, "ronda lista", "rondas listas")} para enviar`,
+        ]
+      : []),
     `${count(view.quiet.length, "cliente avanza solo", "clientes avanzan solos")}`,
   ];
+  const leads = clients.filter((c) => clientStage(c, now) === "lead");
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{greeting(now)}</h1>
+      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">
+        {greeting(now)}
+        {viewer ? `, ${viewer.name.split(" ")[0]}` : ""}
+      </h1>
       <p className="mt-1 text-[15px] leading-relaxed text-slate-500">
         {today}. Hoy: {summary.join(" · ")}.
       </p>
@@ -180,7 +183,7 @@ export default function EquipoHome() {
                         {exception.actionLabel}
                       </a>
                     ) : (
-                      <Link href={`/equipo/clientes/${client.id}#cartas`} className={ROW_BUTTON}>
+                      <Link href={exception.href ?? `/equipo/clientes/${client.id}#cartas`} className={ROW_BUTTON}>
                         {exception.actionLabel}
                       </Link>
                     )}
@@ -207,6 +210,35 @@ export default function EquipoHome() {
         </section>
 
         <div className="space-y-6">
+          {!sends && (
+            <section aria-labelledby="prospectos">
+              <SectionTitle aside={<span className="text-[13px] tabular-nums text-slate-500">{leads.length}</span>}>
+                <span id="prospectos">Tus prospectos</span>
+              </SectionTitle>
+              <div className="card px-5 py-4">
+                {leads.length === 0 ? (
+                  <p className="text-[14px] leading-snug text-slate-500">No tienes prospectos sin cuenta.</p>
+                ) : (
+                  <ul className="space-y-2.5">
+                    {leads.slice(0, 6).map((client) => (
+                      <li key={client.id} className="text-[13px] leading-snug">
+                        <Link href={`/equipo/clientes/${client.id}`} className="font-medium text-slate-900 underline-offset-2 hover:underline">
+                          {fullName(client)}
+                        </Link>
+                        <span className="block text-slate-500">Sin cuenta todavía · primer contacto el {shortDay(client.createdAt)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {can("clients.add") && (
+                  <Link href="/equipo/clientes" className="mt-3 block text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
+                    Agregar un cliente
+                  </Link>
+                )}
+              </div>
+            </section>
+          )}
+          {sends && (
           <section aria-labelledby="listas">
             <SectionTitle
               aside={
@@ -227,15 +259,6 @@ export default function EquipoHome() {
             </SectionTitle>
 
             <div className="card overflow-hidden">
-              {sentCount > 0 && (
-                <p className="flex items-start gap-2.5 bg-green-50 px-5 py-3.5 text-[14px] leading-snug text-green-700" role="status">
-                  <Icon name="check" size={18} className="mt-px shrink-0" />
-                  <span>
-                    {count(sentCount, "ronda enviada", "rondas enviadas")}. El sistema vuelve a importar cada reporte
-                    en {RESPONSE_WINDOW_DAYS} días.
-                  </span>
-                </p>
-              )}
 
               {view.sendable.length === 0 ? (
                 <p className="px-5 py-5 text-[14px] leading-snug text-slate-500">
@@ -245,7 +268,7 @@ export default function EquipoHome() {
                 <>
                   <ul>
                     {view.sendable.map(({ client, round }, index) => (
-                      <li key={client.id} className={`flex items-center gap-3 px-5 py-3 ${index > 0 || sentCount > 0 ? "border-t hairline" : ""}`}>
+                      <li key={client.id} className={`flex items-center gap-3 px-5 py-3 ${index > 0 ? "border-t hairline" : ""}`}>
                         <input
                           id={`send-${client.id}`}
                           type="checkbox"
@@ -277,14 +300,20 @@ export default function EquipoHome() {
                   </ul>
                   <div className="border-t hairline px-5 py-4">
                     <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={sendChosen}
-                        disabled={chosen.length === 0 || sending}
-                        className={`${PRIMARY_BUTTON_COMPACT} ${chosen.length === 0 ? "col-span-2" : ""}`}
-                      >
-                        {chosen.length === 0 ? "Elige qué enviar" : `Enviar ${count(chosen.length, "ronda", "rondas")}`}
-                      </button>
+                      {/* Sending opens the send screen: addresses, mail class per letter and cost, then confirm. */}
+                      {chosen.length === 0 ? (
+                        <button type="button" disabled className={`${PRIMARY_BUTTON_COMPACT} col-span-2`}>
+                          Elige qué enviar
+                        </button>
+                      ) : (
+                        <Link
+                          href={sendRefsHref(chosen.map((s) => ({ clientId: s.client.id, roundNumber: s.round.number })))}
+                          className={PRIMARY_BUTTON_COMPACT}
+                          data-testid="send-batch-link"
+                        >
+                          Enviar {count(chosen.length, "ronda", "rondas")}
+                        </Link>
+                      )}
                       {/* The other way to get them out: print here, mail by hand. */}
                       {chosen.length > 0 && (
                         <Link
@@ -297,8 +326,9 @@ export default function EquipoHome() {
                       )}
                     </div>
                     <p className="pt-2.5 text-xs leading-relaxed text-slate-500">
-                      Cada carta lleva solo lo que el cliente confirmó como inexacto. «Imprimir» abre las cartas para
-                      imprimirlas aquí y enviarlas a mano.
+                      Cada carta lleva solo lo que el cliente confirmó como inexacto. «Enviar» muestra a dónde va cada
+                      carta, cómo va y cuánto cuesta antes de confirmar. «Imprimir» abre las cartas para imprimirlas
+                      aquí y enviarlas a mano.
                       {data.demo && " En la demo no se envía nada: solo quedan marcadas como enviadas."}
                     </p>
                   </div>
@@ -306,6 +336,7 @@ export default function EquipoHome() {
               )}
             </div>
           </section>
+          )}
 
           <section aria-labelledby="solo">
             <SectionTitle>
@@ -320,7 +351,7 @@ export default function EquipoHome() {
               {view.quiet.length > 0 && (
                 <ul className="mt-3 space-y-2.5">
                   {view.quiet.slice(0, 6).map((client) => {
-                    const step = nextStep(client, now);
+                    const step = nextStepFor(client, now, viewer);
                     return (
                       <li key={client.id} className="text-[13px] leading-snug">
                         <Link
