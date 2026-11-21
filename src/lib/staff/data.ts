@@ -1,8 +1,15 @@
+import { PAUSE_REASON_MIN_CHARS } from "../billing/api";
+import { createMemoryChargeStore, runClientBilling } from "../billing/collect";
+import { rearmAfterNewPaymentMethod } from "../billing/dunning";
+import { createDemoGateway } from "../billing/gateway";
+import { cleanRefundReason, refundEligibility, withRefund } from "../billing/refunds";
+import type { BillingAccount } from "../billing/types";
 import type { RawReport } from "../domain/parser";
 import { mergeReport, planImport } from "../reports/merge";
 import { checkStaffReply, MAX_REPLY_CHARS, openQuestions, type ReplyProblem } from "./conversation";
 import { buildDemoClients } from "./demoClients";
-import { sendableRound } from "./stage";
+import { sampleMethod } from "./billing";
+import { clientBilling, sendableRound } from "./stage";
 import type { DocumentKind, ReportSample, StaffChatMessage, StaffClient, StaffNote } from "./types";
 
 // Where the console gets its clients and records what staff do.
@@ -50,7 +57,21 @@ export interface StaffData {
    * the questions Capi had passed to the team.
    */
   sendReply(clientId: string, text: string, author: string): Promise<ReplyResult>;
+  /**
+   * Return a paid charge to the client, in full, with a written reason. The
+   * refund is recorded and the charge stays on file marked as refunded;
+   * nothing is deleted. This and the pause below are the only things staff
+   * can do about money: there is no way to create a charge by hand and no way
+   * to change an amount, here or anywhere else.
+   */
+  refundCharge(clientId: string, chargeId: string, reason: string, by: string): Promise<BillingActionResult>;
+  /** Stop automatic charges for one client, with a reason that is kept. */
+  pauseBilling(clientId: string, reason: string, by: string): Promise<BillingActionResult>;
+  /** Lift that pause: the system bills again by its rules. */
+  resumeBilling(clientId: string): Promise<BillingActionResult>;
 }
+
+export type BillingActionResult = { ok: true } | { ok: false; message: string };
 
 export interface ReportInput {
   /** The reader that read it. */
@@ -97,6 +118,12 @@ export interface DemoActions {
   replies: Record<string, StaffChatMessage[]>;
   /** clientId → documents the invented client "uploaded" (the demo's stand-in for the client app). */
   documents: Record<string, DocumentKind[]>;
+  /**
+   * clientId → the client's billing as it stands after something happened to
+   * it in the demo (a refund, a pause, a simulated run of the system). It
+   * replaces the invented account whole.
+   */
+  billing: Record<string, BillingAccount>;
 }
 
 export interface DemoImport {
@@ -114,6 +141,7 @@ export const EMPTY_ACTIONS: DemoActions = {
   samples: {},
   replies: {},
   documents: {},
+  billing: {},
 };
 
 const QUESTION_PREFIX = "question:";
@@ -146,6 +174,7 @@ export function applyDemoActions(clients: StaffClient[], actions: DemoActions): 
         return answeredAt && !q.answeredAt ? { ...q, answeredAt } : q;
       }),
       handled: { ...client.handled, ...handled },
+      ...(actions.billing?.[client.id] ? { billing: actions.billing[client.id]! } : {}),
       ...(documents.length > 0 ? { documents: [...client.documents, ...documents] } : {}),
       ...(replies.length > 0 ? { conversation: [...(client.conversation ?? []), ...replies] } : {}),
       ...(samples.length > 0 ? { reportSamples: [...(client.reportSamples ?? []), ...samples] } : {}),
@@ -185,6 +214,35 @@ export function withReply(actions: DemoActions, client: StaffClient, message: St
   };
 }
 
+/**
+ * Demo only: what the system's billing run would do for this client right
+ * now, with the demo processor (no money moves). It is the real collection
+ * code (billing/collect.ts) over the client's record: it retries what is due
+ * and charges the next mailed round if the rule allows one, and nothing else.
+ * With `newMethod`, the invented client first puts a working payment method
+ * on file, which gives a declined charge one more try. Pure apart from the
+ * clock: returns the account as it stands afterwards.
+ */
+export async function demoBillingRun(client: StaffClient, now: Date, options: { newMethod?: boolean } = {}): Promise<BillingAccount> {
+  let account = client.billing;
+  if (options.newMethod) {
+    account = {
+      ...account,
+      paymentMethod: sampleMethod(now.toISOString()),
+      charges: account.charges.map((charge) => rearmAfterNewPaymentMethod(charge, now)),
+    };
+  }
+  const method = account.paymentMethod;
+  const store = createMemoryChargeStore(account.charges, (roundNumber) => `${client.id}-ch${roundNumber}`);
+  const report = await runClientBilling(
+    { gateway: createDemoGateway(), store },
+    { ...clientBilling(client), account },
+    method ? { customerRef: `demo_cus_${client.id}`, paymentMethodRef: `demo_pm_${method.brand}_${method.last4}` } : null,
+    now,
+  );
+  return { ...account, charges: report.charges };
+}
+
 const STORAGE_KEY = "bonalti.staffDemo.v1";
 // Samples can be several megabytes each, so they are kept under their own key:
 // a sample that does not fit must not stop everything else from being saved.
@@ -204,6 +262,7 @@ function loadActions(): DemoActions {
       samples: rawSamples ? (JSON.parse(rawSamples) as DemoActions["samples"]) : {},
       replies: parsed.replies ?? {},
       documents: parsed.documents ?? {},
+      billing: parsed.billing ?? {},
     };
   } catch {
     return structuredClone(EMPTY_ACTIONS);
@@ -233,7 +292,11 @@ function saveSamples(samples: DemoActions["samples"]): boolean {
   }
 }
 
-function createDemoData(): StaffData & { reset(): void; receiveDocument(clientId: string, kind: DocumentKind): void } {
+function createDemoData(): StaffData & {
+  reset(): void;
+  receiveDocument(clientId: string, kind: DocumentKind): void;
+  runBilling(clientId: string, options?: { newMethod?: boolean }): Promise<void>;
+} {
   // Built once per visit, so every screen sees the same people and dates.
   let base: StaffClient[] | null = null;
   let actions: DemoActions | null = null;
@@ -323,6 +386,53 @@ function createDemoData(): StaffData & { reset(): void; receiveDocument(clientId
       saveActions(actions);
       return { sent: true, message };
     },
+    async refundCharge(clientId, chargeId, reason, by) {
+      const client = current().find((c) => c.id === clientId);
+      const charge = client?.billing.charges.find((c) => c.id === chargeId);
+      if (!client || !charge) return { ok: false, message: "No encontramos ese cobro." };
+      // The same rule the server route applies: paid, not yet returned, and a written reason.
+      const allowed = refundEligibility(charge, reason);
+      if (!allowed.allowed) return { ok: false, message: allowed.reason.es };
+      const at = new Date().toISOString();
+      const refunded = withRefund(charge, {
+        id: `${chargeId}-re`,
+        amountCents: allowed.amountCents,
+        reason: cleanRefundReason(reason),
+        by: by.trim() || "equipo",
+        at,
+        completedAt: at,
+      });
+      const { actions: a } = state();
+      a.billing[clientId] = { ...client.billing, charges: client.billing.charges.map((c) => (c.id === chargeId ? refunded : c)) };
+      saveActions(a);
+      return { ok: true };
+    },
+    async pauseBilling(clientId, reason, by) {
+      const client = current().find((c) => c.id === clientId);
+      if (!client) return { ok: false, message: "No encontramos a este cliente." };
+      const why = reason.replace(/\s+/g, " ").trim();
+      if (why.length < PAUSE_REASON_MIN_CHARS) return { ok: false, message: "Escribe el motivo de la pausa. Queda en el registro." };
+      const { actions: a } = state();
+      a.billing[clientId] = { ...client.billing, pause: { at: new Date().toISOString(), by: by.trim() || "equipo", reason: why.slice(0, 1000) } };
+      saveActions(a);
+      return { ok: true };
+    },
+    async resumeBilling(clientId) {
+      const client = current().find((c) => c.id === clientId);
+      if (!client) return { ok: false, message: "No encontramos a este cliente." };
+      const { actions: a } = state();
+      a.billing[clientId] = { ...client.billing, pause: null };
+      saveActions(a);
+      return { ok: true };
+    },
+    async runBilling(clientId, options = {}) {
+      const client = current().find((c) => c.id === clientId);
+      if (!client) return;
+      const account = await demoBillingRun(client, new Date(), options);
+      const { actions: a } = state();
+      a.billing[clientId] = account;
+      saveActions(a);
+    },
     receiveDocument(clientId, kind) {
       const { actions: a } = state();
       a.documents[clientId] = [...new Set([...(a.documents[clientId] ?? []), kind])];
@@ -358,6 +468,17 @@ export function demoClientUploads(clientId: string, kind: DocumentKind): void {
   demoData.receiveDocument(clientId, kind);
 }
 
+/**
+ * Demo only: stand in for the system's billing run for one invented client
+ * (and, with `newMethod`, for the client putting a working payment method on
+ * file first). In the real product the run is /api/cron/billing and the
+ * payment method comes from the client's own "Mis pagos" screen. Deliberately
+ * not part of StaffData: nobody on the team charges anyone.
+ */
+export function demoRunsBilling(clientId: string, options: { newMethod?: boolean } = {}): Promise<void> {
+  return demoData.runBilling(clientId, options);
+}
+
 // ── Database implementation ─────────────────────────────────────────────
 //
 // NOT WRITTEN YET. This is the place for it.
@@ -371,6 +492,15 @@ export function demoClientUploads(clientId: string, kind: DocumentKind): void {
 // disclosureAcknowledgedAt, agreementVersion, cancellationDeadline,
 // agreementCancelledAt, cancelledWithinWindow, serviceEndRequestedAt and
 // serviceEndReason). Map those rows to StaffClient.
+//
+// Billing (migration 0011): "staff read payment methods", "staff read
+// charges", "staff read refunds" and "staff read billing pauses" give
+// StaffClient.billing; service_agreements.terms->>'monthlyFee' of the newest
+// signed row gives agreementMonthlyFee. refundCharge calls POST
+// /api/billing/refund and pauseBilling / resumeBilling call POST
+// /api/billing/pause; both routes exist, check is_staff() and write with the
+// service role. There is no route that creates a charge for staff, and there
+// must never be one: charges come only from /api/cron/billing.
 //
 // Writes: staff have no write policies. markRoundsSent, addNote,
 // resolveException, saveReport, saveReportSample and sendReply must call

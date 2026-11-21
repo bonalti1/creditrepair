@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLocale } from "@/lib/i18n";
+import { BILLING_COPY } from "@/lib/ux/billingCopy";
 import { HUMAN_HELP, humanHelpHref } from "@/lib/ux/humanHelp";
 import Icon, { type IconName } from "@/components/Icon";
 import { isFullService } from "@/lib/service/mode";
@@ -115,6 +116,13 @@ export default function Mas() {
                   ? "Tu contrato, tu copia para imprimir y cómo cancelar."
                   : "Your contract, your copy to print, and how to cancel."
               }
+            />
+            <Row
+              href="/pagos"
+              icon="doc"
+              tint="bg-green-600"
+              title={BILLING_COPY[locale].navTitle}
+              desc={BILLING_COPY[locale].navDesc}
             />
           </div>
         </section>

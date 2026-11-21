@@ -1,6 +1,7 @@
+import { formatCents } from "../billing/rules";
 import { readerLabel } from "../reports/readers";
 import { displayName } from "./conversation";
-import { count, longDay } from "./format";
+import { count, longDay, shortDay } from "./format";
 import { clientAgreement, nextAutomaticStep, reviewProgress } from "./stage";
 import { deadlineOf } from "../agreement/gate";
 import type { ReportImport, StaffClient } from "./types";
@@ -20,6 +21,12 @@ export interface TimelineEntry {
 function teammate(by: string): string {
   const name = displayName(by);
   return !name || name.toLowerCase() === "equipo" ? "El equipo" : name;
+}
+
+/** "Visa ···· 4242". */
+export function cardLabel(brand: string, last4: string): string {
+  const name = brand.replace(/_/g, " ");
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} ···· ${last4}`;
 }
 
 /** "Ana importó un reporte con fecha del 20 de noviembre de 2026 (8 puntos): …" */
@@ -115,6 +122,40 @@ export function clientTimeline(client: StaffClient, now: Date): TimelineEntry[] 
       add(round.respondedAt, `Se importó el reporte nuevo, con las respuestas a la ronda ${round.number}`, "team");
     }
   }
+
+  // Money, told by its own records: the method on file, each charge with the
+  // round it paid for, a decline, a refund with its reason, a pause.
+  const { paymentMethod, charges, pause } = client.billing;
+  if (paymentMethod) {
+    add(
+      paymentMethod.addedAt,
+      `Agregó su método de pago (${cardLabel(paymentMethod.brand, paymentMethod.last4)}) y aceptó la autorización de pagos`,
+      "client",
+    );
+  }
+  for (const charge of charges) {
+    const amount = formatCents(charge.amountCents);
+    if (charge.chargedAt) {
+      add(charge.chargedAt, `Se cobró la ronda ${charge.roundNumber} (${amount}), enviada el ${shortDay(charge.workDate)}`, "team");
+    } else if (charge.status === "failed" && charge.lastAttemptAt) {
+      const tries = charge.attempts === 1 ? "1 intento" : `${charge.attempts} intentos`;
+      add(
+        charge.lastAttemptAt,
+        charge.nextAttemptAt
+          ? `No pasó el cobro de la ronda ${charge.roundNumber} (${amount}). Van ${tries}; el sistema lo vuelve a intentar`
+          : `No pasó el cobro de la ronda ${charge.roundNumber} (${amount}) en ${tries}. El caso quedó en pausa`,
+        "team",
+      );
+    }
+    if (charge.refund) {
+      add(
+        charge.refund.at,
+        `${teammate(charge.refund.by)} devolvió el cobro de la ronda ${charge.roundNumber} (${formatCents(charge.refund.amountCents)}): «${charge.refund.reason}»`,
+        "team",
+      );
+    }
+  }
+  if (pause) add(pause.at, `${teammate(pause.by)} puso los cobros en pausa: «${pause.reason}»`, "team");
 
   for (const question of client.questions) {
     add(question.askedAt, `Preguntó: «${question.text}»`, "client");

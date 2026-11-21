@@ -6,6 +6,9 @@ import { ROUND_CYCLE_DAYS } from "../domain/attack";
 import { parseReport } from "../domain/parser";
 import type { NormalizedReport } from "../domain/types";
 import { FRESH_REPORT_DAYS } from "../monitoring/subscription";
+import { nextRetryAt } from "../billing/dunning";
+import type { BillingAccount } from "../billing/types";
+import { paidUpBilling, sampleMethod } from "../staff/billing";
 import { applyDemoActions, EMPTY_ACTIONS, type DemoActions } from "../staff/data";
 import { buildDemoClients } from "../staff/demoClients";
 import { formatPhone, relativeDay } from "../staff/format";
@@ -77,10 +80,16 @@ function round(number: number, status: RoundStatus, mailedDaysAgo?: number, mail
   };
 }
 
-/** A client far enough along that nothing is missing; each test removes what it needs. */
+const FEE = "89.00";
+
+/**
+ * A client far enough along that nothing is missing; each test removes what it
+ * needs. Billing is in order unless a test says otherwise: a payment method on
+ * file and every mailed round charged and paid the day after it went out.
+ */
 function client(overrides: Partial<StaffClient> = {}): StaffClient {
   const r = report(2);
-  return {
+  const base: StaffClient = {
     id: "t1",
     firstName: "Prueba",
     lastName: "Ejemplo",
@@ -95,21 +104,54 @@ function client(overrides: Partial<StaffClient> = {}): StaffClient {
     report: r,
     answers: answers(r),
     rounds: [],
-    billing: "active",
+    agreementMonthlyFee: FEE,
+    billing: { paymentMethod: null, charges: [], pause: null },
     lastActivityAt: ago(1),
     notes: [],
     questions: [],
     handled: {},
     ...overrides,
   };
+  return overrides.billing ? base : { ...base, billing: paidUpBilling(base, FEE, NOW) };
 }
+
+/**
+ * Billing where the charge for round 1 (mailed `mailedDaysAgo` days ago) was
+ * declined `attempts` times, the last time `lastDaysAgo` days ago.
+ */
+function declinedBilling(mailedDaysAgo: number, attempts: number, lastDaysAgo: number): BillingAccount {
+  const last = ago(lastDaysAgo);
+  return {
+    paymentMethod: sampleMethod(ago(18)),
+    charges: [
+      {
+        id: "ch-1",
+        roundNumber: 1,
+        amountCents: 8900,
+        status: "failed",
+        workDate: ago(mailedDaysAgo),
+        createdAt: ago(mailedDaysAgo - 1),
+        attempts,
+        lastAttemptAt: last,
+        nextAttemptAt: nextRetryAt(attempts, new Date(last))?.toISOString() ?? null,
+        chargedAt: null,
+        failureCode: "card_declined",
+        refund: null,
+      },
+    ],
+    pause: null,
+  };
+}
+
+/** Round 1 mailed 20 days ago, its charge declined three times: out of retries. */
+const pastDue = (): Partial<StaffClient> => ({ rounds: [round(1, "mailed", 20)], billing: declinedBilling(20, 3, 12) });
 
 const kinds = (c: StaffClient, now = NOW) => clientExceptions(c, now).map((e) => e.kind);
 
 describe("staff: clientStage", () => {
   const cases: Array<[Stage, StaffClient]> = [
-    ["lead", client({ signedUpAt: null, agreementSignedAt: null, documents: [], report: null, answers: {}, billing: "none" })],
-    ["agreement_pending", client({ agreementSignedAt: null, documents: [], report: null, answers: {}, billing: "none" })],
+    ["lead", client({ signedUpAt: null, agreementSignedAt: null, documents: [], report: null, answers: {} })],
+    ["agreement_pending", client({ agreementSignedAt: null, documents: [], report: null, answers: {} })],
     // Signed yesterday: inside the 3-business-day cancellation window, whatever else is on file.
     ["cancellation_window", client({ agreementSignedAt: ago(1), rounds: [round(1, "ready")] })],
     ["documents_pending", client({ documents: ["government_id"], report: null, answers: {} })],
@@ -119,7 +161,7 @@ describe("staff: clientStage", () => {
     ["waiting_on_bureaus", client({ rounds: [round(1, "mailed", 10)] })],
     ["results_in", client({ rounds: [round(1, "responded", 32)] })],
     ["next_round_ready", client({ rounds: [round(1, "responded", 41), round(2, "ready")] })],
-    ["paused", client({ billing: "canceled", rounds: [round(1, "mailed", 10)] })],
+    ["paused", client(pastDue())],
     ["cancelled", client({ agreementCancelledAt: ago(16), cancelledWithinWindow: true, rounds: [round(1, "ready")] })],
   ];
 
@@ -146,7 +188,7 @@ describe("staff: clientStage", () => {
   });
 
   it("pauses for a past-due payment and when the client marked nothing as inaccurate", () => {
-    expect(clientStage(client({ billing: "past_due", rounds: [round(1, "mailed", 5)] }), NOW)).toBe("paused");
+    expect(clientStage(client(pastDue()), NOW)).toBe("paused");
     const r = report(2);
     expect(clientStage(client({ report: r, answers: answers(r, r.items.length, 0) }), NOW)).toBe("paused");
   });
@@ -214,7 +256,7 @@ describe("staff: clientExceptions", () => {
 
   it("agreement unsigned more than 3 days after signup", () => {
     const unsigned = (days: number) =>
-      client({ signedUpAt: ago(days), agreementSignedAt: null, documents: [], report: null, answers: {}, billing: "none" });
+      client({ signedUpAt: ago(days), agreementSignedAt: null, documents: [], report: null, answers: {} });
     expect(AGREEMENT_GRACE_DAYS).toBe(3);
     expect(kinds(unsigned(3))).toEqual([]);
     expect(kinds(unsigned(4))).toEqual(["agreement_unsigned"]);
@@ -236,13 +278,18 @@ describe("staff: clientExceptions", () => {
     expect(kinds(aged(46, [round(1, "mailed", 20)]))).toEqual([]);
   });
 
-  it("payment past due", () => {
-    const c = client({ billing: "past_due", rounds: [round(1, "mailed", 10)] });
+  it("a payment that did not go through after every retry", () => {
+    const c = client(pastDue());
     expect(kinds(c)).toEqual(["payment_past_due"]);
-    expect(clientExceptions(c, NOW)[0]!.severity).toBe("high");
-    expect(kinds(client({ billing: "active" }))).toEqual([]);
-    // Cancelled: nothing in flight, nothing to chase.
-    expect(clientExceptions(client({ billing: "canceled", agreementSignedAt: ago(10), documents: [] }), NOW)).toEqual([]);
+    const [e] = clientExceptions(c, NOW);
+    expect(e).toMatchObject({ severity: "high", action: "whatsapp", key: "payment_past_due:ch-1", since: ago(12) });
+    expect(e!.sentence).toBe(
+      "El cobro de la ronda 1 no pasó en 3 intentos y el sistema ya no lo intenta. Su caso está en pausa hasta que actualice su método de pago; al pagar, sigue solo.",
+    );
+    // Billing in order: nothing to chase.
+    expect(kinds(client({ rounds: [round(1, "mailed", 20)] }))).toEqual([]);
+    // Cancelled: nothing in flight, nothing to chase, whatever the charges say.
+    expect(clientExceptions(client({ ...pastDue(), agreementCancelledAt: ago(1), cancelledWithinWindow: false }), NOW)).toEqual([]);
   });
 
   it("a letter returned or undeliverable", () => {
@@ -295,7 +342,7 @@ describe("staff: clientExceptions", () => {
       documents: ["government_id"],
       report: r,
       answers: answers(r, 2),
-      billing: "past_due",
+      billing: declinedBilling(20, 3, 12),
       questions: [{ id: "q1", askedAt: ago(1), text: "¿Cuándo empiezan?", answeredAt: null }],
     });
     const found = clientExceptions(c, NOW);
@@ -384,8 +431,7 @@ describe("staff: nextAutomaticStep", () => {
       [client({ report: r, answers: answers(r, 2) }), "client"],
       [client({ rounds: [round(1, "ready")] }), "staff"],
       [client({ rounds: [round(1, "responded", 41), round(2, "ready")] }), "staff"],
-      [client({ billing: "past_due" }), "client"],
-      [client({ billing: "canceled" }), "staff"],
+      [client(pastDue()), "client"],
     ];
     for (const [c, actor] of waitingOnPeople) {
       expect(nextAutomaticStep(c, NOW)).toBeNull();
@@ -406,7 +452,10 @@ describe("staff: sending", () => {
     expect(sendableRound(client(), NOW)).toBeNull();
     expect(sendableRound(client({ rounds: [round(1, "draft")] }), NOW)).toBeNull();
     expect(sendableRound(client({ rounds: [round(1, "mailed", 3)] }), NOW)).toBeNull();
-    expect(sendableRound(client({ billing: "past_due", rounds: [round(1, "ready")] }), NOW)).toBeNull();
+    // A charge out of retries pauses the case: the next round is prepared and still does not go out.
+    const unpaid = client({ ...pastDue(), rounds: [round(1, "responded", 41), round(2, "ready")], billing: declinedBilling(41, 3, 33) });
+    expect(clientStage(unpaid, NOW)).toBe("paused");
+    expect(sendableRound(unpaid, NOW)).toBeNull();
   });
 
   it("holds a round back while the report is too old, even if the notice was marked handled", () => {
@@ -428,9 +477,9 @@ describe("staff: demo clients", () => {
   // Read a few minutes after the data was built, as a page does.
   const later = new Date(NOW.getTime() + 5 * 60 * 1000);
 
-  it("are about fourteen invented people in Texas with fictional phone numbers", () => {
+  it("are about two dozen invented people in Texas with fictional phone numbers", () => {
     expect(clients.length).toBeGreaterThanOrEqual(13);
-    expect(clients.length).toBeLessThanOrEqual(19);
+    expect(clients.length).toBeLessThanOrEqual(23);
     expect(new Set(clients.map((c) => c.id)).size).toBe(clients.length);
     for (const c of clients) {
       expect(c.state).toBe("TX");
@@ -453,9 +502,9 @@ describe("staff: demo clients", () => {
     const needPerson = clients.filter((c) => clientExceptions(c, later).length > 0);
     const ready = clients.filter((c) => sendableRound(c, later));
     const nothing = clients.filter((c) => clientExceptions(c, later).length === 0 && !sendableRound(c, later));
-    expect(needPerson.length).toBe(10);
+    expect(needPerson.length).toBe(11);
     expect(ready.length).toBe(3);
-    expect(nothing.length).toBe(6);
+    expect(nothing.length).toBe(9);
     expect(clients.some((c) => nextAutomaticStep(c, later))).toBe(true);
   });
 
@@ -511,7 +560,10 @@ describe("staff: demo actions", () => {
     expect(sent.letters.every((l) => l.mailStatus === "in_transit")).toBe(true);
     expect(clientStage(after, later)).toBe("waiting_on_bureaus");
     expect(sendableRound(after, later)).toBeNull();
-    expect(nextAutomaticStep(after, later)!.text).toMatch(/^Re-importar el reporte el \d+ de (enero|diciembre)$/);
+    // The next thing the system does is charge that round, a day after mailing; then it waits for the bureaus.
+    expect(nextAutomaticStep(after, later)!.text).toBe(`Cobrar la ronda ${number} el 6 de diciembre`);
+    const charged = { ...after, billing: paidUpBilling(after, FEE, new Date(later.getTime() + 2 * DAY)) };
+    expect(nextAutomaticStep(charged, new Date(later.getTime() + 2 * DAY))!.text).toMatch(/^Re-importar el reporte el \d+ de (enero|diciembre)$/);
     // The original objects are not touched.
     expect(find(clients, ready.id).rounds.find((r) => r.number === number)!.status).toBe("ready");
   });
@@ -594,6 +646,10 @@ describe("staff: what the console says", () => {
       "saveReport",
       "saveReportSample",
       "sendReply",
+      // Money: return a charge, pause or resume automatic charges. Nothing creates a charge or sets an amount.
+      "refundCharge",
+      "pauseBilling",
+      "resumeBilling",
     ]);
   });
 

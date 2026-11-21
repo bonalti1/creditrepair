@@ -49,6 +49,8 @@ export const config = {
     "/goal/:path*",
     // The service agreement: read, signed and cancelled only by the signed-in client.
     "/acuerdo/:path*",
+    // "Mis pagos": the client's charges, receipts and payment method.
+    "/pagos/:path*",
     // The staff console. Signed in is the first check; being an active member
     // of staff is the second, in src/app/equipo/layout.tsx.
     "/equipo/:path*",

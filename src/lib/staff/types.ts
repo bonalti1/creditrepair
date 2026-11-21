@@ -1,3 +1,4 @@
+import type { BillingAccount } from "../billing/types";
 import type { ChatRole, ChatSource } from "../chat/history";
 import type { EscalationStage, ItemCategory, LetterTarget, NormalizedReport, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
@@ -84,8 +85,6 @@ export interface StaffRound {
    */
   results?: RoundResult[];
 }
-
-export type BillingStatus = "none" | "active" | "past_due" | "canceled";
 
 export interface StaffNote {
   id: string;
@@ -207,8 +206,19 @@ export interface StaffClient {
   /** The client's answer per report item, by fingerprint. A missing entry means pending. */
   answers: Record<string, ItemAnswer>;
   rounds: StaffRound[];
-  /** Placeholder until billing is built. */
-  billing: BillingStatus;
+  /**
+   * The monthly fee printed in the agreement the client signed ("89.00"), from
+   * the terms snapshot kept with the signature (service_agreements.terms).
+   * Every charge is this amount: never today's configuration, never a typed one.
+   */
+  agreementMonthlyFee?: string | null;
+  /**
+   * Billing as it is on record (migration 0011; the rules are in
+   * src/lib/billing): the payment method on file, each charge with the round
+   * it paid for, refunds, and a pause placed by staff. The console never sets
+   * a billing "status": the stage and the exceptions are derived from this.
+   */
+  billing: BillingAccount;
   lastActivityAt: string;
   notes: StaffNote[];
   questions: EscalatedQuestion[];

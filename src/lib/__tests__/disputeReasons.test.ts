@@ -520,6 +520,10 @@ describe("the reason follows the item through the plan, the previews and the sta
       "saveReport",
       "saveReportSample",
       "sendReply",
+      // Money: return a charge, pause or resume automatic charges. Nothing creates a charge or sets an amount.
+      "refundCharge",
+      "pauseBilling",
+      "resumeBilling",
     ]);
     // The screens added to the client page since (report import, conversation) set no answer or reason either.
     for (const file of ["src/components/staff/ReportImport.tsx", "src/components/staff/Conversation.tsx"]) {
