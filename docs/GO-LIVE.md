@@ -21,15 +21,15 @@ name shown. Never paste a key into a chat or an email.
 
 ### To IdentityIQ's partner team
 
-> Subject: Partner program inquiry — Spanish-language credit education software (Texas)
+> Subject: Partner program inquiry — Spanish-language credit services company (Texas)
 >
 > Hello,
 >
-> We are launching Credalti, a Spanish-first web app for consumers in Texas.
-> It helps a consumer read their own 3-bureau report and prepare their own
-> dispute letters; the consumer makes every decision and sends their own
-> disputes. We would like to refer our users to IdentityIQ for credit
-> monitoring and are deciding which of your programs fits.
+> We are launching Credalti, a Spanish-first credit services company for
+> consumers in Texas. A client reads their own 3-bureau report in our web app
+> and tells us which items are inaccurate; our staff then prepares and mails
+> the dispute letters for them. We would like to refer our clients to
+> IdentityIQ for credit monitoring and are deciding which of your programs fits.
 >
 > Could you help with the following?
 >
@@ -51,29 +51,37 @@ name shown. Never paste a key into a chat or an email.
 
 ### To the attorney
 
-> Subject: Review before launch — consumer credit dispute software (Texas)
+> Subject: Review before launch — full-service credit services company (Texas)
 >
-> We are preparing to launch Credalti, a Spanish-language web app where a
-> consumer reviews their own credit report and sends their own dispute
-> letters. The software is free to the consumer; we are paid a referral
-> commission by the credit monitoring company (IdentityIQ). I am attaching our
+> We are preparing to launch Credalti, a Spanish-language credit services
+> company. The client reviews their own credit report in our web app and tells
+> us which items are inaccurate and why; our staff then prepares and mails the
+> dispute letters for them, in the client's name. We charge a monthly service
+> fee, and the client separately pays a credit monitoring company
+> (IdentityIQ), which may pay us a referral commission. I am attaching our
 > brief with the main questions. Since it was written, these came up and I
 > would like to cover them in the same session:
 >
 > 1. **Name.** The name is now CREDALTI. A quick web search found no existing use of it. Is it safe to use?
-> 2. **Commission.** We tell users in writing that we earn a commission when
->    they subscribe to monitoring through our link. Is the wording sufficient?
->    Does being paid this way change how the product is classified?
+> 2. **Commission.** We tell clients in writing that we earn a commission when
+>    they subscribe to monitoring through our link. Is the wording sufficient,
+>    and may we keep the commission now that we also charge a service fee?
 > 3. **Salespeople.** A salesperson chats with the lead on WhatsApp, explains
->    the product, and sends a link. The consumer still makes every decision in
->    the app. Does that guidance change our classification? How may we pay
->    salespeople (per signup, per active customer)?
+>    the service and the plan, and sends a link. The client still decides in
+>    the app which items are inaccurate. What may a salesperson say, and how
+>    may we pay them (per signup, per active client)?
 > 4. **Phone calls.** We have told salespeople to keep everything in writing.
 >    If we ever sell by voice call, what does the Telemarketing Sales Rule require?
 > 5. **AI assistant.** The assistant always says it is AI. Anything else you want disclosed?
 > 6. **My sister's company** does traditional credit repair in Florida. How
 >    should the two businesses be related, if at all?
-> 7. **Texas registration and bond.** Do we need them for this model, and in whose name?
+> 7. **Texas registration and bond.** We expect to need them as a credit
+>    services organization. Please confirm, and in whose name.
+> 8. **The agreement and the fee.** What the service agreement must disclose,
+>    the 3-business-day right to cancel, and when the monthly fee may be
+>    charged so that nothing is charged before the service it pays for.
+> 9. **Letters in the client's name.** Our staff prepares and mails them. What
+>    must the client sign for that? (The letter packet asks this in detail.)
 
 ---
 
@@ -102,6 +110,7 @@ Also set, with no account needed:
 | `NEXT_PUBLIC_MONITORING_SIGNUP_URL` | The partner link from IdentityIQ (when you have it) |
 | `NEXT_PUBLIC_MONITORING_PRICE` | The price on that link's checkout page, for example `$31.49` |
 | `MONITORING_PROVIDER` | Leave empty until report reading is built |
+| `NEXT_PUBLIC_SERVICE_MODE` | Leave empty: that is full service, where the team prepares and mails the letters. `self_serve` brings back the version where the client approves and sends their own letters; it is kept for later. |
 
 ### The service agreement
 
@@ -141,7 +150,8 @@ Then run one full pass yourself:
 - [ ] Open `/equipo/invitar`, create a link for yourself, open it on your phone
 - [ ] Sign in with your phone number
 - [ ] Upload a photo of an ID and a proof of address
-- [ ] Review the items, confirm one, approve the letters
+- [ ] Review the items and confirm one. The letters page should show the
+      letters as being prepared by the team, with no approve button
 - [ ] With Lob's **test** key, confirm the letter appears in Lob's dashboard with
       the ID pages behind it; check how the address sits on the first page
 - [ ] Send a WhatsApp message from a number that is not a customer: Capi should

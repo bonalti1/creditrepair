@@ -6,22 +6,34 @@ import { DEMO_REPORT } from "@/lib/demo";
 import type { ReportItem } from "@/lib/domain/types";
 import { getStageExplainers } from "@/lib/ux/explainers";
 import { useFlags } from "@/lib/ux/flagsStore";
+import { useAgreement } from "@/lib/ux/agreementStore";
 import { itemLabel } from "@/lib/ux/itemDisplay";
 import { RESPONSE_WINDOW_DAYS, NEXT_ROUND_DAYS, nextAction, sessionJourneyState } from "@/lib/ux/journey";
 import { letterCoverage, waitingListNote } from "@/lib/ux/roundCopy";
 import { sessionPlan } from "@/lib/ux/sessionPlan";
+import { roundMailedDate, teamRoundStatus } from "@/lib/ux/teamRound";
+import { isFullService } from "@/lib/service/mode";
 import { useLocale } from "@/lib/i18n";
 import Icon from "@/components/Icon";
+import { InfoNote } from "@/components/RoundNotes";
 
 // Rounds, with a real timeline: when letters mailed, when the FCRA ~30-day
 // response window closes, when the next round unlocks (~day 40). The waiting
 // period is where Dispute Beast users feel abandoned — here the clock is always
 // visible and explained.
 //
-// Demo: the page shows what the customer did in this session and nothing else.
-// If they approved their letters, there is one round in progress, made of those
-// same letters and counted from today (the demo keeps no mailing date). If they
-// have not approved anything yet, the page says so and points to the next step.
+// Full service (the business today): the page is the team's timeline. Once the
+// client finishes the review, the round shows as "being prepared" with the
+// letters the team is working on; once the letters are out, it shows the dates.
+// The client logs nothing here: the team looks at the report again after each
+// round. Self-serve (kept for later): the client approves the letters and logs
+// the bureaus' responses, as before.
+//
+// Demo: the page shows what this browser has saved and nothing else. A round
+// counts as mailed only when the saved state says so (letters approved in
+// self-serve mode), from the saved date, or from today for a round approved
+// before dates were kept. Otherwise the page says where things stand and
+// points to the next step.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -33,7 +45,9 @@ const BUREAU_LABEL: Record<string, string> = {
 
 export default function Rounds() {
   const { locale, d } = useLocale();
-  const { flags, roundFlags, roundApproved, hydrated } = useFlags();
+  const { flags, roundFlags, roundApproved, roundMailedAt, hydrated } = useFlags();
+  // The agreement is part of the next step, so every screen reads the same one Home does.
+  const { agreement } = useAgreement();
   const items = DEMO_REPORT.items;
   // The round as it was approved: an answer changed afterwards does not rewrite what was mailed.
   const { plan, roundNumber } = useMemo(() => sessionPlan(items, roundFlags), [items, roundFlags]);
@@ -46,8 +60,19 @@ export default function Rounds() {
     date.toLocaleDateString(locale === "es" ? "es-MX" : "en-US", { day: "numeric", month: "long" });
   const stages = getStageExplainers(locale);
   const sent = roundApproved && plan.letters.length > 0;
+  // Full service: the review is finished and the team is preparing these letters.
+  const preparing =
+    isFullService &&
+    teamRoundStatus({
+      totalItems: items.length,
+      reviewedCount: items.filter((i) => flags[i.fingerprint]).length,
+      letterCount: plan.letters.length,
+      mailed: roundApproved,
+    }) === "preparing";
 
-  const mailedAt = new Date();
+  const mailedAt = roundMailedDate(sent, roundMailedAt) ?? new Date();
+  const elapsedDays = Math.max(0, Math.floor((Date.now() - mailedAt.getTime()) / DAY_MS));
+  const daysLeft = Math.max(0, RESPONSE_WINDOW_DAYS - elapsedDays);
   const responseDue = new Date(mailedAt.getTime() + RESPONSE_WINDOW_DAYS * DAY_MS);
   const nextRoundAt = new Date(mailedAt.getTime() + NEXT_ROUND_DAYS * DAY_MS);
 
@@ -59,45 +84,57 @@ export default function Rounds() {
   const waitingItems = items.filter((i) => confirmedFps.has(i.fingerprint) && !inRound.has(i.fingerprint));
 
   // Nothing mailed: the one next step, the same one Home shows.
-  const step = nextAction(sessionJourneyState(items, flags, sent), locale);
+  const step = nextAction(sessionJourneyState(items, flags, sent, agreement), locale);
 
   return (
     <main className="animate-rise space-y-5">
       <header className="px-1">
         <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{d.rounds.title}</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-slate-500">
-          {d.rounds.subtitle(RESPONSE_WINDOW_DAYS, NEXT_ROUND_DAYS)}
+          {(isFullService ? d.team.roundsSubtitle : d.rounds.subtitle)(RESPONSE_WINDOW_DAYS, NEXT_ROUND_DAYS)}
         </p>
       </header>
 
-      {sent ? (
-        <section className="card overflow-hidden">
+      {sent || preparing ? (
+        <section data-testid={sent ? "round-mailed" : "round-preparing"} className="card overflow-hidden">
           <div className="px-5 pb-4 pt-5">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-[20px] font-semibold tabular-nums text-slate-900">
                 {locale === "es" ? "Ronda" : "Round"} #{roundNumber}
               </h2>
               <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-                {d.rounds.inProgress}
+                {!sent ? d.team.statusPreparing : isFullService ? d.team.statusWaiting : d.rounds.inProgress}
               </span>
             </div>
 
-            <div className="mt-4">
-              <div className="h-1.5 rounded-full bg-slate-200">
-                {/* Day 0 of the cycle: the clock has only just started. */}
-                <div className="h-1.5 w-[4%] rounded-full bg-amber-400" />
+            {sent ? (
+              <div className="mt-4">
+                <div className="h-1.5 rounded-full bg-slate-200">
+                  {/* How far into the ~40-day cycle. A sliver on day 0: the clock has only just started. */}
+                  <div
+                    className="h-1.5 rounded-full bg-amber-400"
+                    style={{ width: `${Math.min(100, Math.max(4, Math.round((elapsedDays / NEXT_ROUND_DAYS) * 100)))}%` }}
+                  />
+                </div>
+                <div className="mt-3 space-y-1 text-[13px] tabular-nums text-slate-500">
+                  <p>{d.rounds.mailed(fmt(mailedAt))}</p>
+                  <p>{d.rounds.responseBy(fmt(responseDue))}</p>
+                  <p>{d.rounds.nextRound(roundNumber + 1, fmt(nextRoundAt))}</p>
+                </div>
+                {daysLeft > 0 && (
+                  <p className="mt-3 text-[15px] leading-relaxed text-slate-700">
+                    {(isFullService ? d.team.waitDays : d.rounds.waitDays)(daysLeft)}
+                  </p>
+                )}
               </div>
-              <div className="mt-3 space-y-1 text-[13px] tabular-nums text-slate-500">
-                <p>{d.rounds.mailed(fmt(mailedAt))}</p>
-                <p>{d.rounds.responseBy(fmt(responseDue))}</p>
-                <p>{d.rounds.nextRound(roundNumber + 1, fmt(nextRoundAt))}</p>
-              </div>
-              <p className="mt-3 text-[15px] leading-relaxed text-slate-700">{d.rounds.waitDays(RESPONSE_WINDOW_DAYS)}</p>
-            </div>
+            ) : (
+              // Nothing mailed yet, so no dates: only what the team is doing.
+              <p className="mt-3 text-[15px] leading-relaxed text-slate-700">{d.team.roundPreparingBody}</p>
+            )}
           </div>
 
           <p className="border-t hairline px-5 pb-1 pt-4 text-[13px] font-semibold uppercase tracking-wide text-slate-500">
-            {d.rounds.lettersSent(plan.letters.length)}
+            {isFullService ? d.team.lettersInRound(plan.letters.length) : d.rounds.lettersSent(plan.letters.length)}
           </p>
           <ul>
             {plan.letters.map((l, i) => (
@@ -141,15 +178,35 @@ export default function Rounds() {
             </div>
           )}
 
-          {roundItems.length > 0 && <ResponseLogger items={roundItems} />}
+          {!sent ? (
+            <div className="border-t hairline px-5 py-4">
+              <Link
+                href="/attack"
+                className="pressable flex h-12 items-center justify-center rounded-full bg-slate-100 px-5 text-[16px] font-medium text-slate-900 hover:bg-slate-200"
+              >
+                {d.team.readLetters(plan.letters.length)}
+              </Link>
+            </div>
+          ) : isFullService ? (
+            // The team looks at the report again after the round; the client logs nothing.
+            <div className="border-t hairline px-5 py-4">
+              <InfoNote testId="response-note">{d.team.responseNote}</InfoNote>
+            </div>
+          ) : (
+            roundItems.length > 0 && <ResponseLogger items={roundItems} />
+          )}
         </section>
       ) : (
         <section className="card px-6 pb-6 pt-8 text-center">
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-900">
             <Icon name="clock" size={26} />
           </span>
-          <h2 className="mt-4 text-[22px] font-semibold leading-snug text-slate-900">{d.rounds.emptyTitle}</h2>
-          <p className="mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-slate-500">{d.rounds.emptyBody}</p>
+          <h2 className="mt-4 text-[22px] font-semibold leading-snug text-slate-900">
+            {isFullService ? d.team.roundsEmptyTitle : d.rounds.emptyTitle}
+          </h2>
+          <p className="mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-slate-500">
+            {isFullService ? d.team.roundsEmptyBody : d.rounds.emptyBody}
+          </p>
           <p className="mx-auto mt-4 max-w-sm text-[15px] font-medium leading-snug text-slate-900">{step.title}</p>
           <Link
             href={step.href}
@@ -166,8 +223,9 @@ export default function Rounds() {
 type Outcome = "deleted" | "corrected" | "verified" | "no_response";
 const OUTCOME_KEY = "bonalti.outcomes.v1";
 
-// Bureau-response intake: in CRC an agency employee does this data entry; here
-// the consumer logs it in two taps when the response letter arrives. Feeds the
+// Bureau-response intake, self-serve only: in CRC an agency employee does this
+// data entry; here the consumer logs it in two taps when the response letter
+// arrives. (Under full service the team re-imports the report instead.) Feeds the
 // escalation engine (a logged "verified" is what justifies the MOV letter).
 // Demo: localStorage; authed: also POSTs to /api/letters/outcome (TODO once
 // letter ids flow to the client).

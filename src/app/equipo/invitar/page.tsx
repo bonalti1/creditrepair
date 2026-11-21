@@ -2,13 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
-import { buildInvitePath, GOALS, inviteMessageEs, type GoalKey } from "@/lib/sales/invite";
+import {
+  buildInvitePath,
+  GOALS,
+  inviteMessageEs,
+  SALES_MAY_NOT_SAY,
+  SALES_MAY_SAY,
+  type GoalKey,
+} from "@/lib/sales/invite";
 import { getStaffData } from "@/lib/staff/data";
 import { formatPhone } from "@/lib/staff/format";
 
 // The salesperson's side of the handoff. After the WhatsApp conversation they
 // fill in four things and get a personal link plus a ready message. The
 // customer opens it and lands on a welcome screen with those answers filled in.
+// Under the message are the reminders for the conversation: what may be said
+// about the service (the process) and what may not (results, the customer's
+// decisions, pressure, payment by phone). The lists live in sales/invite.ts.
 //
 // Opened from a client's page (/equipo/invitar?cliente=<id>) the name, state
 // and WhatsApp number arrive filled in. Only the id travels in the address;
@@ -178,15 +188,19 @@ export default function Invitar() {
         </button>
       </div>
 
-      <section className="mt-8">
-        <p className={label}>Antes de enviar, recuerda</p>
+      <section className="mt-8" data-testid="sales-may-say">
+        <p className={label}>Lo que sí puedes decir</p>
         <ul className="card divide-y divide-slate-100 text-[15px] leading-snug text-slate-700">
-          {[
-            "No prometas resultados, puntos ni fechas. Los resultados varían.",
-            "El cliente revisa, confirma y aprueba todo por sí mismo. No lo hagas por él ni le digas qué marcar.",
-            "Todo por escrito en WhatsApp. No cierres ventas por llamada.",
-            "El único costo es el monitoreo, y se lo paga al servicio de monitoreo, no a nosotros.",
-          ].map((rule) => (
+          {SALES_MAY_SAY.map((rule) => (
+            <li key={rule} className="px-5 py-3.5">{rule}</li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="mt-6" data-testid="sales-may-not-say">
+        <p className={label}>Lo que no puedes decir ni hacer</p>
+        <ul className="card divide-y divide-slate-100 text-[15px] leading-snug text-slate-700">
+          {SALES_MAY_NOT_SAY.map((rule) => (
             <li key={rule} className="px-5 py-3.5">{rule}</li>
           ))}
         </ul>

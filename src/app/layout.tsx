@@ -18,7 +18,7 @@ const nunito = Nunito({
 export const metadata: Metadata = {
   title: BRAND.title,
   description:
-    "Software gratuito de disputas de crédito en español. Tú revisas, tú apruebas, tú envías. Los resultados varían.",
+    "Servicio de crédito en español. Tú nos dices qué está mal en tu reporte; nuestro equipo prepara y envía las cartas por ti. Los resultados varían.",
 };
 
 export const viewport: Viewport = {

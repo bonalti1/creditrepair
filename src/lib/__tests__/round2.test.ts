@@ -559,22 +559,26 @@ describe("G. the first pages in English", () => {
 
   it("keeps the same disclaimers and the commission disclosure in English", () => {
     for (const footer of [en.landing.footer, en.empezar.footer]) {
-      expect(footer).toMatch(/We do not dispute for you/);
-      expect(footer).toMatch(/no guarantees about results/);
+      // Who decides what, who does the work, and no promise about how it ends.
+      expect(footer).toMatch(/You decide what is inaccurate on your report/);
+      expect(footer).toMatch(/our team prepares and mails the letters for you/);
+      expect(footer).toMatch(/We do not guarantee results/);
       expect(footer).toMatch(/results vary case by case/i);
       expect(footer).toMatch(/Available in Texas/);
       expect(footer).toMatch(/This is not legal advice/);
     }
     expect(en.landing.footer).toMatch(/artificial intelligence assistant/);
-    expect(en.empezar.footer).toMatch(/Disputing correct, current information is not the purpose of the tool/);
+    expect(en.empezar.footer).toMatch(/No one can take correct, current information off a credit report/);
     expect(en.empezar.footer).toMatch(/Credalti earns a commission on that subscription/);
     expect(en.onboarding.disclosure).toBe("Disclosure: Credalti earns a commission from the monitoring service when you subscribe.");
     expect(en.onboarding.welcomeNote).toMatch(/Results vary case by case/);
     expect(en.onboarding.assistNote).toMatch(/Results vary case by case/);
-    // Same price in both languages.
+    // The one price on these pages is the monitoring provider's, on the
+    // onboarding step that offers it, and it is the same in both languages.
     const priceOf = (text: string) => text.match(/~?\$\d+(?:\.\d+)?/)?.[0];
-    expect(priceOf(en.empezar.leadAfter)).toBe(priceOf(es.empezar.leadAfter));
-    expect(priceOf(en.landing.cards[2]![1])).toBe(priceOf(es.landing.cards[2]![1]));
+    const monitoringPrice = (copy: typeof en) => priceOf(copy.onboarding.monitoringRows(null)[0]![1]);
+    expect(monitoringPrice(en)).toBeDefined();
+    expect(monitoringPrice(en)).toBe(monitoringPrice(es));
   });
 
   it("greets an invited customer in English", () => {
@@ -592,16 +596,22 @@ describe("G. the first pages in English", () => {
 });
 
 describe("I. small copy changes", () => {
-  it("says do-it-yourself in plain words, in both footers", () => {
-    const sentence = "Credalti es una herramienta de software para que tú hagas tus propias disputas.";
-    clean(sentence);
+  it("says who does what in plain words, in both footers", () => {
+    // Full service: the client decides what is inaccurate, the team prepares and mails.
+    const sentences = [
+      "Credalti es una empresa de servicios de crédito.",
+      "Tú decides qué es inexacto en tu reporte; nuestro equipo prepara y envía las cartas por ti.",
+    ];
+    for (const sentence of sentences) clean(sentence);
     for (const footer of [MARKETING.es.landing.footer, MARKETING.es.empezar.footer]) {
-      expect(footer.startsWith(sentence)).toBe(true);
-      expect(footer).not.toMatch(/DIY|hazlo tú mismo/i);
-      // The half of the meaning that was already there: we do not do it for them.
-      expect(footer).toMatch(/No disputamos por ti/);
+      expect(footer.startsWith(sentences.join(" "))).toBe(true);
+      expect(footer).toMatch(/No garantizamos resultados/);
+      // The old positioning is gone from the footers.
+      expect(footer).not.toMatch(/DIY|hazlo tú mismo|herramienta de software|No disputamos por ti/i);
     }
-    for (const line of marketingStrings("en")) expect(line).not.toMatch(/\bDIY\b/);
+    for (const locale of ["es", "en"] as const) {
+      for (const line of marketingStrings(locale)) expect(line).not.toMatch(/\bDIY\b|do.it.yourself|hazlo tú mismo/i);
+    }
   });
 
   it("says the name and address in the letter preview are placeholders", () => {

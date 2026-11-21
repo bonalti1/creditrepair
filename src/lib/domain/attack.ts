@@ -15,9 +15,10 @@ import type {
 //              per bureau, plus secondary-bureau scope.
 //   Escalation per item: FCRA §611 dispute → method of verification → furnisher-direct.
 //
-// Legally load-bearing invariant: only items the USER flagged AND attested as
-// "inaccurate, unverifiable, or outdated" may appear in any letter. The plan
-// builder enforces it here and the approval route enforces it again server-side.
+// Legally load-bearing invariant: only items the CLIENT flagged AND attested as
+// "inaccurate, unverifiable, or outdated" may appear in any letter, whoever
+// prepares and mails it. The plan builder enforces it here and the approval
+// route enforces it again server-side.
 
 export const ROUND_CYCLE_DAYS = 40;
 

@@ -7,13 +7,21 @@ import LocaleToggle from "@/components/LocaleToggle";
 import Logo, { CapiAvatar } from "@/components/Logo";
 
 // Landing. The brand board in product form: navy field, gold action, Capi up
-// front. Copy discipline (spec §1 + §3): do-it-yourself positioning only, no
-// guarantees, no "we repair / we dispute" language, results vary. The words
-// live in src/lib/i18n/marketing.ts, in Spanish and English.
+// front. Copy discipline: it describes the service (the client says what is
+// wrong, the team prepares and mails the letters) and never a result. No
+// guarantees, no "we remove / we fix", no price; results vary. The words live
+// in src/lib/i18n/marketing.ts, in Spanish and English.
+//
+// Sales comes first: with a WhatsApp number configured the main button opens a
+// chat with the team, as on /empezar. Without one (the demo) it leads to
+// onboarding.
 
 export default function LandingContent() {
   const { locale } = useLocale();
   const c = MARKETING[locale].landing;
+  const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER;
+  const ctaHref = whatsapp ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(c.whatsappText)}` : "/onboarding";
+  const ctaLabel = whatsapp ? c.talk : c.start;
 
   return (
     <main className="min-h-dvh bg-slate-50">
@@ -43,12 +51,12 @@ export default function LandingContent() {
           <p className="mx-auto mt-5 max-w-xl text-[19px] leading-relaxed text-blue-100 sm:text-[21px]">{c.lead}</p>
 
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href="/onboarding"
+            <a
+              href={ctaHref}
               className="pressable flex h-14 w-full items-center justify-center rounded-full bg-amber-400 px-10 text-[17px] font-bold text-blue-900 hover:bg-amber-300 sm:w-auto"
             >
-              {c.start}
-            </Link>
+              {ctaLabel}
+            </a>
             <Link
               href="/dashboard"
               className="pressable flex h-14 w-full items-center justify-center rounded-full bg-white/10 px-10 text-[17px] font-semibold text-white hover:bg-white/15 sm:w-auto"

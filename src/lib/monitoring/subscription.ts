@@ -2,8 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Is this customer's monitoring subscription active?
 //
-// The letter builder requires it (the subscription is both the data source and
-// the business model). With IdentityIQ there is no status call available to us
+// The letter builder requires it: the subscription is the data source, the
+// report the letters are prepared from. (The client pays it to the monitoring
+// provider; it is separate from the service fee.) With IdentityIQ there is no status call available to us
 // yet, so the rule is evidence-based: a report dated within the last 45 days
 // proves the customer has working access to their monitoring account. Monthly
 // plans refresh every 30 days; 45 leaves room for a late refresh without
@@ -48,13 +49,13 @@ export function monitoringMessageEs(state: MonitoringState): string {
     case "fresh_report":
       return "Tu monitoreo está activo.";
     case "no_report":
-      return "Todavía no tenemos tu reporte. Activa tu monitoreo de crédito e importa tu reporte para preparar tus cartas.";
+      return "Todavía no tenemos tu reporte. Activa tu monitoreo de crédito para que podamos verlo: sin tu reporte no se pueden preparar tus cartas.";
     case "stale_report":
-      return `Tu último reporte tiene ${state.reportAgeDays} días. Actualízalo desde tu monitoreo de crédito para preparar tus cartas con información al día.`;
+      return `Tu último reporte tiene ${state.reportAgeDays} días. Revisa que tu monitoreo de crédito siga activo: tus cartas se preparan con información al día.`;
     case "canceled":
-      return "Tu suscripción de monitoreo aparece cancelada. Reactívala para preparar tus cartas.";
+      return "Tu suscripción de monitoreo aparece cancelada. Reactívala: sin ella no se pueden preparar tus cartas.";
     case "past_due":
-      return "Tu suscripción de monitoreo tiene un pago pendiente. Ponla al corriente para preparar tus cartas.";
+      return "Tu suscripción de monitoreo tiene un pago pendiente. Ponla al corriente: sin ella no se pueden preparar tus cartas.";
   }
 }
 

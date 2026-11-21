@@ -4,8 +4,10 @@ import { IDENTITY_ACCESS_TEMPLATES } from "./identityAccessTemplates";
 import { header, itemLines, signature as SIGNATURE, type LetterContext, type LetterTemplate } from "./parts";
 
 // Letter generation (spec §4.2): rules engine + merge-field templates.
-// Letters are written in first person BY THE USER — the user disputes, we provide
-// the tool. Letters mail in English (bureau operational language); the UI that
+// Letters are written in the first person, in the client's own name: they say
+// what the client told us is inaccurate. Under full service the team prepares
+// and mails them for the client; the wording is the same either way and is
+// pending attorney review (docs/LETTER-LIBRARY.md). Letters mail in English (bureau operational language); the UI that
 // explains them is Spanish-first.
 //
 // This file is the home of the original ten templates, which the round engine

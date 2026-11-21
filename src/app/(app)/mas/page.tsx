@@ -86,14 +86,14 @@ export default function Mas() {
             icon="doc"
             tint="bg-blue-500"
             title={es ? "Mis cartas" : "My letters"}
-            desc={es ? "Lee cada carta completa antes de enviar." : "Read every letter in full before sending."}
+            desc={es ? "Lee cada carta completa, con su explicación." : "Read every letter in full, with its explanation."}
           />
           <Row
             href="/rounds"
             icon="clock"
             tint="bg-slate-500"
             title={d.nav.rounds}
-            desc={es ? "Qué enviaste, cuándo responden y qué sigue." : "What you sent, when they respond, what's next."}
+            desc={es ? "Qué se envió, cuándo responden y qué sigue." : "What was mailed, when they respond, what's next."}
           />
         </div>
       </section>

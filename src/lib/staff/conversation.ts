@@ -46,6 +46,8 @@ const RULE_REASON: Record<string, string> = {
   "no-real-estate-bait": "No se usa la compra o renta de una casa como gancho.",
   "no-outcome-promise": "No se prometen resultados sobre su crédito o su puntaje.",
   "no-approval-claims": "No se promete una aprobación: eso lo decide quien presta.",
+  "client-decides": "No se dice que disputamos todo lo negativo ni que el equipo decide qué disputar: solo se disputa lo que el cliente dice que es inexacto.",
+  "self-serve-positioning": "En este modo el cliente envía sus propias cartas: no se dice que disputamos por él.",
 };
 
 export interface ReplyProblem {

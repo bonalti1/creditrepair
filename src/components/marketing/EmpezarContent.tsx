@@ -7,11 +7,13 @@ import LocaleToggle from "@/components/LocaleToggle";
 import Logo, { CapiAvatar } from "@/components/Logo";
 
 // /empezar — the paid-traffic funnel page (Meta Click-to-WhatsApp + Google).
-// Structure mirrors what converts in this category (hero promise → numbered
+// Structure mirrors what converts in this category (what we do → numbered
 // steps with real product screenshots → single CTA), with copy that passes our
-// own claim guardrails: do-it-yourself positioning, no guarantees, results
-// vary. The CTA routes to WhatsApp when configured (the spec's funnel), else
-// to onboarding. The words live in src/lib/i18n/marketing.ts (ES and EN).
+// own claim guardrails: it describes the service (the client says what is
+// wrong, the team prepares and mails the letters), no guarantees, no price,
+// results vary. Sales comes first: the CTA opens WhatsApp with the team when a
+// number is configured, else it leads to onboarding. The words live in
+// src/lib/i18n/marketing.ts (ES and EN).
 
 const STEP_IMAGES = ["/screens/journey.png", "/screens/revisar.png", "/screens/carta.png"];
 

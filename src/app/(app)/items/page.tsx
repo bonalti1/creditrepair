@@ -8,6 +8,7 @@ import { crossBureauNote } from "@/lib/ux/crossBureau";
 import { canConfirmDispute, reasonLabel } from "@/lib/ux/disputeReason";
 import type { DisputeReasonCode } from "@/lib/letters/reasons";
 import { useFlags } from "@/lib/ux/flagsStore";
+import { useAgreement } from "@/lib/ux/agreementStore";
 import { itemCheckHints, itemFacts, itemKindLine, itemTitle } from "@/lib/ux/itemDisplay";
 import { nextAction, sessionJourneyState } from "@/lib/ux/journey";
 import { useLocale } from "@/lib/i18n";
@@ -58,6 +59,8 @@ function glossaryFor(data: Record<string, unknown>, locale: Locale): string[] {
 export default function Items() {
   const items = DEMO_REPORT.items;
   const { flags, review, clear, roundApproved, hydrated } = useFlags();
+  // The agreement is part of the next step, so every screen reads the same one Home does.
+  const { agreement } = useAgreement();
   const { locale, d } = useLocale();
   const [mode, setMode] = useState<"wizard" | "list">("wizard");
   /** The item the customer asked to review again; the guide opens on it. */
@@ -70,7 +73,7 @@ export default function Items() {
 
   if (!hydrated) return null;
 
-  const step = nextAction(sessionJourneyState(items, flags, roundApproved), locale);
+  const step = nextAction(sessionJourneyState(items, flags, roundApproved, agreement), locale);
 
   const reviewAgain = (fingerprint: string) => {
     clear(fingerprint);

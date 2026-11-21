@@ -9,7 +9,7 @@ import { letterItems, type SessionPlan } from "./sessionPlan";
 // What a round's letters cover, and what waits, in the customer's words.
 // Round 1 mails only personal-information corrections; a confirmed account,
 // inquiry or public record goes in the next round. These lines say so wherever
-// letters are approved or tracked, so nobody believes something was mailed
+// letters are shown, approved or tracked, so nobody believes something was mailed
 // when it was not. Copy rules: state the order and the wait; never say the
 // order makes anything better, and never promise what a letter will achieve.
 
@@ -110,7 +110,7 @@ export interface RoundNote {
 }
 
 /**
- * The note shown above every approve button, and on the letters page, when
+ * The note shown with the letters (and above the approve button, in self-serve mode) when
  * something the customer confirmed is not in this round's letters. Null when
  * everything confirmed is in the letters.
  */

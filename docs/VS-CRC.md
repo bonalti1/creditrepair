@@ -1,5 +1,12 @@
 # Bonalti vs. Credit Repair Cloud — consumer-direct feature parity
 
+> **Written for the do-it-yourself product.** Credalti is now full service:
+> the client says what is inaccurate and the team prepares and mails the
+> letters, for a monthly fee (see `README.md` and `docs/SALES-FLOW.md`). The
+> feature comparison below still holds for the software; the passages about
+> having no agency, no client billing and no CROA exposure do not, and the
+> self-serve mode they describe is kept behind `NEXT_PUBLIC_SERVICE_MODE`.
+
 CRC is B2B: it sells agencies the tools, and the agency resells the outcome at
 $99–149/mo with human labor and full CROA exposure. Bonalti delivers the same
 capabilities straight to the consumer for the cost of monitoring. This maps

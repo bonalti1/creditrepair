@@ -7,8 +7,30 @@ The product was called CreditCapi until November 2026. The name changed with
 the move to full service: Credalti is now a company that does the work for its
 clients, and Capi stays as the assistant clients talk to. The names live in
 `src/lib/brand.ts`, and a test fails if the old name appears anywhere in `src/`.
-The client screens and their copy still describe the do-it-yourself product;
-rewriting them for full service is a later phase.
+
+## What the brand says it does
+
+Full service, in one sentence: **"Tú nos dices qué está mal en tu reporte;
+nuestro equipo prepara y envía las cartas por ti y te mantiene al tanto."**
+Everything a client or a prospect reads is written around it: the landing
+page, `/empezar`, onboarding, the app, Capi and the WhatsApp messages.
+
+Three things hold in every line of copy:
+
+- **Process, never outcome.** We say what we do (prepare and mail letters,
+  keep the client posted). We never say or imply what will happen to a report
+  or a score. The bureaus decide, and results vary.
+- **The client decides what is inaccurate.** No copy suggests that the team
+  picks what to dispute, or that everything negative gets disputed.
+- **No price in the copy.** The service has a monthly fee, separate from the
+  monitoring subscription the client pays to the monitoring provider. Amounts
+  are not written anywhere; "nuestro equipo te explica el plan".
+
+`src/lib/compliance/guardrails.ts` enforces the first two, and the tests run
+every marketing line through it in Spanish and English. How the service is
+delivered is a switch, `NEXT_PUBLIC_SERVICE_MODE` (`src/lib/service/mode.ts`):
+unset means full service; `self_serve` brings back the earlier
+do-it-yourself wording and its approve button, kept for later.
 
 ## Where the brand lives
 
@@ -36,14 +58,20 @@ rewriting them for full service is a later phase.
 The board's mock website contains lines that break the product's legal
 position. Visual identity is approved for use; these phrases are not:
 
-- "Reparamos, disputamos y mejoramos tu perfil de crédito" — says we do the
-  disputing. The customer disputes; Capi assists.
+- "Reparamos, disputamos y mejoramos tu perfil de crédito" — "reparamos" and
+  "mejoramos" promise an outcome. (Disputing is now what the team does, but
+  only for what the client says is inaccurate: "disputamos por ti los puntos
+  que tú nos indicas", never "disputamos todo".)
 - "Mejora tu crédito hoy", "Aumenta tu puntaje", "Resultados reales" — outcome
   promises.
 - The chip-card mock-up — implies we issue cards or lend money.
 
-Approved pattern: "Tu crédito, en tus manos." / "Capi prepara todo. Tú decides
-y tú apruebas." / "Los resultados varían."
+Approved pattern: "Tu crédito, con un equipo a tu lado." / "Tú nos dices qué
+está mal. Nosotros enviamos las cartas." / "Los resultados varían."
+
+No longer in use: "Tu crédito, en tus manos." and "Tú decides y tú apruebas."
+They described the do-it-yourself product, where the client sent their own
+letters.
 
 ## Ads
 
@@ -51,6 +79,11 @@ The same brand rules apply to video. The mascot's photoreal look, the caption
 style and the end card are locked in `content/brand/lock.json`, and every ad
 script must pass the claim gate before anything is generated. See
 `content/README.md`.
+
+The end card's legal line and the ad text around the video were reworded for
+full service ("Tú decides qué es inexacto. Nuestro equipo prepara y envía las
+cartas."). A video assembled before that change still carries the old end
+card and has to be assembled again before it runs.
 
 ## Open items
 

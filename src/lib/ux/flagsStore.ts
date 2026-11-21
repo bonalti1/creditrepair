@@ -5,7 +5,7 @@ import type { DisputeReasonCode } from "../letters/reasons";
 import { isDisputeReasonCode } from "./disputeReason";
 
 // Shared review state so the user's decisions follow them across pages
-// (dashboard, item wizard, attack builder). One of the core "10x" bets: the
+// (dashboard, item wizard, letters page). One of the core "10x" bets: the
 // app always knows where you left off — you never re-review.
 // Signed in: server-backed (item_flags via /api/flags, RLS-scoped) with
 // write-through. Signed out / demo: localStorage only.
@@ -30,6 +30,8 @@ const STORAGE_KEY = "bonalti.review.v1";
 const APPROVED_KEY = "bonalti.roundApproved.v1";
 /** The answers as they were when the round was approved: what the mailed letters were built from. */
 const MAILED_KEY = "bonalti.roundMailed.v1";
+/** When the round was approved (ISO). Missing on a round approved before dates were kept. */
+const MAILED_AT_KEY = "bonalti.roundMailedAt.v1";
 
 function load<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -69,6 +71,7 @@ export function useFlags() {
   const [flags, setFlags] = useState<FlagsMap>({});
   const [roundApproved, setRoundApprovedState] = useState(false);
   const [mailedFlags, setMailedFlags] = useState<FlagsMap | null>(null);
+  const [roundMailedAt, setRoundMailedAt] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [synced, setSynced] = useState(false);
 
@@ -77,6 +80,8 @@ export function useFlags() {
     setRoundApprovedState(load<boolean>(APPROVED_KEY, false));
     const mailed = load<unknown>(MAILED_KEY, null);
     setMailedFlags(mailed ? normalizeFlags(mailed) : null);
+    const mailedAt = load<unknown>(MAILED_AT_KEY, null);
+    setRoundMailedAt(typeof mailedAt === "string" ? mailedAt : null);
     setHydrated(true);
 
     // When signed in, the server copy (item_flags, RLS-scoped) is the source
@@ -136,12 +141,16 @@ export function useFlags() {
       // Approving keeps a copy of the answers the letters were built from, so
       // an answer changed later does not rewrite what was already mailed.
       const snapshot = value ? flags : null;
+      const at = value ? new Date().toISOString() : null;
       setRoundApprovedState(value);
       setMailedFlags(snapshot);
+      setRoundMailedAt(at);
       try {
         window.localStorage.setItem(APPROVED_KEY, JSON.stringify(value));
         if (snapshot) window.localStorage.setItem(MAILED_KEY, JSON.stringify(snapshot));
         else window.localStorage.removeItem(MAILED_KEY);
+        if (at) window.localStorage.setItem(MAILED_AT_KEY, JSON.stringify(at));
+        else window.localStorage.removeItem(MAILED_AT_KEY);
       } catch {
         // ignore
       }
@@ -156,7 +165,7 @@ export function useFlags() {
    */
   const roundFlags = roundApproved && mailedFlags ? mailedFlags : flags;
 
-  return { flags, roundFlags, review, clear, roundApproved, setRoundApproved, hydrated, synced };
+  return { flags, roundFlags, review, clear, roundApproved, roundMailedAt, setRoundApproved, hydrated, synced };
 }
 
 export function countByState(flags: FlagsMap) {

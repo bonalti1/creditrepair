@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { COACH_SYSTEM_PROMPT } from "@/lib/coach/systemPrompt";
 import { checkClaimGuardrails } from "@/lib/compliance/guardrails";
 import { loadWhatsAppThread, storeMessage, toE164, toModelMessages } from "@/lib/chat/history";
-import { sendWhatsAppText } from "@/lib/integrations/whatsapp";
+import { CLIENT_FALLBACK_REPLY, LEAD_GREETING, sendWhatsAppText } from "@/lib/integrations/whatsapp";
 import { reportError } from "@/lib/observability/errors";
 import { checkRateLimit } from "@/lib/security/rateLimit";
 import { safeEqual, verifyMetaSignature } from "@/lib/security/signatures";
@@ -21,17 +21,18 @@ import { getAdminClient } from "@/lib/supabase/admin";
 
 // AI disclosure: every automated reply is visibly marked as AI (the client
 // always knows). A human teammate takes over threads without the 🤖 prefix.
+// The two fixed texts (the reply when the coach is unavailable, and the lead
+// greeting) live with the rest of the WhatsApp copy in integrations/whatsapp.ts.
 const AI_PREFIX = "🤖 ";
-const FALLBACK =
-  "¡Gracias por tu mensaje! Soy Capi, el asistente de IA de Credalti. Para revisar tu reporte y preparar tus cartas, entra a la app. Si tienes una pregunta sobre tu crédito, escríbela y te respondo aquí mismo. Si prefieres hablar con una persona del equipo, dilo y te conectamos. 🙂";
+const FALLBACK = CLIENT_FALLBACK_REPLY;
 
 // Sales comes first. Someone writing in who is not yet a customer (no profile
 // with that phone number) is a lead, and leads are handled by a person. Capi
 // introduces itself once, says a teammate will write, and then stays quiet so
 // it never talks over the salesperson. Customers get Capi as before.
-// Set WHATSAPP_LEAD_REPLIES=ai to let Capi answer leads too.
-const LEAD_GREETING =
-  "¡Hola! Soy Capi, el asistente de IA de Credalti. Gracias por escribir. Una persona de nuestro equipo te responde aquí mismo en un momento para ayudarte a empezar. 🙂";
+// Set WHATSAPP_LEAD_REPLIES=ai to let Capi answer leads too; it is then told
+// that the person is not a client yet, so it explains the service and leaves
+// prices and everything else to the team.
 const LEAD_GREETING_WINDOW_MS = 24 * 60 * 60_000;
 
 // Per-sender cap on AI replies: 12 in 5 minutes is far above a real
@@ -196,7 +197,10 @@ export async function POST(req: Request) {
           max_tokens: 600,
           system:
             COACH_SYSTEM_PROMPT +
-            "\n\nContexto: estás respondiendo por WhatsApp. Sé breve (máximo ~4 oraciones) y cálido.",
+            "\n\nContexto: estás respondiendo por WhatsApp. Sé breve (máximo ~4 oraciones) y cálido." +
+            (isLead
+              ? " Esta persona todavía no es cliente: explícale cómo funciona el servicio, no des precios y dile que una persona del equipo le responde aquí mismo."
+              : ""),
           messages: context.length > 0 ? context : [{ role: "user", content: question }],
         });
         const text = response.content
