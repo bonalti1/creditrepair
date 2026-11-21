@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Bureau } from "@/lib/domain/types";
-import { count, formatPhone, longDay, relativeDay, shortDay } from "@/lib/staff/format";
+import { readerLabel } from "@/lib/reports/readers";
+import { demoClientUploads } from "@/lib/staff/data";
+import { count, formatBytes, formatPhone, longDay, relativeDay, shortDay } from "@/lib/staff/format";
 import { staffLetterText } from "@/lib/staff/letters";
 import { exceptionMessage, STAFF_MESSAGE_RULES, whatsappHref } from "@/lib/staff/messages";
 import { roundRefsHref } from "@/lib/staff/printBatch";
@@ -13,6 +15,7 @@ import {
   clientStage,
   formatDay,
   handledExceptions,
+  identityTheftItemsWithoutReport,
   missingDocuments,
   nextStep,
   RESPONSE_WINDOW_DAYS,
@@ -39,6 +42,8 @@ import { reasonLabel } from "@/lib/ux/disputeReason";
 import { itemFacts, itemTitle } from "@/lib/ux/itemDisplay";
 import Icon from "@/components/Icon";
 import ItemFacts from "@/components/ItemFacts";
+import Conversation from "@/components/staff/Conversation";
+import ReportImport from "@/components/staff/ReportImport";
 import {
   ActorTag,
   Chip,
@@ -53,8 +58,9 @@ import {
 
 // One client. The top card answers "where is this person and why" at a glance:
 // the stage, what happens next and who does it. Below it, everything on file:
-// what needs a person, the report with the client's own answers, the letters
-// of each round, documents, history and notes.
+// what needs a person, the client's conversation (with a box to answer in
+// it), the report with the client's own answers (and the way to bring a new
+// report in), the letters of each round, documents, history and notes.
 //
 // The client's answers are shown, never edited: staff cannot mark an item as
 // inaccurate here or anywhere else in the console.
@@ -128,6 +134,8 @@ function Letter({ client, round, letter, now }: { client: StaffClient; round: St
   const body = useMemo(() => staffLetterText(client, round, letter, now), [client, round, letter, now]);
   const current = new Set(client.report?.items.map((i) => i.fingerprint));
   const answered = round.status === "responded";
+  // What an imported report already showed for this round's items, even while the round is still open.
+  const removed = new Map((round.results ?? []).map((result) => [result.fingerprint, result]));
 
   return (
     <li className="border-t hairline px-5 py-3.5">
@@ -147,10 +155,17 @@ function Letter({ client, round, letter, now }: { client: StaffClient; round: St
             return (
               <li key={item.fingerprint} className="break-words text-[13px] leading-snug text-slate-600">
                 {kicker ? `${kicker}: ${title}` : title}
-                {answered && (
-                  <span className={current.has(item.fingerprint) ? "text-slate-500" : "font-medium text-green-700"}>
-                    {current.has(item.fingerprint) ? " · sigue en el reporte nuevo" : " · ya no aparece en el reporte nuevo"}
+                {removed.has(item.fingerprint) ? (
+                  <span className="font-medium text-green-700" data-testid="round-result">
+                    {" "}
+                    · ya no aparece en el reporte del {shortDay(removed.get(item.fingerprint)!.reportDate)}
                   </span>
+                ) : (
+                  answered && (
+                    <span className={current.has(item.fingerprint) ? "text-slate-500" : "font-medium text-green-700"}>
+                      {current.has(item.fingerprint) ? " · sigue en el reporte nuevo" : " · ya no aparece en el reporte nuevo"}
+                    </span>
+                  )
                 )}
               </li>
             );
@@ -179,6 +194,8 @@ export default function ClientePage() {
   const { data, ready, clients, now, reload } = useStaff();
   const [note, setNote] = useState("");
   const [sentRound, setSentRound] = useState<number | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importNote, setImportNote] = useState<string | null>(null);
   const client = clients.find((c) => c.id === id) ?? null;
 
   // The page is drawn after the data loads, so a link to "#cartas" is honoured here.
@@ -210,7 +227,14 @@ export default function ClientePage() {
   const timeline = clientTimeline(client, now);
   const missing = missingDocuments(client);
   const rounds = [...client.rounds].sort((a, b) => b.number - a.number);
-  const documents = [...REQUIRED_DOCUMENTS, ...client.documents.filter((d) => !REQUIRED_DOCUMENTS.includes(d))];
+  // An identity theft claim needs its own document: it is listed as soon as it is being waited on.
+  const theftReportMissing = identityTheftItemsWithoutReport(client).length > 0;
+  const documents: DocumentKind[] = [
+    ...REQUIRED_DOCUMENTS,
+    ...client.documents.filter((d) => !REQUIRED_DOCUMENTS.includes(d)),
+    ...(theftReportMissing ? (["identity_theft_report"] as const) : []),
+  ];
+  const samples = client.reportSamples ?? [];
 
   const send = async () => {
     if (!round) return;
@@ -341,19 +365,60 @@ export default function ClientePage() {
             </section>
           )}
 
+          <Conversation client={client} data={data} now={now} onSent={reload} />
+
           <section aria-labelledby="reporte">
             <SectionTitle
               aside={
-                client.report ? (
-                  <span className="text-[13px] text-slate-500">Reporte del {longDay(client.report.pulledAt)}</span>
-                ) : undefined
+                <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+                  {client.report && (
+                    <span className="text-[13px] text-slate-500">Reporte del {longDay(client.report.pulledAt)}</span>
+                  )}
+                  {!importing && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImporting(true);
+                        setImportNote(null);
+                      }}
+                      className="pressable inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-blue-50 px-3.5 text-[13px] font-semibold text-blue-700 hover:bg-blue-100"
+                    >
+                      <Icon name="arrowUp" size={15} strokeWidth={2.25} />
+                      Importar reporte
+                    </button>
+                  )}
+                </span>
               }
             >
               <span id="reporte">Reporte y respuestas del cliente</span>
             </SectionTitle>
+
+            {importing && (
+              <div className="mb-4">
+                <ReportImport
+                  client={client}
+                  data={data}
+                  onClose={() => setImporting(false)}
+                  onSampleSaved={reload}
+                  onSaved={async (message) => {
+                    setImporting(false);
+                    setImportNote(message);
+                    await reload();
+                  }}
+                />
+              </div>
+            )}
+            {importNote && (
+              <p className="mb-4 flex items-start gap-2.5 rounded-2xl bg-green-50 px-4 py-3 text-[14px] leading-snug text-green-700" role="status" data-testid="import-saved">
+                <Icon name="check" size={18} className="mt-px shrink-0" />
+                <span>{importNote}</span>
+              </p>
+            )}
+
             {!client.report ? (
               <div className="card px-5 py-6 text-[15px] leading-snug text-slate-500">
-                Todavía no hay reporte. Llega solo cuando el cliente activa su monitoreo de crédito.
+                Todavía no hay reporte. Llega solo cuando el cliente activa su monitoreo de crédito, o lo trae el
+                equipo con «Importar reporte».
               </div>
             ) : (
               <div className="card overflow-hidden">
@@ -408,6 +473,34 @@ export default function ClientePage() {
                       </li>
                     );
                   })}
+                </ul>
+              </div>
+            )}
+
+            {samples.length > 0 && (
+              <div className="card mt-4 overflow-hidden" data-testid="report-samples">
+                <p className="px-5 py-3.5 text-[14px] leading-snug text-slate-600">
+                  <span className="font-medium text-slate-900">
+                    {count(samples.length, "muestra guardada", "muestras guardadas")}.
+                  </span>{" "}
+                  Son reportes de proveedores que todavía no podemos leer. Se guardan tal como llegaron, para construir
+                  el lector con ellos; no cambian la etapa del cliente.
+                </p>
+                <ul>
+                  {samples.map((sample) => (
+                    <li key={sample.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t hairline px-5 py-3">
+                      <p className="min-w-0 break-words text-[14px] leading-snug text-slate-900">
+                        <span className="font-medium">{readerLabel(sample.provider)}</span>
+                        <span className="text-slate-500">
+                          {" "}
+                          · {sample.fileName ?? "texto pegado"} · {formatBytes(new Blob([sample.text]).size)}
+                        </span>
+                      </p>
+                      <p className="shrink-0 text-[13px] text-slate-500">
+                        {shortDay(sample.savedAt)} · {sample.savedBy}
+                      </p>
+                    </li>
+                  ))}
                 </ul>
               </div>
             )}
@@ -526,7 +619,13 @@ export default function ClientePage() {
                       <Chip tone="bg-green-50 text-green-700">En archivo</Chip>
                     ) : (
                       // Gold once the client has signed and the document is actually being waited on.
-                      <Chip tone={client.agreementSignedAt && missing.includes(kind) ? WAITING_TONE : "bg-slate-100 text-slate-600"}>
+                      <Chip
+                        tone={
+                          (client.agreementSignedAt && missing.includes(kind)) || kind === "identity_theft_report"
+                            ? WAITING_TONE
+                            : "bg-slate-100 text-slate-600"
+                        }
+                      >
                         Falta
                       </Chip>
                     )}
@@ -534,6 +633,23 @@ export default function ClientePage() {
                 );
               })}
             </ul>
+            {data.demo && theftReportMissing && (
+              <p className="px-1 pt-2 text-xs leading-relaxed text-slate-500">
+                Los documentos los sube el cliente. Demo:{" "}
+                <button
+                  type="button"
+                  data-testid="demo-upload-theft-report"
+                  onClick={async () => {
+                    demoClientUploads(client.id, "identity_theft_report");
+                    await reload();
+                  }}
+                  className="font-medium text-blue-700 underline-offset-2 hover:underline"
+                >
+                  simular que el cliente subió su reporte de robo de identidad
+                </button>
+                .
+              </p>
+            )}
           </section>
 
           <section aria-labelledby="historia">

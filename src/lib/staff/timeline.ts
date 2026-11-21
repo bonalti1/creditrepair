@@ -1,5 +1,8 @@
+import { readerLabel } from "../reports/readers";
+import { displayName } from "./conversation";
+import { count, longDay } from "./format";
 import { nextAutomaticStep, reviewProgress } from "./stage";
-import type { StaffClient } from "./types";
+import type { ReportImport, StaffClient } from "./types";
 
 // A client's story in dated lines, newest first, built only from what is on
 // record. The first entry is what the system will do next, when it has
@@ -12,6 +15,27 @@ export interface TimelineEntry {
   kind: "upcoming" | "client" | "team";
 }
 
+/** "Ana", or "El equipo" when the teammate gave no name (staffAuthor signs those "equipo"). */
+function teammate(by: string): string {
+  const name = displayName(by);
+  return !name || name.toLowerCase() === "equipo" ? "El equipo" : name;
+}
+
+/** "Ana importó un reporte con fecha del 20 de noviembre de 2026 (8 puntos): …" */
+function importLine(record: ReportImport): string {
+  const who = teammate(record.by);
+  const changes = [
+    record.removed > 0 ? count(record.removed, "punto ya no aparece", "puntos ya no aparecen") : "",
+    record.added > 0 ? count(record.added, "punto nuevo", "puntos nuevos") : "",
+    record.changed > 0 ? count(record.changed, "punto cambió", "puntos cambiaron") : "",
+  ].filter(Boolean);
+  const what =
+    record.closedRound !== null
+      ? `importó el reporte nuevo, con las respuestas a la ronda ${record.closedRound}`
+      : `importó un reporte con fecha del ${longDay(record.reportDate)}`;
+  return `${who} ${what} (${count(record.itemCount, "punto", "puntos")})${changes.length > 0 ? `: ${changes.join(", ")}` : ""}`;
+}
+
 export function clientTimeline(client: StaffClient, now: Date): TimelineEntry[] {
   const past: TimelineEntry[] = [];
   const add = (at: string | null, text: string, kind: TimelineEntry["kind"]) => {
@@ -22,6 +46,19 @@ export function clientTimeline(client: StaffClient, now: Date): TimelineEntry[] 
   add(client.signedUpAt, "Creó su cuenta", "client");
   add(client.agreementSignedAt, "Firmó el acuerdo de servicio", "client");
 
+  // Reports staff brought in are told by their own record: who, when and what changed.
+  const imports = client.reportImports ?? [];
+  for (const record of imports) add(record.at, importLine(record), "team");
+  const closedByStaff = new Set(imports.flatMap((record) => (record.closedRound !== null ? [record.closedRound] : [])));
+
+  for (const sample of client.reportSamples ?? []) {
+    add(
+      sample.savedAt,
+      `${teammate(sample.savedBy)} guardó una muestra de reporte de ${readerLabel(sample.provider)}. Todavía no hay lector para leerla`,
+      "team",
+    );
+  }
+
   if (client.report) {
     const n = client.report.items.length;
     const pulled = new Date(client.report.pulledAt).getTime();
@@ -29,7 +66,10 @@ export function clientTimeline(client: StaffClient, now: Date): TimelineEntry[] 
     const isResponse = client.rounds.some(
       (r) => r.respondedAt && Math.abs(new Date(r.respondedAt).getTime() - pulled) < 24 * 60 * 60 * 1000,
     );
-    if (!isResponse) add(client.report.pulledAt, `Se importó su reporte (${n} ${n === 1 ? "punto" : "puntos"})`, "team");
+    const importedByStaff = imports.some((record) => record.reportDate === client.report!.pulledAt);
+    if (!isResponse && !importedByStaff) {
+      add(client.report.pulledAt, `Se importó su reporte (${n} ${n === 1 ? "punto" : "puntos"})`, "team");
+    }
 
     const review = reviewProgress(client);
     if (review.total > 0 && review.pending === 0) {
@@ -51,7 +91,9 @@ export function clientTimeline(client: StaffClient, now: Date): TimelineEntry[] 
   for (const round of client.rounds) {
     const letters = `${round.letters.length} ${round.letters.length === 1 ? "carta" : "cartas"}`;
     add(round.mailedAt, `Se envió la ronda ${round.number} (${letters})`, "team");
-    add(round.respondedAt, `Se importó el reporte nuevo, con las respuestas a la ronda ${round.number}`, "team");
+    if (!closedByStaff.has(round.number)) {
+      add(round.respondedAt, `Se importó el reporte nuevo, con las respuestas a la ronda ${round.number}`, "team");
+    }
   }
 
   for (const question of client.questions) {

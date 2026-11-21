@@ -7,7 +7,8 @@ import { ATTESTATION_TEXT } from "@/lib/compliance/attestation";
 import { getCategoryExplainers } from "@/lib/ux/explainers";
 import { crossBureauNote, differingAnswerLine } from "@/lib/ux/crossBureau";
 import { useFlags, type FlagsMap } from "@/lib/ux/flagsStore";
-import { messageText, useChatThread, type ChatMsg } from "@/lib/ux/chatStore";
+import { useChatThread, type ChatMsg } from "@/lib/ux/chatStore";
+import { contextText, messageText, messageVoice } from "@/lib/ux/chatMessages";
 import { HUMAN_HELP, humanHelpHref } from "@/lib/ux/humanHelp";
 import { itemCheckHints, itemFacts, itemKindLine, itemLabel, itemReadAloud, itemTitle } from "@/lib/ux/itemDisplay";
 import { approvedMessage, letterCoverageRows, waitingNote } from "@/lib/ux/roundCopy";
@@ -22,12 +23,15 @@ import SpeakButton from "@/components/SpeakButton";
 import Icon from "@/components/Icon";
 import { InfoNote, WaitingNote } from "@/components/RoundNotes";
 import { CapiAvatar } from "@/components/Logo";
+import TeamMessage from "@/components/TeamMessage";
 
 // The conversation. The client's whole journey lives in one thread with their
 // AI assistant: it leads with proactive messages and action cards; the client
 // decides, attests, and sends — the same three legally load-bearing taps, now
 // inside the chat. Free-text questions go to the guardrailed coach. The
 // assistant is always identified as AI; a human teammate is one tap away.
+// When a teammate answers in the thread, their message is signed with their
+// first name and "del equipo" and looks different from Capi's (TeamMessage).
 // The thread itself is saved (server-side when signed in), so the client picks
 // up the same conversation on any device.
 
@@ -286,7 +290,8 @@ export default function Asistente() {
     const firstUser = recent.findIndex((m) => m.role === "user");
     const context = (firstUser === -1 ? [] : recent.slice(firstUser)).map((m) => ({
       role: m.role,
-      content: m.text.slice(0, 4000),
+      // A teammate's line is marked, so the coach does not take it for its own.
+      content: contextText(m).slice(0, 4000),
     }));
     // Shown now; the server records coach exchanges itself (remote: false).
     append([{ role: "user", text: q }], { remote: false });
@@ -387,22 +392,29 @@ export default function Asistente() {
       <div ref={threadRef} className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
         {messages.map((m, i) => {
           const shown = messageText(m, locale);
+          const voice = messageVoice(m, locale);
           return (
             <div
               key={i}
               data-newest={i === messages.length - 1 ? "" : undefined}
-              className={`animate-rise flex items-end gap-1.5 ${m.role === "user" ? "justify-end" : ""}`}
+              className={`animate-rise flex items-end gap-1.5 ${voice.kind === "client" ? "justify-end" : ""}`}
             >
-              <div
-                className={`max-w-[80%] whitespace-pre-line break-words px-4 py-2.5 text-[16px] leading-snug ${
-                  m.role === "user"
-                    ? "rounded-[22px] rounded-br-md bg-blue-700 text-white"
-                    : "rounded-[22px] rounded-bl-md bg-slate-100 text-slate-900"
-                }`}
-              >
-                {shown}
-              </div>
-              {m.role === "assistant" && <SpeakButton text={shown} compact />}
+              {voice.kind === "team" && voice.byline ? (
+                // A person wrote this one: signed, outlined, and never labelled as AI.
+                <TeamMessage byline={voice.byline} text={shown} />
+              ) : (
+                <div
+                  className={`max-w-[80%] whitespace-pre-line break-words px-4 py-2.5 text-[16px] leading-snug ${
+                    voice.kind === "client"
+                      ? "rounded-[22px] rounded-br-md bg-blue-700 text-white"
+                      : "rounded-[22px] rounded-bl-md bg-slate-100 text-slate-900"
+                  }`}
+                >
+                  {shown}
+                </div>
+              )}
+              {/* Read-aloud says who wrote a teammate's message before reading it. */}
+              {voice.kind !== "client" && <SpeakButton text={voice.spoken} compact />}
             </div>
           );
         })}

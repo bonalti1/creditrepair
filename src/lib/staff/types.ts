@@ -1,3 +1,4 @@
+import type { ChatRole, ChatSource } from "../chat/history";
 import type { EscalationStage, ItemCategory, LetterTarget, NormalizedReport, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
 
@@ -57,6 +58,17 @@ export interface StaffLetter {
   mailStatus: MailStatus;
 }
 
+/**
+ * What a later report showed for one item a round disputed. The only outcome
+ * recorded is the one a report can prove by itself: the item is gone.
+ */
+export interface RoundResult {
+  fingerprint: string;
+  outcome: "removed";
+  /** The date of the report that no longer lists the item (report.pulledAt). */
+  reportDate: string;
+}
+
 export interface StaffRound {
   number: number;
   status: RoundStatus;
@@ -65,6 +77,12 @@ export interface StaffRound {
   /** ISO timestamp the bureaus' answers arrived (a new report was imported); null until then. */
   respondedAt: string | null;
   letters: StaffLetter[];
+  /**
+   * Items of this round that a report imported after mailing no longer lists.
+   * Written when a report is imported (reports/merge.ts); absent on a round no
+   * import has touched.
+   */
+  results?: RoundResult[];
 }
 
 export type BillingStatus = "none" | "active" | "past_due" | "canceled";
@@ -83,6 +101,61 @@ export interface EscalatedQuestion {
   text: string;
   /** ISO timestamp a person answered it; null while it waits. */
   answeredAt: string | null;
+}
+
+/**
+ * One report brought in by a member of staff from the client page
+ * (reports/merge.ts). The report itself is `StaffClient.report`; this is the
+ * record of who imported what, for the client's history.
+ */
+export interface ReportImport {
+  /** When it was saved (ISO). */
+  at: string;
+  /** The teammate who imported it. */
+  by: string;
+  /** The reader that read it (reports/readers.ts). */
+  readerKey: string;
+  /** The report's own date (report.pulledAt). */
+  reportDate: string;
+  itemCount: number;
+  /** Against the report it replaced. All zero on a first report. */
+  removed: number;
+  added: number;
+  changed: number;
+  /** The mailed round this report brought the answers to, if it closed one. */
+  closedRound: number | null;
+}
+
+/**
+ * A report page kept as it was received, for a provider that has no reader
+ * yet. Nothing is read from it: it waits until a reader for that provider is
+ * built against real samples. Saving one never changes the client's stage.
+ */
+export interface ReportSample {
+  id: string;
+  /** Reader key of the provider it came from (reports/readers.ts). */
+  provider: string;
+  savedAt: string;
+  savedBy: string;
+  /** The file's name when it came from a file; null when it was pasted. */
+  fileName: string | null;
+  /** The raw text, untouched. */
+  text: string;
+}
+
+/**
+ * One message of the client's in-app conversation (chat_messages), as staff
+ * read it. `role: "user"` is the client. `role: "assistant"` is Capi, unless
+ * `source` is "human": then a teammate wrote it and `authorName` says who.
+ */
+export interface StaffChatMessage {
+  id: string;
+  at: string;
+  role: ChatRole;
+  source: ChatSource;
+  /** The teammate's name. Only on a message with source "human". */
+  authorName?: string;
+  text: string;
 }
 
 export interface StaffClient {
@@ -121,6 +194,12 @@ export interface StaffClient {
    * the situation has not changed (see stage.ts).
    */
   handled: Record<string, string>;
+  /** The client's in-app conversation, oldest first. Absent means no messages. */
+  conversation?: StaffChatMessage[];
+  /** Reports staff brought in, oldest first. Absent means none. */
+  reportImports?: ReportImport[];
+  /** Report pages kept for providers that have no reader yet, oldest first. Absent means none. */
+  reportSamples?: ReportSample[];
 }
 
 export const fullName = (client: Pick<StaffClient, "firstName" | "lastName">): string =>

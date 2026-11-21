@@ -3,13 +3,21 @@ import { parseReport, type RawReport } from "../domain/parser";
 import type { ItemFlag, NormalizedReport, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
 import { DEMO_RAW_REPORT } from "../demo";
-import type { ItemAnswer, MailStatus, RoundStatus, StaffClient, StaffLetter, StaffRound } from "./types";
+import type {
+  ItemAnswer,
+  MailStatus,
+  RoundStatus,
+  StaffChatMessage,
+  StaffClient,
+  StaffLetter,
+  StaffRound,
+} from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────
 // DEMO DATA. Nobody in this file exists.
 //
-// Fifteen invented clients for the staff console, spread across every stage
-// and every kind of exception. Names are made up, phone numbers use the
+// Sixteen invented clients for the staff console, spread across every stage
+// and every kind of exception. A few have a conversation with Capi on file. Names are made up, phone numbers use the
 // reserved fictional range (555-01xx), addresses are placeholders and the
 // reports are variations of the app's demo report (src/lib/demo.ts).
 //
@@ -262,6 +270,22 @@ export function buildDemoClients(now: Date): StaffClient[] {
 
   const both: StaffClient["documents"] = ["government_id", "proof_of_address"];
 
+  /**
+   * A stretch of a client's in-app conversation. Each line is who wrote it
+   * ("client", "capi" for a scripted line, "coach" for an AI answer to a typed
+   * question, or a teammate's name), and the text. Lines are a minute apart,
+   * starting at `startIso`.
+   */
+  const thread = (clientId: string, startIso: string, lines: Array<[who: string, text: string]>): StaffChatMessage[] =>
+    lines.map(([who, text], index) => {
+      const at = new Date(new Date(startIso).getTime() + index * 60 * 1000).toISOString();
+      const id = `${clientId}-m-${at}`;
+      if (who === "client") return { id, at, role: "user", source: "coach", text };
+      if (who === "capi") return { id, at, role: "assistant", source: "journey", text };
+      if (who === "coach") return { id, at, role: "assistant", source: "coach", text };
+      return { id, at, role: "assistant", source: "human", authorName: who, text };
+    });
+
   // 1. Lead: sales is still talking with her.
   const mariana = make({
     id: "c01", first: "Mariana", last: "Robles", phone: "+17135550101", city: "Houston", zip: "77001",
@@ -291,6 +315,16 @@ export function buildDemoClients(now: Date): StaffClient[] {
   itzel.questions = [
     { id: "c04-q1", askedAt: ago(1), text: "¿Puedo activar el monitoreo con mi ITIN en lugar del número de Seguro Social?", answeredAt: null },
   ];
+  itzel.conversation = [
+    ...thread("c04", ago(2, 3), [
+      ["capi", "Hola 👋 Soy Capi, tu asistente de crédito con IA. Para empezar activa tu monitoreo de crédito: en cuanto esté listo importo tu reporte y lo revisamos juntos."],
+    ]),
+    // Her question, at the moment Capi passed it to the team.
+    ...thread("c04", ago(1), [
+      ["client", "¿Puedo activar el monitoreo con mi ITIN en lugar del número de Seguro Social?"],
+      ["coach", "No tengo una respuesta segura para eso y prefiero no adivinar. Ya le pasé tu pregunta al equipo: una persona te responde aquí mismo."],
+    ]),
+  ];
 
   // 5. Reviewing, on schedule: nothing to do.
   const fidel = make({
@@ -298,6 +332,16 @@ export function buildDemoClients(now: Date): StaffClient[] {
     salesperson: "luis", createdDaysAgo: 6, signedUpDaysAgo: 5, agreementDaysAgo: 4, documents: both,
     report: { pulledDaysAgo: 2, shape: "base" }, answered: 3, answeredDaysAgo: 0, lastActivityDaysAgo: 0,
   });
+
+  fidel.conversation = [
+    ...thread("c05", ago(2), [
+      ["capi", "Hola 👋 Soy Capi, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós. Vamos a revisarlo juntos, punto por punto: yo te explico cada uno y tú decides."],
+    ]),
+    ...thread("c05", ago(0, 3), [
+      ["client", "¿Qué es una consulta dura?"],
+      ["coach", "Una consulta dura aparece cuando una empresa revisa tu crédito porque pediste un crédito con ella. Si la reconoces, es correcta. Tú decides qué responder en cada punto."],
+    ]),
+  ];
 
   // 6. Review stalled: report in for eight days, two answers, quiet since.
   const lourdes = make({
@@ -388,6 +432,17 @@ export function buildDemoClients(now: Date): StaffClient[] {
     ];
   }
   samuel.notes = [{ id: "c14-n1", at: ago(12), author: "carmen", text: "Le avisé por WhatsApp que llegó su reporte nuevo." }];
+  // A teammate already answered in his conversation once.
+  samuel.conversation = [
+    ...thread("c14", ago(13), [
+      ["client", "¿Ya llegó mi reporte nuevo?"],
+      ["coach", "Todavía no veo un reporte nuevo en tu cuenta. Le aviso al equipo para que lo revise contigo."],
+    ]),
+    ...thread("c14", ago(12), [
+      ["carmen", "Hola Samuel, soy Carmen, del equipo. Tu reporte nuevo ya está en tu cuenta. Puedes verlo en la app cuando gustes."],
+      ["client", "Gracias, ya lo vi."],
+    ]),
+  ];
 
   // 15. Letters out, payment past due: on hold until it is settled.
   const noemi = make({
@@ -398,8 +453,36 @@ export function buildDemoClients(now: Date): StaffClient[] {
   });
   noemi.rounds = [round(noemi, 1, "mailed", { mailedDaysAgo: 20 })];
 
+  // 16. Still reviewing. She said one account is the result of identity theft
+  // and there is no identity theft report (FTC) on file: the app told her a
+  // teammate would follow up, so a person has to.
+  const dolores = make({
+    id: "c16", first: "Dolores", last: "Nájera", phone: "+19565550116", city: "Laredo", zip: "78040",
+    salesperson: "ana", createdDaysAgo: 7, signedUpDaysAgo: 6, agreementDaysAgo: 5, documents: both,
+    report: { pulledDaysAgo: 3, shape: "base" }, answered: 4, answeredDaysAgo: 1, lastActivityDaysAgo: 1,
+  });
+  {
+    const collection = dolores.report!.items.find((i) => i.bureau === "equifax" && i.name === "Midland Credit Management")!;
+    dolores.answers[collection.fingerprint] = {
+      status: "inaccurate",
+      reasonCode: "identity_theft",
+      reason: "Alguien abrió esta cuenta con mis datos. Yo no fui.",
+      confirmedAt: ago(1),
+    };
+  }
+  dolores.conversation = [
+    ...thread("c16", ago(3), [
+      ["capi", "Hola 👋 Soy Capi, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós. Vamos a revisarlo juntos, punto por punto: yo te explico cada uno y tú decides."],
+    ]),
+    ...thread("c16", ago(1), [
+      ["capi", "Anotado. Para este motivo hace falta un reporte de robo de identidad de la FTC. Una persona del equipo te va a contactar para seguir con ese paso."],
+      ["client", "¿Y cómo saco ese reporte de la FTC?"],
+      ["coach", "Se llena en IdentityTheft.gov, el sitio de la FTC, y no tiene costo. Una persona del equipo te va a escribir para ayudarte con ese paso."],
+    ]),
+  ];
+
   return [
     mariana, yolanda, rigoberto, itzel, fidel, lourdes, anselmo, brenda,
-    ramiro, ernesto, graciela, heriberto, paulina, samuel, noemi,
+    ramiro, ernesto, graciela, heriberto, paulina, samuel, noemi, dolores,
   ];
 }

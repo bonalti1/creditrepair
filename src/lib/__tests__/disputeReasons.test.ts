@@ -511,7 +511,20 @@ describe("the reason follows the item through the plan, the previews and the sta
     const data = readFileSync("src/lib/staff/data.ts", "utf8");
     const api = data.slice(data.indexOf("export interface StaffData"), data.indexOf("// ── Demo implementation"));
     const methods = [...api.matchAll(/^  (\w+)\(/gm)].map((m) => m[1]);
-    expect(methods).toEqual(["listClients", "getClient", "markRoundsSent", "addNote", "resolveException"]);
+    expect(methods).toEqual([
+      "listClients",
+      "getClient",
+      "markRoundsSent",
+      "addNote",
+      "resolveException",
+      "saveReport",
+      "saveReportSample",
+      "sendReply",
+    ]);
+    // The screens added to the client page since (report import, conversation) set no answer or reason either.
+    for (const file of ["src/components/staff/ReportImport.tsx", "src/components/staff/Conversation.tsx"]) {
+      expect(readFileSync(file, "utf8")).not.toMatch(/DisputeFields|reasonCode:\s|setReason|answers\[[^\]]+\]\s*=/);
+    }
   });
 
   it("every catalogue reason has a label and a sentence the screens can show", () => {

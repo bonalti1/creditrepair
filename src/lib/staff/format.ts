@@ -40,3 +40,21 @@ export function formatPhone(phone: string): string {
 export function count(n: number, singular: string, plural: string): string {
   return `${n} ${n === 1 ? singular : plural}`;
 }
+
+/** "20 nov, 2:05 p.m." — a moment, for conversations. */
+export function shortDateTime(iso: string): string {
+  const time = new Date(iso).toLocaleTimeString("es-MX", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: STAFF_TIME_ZONE,
+  });
+  return `${shortDay(iso)}, ${time}`;
+}
+
+/** "840 bytes", "12 KB", "1.2 MB". */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} bytes`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

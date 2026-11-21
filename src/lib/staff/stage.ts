@@ -234,6 +234,7 @@ export const EXCEPTION_KINDS = [
   "question_waiting",
   "response_overdue",
   "agreement_unsigned",
+  "identity_theft_report_missing",
 ] as const;
 
 export type ExceptionKind = (typeof EXCEPTION_KINDS)[number];
@@ -249,6 +250,7 @@ export const EXCEPTION_LABEL: Record<ExceptionKind, string> = {
   question_waiting: "Pregunta sin responder",
   response_overdue: "Sin reporte nuevo",
   agreement_unsigned: "Acuerdo sin firmar",
+  identity_theft_report_missing: "Robo de identidad sin reporte",
 };
 
 export interface StaffException {
@@ -287,6 +289,21 @@ export function documentNames(kinds: DocumentKind[]): string {
 function clip(text: string, max: number): string {
   const clean = text.replace(/\s+/g, " ").trim();
   return clean.length <= max ? clean : `${clean.slice(0, max - 1).trimEnd()}…`;
+}
+
+/**
+ * Items on the current report the client confirmed as inaccurate with the
+ * reason "identity theft", while no identity theft report (FTC) is on file.
+ * The client was told a teammate would follow up, so a person has to.
+ */
+export function identityTheftItemsWithoutReport(client: StaffClient): Array<{ label: string; confirmedAt: string }> {
+  if (!client.report || client.documents.includes("identity_theft_report")) return [];
+  return client.report.items.flatMap((item) => {
+    const answer = client.answers[item.fingerprint];
+    return answer?.status === "inaccurate" && answer.reasonCode === "identity_theft"
+      ? [{ label: itemLabel(item, "es"), confirmedAt: answer.confirmedAt }]
+      : [];
+  });
 }
 
 function responseOverdue(client: StaffClient, now: Date): StaffRound | null {
@@ -381,6 +398,21 @@ function openExceptions(client: StaffClient, now: Date): StaffException[] {
         since: addDays(client.report.pulledAt, FRESH_REPORT_DAYS).toISOString(),
       });
     }
+  }
+
+  const theft = identityTheftItemsWithoutReport(client);
+  if (theft.length > 0) {
+    const names = [...new Set(theft.map((t) => t.label))];
+    const which = names.length <= 2 ? ` (${clip(names.join(" y "), 90)})` : "";
+    found.push({
+      key: "identity_theft_report_missing",
+      kind: "identity_theft_report_missing",
+      severity: "high",
+      sentence: `Dijo que ${theft.length === 1 ? "1 punto es" : `${theft.length} puntos son`} resultado de robo de identidad${which} y no hay un reporte de robo de identidad de la FTC en archivo. La app le avisó que una persona del equipo lo contactaría.`,
+      actionLabel: "Pedirle el reporte de robo de identidad",
+      action: "whatsapp",
+      since: theft.map((t) => t.confirmedAt).sort()[0] ?? null,
+    });
   }
 
   for (const round of client.rounds) {
@@ -561,6 +593,12 @@ export function sendBlockReason(client: StaffClient, now: Date): string | null {
   const stale = openExceptions(client, now).find((e) => e.kind === "report_stale");
   if (stale) {
     return `El reporte tiene más de ${FRESH_REPORT_DAYS} días. Hace falta uno reciente antes de enviar cartas.`;
+  }
+  // A letter that says "this is identity theft" must not go out until the
+  // client's identity theft report is on file to back it and to enclose.
+  const identityTheft = openExceptions(client, now).find((e) => e.kind === "identity_theft_report_missing");
+  if (identityTheft) {
+    return "El cliente indicó robo de identidad y falta su reporte de robo de identidad (FTC). No se envían cartas hasta tenerlo en archivo.";
   }
   return null;
 }

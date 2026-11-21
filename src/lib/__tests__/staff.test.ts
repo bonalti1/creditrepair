@@ -450,7 +450,7 @@ describe("staff: demo clients", () => {
     const needPerson = clients.filter((c) => clientExceptions(c, later).length > 0);
     const ready = clients.filter((c) => sendableRound(c, later));
     const nothing = clients.filter((c) => clientExceptions(c, later).length === 0 && !sendableRound(c, later));
-    expect(needPerson.length).toBe(8);
+    expect(needPerson.length).toBe(9);
     expect(ready.length).toBe(3);
     expect(nothing.length).toBe(4);
     expect(clients.some((c) => nextAutomaticStep(c, later))).toBe(true);
@@ -579,9 +579,19 @@ describe("staff: what the console says", () => {
     expect(page).toContain("Las respuestas son del cliente. Aquí se leen, no se cambian.");
     const data = readFileSync("src/lib/staff/data.ts", "utf8");
     const api = data.slice(data.indexOf("export interface StaffData"), data.indexOf("// ── Demo implementation"));
-    // Exactly these five operations: none of them sets what a client said about an item.
+    // Exactly these operations: none of them sets what a client said about an item.
+    // (saveReport brings in a report and leaves every answer as it was: see reports.test.ts.)
     const methods = [...api.matchAll(/^  (\w+)\(/gm)].map((m) => m[1]);
-    expect(methods).toEqual(["listClients", "getClient", "markRoundsSent", "addNote", "resolveException"]);
+    expect(methods).toEqual([
+      "listClients",
+      "getClient",
+      "markRoundsSent",
+      "addNote",
+      "resolveException",
+      "saveReport",
+      "saveReportSample",
+      "sendReply",
+    ]);
   });
 
   it("builds WhatsApp links from the client's phone", () => {
