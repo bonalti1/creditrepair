@@ -1,4 +1,5 @@
 import type { EscalationStage, ItemCategory, LetterTarget, NormalizedReport, ReportItem } from "../domain/types";
+import type { DisputeReasonCode } from "../letters/reasons";
 
 // The staff-side view of one client: everything the console needs to say where
 // a person is and why, in one object. It mirrors what the database already
@@ -15,11 +16,20 @@ export type DocumentKind = "government_id" | "proof_of_address" | "ssn_card" | "
 /** The two documents every mailed dispute needs enclosed. */
 export const REQUIRED_DOCUMENTS: readonly DocumentKind[] = ["government_id", "proof_of_address"];
 
-/** What the client said about one report item. Only the client can set this. */
+/**
+ * What the client said about one report item. Only the client can set this,
+ * the reason included.
+ *
+ * `reasonCode` is the standard reason the client picked (letters/reasons.ts,
+ * item_flags.reason_code); the letter prints its sentence after the item. It is
+ * missing on an answer confirmed before reasons existed: that answer still
+ * counts, and its letter line carries no reason. `reason` is the client's own
+ * words (item_flags.reason): staff read it, it is never printed in a letter.
+ */
 export type ItemAnswer =
   | { status: "pending" }
   | { status: "correct"; answeredAt: string }
-  | { status: "inaccurate"; reason: string; confirmedAt: string };
+  | { status: "inaccurate"; reason: string; reasonCode?: DisputeReasonCode; confirmedAt: string };
 
 export type RoundStatus = "draft" | "ready" | "mailed" | "responded";
 
@@ -38,6 +48,12 @@ export interface StaffLetter {
    * a file request to a secondary bureau.
    */
   items: ReportItem[];
+  /**
+   * The reason the client gave for each item, by fingerprint, as it stood when
+   * the letter was written. No entry for an item confirmed before reasons
+   * existed; absent on a letter written before then.
+   */
+  itemReasons?: Record<string, DisputeReasonCode>;
   mailStatus: MailStatus;
 }
 

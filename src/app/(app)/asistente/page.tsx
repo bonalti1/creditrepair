@@ -10,10 +10,13 @@ import { useFlags, type FlagsMap } from "@/lib/ux/flagsStore";
 import { messageText, useChatThread, type ChatMsg } from "@/lib/ux/chatStore";
 import { HUMAN_HELP, humanHelpHref } from "@/lib/ux/humanHelp";
 import { itemCheckHints, itemFacts, itemKindLine, itemLabel, itemReadAloud, itemTitle } from "@/lib/ux/itemDisplay";
-import { approvedMessage, letterCoverage, waitingNote } from "@/lib/ux/roundCopy";
+import { approvedMessage, letterCoverageRows, waitingNote } from "@/lib/ux/roundCopy";
+import { canConfirmDispute, reasonLabel } from "@/lib/ux/disputeReason";
+import type { DisputeReasonCode } from "@/lib/letters/reasons";
 import { sessionPlan } from "@/lib/ux/sessionPlan";
 import { useLocale } from "@/lib/i18n";
 import { DICTS } from "@/lib/i18n/dictionaries";
+import DisputeFields, { EMPTY_DRAFT } from "@/components/DisputeFields";
 import ItemFacts from "@/components/ItemFacts";
 import SpeakButton from "@/components/SpeakButton";
 import Icon from "@/components/Icon";
@@ -48,9 +51,10 @@ export default function Asistente() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [flagging, setFlagging] = useState(false);
-  const [reason, setReason] = useState("");
-  const [attestChecked, setAttestChecked] = useState(false);
+  /** The reason, the customer's own words and the attestation checkbox for the item on screen. */
+  const [draft, setDraft] = useState(EMPTY_DRAFT);
   const threadRef = useRef<HTMLDivElement>(null);
+  const flagFormRef = useRef<HTMLDivElement>(null);
   /** How many messages were on screen at the last look; null until the thread first shows. */
   const shownCount = useRef<number | null>(null);
   /** True when this visit started the thread (nothing was saved before). */
@@ -169,10 +173,14 @@ export default function Asistente() {
     shownCount.current = messages.length;
   }, [messages.length, hydrated, chatHydrated]);
 
-  // Opening the "inaccurate" form is the customer's own tap: show the form.
+  // Opening the "inaccurate" form is the customer's own tap: show the form,
+  // from its first line (the list of reasons is taller than the screen).
   useEffect(() => {
     const box = threadRef.current;
-    if (flagging && box) box.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
+    const form = flagFormRef.current;
+    if (!flagging || !box || !form) return;
+    const top = form.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 12;
+    box.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   }, [flagging]);
 
   /**
@@ -216,21 +224,29 @@ export default function Asistente() {
       `${itemLabel(current, "en")}\n${plain(DICTS.en.items.looksCorrect)}`,
     );
     review(current.fingerprint, "correct");
+    setDraft(EMPTY_DRAFT);
     afterDecision(confirmedCount, { ...flags, [current.fingerprint]: { state: "correct" } });
   };
 
+  /** A reason, the customer's words when the reason is "other", and the attestation checkbox. */
+  const canConfirm = current ? canConfirmDispute(current.category, draft) : false;
+
   const confirmFlag = () => {
-    if (!current || !attestChecked) return;
+    if (!current || !canConfirm) return;
+    const reasonCode = draft.reasonCode as DisputeReasonCode;
+    const reason = draft.note.trim();
     youSay(
-      `${itemLabel(current, "es")}\n${ATTESTATION_TEXT.es}`,
-      `${itemLabel(current, "en")}\n${ATTESTATION_TEXT.en}`,
+      `${itemLabel(current, "es")}\n${DICTS.es.items.reasonOf(reasonLabel(reasonCode, "es") ?? "")}\n${ATTESTATION_TEXT.es}`,
+      `${itemLabel(current, "en")}\n${DICTS.en.items.reasonOf(reasonLabel(reasonCode, "en") ?? "")}\n${ATTESTATION_TEXT.en}`,
     );
     const attestedAt = new Date().toISOString();
-    review(current.fingerprint, "attested", { reason, attestedAt });
+    review(current.fingerprint, "attested", { reason, reasonCode, attestedAt });
     setFlagging(false);
-    setReason("");
-    setAttestChecked(false);
-    afterDecision(confirmedCount + 1, { ...flags, [current.fingerprint]: { state: "attested", reason, attestedAt } });
+    setDraft(EMPTY_DRAFT);
+    afterDecision(confirmedCount + 1, {
+      ...flags,
+      [current.fingerprint]: { state: "attested", reason, reasonCode, attestedAt },
+    });
   };
 
   const approve = () => {
@@ -448,28 +464,12 @@ export default function Asistente() {
                 </button>
               </div>
             ) : (
-              <div className="mt-5">
-                <textarea
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder={d.items.reasonPlaceholder}
-                  aria-label={d.items.reasonLabel}
-                  rows={3}
-                  className="block w-full resize-none rounded-2xl bg-slate-100 px-4 py-3 text-[15px] leading-snug outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-300"
-                />
-                <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl bg-blue-50 p-4 text-[15px] leading-snug text-slate-900">
-                  <input
-                    type="checkbox"
-                    checked={attestChecked}
-                    onChange={(e) => setAttestChecked(e.target.checked)}
-                    className="mt-0.5 h-5 w-5 shrink-0 accent-blue-700"
-                  />
-                  <span>{ATTESTATION_TEXT[locale]}</span>
-                </label>
+              <div ref={flagFormRef} className="mt-5 border-t hairline pt-5">
+                <DisputeFields category={current.category} draft={draft} onChange={setDraft} />
                 <div className="mt-3 grid grid-cols-[1fr_auto] gap-2.5">
                   <button
                     onClick={confirmFlag}
-                    disabled={!attestChecked}
+                    disabled={!canConfirm}
                     className="pressable h-[52px] rounded-full bg-amber-400 text-[16px] font-semibold text-blue-900 disabled:bg-slate-200 disabled:text-slate-500"
                   >
                     {d.items.confirm}
@@ -477,7 +477,7 @@ export default function Asistente() {
                   <button
                     onClick={() => {
                       setFlagging(false);
-                      setAttestChecked(false);
+                      setDraft({ ...draft, attested: false });
                     }}
                     className="pressable h-[52px] rounded-full bg-slate-100 px-5 text-[16px] font-medium text-slate-700"
                   >
@@ -502,9 +502,18 @@ export default function Asistente() {
                   <Icon name="doc" size={18} className="mt-0.5 shrink-0 text-slate-400" />
                   <span className="min-w-0 flex-1">
                     <span className="block break-words font-medium text-slate-900">{l.target.name}</span>
-                    {letterCoverage(l, items, locale).map((c) => (
-                      <span key={c} data-testid="letter-covers" className="block break-words text-[14px] text-slate-600">
-                        {c}
+                    {letterCoverageRows(l, items, session.itemReasons, locale).map((row) => (
+                      <span key={row.key} data-testid="letter-covers" className="mt-1 block break-words text-[14px] text-slate-600">
+                        {row.label}
+                        {/* The reason the customer gave, and the sentence the letter prints for it. */}
+                        {row.reasonLabel && (
+                          <span className="block text-[13px] text-slate-500">{d.items.reasonOf(row.reasonLabel)}</span>
+                        )}
+                        {row.sentence && (
+                          <span data-testid="reason-sentence" className="block text-[13px] text-slate-500">
+                            {d.items.inLetter} <span className="font-serif italic text-slate-700">{row.sentence}</span>
+                          </span>
+                        )}
                       </span>
                     ))}
                   </span>

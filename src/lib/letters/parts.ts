@@ -1,4 +1,5 @@
 import type { LetterTarget, ReportItem, UserProfile } from "../domain/types";
+import { getDisputeReason } from "./reasons";
 
 // The shared pieces every letter is built from: the context a template receives,
 // the header block, the item lines and the signature. The wording checks in
@@ -20,16 +21,39 @@ export interface LetterContext {
    * It is never generated or guessed; a letter without it simply omits the paragraph.
    */
   details?: string;
+  /**
+   * The standard reason the consumer picked for each item (reasons.ts), by item
+   * fingerprint. A letter that disputes accuracy prints the reason's sentence
+   * at the end of that item's line (not every letter does: see
+   * TEMPLATES_WITHOUT_REASONS in templates.ts). An item with no entry, or with
+   * a code that is not in the catalogue, is listed with no reason, exactly as
+   * before reasons existed. Nobody but the consumer chooses a reason.
+   */
+  itemReasons?: ItemReasons;
 }
+
+/** Item fingerprint → dispute reason code. */
+export type ItemReasons = Readonly<Record<string, string | undefined>>;
 
 export type LetterTemplate = (ctx: LetterContext) => string;
 
-export function itemLines(items: ReportItem[]): string {
+/**
+ * One "- " line per item. With `reasons`, an item the consumer gave a standard
+ * reason for ends with that reason's sentence, on the same line, so the line is
+ * still one item line for the wording checks:
+ *   - Midland Credit Management (****8821 · collection): This account is not mine; …
+ * Every template passes `ctx.itemReasons`; templates.ts decides which letters
+ * receive them (see TEMPLATES_WITHOUT_REASONS).
+ */
+export function itemLines(items: ReportItem[], reasons?: ItemReasons): string {
   return items
     .map((i) => {
       const d = i.data as Record<string, unknown>;
       const detail = [d.accountNumberMasked, d.date, d.status].filter(Boolean).join(" · ");
-      return `- ${i.name}${detail ? ` (${detail})` : ""}`;
+      const line = `- ${i.name}${detail ? ` (${detail})` : ""}`;
+      const code = reasons?.[i.fingerprint];
+      const reason = code ? getDisputeReason(code) : undefined;
+      return reason ? `${line}: ${reason.sentence}` : line;
     })
     .join("\n");
 }

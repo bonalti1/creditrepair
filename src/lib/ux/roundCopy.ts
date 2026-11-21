@@ -1,6 +1,8 @@
 import { ROUND_CYCLE_DAYS } from "../domain/attack";
 import type { PlannedLetter, ReportItem } from "../domain/types";
 import type { Locale } from "../i18n/dictionaries";
+import { letterPrintsReasons } from "../letters/templates";
+import { reasonLabel, reasonSentence } from "./disputeReason";
 import { itemLabel } from "./itemDisplay";
 import { letterItems, type SessionPlan } from "./sessionPlan";
 
@@ -34,6 +36,43 @@ function capitalise(value: string): string {
 export function letterCoverage(letter: PlannedLetter, items: ReportItem[], locale: Locale): string[] {
   const covered = letterItems(letter, items).map((i) => itemLabel(i, locale));
   return covered.length > 0 ? covered : [FILE_REQUEST[locale]];
+}
+
+export interface CoverageRow {
+  /** Stable key for lists: the item's fingerprint, or "file-request". */
+  key: string;
+  /** The item's label ("Nombre: R. BONALTI JR"), or the file request's name. */
+  label: string;
+  /** The reason the customer gave, in their language. Null when none was given. */
+  reasonLabel: string | null;
+  /** The English sentence this letter prints after the item. Null when it prints none. */
+  sentence: string | null;
+}
+
+/**
+ * What one letter covers, item by item, with the reason the customer gave for
+ * each and the sentence the letter prints for it. The sentence is shown only
+ * for letters that print reasons, so the card never shows a line the letter
+ * does not carry. An item confirmed before reasons existed has neither.
+ */
+export function letterCoverageRows(
+  letter: PlannedLetter,
+  items: ReportItem[],
+  reasons: Readonly<Record<string, string | undefined>>,
+  locale: Locale,
+): CoverageRow[] {
+  const covered = letterItems(letter, items);
+  if (covered.length === 0) return [{ key: "file-request", label: FILE_REQUEST[locale], reasonLabel: null, sentence: null }];
+  const prints = letterPrintsReasons(letter.templateKey);
+  return covered.map((item) => {
+    const code = reasons[item.fingerprint];
+    return {
+      key: item.fingerprint,
+      label: itemLabel(item, locale),
+      reasonLabel: reasonLabel(code, locale),
+      sentence: prints ? reasonSentence(code) : null,
+    };
+  });
 }
 
 /** "tu cobranza de Midland Credit Management" / "your Midland Credit Management collection". */

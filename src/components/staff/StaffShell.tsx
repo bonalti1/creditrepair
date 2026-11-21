@@ -22,8 +22,10 @@ export default function StaffShell({ children }: { children: React.ReactNode }) 
   const isActive = (href: string) => (href === "/equipo" ? pathname === "/equipo" : pathname.startsWith(href));
 
   return (
-    <div className="min-h-dvh">
-      <header className="sticky top-0 z-30 border-b hairline bg-white/80 backdrop-blur-xl">
+    // On paper there is no frame: the header and the footer are screen-only,
+    // so a printed page (see /equipo/imprimir) carries nothing but its content.
+    <div className="min-h-dvh print:min-h-0">
+      <header className="sticky top-0 z-30 border-b hairline bg-white/80 backdrop-blur-xl print:hidden">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 px-4 sm:px-6">
           <Link href="/equipo" aria-label="Inicio del equipo" className="flex h-14 items-center gap-2.5">
             <Logo size={19} />
@@ -57,10 +59,10 @@ export default function StaffShell({ children }: { children: React.ReactNode }) 
         </div>
       </header>
 
-      <div className="mx-auto max-w-6xl px-4 pb-10 pt-6 sm:px-6 sm:pt-8">{children}</div>
+      <div className="mx-auto max-w-6xl px-4 pb-10 pt-6 sm:px-6 sm:pt-8 print:m-0 print:max-w-none print:p-0">{children}</div>
 
       {demo && (
-        <footer className="mx-auto max-w-6xl px-4 pb-10 sm:px-6">
+        <footer className="mx-auto max-w-6xl px-4 pb-10 sm:px-6 print:hidden">
           <p className="border-t hairline pt-4 text-xs leading-relaxed text-slate-500">
             Demostración: los clientes son inventados y nada se envía por correo. Lo que hagas aquí se guarda solo en
             este navegador.{" "}

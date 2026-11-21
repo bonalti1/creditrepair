@@ -6,8 +6,12 @@ import type { Bilingual } from "./library";
 // first-person sentence that can follow the item's line in a letter, and the
 // template that fits it best.
 //
-// Not wired into the UI or the round engine yet; that is a later step. A reason
-// is the client's own statement. Nobody picks one for them.
+// The client picks the reason when they mark an item as inaccurate (the review
+// screens, through ux/disputeReason.ts), it is stored with their answer
+// (item_flags.reason_code), and letters that dispute accuracy print its
+// sentence on the item's line (parts.ts: itemLines). The round engine does not
+// use `suggestedTemplate` yet: it still picks the template by category and stage.
+// A reason is the client's own statement. Nobody picks one for them.
 
 export type DisputeReasonCode =
   | "not_mine"

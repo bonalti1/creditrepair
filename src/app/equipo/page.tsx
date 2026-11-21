@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { count } from "@/lib/staff/format";
 import { exceptionMessage, whatsappHref } from "@/lib/staff/messages";
+import { roundRefsHref } from "@/lib/staff/printBatch";
 import {
   ACTOR_LABEL,
   clientExceptions,
@@ -21,7 +22,14 @@ import {
 import { fullName, type StaffClient, type StaffRound } from "@/lib/staff/types";
 import { useStaff } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
-import { PRIMARY_BUTTON, QUIET_BUTTON, ROW_BUTTON, SectionTitle, SeverityDot } from "@/components/staff/ui";
+import {
+  PRIMARY_BUTTON_COMPACT,
+  QUIET_BUTTON,
+  ROW_BUTTON,
+  SECONDARY_BUTTON_COMPACT,
+  SectionTitle,
+  SeverityDot,
+} from "@/components/staff/ui";
 
 // The team's home. One list of what needs a person, each with the one button
 // that fixes it. One block to mail every prepared round at once. Everything
@@ -250,16 +258,29 @@ export default function EquipoHome() {
                     ))}
                   </ul>
                   <div className="border-t hairline px-5 py-4">
-                    <button
-                      type="button"
-                      onClick={sendChosen}
-                      disabled={chosen.length === 0 || sending}
-                      className={`${PRIMARY_BUTTON} w-full`}
-                    >
-                      {chosen.length === 0 ? "Elige qué enviar" : `Enviar ${count(chosen.length, "ronda", "rondas")}`}
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={sendChosen}
+                        disabled={chosen.length === 0 || sending}
+                        className={`${PRIMARY_BUTTON_COMPACT} ${chosen.length === 0 ? "col-span-2" : ""}`}
+                      >
+                        {chosen.length === 0 ? "Elige qué enviar" : `Enviar ${count(chosen.length, "ronda", "rondas")}`}
+                      </button>
+                      {/* The other way to get them out: print here, mail by hand. */}
+                      {chosen.length > 0 && (
+                        <Link
+                          href={roundRefsHref(chosen.map((s) => ({ clientId: s.client.id, roundNumber: s.round.number })))}
+                          className={SECONDARY_BUTTON_COMPACT}
+                          data-testid="print-batch"
+                        >
+                          Imprimir {count(chosen.length, "ronda", "rondas")}
+                        </Link>
+                      )}
+                    </div>
                     <p className="pt-2.5 text-xs leading-relaxed text-slate-500">
-                      Cada carta lleva solo lo que el cliente confirmó como inexacto.
+                      Cada carta lleva solo lo que el cliente confirmó como inexacto. «Imprimir» abre las cartas para
+                      imprimirlas aquí y enviarlas a mano.
                       {data.demo && " En la demo no se envía nada: solo quedan marcadas como enviadas."}
                     </p>
                   </div>

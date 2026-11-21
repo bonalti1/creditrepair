@@ -5,6 +5,7 @@ import Link from "next/link";
 import { DEMO_REPORT } from "@/lib/demo";
 import { renderLetter } from "@/lib/letters/templates";
 import type { PlannedLetter } from "@/lib/domain/types";
+import type { ItemReasons } from "@/lib/letters/parts";
 import { getStageExplainers } from "@/lib/ux/explainers";
 import { countByState, useFlags } from "@/lib/ux/flagsStore";
 import { letterCoverage, waitingNote } from "@/lib/ux/roundCopy";
@@ -37,7 +38,7 @@ export default function Attack() {
   // items, the plan jumps straight to round 2 so the attack isn't empty.
   // Once approved, the page keeps showing the letters as they were approved.
   const session = useMemo(() => sessionPlan(DEMO_REPORT.items, roundFlags), [roundFlags]);
-  const { attestedFlags, roundNumber, plan, inRound } = session;
+  const { attestedFlags, roundNumber, plan, inRound, itemReasons } = session;
   // Confirmed items that are not in these letters, said plainly before approving.
   const waiting = waitingNote(session, locale);
 
@@ -88,6 +89,7 @@ export default function Attack() {
             open={openLetter === idx}
             onToggle={() => setOpenLetter(openLetter === idx ? null : idx)}
             roundNumber={roundNumber}
+            itemReasons={itemReasons}
             first={idx === 0}
           />
         ))}
@@ -144,12 +146,15 @@ function LetterCard({
   open,
   onToggle,
   roundNumber,
+  itemReasons,
   first,
 }: {
   letter: PlannedLetter;
   open: boolean;
   onToggle: () => void;
   roundNumber: number;
+  /** The reason the customer gave for each confirmed item: the letter prints its sentence after the item. */
+  itemReasons: ItemReasons;
   first: boolean;
 }) {
   const { locale, d } = useLocale();
@@ -166,8 +171,9 @@ function LetterCard({
       items,
       date: new Date().toISOString(),
       roundNumber,
+      itemReasons,
     });
-  }, [letter, roundNumber]);
+  }, [letter, roundNumber, itemReasons]);
 
   return (
     <div className={first ? "" : "border-t hairline"}>

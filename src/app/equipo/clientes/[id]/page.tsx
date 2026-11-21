@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Bureau } from "@/lib/domain/types";
-import { ENCLOSURE_LABELS } from "@/lib/letters/enclosures";
-import { renderLetter } from "@/lib/letters/templates";
 import { count, formatPhone, longDay, relativeDay, shortDay } from "@/lib/staff/format";
+import { staffLetterText } from "@/lib/staff/letters";
 import { exceptionMessage, STAFF_MESSAGE_RULES, whatsappHref } from "@/lib/staff/messages";
+import { roundRefsHref } from "@/lib/staff/printBatch";
 import {
   clientExceptions,
   clientStage,
@@ -35,6 +35,7 @@ import {
   type StaffRound,
 } from "@/lib/staff/types";
 import { staffAuthor, useStaff } from "@/lib/staff/useStaff";
+import { reasonLabel } from "@/lib/ux/disputeReason";
 import { itemFacts, itemTitle } from "@/lib/ux/itemDisplay";
 import Icon from "@/components/Icon";
 import ItemFacts from "@/components/ItemFacts";
@@ -95,20 +96,36 @@ function AnswerChip({ answer }: { answer: ItemAnswer | undefined }) {
   return <Chip tone={WAITING_TONE}>Sin responder</Chip>;
 }
 
-function Letter({ client, round, letter, now }: { client: StaffClient; round: StaffRound; letter: StaffLetter; now: Date }) {
-  // The text as it is mailed. Letters are in English: that is the language the bureaus work in.
-  const body = useMemo(
-    () =>
-      renderLetter(letter.templateKey, {
-        user: { id: client.id, fullName: fullName(client), addressLines: client.addressLines, locale: "es" },
-        target: letter.recipient,
-        items: letter.items,
-        date: round.mailedAt ?? now.toISOString(),
-        roundNumber: round.number,
-        enclosures: REQUIRED_DOCUMENTS.filter((kind) => client.documents.includes(kind)).map((kind) => ENCLOSURE_LABELS[kind]!),
-      }),
-    [client, round, letter, now],
+/**
+ * The reason the client picked, beside their "Inexacto" answer. An item
+ * confirmed before reasons existed has none: it still counts, its letter line
+ * carries no reason, and it is marked quietly so the team knows why.
+ */
+function AnswerReason({ answer }: { answer: ItemAnswer | undefined }) {
+  if (answer?.status !== "inaccurate") return null;
+  const label = reasonLabel(answer.reasonCode, "es");
+  if (!label) {
+    return (
+      <span
+        data-testid="sin-motivo"
+        title="Confirmado antes de que se pidiera un motivo. Cuenta igual; su línea en la carta va sin motivo."
+        className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-slate-300 px-2 py-0.5 text-[11px] font-medium text-slate-500"
+      >
+        sin motivo
+      </span>
+    );
+  }
+  return (
+    <span data-testid="answer-reason" className="min-w-0 break-words text-right text-[13px] leading-snug text-slate-600">
+      {label}
+    </span>
   );
+}
+
+function Letter({ client, round, letter, now }: { client: StaffClient; round: StaffRound; letter: StaffLetter; now: Date }) {
+  // The text as it is mailed, with the reason the client gave after each item.
+  // Letters are in English: that is the language the bureaus work in.
+  const body = useMemo(() => staffLetterText(client, round, letter, now), [client, round, letter, now]);
   const current = new Set(client.report?.items.map((i) => i.fingerprint));
   const answered = round.status === "responded";
 
@@ -362,12 +379,21 @@ export default function ClientePage() {
                             </p>
                             <p className="break-words text-[15px] font-medium leading-snug text-slate-900">{title}</p>
                           </div>
-                          <AnswerChip answer={answer} />
+                          <div className="flex max-w-[55%] shrink-0 flex-wrap items-center justify-end gap-1.5">
+                            <AnswerReason answer={answer} />
+                            <AnswerChip answer={answer} />
+                          </div>
                         </div>
                         {answer?.status === "inaccurate" && (
                           <p className="mt-1 text-[14px] leading-snug text-slate-600">
                             {answer.reason ? `«${answer.reason}» ` : ""}
                             <span className="text-slate-500">Confirmado por el cliente el {shortDay(answer.confirmedAt)}.</span>
+                          </p>
+                        )}
+                        {answer?.status === "inaccurate" && answer.reasonCode === "identity_theft" && (
+                          <p className="mt-1 text-[13px] leading-snug text-slate-500">
+                            Este motivo requiere un reporte de robo de identidad de la FTC.{" "}
+                            {client.documents.includes("identity_theft_report") ? "Está en archivo." : "Todavía no está en archivo."}
                           </p>
                         )}
                         {facts.length > 0 && (
@@ -408,7 +434,19 @@ export default function ClientePage() {
                           {r.respondedAt ? ` · reporte nuevo el ${shortDay(r.respondedAt)}` : ""}
                         </p>
                       </div>
-                      <Chip tone={ROUND_STATUS[r.status].tone}>{ROUND_STATUS[r.status].label}</Chip>
+                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                        {/* Printing is offered for the round that can go out now, and only for it. */}
+                        {round && r.number === round.number && (
+                          <Link
+                            href={roundRefsHref([{ clientId: client.id, roundNumber: r.number }])}
+                            className={ROW_BUTTON}
+                            data-testid="print-round"
+                          >
+                            Imprimir esta ronda
+                          </Link>
+                        )}
+                        <Chip tone={ROUND_STATUS[r.status].tone}>{ROUND_STATUS[r.status].label}</Chip>
+                      </div>
                     </div>
                     <ul>
                       {r.letters.map((letter) => (

@@ -62,6 +62,9 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/staff/data.ts`, `src/lib/staff/demoClients.ts` | Where the console gets clients: the interface, the demo implementation (invented clients), and the marked place for the database one |
 | `src/app/equipo/` | Staff console: home (exceptions, batch send, pipeline), client list, client page, invite. Open in the demo; staff-only when Supabase is configured |
 | `supabase/migrations/0007_staff.sql` | `staff_members`, `is_staff()`, and read-only staff policies on client tables |
+| `src/lib/letters/reasons.ts`, `src/lib/ux/disputeReason.ts`, `src/components/DisputeFields.tsx` | A stated reason for every disputed item: the catalogue, the rule that a reason (and a note for "other") is required to confirm, and the picker both review screens share. The letter prints the reason's sentence on the item's line; the client's own words are never printed |
+| `supabase/migrations/0008_dispute_reason.sql` | `item_flags.reason_code` (nullable: answers confirmed earlier have none). Apply it before deploying the code that reads it |
+| `src/lib/staff/printBatch.ts`, `src/app/equipo/imprimir` | Print a batch of letters locally (US Letter, #10 window envelope, cover sheet and enclosure slips) and mark the rounds as mailed |
 | `content/` | Ad content kit: locked mascot, spot files, claim gate, assembly and transcript check — see `content/README.md` |
 
 ## Load-bearing invariants

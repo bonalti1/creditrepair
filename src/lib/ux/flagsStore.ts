@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { DisputeReasonCode } from "../letters/reasons";
+import { isDisputeReasonCode } from "./disputeReason";
 
 // Shared review state so the user's decisions follow them across pages
 // (dashboard, item wizard, attack builder). One of the core "10x" bets: the
@@ -12,7 +14,13 @@ export type ReviewState = "correct" | "flagged" | "attested";
 
 export interface StoredFlag {
   state: ReviewState;
+  /** The customer's own words about what is wrong. Never printed in a letter. */
   reason?: string;
+  /**
+   * The standard reason picked from the catalogue (letters/reasons.ts): what the
+   * letter prints after the item. Missing on answers saved before reasons existed.
+   */
+  reasonCode?: DisputeReasonCode;
   attestedAt?: string;
 }
 
@@ -33,6 +41,30 @@ function load<T>(key: string, fallback: T): T {
   }
 }
 
+const STATES: ReadonlySet<string> = new Set(["correct", "flagged", "attested"]);
+
+/**
+ * Stored answers as this version reads them. The saved shape only ever gained
+ * fields, so answers saved before reasons existed load unchanged, without a
+ * reason code. An entry that is not an answer is dropped; a reason code that
+ * is not in the catalogue is dropped and the answer itself is kept.
+ */
+export function normalizeFlags(raw: unknown): FlagsMap {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const flags: FlagsMap = {};
+  for (const [fingerprint, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== "object") continue;
+    const v = value as Record<string, unknown>;
+    if (typeof v.state !== "string" || !STATES.has(v.state)) continue;
+    const flag: StoredFlag = { state: v.state as ReviewState };
+    if (typeof v.reason === "string") flag.reason = v.reason;
+    if (isDisputeReasonCode(v.reasonCode)) flag.reasonCode = v.reasonCode;
+    if (typeof v.attestedAt === "string") flag.attestedAt = v.attestedAt;
+    flags[fingerprint] = flag;
+  }
+  return flags;
+}
+
 export function useFlags() {
   const [flags, setFlags] = useState<FlagsMap>({});
   const [roundApproved, setRoundApprovedState] = useState(false);
@@ -41,18 +73,19 @@ export function useFlags() {
   const [synced, setSynced] = useState(false);
 
   useEffect(() => {
-    setFlags(load<FlagsMap>(STORAGE_KEY, {}));
+    setFlags(normalizeFlags(load<unknown>(STORAGE_KEY, {})));
     setRoundApprovedState(load<boolean>(APPROVED_KEY, false));
-    setMailedFlags(load<FlagsMap | null>(MAILED_KEY, null));
+    const mailed = load<unknown>(MAILED_KEY, null);
+    setMailedFlags(mailed ? normalizeFlags(mailed) : null);
     setHydrated(true);
 
     // When signed in, the server copy (item_flags, RLS-scoped) is the source
     // of truth; localStorage remains the demo/offline cache.
     fetch("/api/flags")
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { authenticated: boolean; flags: FlagsMap } | null) => {
+      .then((data: { authenticated: boolean; flags: unknown } | null) => {
         if (data?.authenticated) {
-          setFlags(data.flags);
+          setFlags(normalizeFlags(data.flags));
           setSynced(true);
         }
       })
@@ -69,12 +102,12 @@ export function useFlags() {
   }, []);
 
   const writeThrough = useCallback(
-    (fingerprint: string, state: ReviewState | null, reason?: string) => {
+    (fingerprint: string, state: ReviewState | null, reason?: string, reasonCode?: DisputeReasonCode) => {
       if (!synced) return;
       fetch("/api/flags", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fingerprint, state, reason, locale: "es" }),
+        body: JSON.stringify({ fingerprint, state, reason, reasonCode, locale: "es" }),
       }).catch(() => undefined);
     },
     [synced],
@@ -83,7 +116,7 @@ export function useFlags() {
   const review = useCallback(
     (fingerprint: string, state: ReviewState, extra?: Partial<StoredFlag>) => {
       persist({ ...flags, [fingerprint]: { state, ...extra } });
-      writeThrough(fingerprint, state, extra?.reason);
+      writeThrough(fingerprint, state, extra?.reason, extra?.reasonCode);
     },
     [flags, persist, writeThrough],
   );

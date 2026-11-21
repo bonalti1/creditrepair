@@ -1,6 +1,7 @@
 import { buildAttackPlan } from "../domain/attack";
 import { parseReport, type RawReport } from "../domain/parser";
 import type { ItemFlag, NormalizedReport, ReportItem } from "../domain/types";
+import type { DisputeReasonCode } from "../letters/reasons";
 import { DEMO_RAW_REPORT } from "../demo";
 import type { ItemAnswer, MailStatus, RoundStatus, StaffClient, StaffLetter, StaffRound } from "./types";
 
@@ -67,30 +68,47 @@ function rawReport(person: { first: string; last: string; city: string; zip: str
   return raw;
 }
 
-function ownReason(item: ReportItem): string | null {
+/** What an invented client said is wrong with an item: the standard reason they picked and their own words. */
+function ownReason(item: ReportItem): { code: DisputeReasonCode; note: string } | null {
   const data = item.data as { field?: string; accountType?: string };
   if (item.category === "personal_info") {
-    if (data.field === "address") return "Nunca he vivido en esta dirección.";
-    if (data.field === "name") return "Así no se escribe mi nombre.";
-    return "Nunca trabajé para esta empresa.";
+    if (data.field === "address") return { code: "wrong_personal_info", note: "Nunca he vivido en esta dirección." };
+    if (data.field === "name") return { code: "wrong_personal_info", note: "Así no se escribe mi nombre." };
+    return { code: "wrong_personal_info", note: "Nunca trabajé para esta empresa." };
   }
   if (item.category === "tradeline") {
     if (data.accountType !== "collection") return null;
-    return item.name === "Sample Medical Collections" ? "El saldo no coincide con lo que debo." : "No reconozco esta deuda.";
+    return item.name === "Sample Medical Collections"
+      ? { code: "wrong_balance", note: "El saldo no coincide con lo que debo." }
+      : { code: "not_mine", note: "No reconozco esta deuda." };
   }
   if (item.category === "inquiry") {
-    return item.name === "Auto Finance Corp" ? null : "No autoricé esta consulta.";
+    return item.name === "Auto Finance Corp" ? null : { code: "unauthorized_inquiry", note: "No autoricé esta consulta." };
   }
   return null;
 }
 
-/** The client's answers: the first `answered` items of the report, in report order. */
-function answersFor(report: NormalizedReport, answered: number, at: string): Record<string, ItemAnswer> {
+/**
+ * The client's answers: the first `answered` items of the report, in report
+ * order. `withReasonCodes: false` is a client who confirmed before the reason
+ * picker existed: the same answers and the same words, with no reason code.
+ */
+function answersFor(
+  report: NormalizedReport,
+  answered: number,
+  at: string,
+  withReasonCodes = true,
+): Record<string, ItemAnswer> {
   const answers: Record<string, ItemAnswer> = {};
   report.items.slice(0, answered).forEach((item) => {
     const reason = ownReason(item);
     answers[item.fingerprint] = reason
-      ? { status: "inaccurate", reason, confirmedAt: at }
+      ? {
+          status: "inaccurate",
+          reason: reason.note,
+          ...(withReasonCodes ? { reasonCode: reason.code } : {}),
+          confirmedAt: at,
+        }
       : { status: "correct", answeredAt: at };
   });
   return answers;
@@ -122,6 +140,13 @@ function lettersFor(
     category: letter.category,
     stage: letter.stage,
     items: letter.itemFingerprints.flatMap((fp) => byFingerprint.get(fp) ?? []),
+    // The reason each item carried when the letter was written. Only the client's own choice gets here.
+    itemReasons: Object.fromEntries(
+      letter.itemFingerprints.flatMap((fp) => {
+        const answer = answers[fp];
+        return answer?.status === "inaccurate" && answer.reasonCode ? [[fp, answer.reasonCode]] : [];
+      }),
+    ),
     mailStatus,
   }));
 }
@@ -150,13 +175,17 @@ export function buildDemoClients(now: Date): StaffClient[] {
     answeredDaysAgo?: number;
     lastActivityDaysAgo: number;
     billing?: StaffClient["billing"];
+    /** True for a client who answered before the reason picker existed: answers without a reason code. */
+    beforeReasons?: boolean;
   }
 
   const people = new Map<string, { first: string; last: string; city: string; zip: string }>();
+  const answeredBeforeReasons = new Set<string>();
 
   const make = (seed: Seed): StaffClient => {
     const person = { first: seed.first, last: seed.last, city: seed.city, zip: seed.zip };
     people.set(seed.id, person);
+    if (seed.beforeReasons) answeredBeforeReasons.add(seed.id);
     let report: NormalizedReport | null = null;
     let answers: Record<string, ItemAnswer> = {};
     if (seed.report) {
@@ -170,6 +199,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
         report,
         seed.answered ?? report.items.length,
         ago(seed.answeredDaysAgo ?? Math.max(0, seed.report.pulledDaysAgo - 1)),
+        !seed.beforeReasons,
       );
     }
     const signedUp = seed.signedUpDaysAgo !== undefined;
@@ -224,7 +254,10 @@ export function buildDemoClients(now: Date): StaffClient[] {
     const raw = rawReport(people.get(client.id)!, seed.shape);
     raw.pulledAt = ago(seed.pulledDaysAgo);
     const report = parseReport(raw);
-    return { report, answers: answersFor(report, report.items.length, ago(seed.pulledDaysAgo - 1)) };
+    return {
+      report,
+      answers: answersFor(report, report.items.length, ago(seed.pulledDaysAgo - 1), !answeredBeforeReasons.has(client.id)),
+    };
   };
 
   const both: StaffClient["documents"] = ["government_id", "proof_of_address"];
@@ -315,19 +348,23 @@ export function buildDemoClients(now: Date): StaffClient[] {
   graciela.rounds = [round(graciela, 1, "mailed", { mailedDaysAgo: 9 })];
   graciela.rounds[0]!.letters[1]!.mailStatus = "returned";
 
-  // 12. Mailed 35 days ago and no new report has come in.
+  // 12. Mailed 35 days ago and no new report has come in. He answered before
+  // the reason picker existed: his answers count and carry no reason code.
   const heriberto = make({
     id: "c12", first: "Heriberto", last: "Solís", phone: "+12105550112", city: "San Antonio", zip: "78207",
     salesperson: "ana", createdDaysAgo: 46, signedUpDaysAgo: 45, agreementDaysAgo: 44, documents: both,
     report: { pulledDaysAgo: 40, shape: "base" }, answeredDaysAgo: 37, lastActivityDaysAgo: 21,
+    beforeReasons: true,
   });
   heriberto.rounds = [round(heriberto, 1, "mailed", { mailedDaysAgo: 35 })];
 
   // 13. Answers arrived two days ago; the system prepares round 2 next week.
+  // She also answered before the reason picker existed.
   const paulina = make({
     id: "c13", first: "Paulina", last: "Arriaga", phone: "+12145550113", city: "Dallas", zip: "75206",
     salesperson: "carmen", createdDaysAgo: 44, signedUpDaysAgo: 43, agreementDaysAgo: 42, documents: both,
     report: { pulledDaysAgo: 2, shape: "base", withoutOldAddress: true }, answeredDaysAgo: 35, lastActivityDaysAgo: 2,
+    beforeReasons: true,
   });
   {
     const first = earlier(paulina, { shape: "base", pulledDaysAgo: 37 });

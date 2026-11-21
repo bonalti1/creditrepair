@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { DEMO_REPORT } from "@/lib/demo";
-import { ATTESTATION_TEXT } from "@/lib/compliance/attestation";
 import { getCategoryExplainers, getTermGlossary } from "@/lib/ux/explainers";
 import { crossBureauNote } from "@/lib/ux/crossBureau";
+import { canConfirmDispute, reasonLabel } from "@/lib/ux/disputeReason";
+import type { DisputeReasonCode } from "@/lib/letters/reasons";
 import { useFlags } from "@/lib/ux/flagsStore";
 import { itemCheckHints, itemFacts, itemKindLine, itemTitle } from "@/lib/ux/itemDisplay";
 import { nextAction, sessionJourneyState } from "@/lib/ux/journey";
 import { useLocale } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/dictionaries";
+import DisputeFields, { EMPTY_DRAFT } from "@/components/DisputeFields";
 import Icon from "@/components/Icon";
 import ItemFacts from "@/components/ItemFacts";
 import { InfoNote } from "@/components/RoundNotes";
@@ -113,13 +115,10 @@ export default function Items() {
             review(current.fingerprint, "correct");
             setFocus(null);
           }}
-          onFlag={(reason) => {
-            review(current.fingerprint, "flagged", { reason });
-            setFocus(null);
-          }}
-          onAttest={(reason) => {
+          onAttest={(reasonCode, reason) => {
             review(current.fingerprint, "attested", {
               reason,
+              reasonCode,
               attestedAt: new Date().toISOString(),
             });
             setFocus(null);
@@ -164,6 +163,12 @@ export default function Items() {
                 {f?.state === "attested" && f.attestedAt && (
                   <p className="mt-2 text-[13px] font-medium tabular-nums text-blue-700">
                     {d.items.attestedOn(new Date(f.attestedAt).toLocaleString(locale === "es" ? "es-MX" : "en-US"))}
+                  </p>
+                )}
+                {/* The reason the customer gave. An answer confirmed before reasons existed shows none. */}
+                {f?.state === "attested" && reasonLabel(f.reasonCode, locale) && (
+                  <p data-testid="item-reason" className="mt-0.5 break-words text-[13px] text-slate-600">
+                    {d.items.reasonOf(reasonLabel(f.reasonCode, locale)!)}
                   </p>
                 )}
                 {f?.state === "correct" && (
@@ -220,7 +225,6 @@ function WizardCard({
   otherBureaus,
   lettersOut,
   onCorrect,
-  onFlag,
   onAttest,
 }: {
   item: (typeof DEMO_REPORT.items)[number];
@@ -230,13 +234,15 @@ function WizardCard({
   /** True when this round's letters were already approved: a changed answer counts from the next round. */
   lettersOut: boolean;
   onCorrect: () => void;
-  onFlag: (reason: string) => void;
-  onAttest: (reason: string) => void;
+  /** The customer confirmed: the standard reason they picked and their own words (may be empty). */
+  onAttest: (reasonCode: DisputeReasonCode, note: string) => void;
 }) {
   const { locale, d } = useLocale();
   const [flagging, setFlagging] = useState(false);
-  const [reason, setReason] = useState("");
-  const [attestChecked, setAttestChecked] = useState(false);
+  /** The reason, the customer's own words and the attestation checkbox. */
+  const [draft, setDraft] = useState(EMPTY_DRAFT);
+  // A reason, the customer's words when the reason is "other", and the attestation checkbox.
+  const canConfirm = canConfirmDispute(item.category, draft);
   const explainer = getCategoryExplainers(locale)[item.category];
   const glossary = glossaryFor(item.data as Record<string, unknown>, locale);
   const heading = itemTitle(item, locale);
@@ -324,30 +330,13 @@ function WizardCard({
         </div>
       ) : (
         <div className="border-t hairline px-5 py-5">
-          <label htmlFor="reason" className="block text-[15px] font-medium leading-snug text-slate-900">
-            {d.items.reasonLabel}
-          </label>
-          <textarea
-            id="reason"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder={d.items.reasonPlaceholder}
-            rows={3}
-            className="mt-2 block w-full resize-none rounded-2xl bg-slate-100 px-4 py-3 text-[16px] leading-snug text-slate-900 outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-300"
-          />
-          <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl bg-blue-50 p-4 text-[15px] leading-snug text-slate-900">
-            <input
-              type="checkbox"
-              checked={attestChecked}
-              onChange={(e) => setAttestChecked(e.target.checked)}
-              className="mt-0.5 h-5 w-5 shrink-0 accent-blue-700"
-            />
-            <span>{ATTESTATION_TEXT[locale]}</span>
-          </label>
+          <DisputeFields category={item.category} draft={draft} onChange={setDraft} />
           <div className="mt-4 grid gap-2.5">
             <button
-              onClick={() => (attestChecked ? onAttest(reason) : onFlag(reason))}
-              disabled={!attestChecked}
+              onClick={() => {
+                if (canConfirm) onAttest(draft.reasonCode as DisputeReasonCode, draft.note.trim());
+              }}
+              disabled={!canConfirm}
               className="pressable h-14 rounded-full bg-amber-400 px-5 text-[17px] font-semibold text-blue-900 enabled:hover:bg-amber-500 disabled:bg-slate-200 disabled:text-slate-500"
             >
               {d.items.confirm}
@@ -355,14 +344,14 @@ function WizardCard({
             <button
               onClick={() => {
                 setFlagging(false);
-                setAttestChecked(false);
+                setDraft({ ...draft, attested: false });
               }}
               className="pressable h-12 rounded-full bg-slate-100 px-5 text-[16px] font-medium text-slate-900 hover:bg-slate-200"
             >
               {d.items.back}
             </button>
           </div>
-          {!attestChecked && (
+          {!draft.attested && (
             <p className="mt-3 text-[13px] leading-relaxed text-slate-500">{d.items.attestationRequired}</p>
           )}
         </div>

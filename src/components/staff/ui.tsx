@@ -56,9 +56,20 @@ export function SectionTitle({ children, aside }: { children: React.ReactNode; a
   );
 }
 
+const PRIMARY_LOOK =
+  "pressable inline-flex items-center justify-center rounded-full bg-amber-400 font-semibold text-blue-900 hover:bg-amber-500 disabled:bg-slate-200 disabled:text-slate-500";
+const SECONDARY_LOOK =
+  "pressable inline-flex items-center justify-center rounded-full bg-slate-100 font-semibold text-slate-900 hover:bg-slate-200 disabled:text-slate-400";
+
 /** The one gold button of a region: navy text on gold. */
-export const PRIMARY_BUTTON =
-  "pressable inline-flex h-12 items-center justify-center rounded-full bg-amber-400 px-6 text-[16px] font-semibold text-blue-900 hover:bg-amber-500 disabled:bg-slate-200 disabled:text-slate-500";
+export const PRIMARY_BUTTON = `${PRIMARY_LOOK} h-12 px-6 text-[16px]`;
+
+/** A second action beside the gold button: same height, quiet colour. */
+export const SECONDARY_BUTTON = `${SECONDARY_LOOK} h-12 px-5 text-[15px]`;
+
+/** The same pair where two buttons share a narrow column, side by side. */
+export const PRIMARY_BUTTON_COMPACT = `${PRIMARY_LOOK} h-12 whitespace-nowrap px-3 text-[14px]`;
+export const SECONDARY_BUTTON_COMPACT = `${SECONDARY_LOOK} h-12 whitespace-nowrap px-3 text-[14px]`;
 
 /** The fix for one row: clear, but not competing with the gold button. */
 export const ROW_BUTTON =
