@@ -35,6 +35,12 @@ import {
 // The team's home. One list of what needs a person, each with the one button
 // that fixes it. One block to mail every prepared round at once. Everything
 // else is shown as status, because it moves on its own.
+//
+// Billing is in the last group. The system charges each round after it is
+// mailed and retries a declined payment by itself; nothing on this page asks
+// anyone to charge a client. Money reaches the first list only when it needs
+// a person: the retries are used up, or a charge is due and there is no
+// payment method on file.
 
 const SEVERITY_RANK = { high: 0, medium: 1, low: 2 } as const;
 
@@ -72,6 +78,9 @@ export default function EquipoHome() {
         SEVERITY_RANK[a.exception.severity] - SEVERITY_RANK[b.exception.severity] ||
         (a.exception.since ?? "").localeCompare(b.exception.since ?? ""),
     );
+    // What the system does soonest comes first (a charge tomorrow, a retry), then whoever a person is waited on.
+    const when = (client: StaffClient) => nextStep(client, now).at ?? "9999";
+    quiet.sort((a, b) => when(a).localeCompare(when(b)));
     return { exceptions, sendable, quiet, byStage };
   }, [clients, now]);
 
@@ -250,6 +259,12 @@ export default function EquipoHome() {
                             Ronda {round.number} · {count(round.letters.length, "carta", "cartas")} ·{" "}
                             {count(roundItemCount(round), "punto", "puntos")}
                           </span>
+                          {/* Not a reason to hold the letters: the charge comes after, and the client is asked then. */}
+                          {!client.billing.paymentMethod && (
+                            <span className="block text-[13px] text-slate-500" data-testid="no-method-note">
+                              Todavía sin método de pago
+                            </span>
+                          )}
                         </label>
                         <Link
                           href={`/equipo/clientes/${client.id}#cartas`}

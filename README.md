@@ -14,7 +14,8 @@ fulfillment. The client can read the letters and follow their status.
 
 Credalti charges a monthly service fee, separate from the monitoring
 subscription the client pays to the monitoring provider. Amounts are not
-decided and no price is written anywhere in the app; billing is not built.
+decided and no price is written anywhere in the app. Billing charges only for
+work already done (a round of letters mailed); see `docs/BILLING.md`.
 The engine underneath follows the spec in `Bonalti Credit SaaS — Spec v2`
 (Dispute Beast architecture + Armor), which was written for a do-it-yourself
 product.

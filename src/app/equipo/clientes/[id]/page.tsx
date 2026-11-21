@@ -31,7 +31,6 @@ import { deadlineOf } from "@/lib/agreement/gate";
 import {
   fullName,
   REQUIRED_DOCUMENTS,
-  type BillingStatus,
   type DocumentKind,
   type ItemAnswer,
   type MailStatus,
@@ -45,6 +44,7 @@ import { reasonLabel } from "@/lib/ux/disputeReason";
 import { itemFacts, itemTitle } from "@/lib/ux/itemDisplay";
 import Icon from "@/components/Icon";
 import ItemFacts from "@/components/ItemFacts";
+import BillingCard from "@/components/staff/BillingCard";
 import Conversation from "@/components/staff/Conversation";
 import ReportImport from "@/components/staff/ReportImport";
 import {
@@ -63,7 +63,9 @@ import {
 // the stage, what happens next and who does it. Below it, everything on file:
 // what needs a person, the client's conversation (with a box to answer in
 // it), the report with the client's own answers (and the way to bring a new
-// report in), the letters of each round, documents, history and notes.
+// report in), the letters of each round, the agreement, billing (what was
+// charged and for which round, and what the system charges next), documents,
+// history and notes.
 //
 // The client's answers are shown, never edited: staff cannot mark an item as
 // inaccurate here or anywhere else in the console.
@@ -90,13 +92,6 @@ const MAIL_STATUS: Record<MailStatus, { label: string; tone: string }> = {
   delivered: { label: "Entregada", tone: "bg-green-50 text-green-700" },
   returned: { label: "Devuelta", tone: "bg-red-50 text-red-700" },
   undeliverable: { label: "No se pudo entregar", tone: "bg-red-50 text-red-700" },
-};
-
-const BILLING: Record<BillingStatus, { label: string; tone: string }> = {
-  none: { label: "Sin cobro todavía", tone: "bg-slate-100 text-slate-600" },
-  active: { label: "Al corriente", tone: "bg-green-50 text-green-700" },
-  past_due: { label: "Pago vencido", tone: "bg-red-50 text-red-700" },
-  canceled: { label: "Cancelado", tone: "bg-slate-100 text-slate-600" },
 };
 
 function AnswerChip({ answer }: { answer: ItemAnswer | undefined }) {
@@ -611,12 +606,6 @@ export default function ClientePage() {
               </ul>
               <dl className="mt-4 space-y-2.5 border-t hairline pt-4 text-[14px]">
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-slate-500">Pago</dt>
-                  <dd>
-                    <Chip tone={BILLING[client.billing].tone}>{BILLING[client.billing].label}</Chip>
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
                   <dt className="text-slate-500">Invitación</dt>
                   <dd>
                     <Link
@@ -655,6 +644,8 @@ export default function ClientePage() {
               </p>
             </div>
           </section>
+
+          <BillingCard client={client} data={data} now={now} onChanged={reload} />
 
           <section aria-labelledby="documentos">
             <SectionTitle>

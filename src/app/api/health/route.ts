@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { agreementReadiness } from "@/lib/agreement/readiness";
+import { billingReadiness } from "@/lib/billing/readiness";
 import { MONITORING_OFFER } from "@/lib/monitoring/offer";
 import { hasSharedSecret } from "@/lib/security/signatures";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -15,6 +16,7 @@ const TABLES = [
   "profiles", "monitoring_subscriptions", "report_pulls", "report_items", "item_flags",
   "attack_rounds", "letters", "letter_items", "aba_acknowledgments", "events", "waitlist", "identity_documents", "chat_messages",
   "service_agreements",
+  "payment_methods", "payment_method_vault", "charges", "refunds", "billing_pauses",
 ];
 
 export async function GET(req: Request) {
@@ -82,6 +84,16 @@ export async function GET(req: Request) {
         ]
           .filter(Boolean)
           .join(" "),
+  );
+  // Nothing is charged until a processor that accepts this business is set up (docs/BILLING.md).
+  const billing = billingReadiness();
+  add(
+    "Billing (payment processor)",
+    billing.ready,
+    "required",
+    billing.ready
+      ? `Processor "${billing.gatewayName}" is configured; authorization ${billing.authorizationVersion} is approved. /api/cron/billing must be called hourly.`
+      : billing.problems.join(" "),
   );
   add("Team alerts", set("TEAM_WEBHOOK_URL") || set("SALES_WEBHOOK_URL"), "recommended", "TEAM_WEBHOOK_URL tells the team when a client cancels or asks to end the service.");
   add("Error alerts", set("ERROR_WEBHOOK_URL"), "recommended", "ERROR_WEBHOOK_URL sends failures to Slack or n8n.");

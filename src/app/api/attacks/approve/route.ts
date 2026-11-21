@@ -56,6 +56,27 @@ export async function POST(req: Request) {
     if (!gate.allowed) {
       return NextResponse.json({ error: gate.reason.es, code: `agreement_${gate.code}` }, { status: 409 });
     }
+
+    // A charge that did not go through after every retry pauses the case: no
+    // new round is sent until it is paid (src/lib/billing/dunning.ts). Read
+    // from the charge rows themselves; a database without migration 0011 has
+    // none, and nothing is held.
+    const { data: unpaid, error: unpaidError } = await db
+      .from("charges")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("status", "failed")
+      .is("next_attempt_at", null)
+      .limit(1);
+    if (!unpaidError && unpaid && unpaid.length > 0) {
+      return NextResponse.json(
+        {
+          error: "Un cobro de este cliente no pasó y su caso está en pausa. No se envía una ronda nueva hasta que el pago quede resuelto.",
+          code: "billing_past_due",
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const { data: round } = await db

@@ -75,7 +75,7 @@ function client(overrides: Partial<StaffClient> = {}): StaffClient {
     report: null,
     answers: {},
     rounds: [],
-    billing: "active",
+    billing: { paymentMethod: null, charges: [], pause: null },
     lastActivityAt: ago(1),
     notes: [],
     questions: [],

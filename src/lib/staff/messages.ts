@@ -1,3 +1,4 @@
+import { paymentFailedBody, paymentMethodNeededBody, unpaidCharge } from "../billing/dunning";
 import { BRAND } from "../brand";
 import { documentNames, missingDocuments, RESPONSE_WINDOW_DAYS, type ExceptionKind, type StaffException } from "./stage";
 import type { StaffClient } from "./types";
@@ -36,7 +37,20 @@ const BODY: Record<ExceptionKind, (client: StaffClient, exception: StaffExceptio
   },
   report_stale: () =>
     "Tu reporte de crédito no se ha actualizado y necesitamos uno reciente para continuar. ¿Puedes revisar que tu monitoreo de crédito siga activo?",
-  payment_past_due: () => "Tu pago aparece pendiente. ¿Te ayudo a ponerlo al corriente?",
+  // The same plain words the automatic notices use: what was charged for, what happens next, how to fix it.
+  payment_past_due: (client) => {
+    const charge = unpaidCharge(client.billing);
+    return charge
+      ? paymentFailedBody(charge).es
+      : "Uno de tus cobros no pasó. Puedes actualizar tu método de pago en la app, en «Mis pagos». ¿Te ayudo con algo?";
+  },
+  payment_method_missing: (client, exception) => {
+    const number = Number(exception.key.split(":")[1]);
+    const round = client.rounds.find((r) => r.number === number && r.mailedAt);
+    return round
+      ? paymentMethodNeededBody({ roundNumber: round.number, workDate: round.mailedAt! }).es
+      : "Todavía no tenemos tu método de pago. Puedes agregarlo en la app, en «Mis pagos»; toma un minuto. ¿Te ayudo con algo?";
+  },
   letter_returned: () =>
     "El correo nos devolvió una de tus cartas. Estamos revisando la dirección del destinatario para enviarla de nuevo; te aviso en cuanto salga.",
   question_waiting: (client, exception) => {

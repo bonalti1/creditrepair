@@ -1,10 +1,15 @@
 import { cancellationDeadline } from "../agreement/businessDays";
 import { AGREEMENT_VERSION } from "../agreement/documents";
+import { resolveTerms } from "../agreement/terms";
+import { nextRetryAt } from "../billing/dunning";
+import { feeToCents } from "../billing/rules";
+import { NO_BILLING, type BillingCharge } from "../billing/types";
 import { buildAttackPlan } from "../domain/attack";
 import { parseReport, type RawReport } from "../domain/parser";
 import type { ItemFlag, NormalizedReport, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
 import { DEMO_RAW_REPORT } from "../demo";
+import { paidCharge, sampleMethod } from "./billing";
 import type {
   ItemAnswer,
   MailStatus,
@@ -18,8 +23,8 @@ import type {
 // ─────────────────────────────────────────────────────────────────────────
 // DEMO DATA. Nobody in this file exists.
 //
-// Nineteen invented clients for the staff console, spread across every stage
-// and every kind of exception. A few have a conversation with Capi on file. Names are made up, phone numbers use the
+// Twenty-three invented clients for the staff console, spread across every
+// stage, every kind of exception and every state of billing. A few have a conversation with Capi on file. Names are made up, phone numbers use the
 // reserved fictional range (555-01xx), addresses are placeholders and the
 // reports are variations of the app's demo report (src/lib/demo.ts).
 //
@@ -31,7 +36,16 @@ import type {
 // weekday. To keep the picture the same on any day, everyone whose story is
 // past the window signed at least 7 days ago (the window never lasts that
 // long), and the one client inside it signed yesterday (it never ends that soon).
+//
+// Billing is invented too, and consistent with the rounds: a charge exists
+// only for a round that was mailed, dated the day after the mailing. The fee
+// is the one set for the plan (NEXT_PUBLIC_PLAN_MONTHLY_FEE); while the owner
+// has not set one, an example amount stands in so the demo has something to
+// show. It is not a price anyone decided.
 // ─────────────────────────────────────────────────────────────────────────
+
+/** Example fee for the demo when the plan fee is not configured. Not a real price. */
+export const DEMO_EXAMPLE_FEE = "89.00";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
@@ -190,11 +204,14 @@ export function buildDemoClients(now: Date): StaffClient[] {
     answered?: number;
     answeredDaysAgo?: number;
     lastActivityDaysAgo: number;
-    billing?: StaffClient["billing"];
+    /** Days since the client put a payment method on file; omitted means none yet. */
+    paymentMethodDaysAgo?: number;
     /** True for a client who answered before the reason picker existed: answers without a reason code. */
     beforeReasons?: boolean;
   }
 
+  const fee = resolveTerms().monthlyFee ?? DEMO_EXAMPLE_FEE;
+  const methodDaysAgo = new Map<string, number>();
   const people = new Map<string, { first: string; last: string; city: string; zip: string }>();
   const answeredBeforeReasons = new Set<string>();
 
@@ -220,6 +237,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
     }
     const signedUp = seed.signedUpDaysAgo !== undefined;
     const signedAt = seed.agreementDaysAgo !== undefined ? ago(seed.agreementDaysAgo) : null;
+    if (seed.paymentMethodDaysAgo !== undefined) methodDaysAgo.set(seed.id, seed.paymentMethodDaysAgo);
     return {
       id: seed.id,
       firstName: seed.first,
@@ -243,7 +261,10 @@ export function buildDemoClients(now: Date): StaffClient[] {
       report,
       answers,
       rounds: [],
-      billing: seed.billing ?? (seed.agreementDaysAgo !== undefined ? "active" : "none"),
+      // The fee as printed in the agreement this client signed.
+      agreementMonthlyFee: signedAt ? fee : null,
+      // Filled in below, once the rounds exist: a charge is always for a mailed round.
+      billing: NO_BILLING,
       lastActivityAt: ago(seed.lastActivityDaysAgo, 2),
       notes: [],
       questions: [],
@@ -371,7 +392,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   const anselmo = make({
     id: "c07", first: "Anselmo", last: "Quiroga", phone: "+12105550107", city: "San Antonio", zip: "78205",
     salesperson: "carmen", createdDaysAgo: 9, signedUpDaysAgo: 8, agreementDaysAgo: 7, documents: both,
-    report: { pulledDaysAgo: 4, shape: "base" }, answeredDaysAgo: 1, lastActivityDaysAgo: 1,
+    report: { pulledDaysAgo: 4, shape: "base" }, answeredDaysAgo: 1, lastActivityDaysAgo: 1, paymentMethodDaysAgo: 1,
   });
   anselmo.rounds = [round(anselmo, 1, "ready")];
 
@@ -387,7 +408,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   const ramiro = make({
     id: "c09", first: "Ramiro", last: "Escobedo", phone: "+15125550109", city: "Austin", zip: "78704",
     salesperson: "ana", createdDaysAgo: 52, signedUpDaysAgo: 50, agreementDaysAgo: 49, documents: both,
-    report: { pulledDaysAgo: 47, shape: "extra_inquiry" }, answeredDaysAgo: 1, lastActivityDaysAgo: 1,
+    report: { pulledDaysAgo: 47, shape: "extra_inquiry" }, answeredDaysAgo: 1, lastActivityDaysAgo: 1, paymentMethodDaysAgo: 40,
   });
   ramiro.rounds = [round(ramiro, 1, "ready")];
   ramiro.notes = [{ id: "c09-n1", at: ago(20), author: "ana", text: "Estuvo de viaje por trabajo. Dijo que termina su revisión cuando regrese." }];
@@ -396,7 +417,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   const ernesto = make({
     id: "c10", first: "Ernesto", last: "Villaseñor", phone: "+19155550110", city: "El Paso", zip: "79902",
     salesperson: "carmen", createdDaysAgo: 22, signedUpDaysAgo: 21, agreementDaysAgo: 20, documents: both,
-    report: { pulledDaysAgo: 16, shape: "base" }, answeredDaysAgo: 13, lastActivityDaysAgo: 3,
+    report: { pulledDaysAgo: 16, shape: "base" }, answeredDaysAgo: 13, lastActivityDaysAgo: 3, paymentMethodDaysAgo: 14,
   });
   ernesto.rounds = [round(ernesto, 1, "mailed", { mailedDaysAgo: 12 })];
 
@@ -404,7 +425,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   const graciela = make({
     id: "c11", first: "Graciela", last: "Montoya", phone: "+17135550111", city: "Houston", zip: "77003",
     salesperson: "luis", createdDaysAgo: 19, signedUpDaysAgo: 18, agreementDaysAgo: 17, documents: both,
-    report: { pulledDaysAgo: 13, shape: "medical" }, answeredDaysAgo: 10, lastActivityDaysAgo: 4,
+    report: { pulledDaysAgo: 13, shape: "medical" }, answeredDaysAgo: 10, lastActivityDaysAgo: 4, paymentMethodDaysAgo: 11,
   });
   graciela.rounds = [round(graciela, 1, "mailed", { mailedDaysAgo: 9 })];
   graciela.rounds[0]!.letters[1]!.mailStatus = "returned";
@@ -415,7 +436,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
     id: "c12", first: "Heriberto", last: "Solís", phone: "+12105550112", city: "San Antonio", zip: "78207",
     salesperson: "ana", createdDaysAgo: 46, signedUpDaysAgo: 45, agreementDaysAgo: 44, documents: both,
     report: { pulledDaysAgo: 40, shape: "base" }, answeredDaysAgo: 37, lastActivityDaysAgo: 21,
-    beforeReasons: true,
+    beforeReasons: true, paymentMethodDaysAgo: 38,
   });
   heriberto.rounds = [round(heriberto, 1, "mailed", { mailedDaysAgo: 35 })];
 
@@ -425,7 +446,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
     id: "c13", first: "Paulina", last: "Arriaga", phone: "+12145550113", city: "Dallas", zip: "75206",
     salesperson: "carmen", createdDaysAgo: 44, signedUpDaysAgo: 43, agreementDaysAgo: 42, documents: both,
     report: { pulledDaysAgo: 2, shape: "base", withoutOldAddress: true }, answeredDaysAgo: 35, lastActivityDaysAgo: 2,
-    beforeReasons: true,
+    beforeReasons: true, paymentMethodDaysAgo: 36,
   });
   {
     const first = earlier(paulina, { shape: "base", pulledDaysAgo: 37 });
@@ -438,7 +459,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
     id: "c14", first: "Samuel", last: "Tejeda", phone: "+15125550114", city: "Austin", zip: "78745",
     salesperson: "luis", createdDaysAgo: 55, signedUpDaysAgo: 54, agreementDaysAgo: 53,
     documents: [...both, "ssn_card"],
-    report: { pulledDaysAgo: 12, shape: "medical", withoutOldAddress: true }, answeredDaysAgo: 46, lastActivityDaysAgo: 5,
+    report: { pulledDaysAgo: 12, shape: "medical", withoutOldAddress: true }, answeredDaysAgo: 46, lastActivityDaysAgo: 5, paymentMethodDaysAgo: 47,
   });
   {
     const first = earlier(samuel, { shape: "medical", pulledDaysAgo: 48 });
@@ -461,12 +482,13 @@ export function buildDemoClients(now: Date): StaffClient[] {
     ]),
   ];
 
-  // 15. Letters out, payment past due: on hold until it is settled.
+  // 15. Letters out 20 days ago. The charge for that round was declined three
+  // times (the day after mailing, then 3 and 7 days later): the retries are
+  // used up and her case is paused until she updates her payment method.
   const noemi = make({
     id: "c15", first: "Noemí", last: "Barrientos", phone: "+19155550115", city: "El Paso", zip: "79905",
     salesperson: "carmen", createdDaysAgo: 30, signedUpDaysAgo: 29, agreementDaysAgo: 28, documents: both,
-    report: { pulledDaysAgo: 24, shape: "extra_inquiry" }, answeredDaysAgo: 22, lastActivityDaysAgo: 9,
-    billing: "past_due",
+    report: { pulledDaysAgo: 24, shape: "extra_inquiry" }, answeredDaysAgo: 22, lastActivityDaysAgo: 9, paymentMethodDaysAgo: 23,
   });
   noemi.rounds = [round(noemi, 1, "mailed", { mailedDaysAgo: 20 })];
 
@@ -504,7 +526,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   const estela = make({
     id: "c17", first: "Estela", last: "Coronado", phone: "+18065550117", city: "Lubbock", zip: "79401",
     salesperson: "luis", createdDaysAgo: 3, signedUpDaysAgo: 2, agreementDaysAgo: 1,
-    documents: both, lastActivityDaysAgo: 1, billing: "none",
+    documents: both, lastActivityDaysAgo: 1,
   });
 
   // 18. Signed six days ago and cancelled the next day, inside the window. He
@@ -513,7 +535,6 @@ export function buildDemoClients(now: Date): StaffClient[] {
     id: "c18", first: "Octavio", last: "Rentería", phone: "+13615550118", city: "Corpus Christi", zip: "78401",
     salesperson: "ana", createdDaysAgo: 8, signedUpDaysAgo: 7, agreementDaysAgo: 6, documents: both,
     report: { pulledDaysAgo: 6, shape: "base" }, answeredDaysAgo: 5, lastActivityDaysAgo: 5,
-    billing: "none",
   });
   octavio.rounds = [round(octavio, 1, "ready")];
   octavio.agreementCancelledAt = ago(5);
@@ -525,15 +546,127 @@ export function buildDemoClients(now: Date): StaffClient[] {
   const rebeca = make({
     id: "c19", first: "Rebeca", last: "Ontiveros", phone: "+14325550119", city: "Midland", zip: "79701",
     salesperson: "carmen", createdDaysAgo: 36, signedUpDaysAgo: 35, agreementDaysAgo: 34, documents: both,
-    report: { pulledDaysAgo: 29, shape: "extra_inquiry" }, answeredDaysAgo: 27, lastActivityDaysAgo: 1,
+    report: { pulledDaysAgo: 29, shape: "extra_inquiry" }, answeredDaysAgo: 27, lastActivityDaysAgo: 1, paymentMethodDaysAgo: 28,
   });
   rebeca.rounds = [round(rebeca, 1, "mailed", { mailedDaysAgo: 25 })];
   rebeca.serviceEndRequestedAt = ago(1);
   rebeca.serviceEndReason = "Me voy a mudar fuera de Texas el próximo mes.";
 
-  return [
+  // 20. Two rounds mailed and both paid on time: the ordinary case.
+  const leticia = make({
+    id: "c20", first: "Leticia", last: "Varela", phone: "+19565550120", city: "McAllen", zip: "78501",
+    salesperson: "luis", createdDaysAgo: 60, signedUpDaysAgo: 59, agreementDaysAgo: 58, documents: both,
+    report: { pulledDaysAgo: 16, shape: "medical", withoutOldAddress: true }, answeredDaysAgo: 51, lastActivityDaysAgo: 6,
+    paymentMethodDaysAgo: 52,
+  });
+  {
+    const first = earlier(leticia, { shape: "medical", pulledDaysAgo: 53 });
+    leticia.answers = { ...first.answers };
+    leticia.rounds = [
+      round(leticia, 1, "responded", { mailedDaysAgo: 48, respondedDaysAgo: 16 }, first),
+      round(leticia, 2, "mailed", { mailedDaysAgo: 6 }),
+    ];
+  }
+
+  // 21. Round 1 went out today. Nothing is charged yet: the system charges it
+  // tomorrow, a day after mailing, so a round marked by mistake can be corrected.
+  const joaquin = make({
+    id: "c21", first: "Joaquín", last: "Medrano", phone: "+12545550121", city: "Waco", zip: "76701",
+    salesperson: "ana", createdDaysAgo: 14, signedUpDaysAgo: 13, agreementDaysAgo: 12, documents: both,
+    report: { pulledDaysAgo: 8, shape: "base" }, answeredDaysAgo: 3, lastActivityDaysAgo: 2,
+    paymentMethodDaysAgo: 3,
+  });
+  joaquin.rounds = [round(joaquin, 1, "mailed", { mailedDaysAgo: 0 })];
+
+  // 22. Round 1 went out three days ago; the first try at the charge was
+  // declined and the system tries again tomorrow. Nobody on the team has to act.
+  const ximena = make({
+    id: "c22", first: "Ximena", last: "Duarte", phone: "+14095550122", city: "Beaumont", zip: "77701",
+    salesperson: "carmen", createdDaysAgo: 16, signedUpDaysAgo: 15, agreementDaysAgo: 14, documents: both,
+    report: { pulledDaysAgo: 9, shape: "extra_inquiry" }, answeredDaysAgo: 5, lastActivityDaysAgo: 3,
+    paymentMethodDaysAgo: 5,
+  });
+  ximena.rounds = [round(ximena, 1, "mailed", { mailedDaysAgo: 3 })];
+
+  // 23. Round 1 went out two days ago and he never put a payment method on
+  // file: the charge is due and there is nothing to charge. A person asks him.
+  const baltazar = make({
+    id: "c23", first: "Baltazar", last: "Ibarra", phone: "+19035550123", city: "Tyler", zip: "75701",
+    salesperson: "luis", createdDaysAgo: 15, signedUpDaysAgo: 14, agreementDaysAgo: 13, documents: both,
+    report: { pulledDaysAgo: 9, shape: "base" }, answeredDaysAgo: 4, lastActivityDaysAgo: 4,
+  });
+  baltazar.rounds = [round(baltazar, 1, "mailed", { mailedDaysAgo: 2 })];
+
+  const clients = [
     mariana, yolanda, rigoberto, itzel, fidel, lourdes, anselmo, brenda,
     ramiro, ernesto, graciela, heriberto, paulina, samuel, noemi, dolores,
-    estela, octavio, rebeca,
+    estela, octavio, rebeca, leticia, joaquin, ximena, baltazar,
   ];
+
+  // ── Billing ───────────────────────────────────────────────────────────
+  // The ordinary case first: whoever has a payment method on file was charged
+  // for each round the day after it was mailed, and paid. A round mailed
+  // today has no charge yet.
+  for (const client of clients) {
+    const days = methodDaysAgo.get(client.id);
+    if (days === undefined) continue;
+    const due = (r: StaffRound) => Boolean(r.mailedAt) && new Date(r.mailedAt!).getTime() + DAY_MS <= now.getTime();
+    client.billing = {
+      paymentMethod: sampleMethod(ago(days)),
+      charges: client.rounds.filter(due).map((r) => paidCharge(client.id, r, fee)),
+      pause: null,
+    };
+  }
+
+  /** A charge for round 1 that was declined `attempts` times, the last time `lastDaysAgo` days ago. */
+  const declined = (client: StaffClient, attempts: number, lastDaysAgo: number): BillingCharge => {
+    const mailed = client.rounds[0]!;
+    const last = ago(lastDaysAgo);
+    return {
+      id: `${client.id}-ch1`,
+      roundNumber: 1,
+      amountCents: feeToCents(fee) ?? 0,
+      status: "failed",
+      workDate: mailed.mailedAt!,
+      createdAt: new Date(new Date(mailed.mailedAt!).getTime() + DAY_MS).toISOString(),
+      attempts,
+      lastAttemptAt: last,
+      nextAttemptAt: nextRetryAt(attempts, new Date(last))?.toISOString() ?? null,
+      chargedAt: null,
+      failureCode: "card_declined",
+      refund: null,
+    };
+  };
+
+  // Ernesto was charged for round 1 and the charge was returned in full: two
+  // of his letters had gone out with an old address.
+  {
+    const charge = ernesto.billing.charges[0]!;
+    ernesto.billing = {
+      ...ernesto.billing,
+      charges: [
+        {
+          ...charge,
+          status: "refunded",
+          refund: {
+            id: "c10-re1",
+            amountCents: charge.amountCents,
+            reason: "Dos de sus cartas salieron con su dirección anterior. Se le devuelve el cobro de la ronda 1.",
+            by: "carmen",
+            at: ago(9),
+            completedAt: ago(9),
+          },
+        },
+      ],
+    };
+    ernesto.notes = [{ id: "c10-n1", at: ago(9), author: "carmen", text: "Le devolvimos el cobro de la ronda 1 y le avisé por WhatsApp." }];
+  }
+
+  // Noemí: declined the day after mailing, then 3 and 7 days later. Out of retries.
+  noemi.billing = { paymentMethod: sampleMethod(ago(23), "0341", "mastercard"), charges: [declined(noemi, 3, 12)], pause: null };
+
+  // Ximena: declined once, two days ago; the next try is tomorrow.
+  ximena.billing = { paymentMethod: sampleMethod(ago(5), "7718"), charges: [declined(ximena, 1, 2)], pause: null };
+
+  return clients;
 }

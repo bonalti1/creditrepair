@@ -1,9 +1,13 @@
 import { firstWorkingDay } from "../agreement/businessDays";
 import { deadlineOf, workMayStart, type AgreementRecord, type GateResult } from "../agreement/gate";
+import { accountStanding, casePausedForPayment, unpaidCharge } from "../billing/dunning";
+import { billingOutlook, type BillingOutlook } from "../billing/outlook";
+import type { BillingContext } from "../billing/types";
 import { ROUND_CYCLE_DAYS } from "../domain/attack";
 import { FRESH_REPORT_DAYS } from "../monitoring/subscription";
 import { RESPONSE_WINDOW_DAYS } from "../ux/journey";
 import { itemLabel } from "../ux/itemDisplay";
+import { billingContextFor } from "./billing";
 import { REQUIRED_DOCUMENTS, type DocumentKind, type StaffClient, type StaffLetter, type StaffRound } from "./types";
 
 // Where is this client, what is wrong, and what happens next.
@@ -166,8 +170,8 @@ export const STAGES: Record<Stage, StageInfo> = {
     label: "En pausa",
     short: "En pausa",
     description:
-      "No hay trabajo en curso: pago vencido, servicio cancelado o nada marcado como inexacto por el cliente. El equipo decide cómo seguir.",
-    actor: "staff",
+      "No hay trabajo en curso: un cobro no pasó después de los reintentos, o el cliente no marcó nada como inexacto. Con un cobro sin resolver no se prepara ni se envía ninguna ronda; en cuanto el cliente paga, el caso sigue solo.",
+    actor: "client",
   },
   cancelled: {
     label: "Canceló su acuerdo",
@@ -235,6 +239,27 @@ export function agreementLine(client: StaffClient, now: Date): string {
   return "Vigente — el periodo de cancelación ya terminó";
 }
 
+// ── Billing ─────────────────────────────────────────────────────────────
+
+/** Everything a billing decision about this client is made from (src/lib/billing). */
+export function clientBilling(client: StaffClient): BillingContext {
+  return billingContextFor(client, clientAgreement(client));
+}
+
+/**
+ * What happens next with this client's money, in one sentence, from the same
+ * rule that charges. Nobody on the team charges anyone: the system does, only
+ * for a round that was mailed, and this says when.
+ */
+export function clientBillingOutlook(client: StaffClient, now: Date): BillingOutlook {
+  return billingOutlook(clientBilling(client), now);
+}
+
+/** True while the case is paused for a charge that did not go through after every retry. */
+export function pausedForPayment(client: StaffClient): boolean {
+  return casePausedForPayment(client.billing);
+}
+
 export function latestRound(client: StaffClient): StaffRound | null {
   return client.rounds.reduce<StaffRound | null>((latest, r) => (!latest || r.number > latest.number ? r : latest), null);
 }
@@ -284,7 +309,10 @@ export function reviewProgress(client: StaffClient): ReviewProgress {
 export function clientStage(client: StaffClient, now: Date = new Date()): Stage {
   // A cancelled agreement ends everything, whatever else is on record.
   if (client.agreementCancelledAt) return "cancelled";
-  if (client.billing === "canceled" || client.billing === "past_due") return "paused";
+  // A charge that did not go through after every retry pauses the case. This
+  // is read from the charges themselves, not from a flag someone sets, so it
+  // lifts by itself the moment the charge is paid.
+  if (pausedForPayment(client)) return "paused";
   if (!client.signedUpAt) return "lead";
   if (!client.agreementSignedAt) return "agreement_pending";
   if (workStartsAt(client, now)) return "cancellation_window";
@@ -313,6 +341,7 @@ export const EXCEPTION_KINDS = [
   "documents_missing",
   "report_stale",
   "payment_past_due",
+  "payment_method_missing",
   "letter_returned",
   "question_waiting",
   "response_overdue",
@@ -329,7 +358,8 @@ export const EXCEPTION_LABEL: Record<ExceptionKind, string> = {
   review_stalled: "Revisión detenida",
   documents_missing: "Faltan documentos",
   report_stale: "Reporte vencido",
-  payment_past_due: "Pago vencido",
+  payment_past_due: "Pago sin resolver",
+  payment_method_missing: "Falta su método de pago",
   letter_returned: "Carta devuelta",
   question_waiting: "Pregunta sin responder",
   response_overdue: "Sin reporte nuevo",
@@ -404,7 +434,7 @@ function responseOverdue(client: StaffClient, now: Date): StaffRound | null {
 /** Every exception that applies right now, whether or not someone marked it handled. */
 function openExceptions(client: StaffClient, now: Date): StaffException[] {
   // A cancelled client has nothing in flight, so nothing can be wrong with it.
-  if (client.billing === "canceled" || client.agreementCancelledAt) return [];
+  if (client.agreementCancelledAt) return [];
 
   const found: StaffException[] = [];
 
@@ -423,15 +453,33 @@ function openExceptions(client: StaffClient, now: Date): StaffException[] {
     });
   }
 
-  if (client.billing === "past_due") {
+  // Money. A declined payment is the system's job while it is still retrying
+  // (it shows as the next automatic step); it becomes a person's only when the
+  // retries are used up. A charge that is due with no payment method on file
+  // is a person's from the start. Nothing here asks anyone to charge by hand.
+  const failed = unpaidCharge(client.billing);
+  const outlook = clientBillingOutlook(client, now);
+  if (failed && accountStanding(client.billing) === "past_due" && !serviceEndPending(client)) {
+    const tries = failed.attempts === 1 ? "1 intento" : `${failed.attempts} intentos`;
     found.push({
-      key: "payment_past_due",
+      key: `payment_past_due:${failed.id}`,
       kind: "payment_past_due",
       severity: "high",
-      sentence: "Su pago está vencido. Su caso queda en pausa hasta que se ponga al corriente.",
+      sentence: `El cobro de la ronda ${failed.roundNumber} no pasó en ${tries} y el sistema ya no lo intenta. Su caso está en pausa hasta que actualice su método de pago; al pagar, sigue solo.`,
       actionLabel: "Escribirle sobre el pago",
       action: "whatsapp",
-      since: null,
+      since: failed.lastAttemptAt,
+    });
+  } else if (outlook.kind === "payment_method_missing") {
+    const round = client.rounds.find((r) => r.number === outlook.roundNumber);
+    found.push({
+      key: `payment_method_missing:${outlook.roundNumber}`,
+      kind: "payment_method_missing",
+      severity: "high",
+      sentence: `Falta su método de pago. La ronda ${outlook.roundNumber} se envió${round?.mailedAt ? ` el ${formatDay(new Date(round.mailedAt))}` : ""} y el sistema no tiene con qué cobrarla.`,
+      actionLabel: "Pedirle su método de pago",
+      action: "whatsapp",
+      since: round?.mailedAt ?? null,
     });
   }
 
@@ -616,6 +664,34 @@ export function nextAutomaticStep(client: StaffClient, now: Date): AutomaticStep
   // The client asked to stop: the system does nothing more on its own.
   if (serviceEndPending(client)) return null;
 
+  // Whichever comes first: the next step of the work, or the next step of billing.
+  const work = nextWorkStep(client, now);
+  const money = nextBillingStep(client, now);
+  if (work && money) return new Date(money.at).getTime() < new Date(work.at).getTime() ? money : work;
+  return work ?? money;
+}
+
+/**
+ * The next thing billing does by itself: charge a mailed round, or try a
+ * declined charge again. Null when billing is waiting on a person or has
+ * nothing to do.
+ */
+export function nextBillingStep(client: StaffClient, now: Date): AutomaticStep | null {
+  if (client.agreementCancelledAt) return null;
+  const outlook = clientBillingOutlook(client, now);
+  if (!outlook.at || outlook.roundNumber === null) return null;
+  const at = new Date(outlook.at);
+  if (outlook.kind === "retry_scheduled") {
+    return { text: `Reintentar el cobro de la ronda ${outlook.roundNumber} ${onDay(at, now)}`, at: outlook.at };
+  }
+  // A charge with no payment method on file is announced only once it is due, as an exception.
+  if (outlook.kind === "charge_scheduled" && client.billing.paymentMethod) {
+    return { text: `Cobrar la ronda ${outlook.roundNumber} ${onDay(at, now)}`, at: outlook.at };
+  }
+  return null;
+}
+
+function nextWorkStep(client: StaffClient, now: Date): AutomaticStep | null {
   const stage = clientStage(client, now);
 
   if (stage === "cancellation_window") {
@@ -692,8 +768,7 @@ export function nextStep(client: StaffClient, now: Date): NextStep {
     case "results_in":
       return person("staff", "Revisar el caso");
     case "paused":
-      if (client.billing === "past_due") return person("client", "Poner su pago al corriente");
-      if (client.billing === "canceled") return person("staff", "Servicio cancelado: nada pendiente");
+      if (pausedForPayment(client)) return person("client", "Actualizar su método de pago");
       return person("staff", "Nada marcado como inexacto: nada que enviar");
   }
 }

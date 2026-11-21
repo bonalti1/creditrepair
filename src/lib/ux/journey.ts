@@ -2,6 +2,7 @@ import type { Locale } from "../i18n/dictionaries";
 import { formatAgreementDay, workMayStart, type AgreementRecord } from "../agreement/gate";
 import { SERVICE_MODE, type ServiceMode } from "../service/mode";
 import { readStoredAgreement } from "./agreementLocal";
+import { readPaymentMethodOnFile } from "./billingLocal";
 
 // The journey engine — the single biggest UX bet against Dispute Beast:
 // at any moment the app tells the user exactly ONE next step, in plain
@@ -15,7 +16,11 @@ import { readStoredAgreement } from "./agreementLocal";
 //    No step asks the client to send or approve a letter, and no step says a
 //    letter was sent while the agreement does not yet allow work to start
 //    (src/lib/agreement/gate.ts: signed, not cancelled, and the 3-business-day
-//    cancellation period over).
+//    cancellation period over). Once the client's own part is finished and
+//    work may start, one nudge may appear: put a payment method on file. It
+//    comes after the review, never before it, and it holds nothing back: the
+//    team prepares and mails the letters either way, and a charge is made only
+//    after a round was mailed (src/lib/billing/rules.ts).
 //  - Self-serve (kept for later). The client reviews, approves and sends their
 //    own letters, as the product worked before.
 
@@ -30,6 +35,11 @@ export interface JourneyState {
   mailedAt?: string | null;
   /** Full service: the client's agreement as on record. Null or missing means none. */
   agreement?: AgreementRecord | null;
+  /**
+   * Full service: whether a payment method is on file. False brings the nudge
+   * to add one, after the review. Missing means "not known": no nudge.
+   */
+  paymentMethodOnFile?: boolean;
 }
 
 export interface JourneyStep {
@@ -133,6 +143,12 @@ const COPY = {
             : "La ventana de respuesta de los burós ya pasó. En cuanto tu reporte se actualice, lo comparamos con el anterior y te mostramos qué cambió.",
         cta: "Ver mis rondas",
       }),
+      paymentMethod: {
+        title: "Agrega tu método de pago",
+        description:
+          "Tu parte de la revisión ya está, y esto no detiene tus cartas. Cada cobro paga trabajo ya hecho: se hace después de que tu equipo envía una ronda de cartas, nunca antes. Agregarlo toma un minuto y no cobra nada.",
+        cta: "Agregar método de pago",
+      },
       nextRound: {
         title: "Tu equipo prepara la siguiente ronda",
         description:
@@ -227,6 +243,12 @@ const COPY = {
             : "The bureaus' response window has passed. As soon as your report refreshes, it is compared with the last one and you see what changed.",
         cta: "See my rounds",
       }),
+      paymentMethod: {
+        title: "Add your payment method",
+        description:
+          "Your part of the review is done, and this does not hold your letters. Each charge pays for work already done: it is made after your team mails a round of letters, never before. Adding it takes a minute and charges nothing.",
+        cta: "Add payment method",
+      },
       nextRound: {
         title: "Your team is preparing the next round",
         description:
@@ -251,6 +273,7 @@ export function sessionJourneyState(
   flags: Readonly<Record<string, { state: string } | undefined>>,
   roundApproved: boolean,
   agreement: AgreementRecord | null | undefined = readStoredAgreement(),
+  paymentMethodOnFile: boolean | undefined = readPaymentMethodOnFile(),
 ): JourneyState {
   const decided = items.map((i) => flags[i.fingerprint]).filter((f) => f !== undefined);
   return {
@@ -262,6 +285,7 @@ export function sessionJourneyState(
     // The demo keeps no mailing date; an approved round counts as mailed today.
     mailedAt: roundApproved ? new Date().toISOString() : null,
     agreement: agreement ?? null,
+    ...(paymentMethodOnFile === undefined ? {} : { paymentMethodOnFile }),
   };
 }
 
@@ -374,6 +398,13 @@ function fullServiceStep(s: JourneyState, locale: Locale, now: Date): JourneySte
     const day = gate.startsAt ? formatAgreementDay(new Date(gate.startsAt), locale) : "";
     const copy = day ? f.teamStartsOn(s.attestedCount, day) : f.teamPreparing(s.attestedCount);
     return { step: 4, totalSteps, key: "team-starts-soon", ...copy, href: "/acuerdo" };
+  }
+  // The one thing left that is the client's: a payment method, if there is
+  // none. Asked only here, after the review and once work may start, so it is
+  // never a condition for the client's own part; and it stops nothing: the
+  // step says so, and the team's work goes on either way.
+  if (s.paymentMethodOnFile === false) {
+    return { step: s.roundApproved ? 5 : 4, totalSteps, key: "payment-method", ...f.paymentMethod, href: "/pagos" };
   }
   if (!s.roundApproved) {
     return { step: 4, totalSteps, key: "team-preparing", ...f.teamPreparing(s.attestedCount), href: "/rounds" };
