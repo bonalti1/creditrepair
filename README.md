@@ -77,6 +77,8 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/letters/enclosures.ts` | ID and proof-of-address photos attached as pages behind each mailed letter |
 | `supabase/setup.sql` | Every migration in order, for pasting into the Supabase SQL editor (a test keeps it in sync) |
 | `src/lib/sales/`, `src/app/equipo/invitar` | Sales-first handoff: the salesperson's invite link and the page that builds it — see `docs/SALES-FLOW.md` |
+| `src/lib/highlevel/`, `src/lib/leads/`, `src/app/api/webhooks/highlevel`, `src/app/api/cron/highlevel` | HighLevel → app lead handoff (prospects with their source, dedupe, round-robin) and app → HighLevel stage sync (an outbox sent once per event, no credit data) — see `docs/HIGHLEVEL.md` |
+| `src/lib/partners/`, `src/app/socios`, `src/app/equipo/socios`, `src/app/r/[code]` | Referral partners: public application, staff approval and commission records, the `/r/<code>` link (60-day cookie), the partner portal (coarse status only, no credit data) — see `docs/PARTNERS.md`. Migration `0017_partners_highlevel.sql` |
 | `src/lib/brand.ts` | Company name (Credalti), the official logo files and app icons, the two characters (AltiBot, the AI assistant; Alti, the face of the team), their names and image paths; pages and messages read from here. `src/components/Logo.tsx` shows the logo and `src/components/Character.tsx` draws the characters (see `docs/BRAND.md`) |
 | `src/lib/staff/stage.ts` | Staff console logic: a client's stage, what needs a person (exceptions), and the system's next step with its date |
 | `src/lib/staff/data.ts`, `src/lib/staff/demoClients.ts` | Where the console gets clients: the interface, the demo implementation (invented clients), and the database one (staff routes) |

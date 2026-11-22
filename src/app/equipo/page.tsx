@@ -28,6 +28,7 @@ import { staffAuthor, useStaff } from "@/lib/staff/useStaff";
 import { FOLLOWUP_SCHEDULES } from "@/lib/autopilot/followups";
 import { FocusMode, QueueList } from "@/components/staff/WorkQueue";
 import Icon from "@/components/Icon";
+import NewLeadsCard from "@/components/staff/NewLeadsCard";
 import {
   PRIMARY_BUTTON,
   PRIMARY_BUTTON_COMPACT,
@@ -222,6 +223,7 @@ export default function EquipoHome() {
         </section>
 
         <div className="space-y-6">
+          <NewLeadsCard clients={clients} now={now} canInvite={can("clients.invite")} />
           {!sends && (
             <section aria-labelledby="prospectos">
               <SectionTitle aside={<span className="text-[13px] tabular-nums text-slate-500">{leads.length}</span>}>

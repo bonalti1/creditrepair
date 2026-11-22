@@ -136,6 +136,8 @@ export async function GET(req: Request) {
   add("Team alerts", set("TEAM_WEBHOOK_URL") || set("SALES_WEBHOOK_URL"), "recommended", "TEAM_WEBHOOK_URL tells the team when a client cancels or asks to end the service.");
   add("Error alerts", set("ERROR_WEBHOOK_URL"), "recommended", "ERROR_WEBHOOK_URL sends failures to Slack or n8n.");
   add("New-lead alerts", set("SALES_WEBHOOK_URL"), "recommended", "SALES_WEBHOOK_URL pings sales when a lead writes in.");
+  add("HighLevel leads", set("HIGHLEVEL_WEBHOOK_SECRET"), "recommended", "HIGHLEVEL_WEBHOOK_SECRET lets HighLevel workflows hand leads to /api/webhooks/highlevel (docs/HIGHLEVEL.md).");
+  add("HighLevel stages", set("HIGHLEVEL_INBOUND_WEBHOOK_URL") || set("SALES_WEBHOOK_URL"), "recommended", "HIGHLEVEL_INBOUND_WEBHOOK_URL receives stage changes from /api/cron/highlevel.");
 
   const blocking = checks.filter((c) => !c.ok && c.needed === "required").map((c) => c.name);
   return NextResponse.json({ ok: true, readyForCustomers: blocking.length === 0, blocking, checks });

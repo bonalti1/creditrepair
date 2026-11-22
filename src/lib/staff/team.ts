@@ -251,10 +251,12 @@ export function teamEventText(event: TeamEvent, members: TeamMember[]): string {
 /**
  * The next specialist in turn: active specialists in the order they joined,
  * starting after the one who got the last client. Null when there is none.
+ * With `role: "sales"`, the same turn among active salespeople (a lead from
+ * HighLevel or a partner that names nobody: src/lib/highlevel/assign.ts).
  */
-export function roundRobinNext(members: TeamMember[], last: string | null): string | null {
+export function roundRobinNext(members: TeamMember[], last: string | null, role: StaffRole = "specialist"): string | null {
   const specialists = members
-    .filter((m) => m.active && m.role === "specialist")
+    .filter((m) => m.active && m.role === role)
     .sort((a, b) => a.invitedAt.localeCompare(b.invitedAt) || a.handle.localeCompare(b.handle));
   if (specialists.length === 0) return null;
   const index = specialists.findIndex((m) => m.handle === last);

@@ -83,6 +83,14 @@ function LoginForm() {
     } catch {
       // Not known: the client app, where the staff console's own check still applies.
     }
+    // A referral partner (or someone whose application is pending) goes to the partner portal and gets no client profile.
+    try {
+      const res = await fetch("/api/partners/me", { cache: "no-store" });
+      const me = (await res.json()) as { partner?: boolean; applied?: boolean };
+      if (me.partner || me.applied) return "/socios/portal";
+    } catch {
+      // Not known: carry on as a client.
+    }
     await supabase.from("profiles").upsert({ id: userId, ...(phoneE164 ? { phone_e164: phoneE164 } : {}) }, { onConflict: "id" });
     return next;
   };

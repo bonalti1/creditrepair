@@ -35,6 +35,13 @@ export interface Invite {
   ref: string | null;
   /** Salesperson's first name as shown to the customer. */
   refName: string | null;
+  /**
+   * The referral partner's code (partners.referral_code, migration 0017), when
+   * a partner referred the person. Optional: links made before partners
+   * existed have none. The server credits it only to an approved partner, and
+   * only if the client has no partner yet.
+   */
+  partner?: string | null;
 }
 
 const cleanName = (value: string | null | undefined): string | null => {
@@ -56,6 +63,12 @@ export const toRefSlug = (value: string | null | undefined): string | null => {
   return slug.length >= 2 ? slug : null;
 };
 
+/** A partner's referral code: 3 to 30 lowercase letters, digits and hyphens. */
+export const toPartnerCode = (value: string | null | undefined): string | null => {
+  const code = (value ?? "").trim().toLowerCase();
+  return /^[a-z0-9-]{3,30}$/.test(code) ? code : null;
+};
+
 export function parseInvite(params: { get(name: string): string | null }): Invite | null {
   const goal = params.get("g");
   const state = params.get("s")?.toUpperCase() ?? null;
@@ -66,6 +79,8 @@ export function parseInvite(params: { get(name: string): string | null }): Invit
     ref: toRefSlug(params.get("r")),
     refName: cleanName(params.get("rn")),
   };
+  const partner = toPartnerCode(params.get("p"));
+  if (partner) invite.partner = partner;
   // A link with nothing usable in it is just the ordinary onboarding.
   return invite.name || invite.goal || invite.state || invite.ref ? invite : null;
 }
@@ -80,6 +95,8 @@ export function buildInvitePath(invite: Partial<Invite>): string {
   if (invite.state) query.set("s", invite.state.toUpperCase());
   if (ref) query.set("r", ref);
   if (refName) query.set("rn", refName);
+  const partner = toPartnerCode(invite.partner);
+  if (partner) query.set("p", partner);
   const qs = query.toString();
   return qs ? `/onboarding?${qs}` : "/onboarding";
 }

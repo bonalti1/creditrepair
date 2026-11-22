@@ -9,6 +9,7 @@ import type { RawReport } from "../domain/parser";
 import { mergeReport, planImport } from "../reports/merge";
 import { checkStaffReply, MAX_REPLY_CHARS, openQuestions, type ReplyProblem } from "./conversation";
 import { buildDemoClients } from "./demoClients";
+import { withDemoLeadSources } from "../partners/demo";
 import { sampleMethod } from "./billing";
 import { applyDemoSends, demoFurnisherBook, loadDemoSends, recordDemoSend, resetDemoMail } from "../mail/data";
 import { demoClientsWithMail } from "../mail/demo";
@@ -328,7 +329,8 @@ function createDemoData(): StaffData & {
     if (!base) {
       const now = new Date();
       // The invented clients, with what a mail service would have reported for their letters (mail/demo.ts).
-      base = demoClientsWithMail(buildDemoClients(now), now);
+      // Plus where some of them came from: partners' referrals and leads from HighLevel (partners/demo.ts).
+      base = withDemoLeadSources(demoClientsWithMail(buildDemoClients(now), now), now);
     }
     actions ??= loadActions();
     return { base, actions };

@@ -96,11 +96,11 @@ export async function startHarness(): Promise<Harness> {
   );
   const pkeys = new Map<string, string[]>();
   for (const r of pkRows.rows) pkeys.set(r.table_name, [...(pkeys.get(r.table_name) ?? []), r.column_name]);
-  const fnRows = await pg.query<{ proname: string; proargnames: string[] | null; types: string[] }>(
-    `select p.proname, p.proargnames, array(select format_type(t, null) from unnest(p.proargtypes::oid[]) t) as types
+  const fnRows = await pg.query<{ proname: string; proargnames: string[] | null; types: string[]; proretset: boolean }>(
+    `select p.proname, p.proargnames, array(select format_type(t, null) from unnest(p.proargtypes::oid[]) t) as types, p.proretset
        from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'`,
   );
-  const functions = new Map(fnRows.rows.map((f) => [f.proname, { names: f.proargnames ?? [], types: f.types }]));
+  const functions = new Map(fnRows.rows.map((f) => [f.proname, { names: f.proargnames ?? [], types: f.types, returnsSet: f.proretset }]));
 
   const schema: Schema = { columns, pkeys, functions };
   const users = new Map<string, { phone?: string | null; email?: string | null }>();
@@ -123,7 +123,7 @@ export async function startHarness(): Promise<Harness> {
 interface Schema {
   columns: Map<string, Map<string, Column>>;
   pkeys: Map<string, string[]>;
-  functions: Map<string, { names: string[]; types: string[] }>;
+  functions: Map<string, { names: string[]; types: string[]; returnsSet: boolean }>;
 }
 
 interface Session {
@@ -159,6 +159,11 @@ function client(pg: PGlite, schema: Schema, session: Session): SupabaseClient {
         return `${quote(name)} => $${params.length}::${def.types[i] ?? "text"}`;
       });
       try {
+        // A function that returns a table (rows) comes back as rows, as PostgREST gives them.
+        if (def.returnsSet) {
+          const rows = await run(pg, session, (db) => db.query<Row>(`select * from public.${quote(fn)}(${parts.join(", ")})`, params));
+          return { data: rows.rows.map((r) => shape(r, undefined)), error: null };
+        }
         const result = await run(pg, session, (db) => db.query<{ result: unknown }>(`select public.${quote(fn)}(${parts.join(", ")}) as result`, params));
         return { data: result.rows[0]?.result ?? null, error: null };
       } catch (e) {

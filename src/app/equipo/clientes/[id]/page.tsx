@@ -56,6 +56,7 @@ import Icon from "@/components/Icon";
 import ItemFacts from "@/components/ItemFacts";
 import ActivityList from "@/components/staff/ActivityList";
 import AssignmentCard from "@/components/staff/AssignmentCard";
+import LeadSourceCard from "@/components/staff/LeadSourceCard";
 import BillingCard from "@/components/staff/BillingCard";
 import Conversation from "@/components/staff/Conversation";
 import ReportImport from "@/components/staff/ReportImport";
@@ -741,6 +742,8 @@ export default function ClientePage() {
               )}
             </div>
           </section>
+
+          <LeadSourceCard source={client.leadSource} />
 
           <AssignmentCard client={client} viewer={viewer} members={members} team={team} canAssign={can("clients.assign")} onChanged={reload} />
 

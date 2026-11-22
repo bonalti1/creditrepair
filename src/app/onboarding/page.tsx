@@ -112,6 +112,8 @@ function Onboarding() {
       }
       if (parsed.state) setState(parsed.state);
       if (parsed.ref) save("bonalti.ref", parsed.ref);
+      // A partner's referral code (migration 0017): sent with the profile at first sign-in, credited only to an approved partner.
+      if (parsed.partner) save("bonalti.partner", parsed.partner);
       setStep("welcome");
     }
     setReady(true);

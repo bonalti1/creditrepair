@@ -25,8 +25,11 @@ or into Supabase's own settings. Never paste a key into a chat or an email.
 
 1. In Supabase: **SQL Editor → New query**.
 2. Open `supabase/setup.sql` from this repository, copy **all** of it, paste,
-   and press **Run**. It is every migration (`supabase/migrations/0001` to
-   `0015`) in order. It should finish with "Success. No rows returned".
+   and press **Run**. It is every migration (`supabase/migrations/0001`
+   onwards, in order; `0015` is the autopilot, `0016` AI intake, `0017`
+   referral partners and the HighLevel handoff, see `docs/AUTOPILOT.md`,
+   `docs/INTAKE.md`, `docs/PARTNERS.md` and `docs/HIGHLEVEL.md`). It should
+   finish with "Success. No rows returned".
 3. Run it **once**. If you run it a second time it stops at the first table
    that already exists; that is harmless, nothing is changed.
 4. A database set up before the autopilot (migrations up to `0014`): run only

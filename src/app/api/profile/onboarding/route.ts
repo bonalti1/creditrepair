@@ -5,6 +5,7 @@ import { GOALS } from "@/lib/sales/invite";
 import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
 import { convertProspect } from "@/lib/staff/server";
+import { creditPartner, referralCodeFromCookie } from "@/lib/partners/attribution";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { getServerSupabase, getSessionUser } from "@/lib/supabase/server";
 
@@ -18,6 +19,7 @@ const bodySchema = z.object({
   state: z.enum(ALL_STATES as unknown as [string, ...string[]]).optional(),
   assisted: z.boolean().optional(),
   referredBy: z.string().regex(/^[a-z0-9-]{2,30}$/).optional(),
+  partnerCode: z.string().regex(/^[a-z0-9-]{3,30}$/).optional(),
 });
 
 export async function POST(req: Request) {
@@ -55,6 +57,10 @@ export async function POST(req: Request) {
   if (db) {
     const phone = user.phone ? `+${user.phone.replace(/^\+/, "")}` : null;
     await convertProspect(db, user.id, phone).catch(() => false);
+    // A referral partner (migration 0017): from the invitation link, else the /r/<code> cookie.
+    // First touch, approved partners only, written with the service role (the client cannot set it).
+    const code = parsed.data.partnerCode ?? referralCodeFromCookie(req.headers.get("cookie"));
+    if (code) await creditPartner(db, user.id, code).catch(() => false);
   }
   return NextResponse.json({ ok: true, referredBy: existing?.referred_by ?? referredBy ?? null });
 }

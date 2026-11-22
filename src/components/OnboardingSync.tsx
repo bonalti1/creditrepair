@@ -21,9 +21,11 @@ export default function OnboardingSync() {
       const state = read(KEYS.state);
       const assisted = read(KEYS.assisted);
       const ref = read(KEYS.ref);
-      if (!goal && !state && !assisted && !ref) return;
+      // A partner's code from an invitation link (sales/invite.ts "p"). The /r/<code> cookie travels by itself.
+      const partner = read("bonalti.partner");
+      if (!goal && !state && !assisted && !ref && !partner) return;
 
-      const fingerprint = [goal, state, assisted, ref].join("|");
+      const fingerprint = [goal, state, assisted, ref, ...(partner ? [partner] : [])].join("|");
       if (read(SYNCED) === fingerprint) return;
 
       fetch("/api/profile/onboarding", {
@@ -34,6 +36,7 @@ export default function OnboardingSync() {
           state: state ?? undefined,
           assisted: assisted === null ? undefined : assisted === "1",
           referredBy: ref ?? undefined,
+          partnerCode: partner ?? undefined,
         }),
       })
         .then((res) => {

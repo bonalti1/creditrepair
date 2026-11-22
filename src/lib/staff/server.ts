@@ -110,17 +110,28 @@ export async function loadTeam(db: SupabaseClient, options: { events?: boolean }
  */
 export async function convertProspect(db: SupabaseClient, userId: string, verifiedPhoneE164: string | null): Promise<boolean> {
   if (!verifiedPhoneE164 || !/^\+1\d{10}$/.test(verifiedPhoneE164)) return false;
-  const { data: open, error } = await db
+  // An open prospect first; one sales closed (lost_at, migration 0017) only when there is no open one.
+  const { data: candidates, error } = await db
     .from("prospects")
-    .select("id, assigned_to")
+    .select("id, assigned_to, partner_id, highlevel_contact_id, lost_at, created_at")
     .eq("phone_e164", verifiedPhoneE164)
     .is("converted_user_id", null)
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: false })
+    .limit(10);
+  const list = (candidates ?? []) as Array<Record<string, unknown>>;
+  const open = list.find((p) => !p.lost_at) ?? list[0];
   if (error || !open) return false;
   const now = new Date().toISOString();
   const { error: convertError } = await db.from("prospects").update({ converted_user_id: userId, converted_at: now }).eq("id", open.id);
   if (convertError) return false;
+  // The partner who referred them and their HighLevel contact carry over to the client (first touch: never overwritten).
+  if (open.partner_id || open.highlevel_contact_id) {
+    const { data: profile } = await db.from("profiles").select("referred_partner_id, highlevel_contact_id").eq("id", userId).maybeSingle();
+    const carry: Record<string, string> = {};
+    if (open.partner_id && !profile?.referred_partner_id) carry.referred_partner_id = open.partner_id as string;
+    if (open.highlevel_contact_id && !profile?.highlevel_contact_id) carry.highlevel_contact_id = open.highlevel_contact_id as string;
+    if (profile && Object.keys(carry).length > 0) await db.from("profiles").update(carry).eq("id", userId);
+  }
   if (open.assigned_to) {
     const { data: existing } = await db.from("client_assignments").select("user_id").eq("user_id", userId).maybeSingle();
     if (!existing) {

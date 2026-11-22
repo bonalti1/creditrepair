@@ -56,5 +56,7 @@ export const config = {
     // The staff console. Signed in is the first check; being an active member
     // of staff is the second, in src/app/equipo/layout.tsx.
     "/equipo/:path*",
+    // The partner portal (migration 0017): signed in first; the portal's routes check the partner.
+    "/socios/portal/:path*",
   ],
 };

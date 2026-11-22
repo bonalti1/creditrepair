@@ -10,6 +10,7 @@ import { EXCEPTION_KINDS, EXCEPTION_LABEL, RESPONSE_WINDOW_DAYS, sendableRound, 
 import { assignableMembers, memberName } from "@/lib/staff/team";
 import { fullName } from "@/lib/staff/types";
 import { useAutopilot } from "@/lib/autopilot/useAutopilot";
+import { sourceLine } from "@/lib/leads/source";
 import { useStaff } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
 import AddClient from "@/components/staff/AddClient";
@@ -394,6 +395,11 @@ function ClientList() {
                       <span className="block text-[13px] text-slate-500 lg:truncate">
                         {formatPhone(client.phone)} · ventas: {memberName(members, client.salesperson).split(" ")[0]}
                       </span>
+                      {sourceLine(client.leadSource) && (
+                        <span className="block text-[12.5px] font-medium text-blue-700 lg:truncate" data-testid="lead-source">
+                          {sourceLine(client.leadSource)}
+                        </span>
+                      )}
                     </span>
                   </span>
                   <span className="justify-self-end lg:justify-self-start">
