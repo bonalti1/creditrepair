@@ -56,6 +56,9 @@ export const config = {
     "/acuerdo/:path*",
     // "Mis pagos": the client's charges, receipts and payment method.
     "/pagos/:path*",
+    // The one-tap screens the automatic messages link to (migration 0022): the client's own address and documents.
+    "/confirmar-direccion/:path*",
+    "/documentos/:path*",
     // The staff console. Signed in is the first check; being an active member
     // of staff is the second, in src/app/equipo/layout.tsx.
     "/equipo/:path*",

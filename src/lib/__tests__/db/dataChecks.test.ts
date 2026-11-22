@@ -7,7 +7,8 @@ import { parseReport } from "../../domain/parser";
 import type { ReportItem } from "../../domain/types";
 import { planNextRound } from "../../rounds/plan";
 import { startHarness, type Harness } from "./pg";
-import { addClient, addStaff, ago, assign } from "./seed";
+import { addClient, addDocuments, addStaff, ago, approveBuiltinLetters, assign, signAgreement } from "./seed";
+import { sendRound } from "../../rounds/send";
 
 // item_flags.check_ids (migration 0021) in the real migrations: the client
 // saves which data checks they chose to include through /api/flags, the route
@@ -116,5 +117,35 @@ describe("item_flags.check_ids (migration 0021)", () => {
     const flagRows = ((await h.service.from("item_flags").select("*").eq("user_id", client)).data ?? []) as Array<Record<string, unknown>>;
     const next = planNextRound({ itemRows, flagRows, roundRows: [], letterRows: [], letterItemRows: [], reportDate: pulledAt });
     expect(next!.itemDetails).toEqual({ [midland.fingerprint]: balance.letterFact });
+  });
+
+  it("the mailed letter carries the facts the client chose, recomputed by the send itself", async () => {
+    const other = await addClient(h, { name: "Ana Torres" });
+    await signAgreement(h, other);
+    await addDocuments(h, other);
+    await approveBuiltinLetters(h);
+    const raw = demoClientRawReport();
+    raw.pulledAt = ago(2);
+    await importReportForUser(h.service, other, raw);
+    const previous = session.reader;
+    session.reader = h.as(other);
+    try {
+      expect(await put({ fingerprint: midland.fingerprint, state: "attested", reasonCode: "wrong_balance", checkIds: [balance.id], locale: "es" })).toBe(200);
+    } finally {
+      session.reader = previous;
+    }
+    const admin = await addStaff(h, "admin", "carmen-dc", "Carmen");
+    // The first round with letters for this client (round 1 when personal
+    // details are disputed, round 2 otherwise).
+    let sent: Awaited<ReturnType<typeof sendRound>> | null = null;
+    for (const roundNumber of [1, 2]) {
+      sent = await sendRound(h.service, { userId: other, roundNumber, sender: { kind: "staff", userId: admin.userId, name: "carmen" }, requireAgreement: true, via: "print" });
+      if (sent.ok) break;
+    }
+    expect(sent).toMatchObject({ ok: true });
+    const letters = await h.sql<{ body: string }>(`select body from public.letters where user_id = $1`, [other]);
+    expect(letters.some((l) => l.body.includes(balance.letterFact))).toBe(true);
+    // Only for the item and reason the client chose: no other letter carries it.
+    expect(letters.filter((l) => l.body.includes(balance.letterFact)).length).toBe(1);
   });
 });

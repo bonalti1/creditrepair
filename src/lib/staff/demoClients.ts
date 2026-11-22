@@ -12,6 +12,7 @@ import type { ItemFlag, NormalizedReport, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
 import { DEMO_RAW_REPORT } from "../demo";
 import { attachDemoIntake } from "../intake/demo";
+import { attachDemoSelfHealing } from "../autopilot/selfHealingDemo";
 import { paidCharge, sampleMethod } from "./billing";
 import type {
   ItemAnswer,
@@ -906,6 +907,11 @@ export function buildDemoClients(now: Date): StaffClient[] {
 
   // What the AI intake recorded for a few of them (src/lib/intake/demo.ts).
   attachDemoIntake(clients, ago);
+
+  // What fixed itself (autopilot/selfHealingDemo.ts): an address to confirm, a confirmed one, a returned
+  // letter sent again, a document uploaded again, corrected addresses, a payment fixed. Before the
+  // autopilot's history below, so its reminders follow from it.
+  attachDemoSelfHealing(clients, ago);
 
   // What the autopilot did for them: messages sent, a hold, an opt-out, a
   // round mailed by itself, when each prepared round was first seen

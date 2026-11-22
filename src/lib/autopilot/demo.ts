@@ -1,4 +1,5 @@
-import { formatCents, billingDate } from "../billing/rules";
+import { formatCents, billingDate, billingDay } from "../billing/rules";
+import { DUNNING_RETRY_DAYS } from "../billing/dunning";
 import { receiptNumber, workLineWithoutLetters } from "../billing/receipts";
 import type { StaffClient } from "../staff/types";
 import { clientTimeZone, nextAllowedTime } from "./clock";
@@ -131,6 +132,41 @@ function statusHistory(client: StaffClient, until: Date): OutboundMessage[] {
     }
     if (round.status === "ready" && round.number > 1 && round.readyAt) {
       events.push({ at: round.readyAt, event: { kind: "next_round_prepared", roundNumber: round.number, planKey: roundPlanKey(round) } });
+    }
+  }
+  // Billing's notices through the outbound log (migration 0022), each with the «Actualizar mi tarjeta» link:
+  // one per declined attempt of a charge still unpaid (first try, then 3 and 7 days later), and the
+  // missing-method notice the day a mailed round could be charged.
+  for (const charge of client.billing.charges) {
+    if (charge.status !== "failed") continue;
+    const offsets = [0, ...DUNNING_RETRY_DAYS];
+    for (let attempt = 1; attempt <= charge.attempts; attempt++) {
+      const at = new Date(new Date(charge.createdAt).getTime() + offsets[attempt - 1]! * DAY_MS).toISOString();
+      const next = attempt < charge.attempts ? new Date(new Date(charge.createdAt).getTime() + offsets[attempt]! * DAY_MS).toISOString() : charge.nextAttemptAt;
+      events.push({
+        at,
+        event: {
+          kind: "payment_declined",
+          chargeId: charge.id,
+          attempts: attempt,
+          roundNumber: charge.roundNumber,
+          amount: formatCents(charge.amountCents),
+          retryOn: next ? { es: billingDay(next, "es"), en: billingDay(next, "en") } : null,
+        },
+      });
+    }
+  }
+  const owed = client.rounds.find((r) => r.mailedAt && !client.billing.paymentMethod && !client.billing.charges.some((c) => c.roundNumber === r.number));
+  if (owed?.mailedAt && client.agreementSignedAt) {
+    events.push({
+      at: new Date(new Date(owed.mailedAt).getTime() + DAY_MS).toISOString(),
+      event: { kind: "payment_method_needed", roundNumber: owed.number, workDate: { es: billingDay(owed.mailedAt, "es"), en: billingDay(owed.mailedAt, "en") } },
+    });
+  }
+  for (const round of client.rounds) {
+    for (const letter of round.letters) {
+      if (!letter.remailOf || !letter.mail?.mailedAt) continue;
+      events.push({ at: letter.mail.mailedAt, event: { kind: "letter_remailed", letterId: letter.remailOf, recipient: letter.recipient.name, roundNumber: round.number } });
     }
   }
   for (const charge of client.billing.charges) {

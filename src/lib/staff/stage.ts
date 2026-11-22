@@ -8,7 +8,7 @@ import { ROUND_CYCLE_DAYS } from "../domain/attack";
 import { FRESH_REPORT_DAYS } from "../monitoring/subscription";
 import { RESPONSE_WINDOW_DAYS } from "../ux/journey";
 import { itemLabel } from "../ux/itemDisplay";
-import type { FurnisherEntry } from "../mail/furnishers";
+import type { FurnisherEntry, FurnisherGapRecord } from "../mail/furnishers";
 import type { LetterVersion } from "../letters/versions/versions";
 import { addressBookHref, missingFurnisherAddresses } from "../mail/sendPlan";
 import { responseWindowStart, returnReasonEs } from "../mail/tracking";
@@ -358,6 +358,8 @@ export const EXCEPTION_KINDS = [
   // AI intake (src/lib/intake/exceptions.ts): only what the automatic check was not sure about.
   "document_check_needs_person",
   "bureau_letter_needs_person",
+  // The post office's data could not confirm the client's own address (mail/verify.ts): the client is asked first.
+  "client_address_unconfirmed",
 ] as const;
 
 export type ExceptionKind = (typeof EXCEPTION_KINDS)[number];
@@ -379,6 +381,7 @@ export const EXCEPTION_LABEL: Record<ExceptionKind, string> = {
   furnisher_address_missing: "Falta la dirección de un acreedor",
   document_check_needs_person: "Documento para revisar",
   bureau_letter_needs_person: "Carta de un buró para revisar",
+  client_address_unconfirmed: "Dirección del cliente sin confirmar",
 };
 
 export interface StaffException {
@@ -407,6 +410,19 @@ export interface StaffContext {
   furnishers?: readonly FurnisherEntry[];
   /** The approved letter texts (letters/versions): printed and previewed letters use them. */
   letterVersions?: readonly LetterVersion[];
+  /** Companies whose dispute address is missing, as first seen for every client (furnisher_gaps). The queue's clock for them. */
+  furnisherGaps?: readonly FurnisherGapRecord[];
+}
+
+/** The request to the client to confirm their address, while it is open (neither confirmed nor closed). */
+export function openAddressCheck(client: StaffClient): NonNullable<StaffClient["addressCheck"]> | null {
+  const check = client.addressCheck;
+  return check && !check.confirmedAt && !check.closedAt ? check : null;
+}
+
+/** True for a letter that came back and has been sent again (a later letter of the same round re-mails it). */
+export function letterRemailed(round: Pick<StaffRound, "letters">, letterId: string): boolean {
+  return round.letters.some((l) => l.remailOf === letterId);
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
@@ -602,6 +618,10 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
   for (const round of client.rounds) {
     for (const letter of round.letters) {
       if (letter.mailStatus !== "returned" && letter.mailStatus !== "undeliverable") continue;
+      // Settled by the system: sent again to the corrected address (once; the re-mail is tracked as its own letter).
+      if (letterRemailed(round, letter.id)) continue;
+      // Waiting on the client: they were asked to confirm their address because of this letter.
+      if (openAddressCheck(client)?.letterId === letter.id) continue;
       found.push({
         key: `letter_returned:${letter.id}`,
         kind: "letter_returned",
@@ -666,6 +686,26 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
   }
 
   found.push(...intakeExceptions(client.intake, client.id));
+
+  // The post office's data could not confirm the client's own address (the
+  // check before mailing, or a letter that came back). The client was asked
+  // to confirm it with one tap; the automatic follow-ups carry it, and it is a
+  // person's only when they do not answer, or when it fails a second time.
+  const addressCheck = openAddressCheck(client);
+  if (addressCheck) {
+    const what = addressCheck.finding === "ambiguous" ? "parece que falta o sobra el número de departamento" : "el correo no entrega en esa dirección";
+    const again = addressCheck.requests > 1 ? " Es la segunda vez: la dirección que confirmó tampoco pasó." : "";
+    found.push({
+      key: `client_address_unconfirmed:${addressCheck.id}`,
+      kind: "client_address_unconfirmed",
+      severity: "high",
+      sentence: `El correo no pudo confirmar su dirección (${what}): ${clip(addressCheck.inputLines.join(", "), 90)}. Sus cartas esperan a que la confirme.${again}`,
+      actionLabel: "Revisar su dirección",
+      action: "open_client",
+      since: addressCheck.requestedAt,
+      href: `/equipo/clientes/${client.id}#cartas`,
+    });
+  }
 
   return found.sort((a, b) => {
     const bySeverity = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
@@ -869,6 +909,10 @@ export function sendBlockReason(client: StaffClient, now: Date, context: StaffCo
     if (gaps.length > 0) {
       return `Falta la dirección verificada para disputas de ${listEs(gaps.map((g) => g.company))}. Agrégala en Acreedores y la ronda queda lista.`;
     }
+  }
+  // Added with the address verification (migration 0022): the client's own address waits for their confirmation.
+  if (openAddressCheck(client)) {
+    return "El correo no pudo confirmar la dirección del cliente. Se le pidió confirmarla; la ronda sale cuando la confirme.";
   }
   return null;
 }

@@ -14,6 +14,7 @@ import { itemFromRow, letterKey, planNextRound } from "../rounds/plan";
 import { isDisputeReasonCode } from "../ux/disputeReason";
 import { leadSourceFromRows } from "../leads/fromRows";
 import { pulseFromRow, type PulseRow } from "../pulse/pulse";
+import { resolutionFromRow } from "../autopilot/resolutions";
 import type {
   ClientAssignment,
   DocumentKind,
@@ -102,6 +103,13 @@ export interface StaffRows {
   partners?: Row[];
   /** client_pulses (migration 0018), as this member may read them: admin all, a specialist their assigned clients, sales none. */
   pulses?: Row[];
+  // What fixes itself (migration 0022). Absent or empty on a database without it.
+  /** address_confirmations. */
+  addressConfirmations?: Row[];
+  /** autopilot_resolutions. */
+  resolutions?: Row[];
+  /** letters (id, remail_of) that re-mail one that came back. */
+  remails?: Row[];
 }
 
 export const EMPTY_STAFF_ROWS: StaffRows = {
@@ -306,6 +314,35 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
   const holdsBy = groupBy(rows.holds ?? [], "user_id");
   const readyBy = groupBy(rows.readyRounds ?? [], "user_id");
   const inboundBy = groupBy(rows.inbound ?? [], "user_id");
+  const confirmationsBy = groupBy(rows.addressConfirmations ?? [], "user_id");
+  const resolutionsBy = groupBy((rows.resolutions ?? []).filter((r) => r.user_id), "user_id");
+  const remailOf = new Map((rows.remails ?? []).map((r) => [text(r.id), text(r.remail_of)]));
+  const selfHealingFields = (id: string): Partial<StaffClient> => {
+    const requests = [...(confirmationsBy.get(id) ?? [])].sort(byTime("requested_at"));
+    const newest = requests.at(-1);
+    const resolutions = (resolutionsBy.get(id) ?? []).flatMap((r) => resolutionFromRow(r) ?? []).sort((a, b) => a.at.localeCompare(b.at));
+    return {
+      ...(newest
+        ? {
+            addressCheck: {
+              id: text(newest.id),
+              reason: newest.reason === "returned_letter" ? ("returned_letter" as const) : ("verification" as const),
+              finding: newest.finding === "undeliverable" ? ("undeliverable" as const) : ("ambiguous" as const),
+              requestedAt: iso(newest.requested_at) ?? "",
+              inputLines: lines(newest.input_lines),
+              suggestionLines: lines(newest.suggestion_lines),
+              letterId: textOrNull(newest.letter_id),
+              roundNumber: newest.round_number == null ? null : Number(newest.round_number),
+              confirmedAt: iso(newest.confirmed_at),
+              confirmedLines: newest.confirmed_lines ? lines(newest.confirmed_lines) : null,
+              closedAt: iso(newest.closed_at),
+              requests: requests.length,
+            },
+          }
+        : {}),
+      ...(resolutions.length > 0 ? { resolutions } : {}),
+    };
+  };
   const auditByClient = groupBy(rows.audit.filter((a) => a.kind === "client_assigned" && a.client_id), "client_id");
   const auditByProspect = groupBy(rows.audit.filter((a) => a.kind === "client_assigned" && a.prospect_id), "prospect_id");
 
@@ -420,6 +457,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
         mailStatus: MAIL_STATUSES.find((s) => s === row.mail_status) ?? "not_sent",
         ...(MAIL_CLASSES.includes(row.mail_class as MailClass) ? { mailClass: row.mail_class as MailClass } : {}),
         ...(mail ? { mail } : {}),
+        ...(remailOf.get(text(row.id)) ? { remailOf: remailOf.get(text(row.id))! } : {}),
       };
     };
 
@@ -631,6 +669,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       goal: textOrNull(profile.goal) ?? textOrNull(prospect?.goal),
       ...(prospect ? { addedBy: handle(context, prospect.created_by) } : {}),
       ...autopilotFields(id, profile),
+      ...selfHealingFields(id),
       ...(sourceOf(prospect, profile) ? { leadSource: sourceOf(prospect, profile) } : {}),
     };
     return client;

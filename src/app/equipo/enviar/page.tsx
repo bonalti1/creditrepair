@@ -7,6 +7,7 @@ import { getLetterMeta } from "@/lib/letters/library";
 import { MAIL_CLASS_LABEL } from "@/lib/mail/classes";
 import { MAIL_CLASSES, type MailClass } from "@/lib/mail/types";
 import { LOB_PRICES, formatMills } from "@/lib/mail/pricing";
+import { VERIFICATION_COST_MILLS } from "@/lib/mail/verify";
 import { buildSendBatch } from "@/lib/mail/sendBatch";
 import { addressBookHref, type LetterMailPlan, type RoundMailPlan } from "@/lib/mail/sendPlan";
 import { useMail } from "@/lib/mail/useMail";
@@ -136,7 +137,7 @@ function SendView() {
     setFailure(null);
     try {
       await data.markRoundsSent(rounds, { mailClasses, via: "mail" });
-      setSent({ rounds: rounds.length, letters: batch.letters, total: formatMills(batch.totalMills) });
+      setSent({ rounds: rounds.length, letters: batch.letters, total: formatMills(batch.totalMills + batch.verificationMills) });
     } catch (error) {
       setFailure(error instanceof Error && error.message ? error.message : "No se pudo enviar. Intenta de nuevo.");
     }
@@ -219,7 +220,7 @@ function SendView() {
           <section className="card px-5 py-5" aria-label="Resumen del envío">
             <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">Este envío</p>
             <p className="mt-1 text-[32px] font-semibold leading-none tabular-nums text-slate-900" data-testid="batch-total">
-              {formatMills(batch.totalMills)}
+              {formatMills(batch.totalMills + batch.verificationMills)}
             </p>
             <p className="mt-1 text-[13px] text-slate-500">
               estimado · {count(batch.ready.length, "ronda", "rondas")} · {count(batch.letters, "carta", "cartas")}
@@ -232,6 +233,15 @@ function SendView() {
                 </li>
               ))}
             </ul>
+            <div className="mt-3 flex justify-between gap-3 border-t hairline pt-3 text-[14px]" data-testid="verification-cost">
+              <span className="min-w-0 text-slate-600">
+                Verificación de direcciones (USPS)
+                <span className="block text-xs text-slate-500">
+                  {count(batch.verifications, "dirección", "direcciones")} × {formatMills(VERIFICATION_COST_MILLS)} · antes de enviar
+                </span>
+              </span>
+              <span className="shrink-0 font-medium tabular-nums text-slate-900">{formatMills(batch.verificationMills)}</span>
+            </div>
             <div className="mt-4">
               <MailModeNote mode={mode} />
             </div>
@@ -253,6 +263,12 @@ function SendView() {
             Precios de Lob leídos el {longDay(`${LOB_PRICES.readOn}T12:00:00Z`)} (edición Developer), sin verificar: la
             factura de Lob es la que vale. Cada carta lleva una hoja en blanco al frente para la dirección, que se cobra
             como página. Primera clase: Lob calcula la entrega; certificada: el correo la registra y da un número de rastreo.
+          </p>
+          <p className="px-1 text-xs leading-relaxed text-slate-500" data-testid="verification-note">
+            Antes de enviar, cada dirección (la del cliente como remitente y la de cada destinatario) se revisa con los datos del correo.
+            Si el correo la corrige (código postal de 9 dígitos, número de departamento), sale así. Si no reconoce la del cliente, la ronda
+            espera y se le pide confirmarla con un toque; si no reconoce la de un acreedor, queda como dirección faltante. Una dirección
+            revisada en los últimos 30 días no se vuelve a cobrar. Precio por verificación sin verificar ({formatMills(VERIFICATION_COST_MILLS)}).
           </p>
         </aside>
       </div>

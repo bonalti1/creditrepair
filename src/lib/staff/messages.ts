@@ -74,6 +74,9 @@ const BODY: Record<ExceptionKind, (client: StaffClient, exception: StaffExceptio
     "Revisamos el documento que subiste y necesitamos confirmar algo contigo. ¿Nos puedes mandar una foto nueva, completa y bien iluminada? Si es tu comprobante de domicilio, que sea un recibo o estado de cuenta reciente con tu dirección.",
   bureau_letter_needs_person: () =>
     "Gracias por subir la carta del buró. La estamos revisando: piden algo más y te escribimos para ver juntos qué hace falta.",
+  // The client's own address, which the post office could not confirm: they confirm or correct it in the app.
+  client_address_unconfirmed: () =>
+    "Antes de enviar tus cartas revisamos tu dirección con los datos del correo y no la pudimos confirmar. ¿Me ayudas a revisarla? En la app, en «Confirmar dirección», la confirmas o la corriges con un toque.",
 };
 
 /** The drafted message for one exception. */

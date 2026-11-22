@@ -4,6 +4,7 @@ import {
   FURNISHER_SEED,
   furnisherChanges,
   type FurnisherEntry,
+  type FurnisherGapRecord,
   type FurnisherInput,
 } from "./furnishers";
 import { isDemoMode } from "../supabase/config";
@@ -34,6 +35,12 @@ export interface MailData {
    * line is ever edited or removed.
    */
   saveFurnisher(input: FurnisherInput, by: string): Promise<FurnisherSaveResult>;
+  /**
+   * Companies whose dispute address is missing, as first seen for every client
+   * (furnisher_gaps). Read with the book; the demo has none recorded (the queue
+   * then counts from the oldest waiting round).
+   */
+  listGaps?(): Promise<FurnisherGapRecord[]>;
 }
 
 // ── Demo implementation ─────────────────────────────────────────────────
@@ -203,6 +210,7 @@ export function resetDemoMail(): void {
 
 export function createDatabaseMailData(): MailData {
   let mode: MailMode = "simulated";
+  let gaps: FurnisherGapRecord[] = [];
   return {
     get mode() {
       return mode;
@@ -210,9 +218,13 @@ export function createDatabaseMailData(): MailData {
     async listFurnishers() {
       const res = await fetch("/api/staff/mail", { cache: "no-store" });
       if (!res.ok) throw new Error("No pudimos leer la libreta de direcciones.");
-      const body = (await res.json()) as { mode?: MailMode; furnishers?: FurnisherEntry[] };
+      const body = (await res.json()) as { mode?: MailMode; furnishers?: FurnisherEntry[]; gaps?: FurnisherGapRecord[] };
       mode = body.mode === "lob" ? "lob" : "simulated";
+      gaps = body.gaps ?? [];
       return [...(body.furnishers ?? [])].sort((a, b) => a.name.localeCompare(b.name, "es"));
+    },
+    async listGaps() {
+      return gaps;
     },
     async saveFurnisher(input) {
       try {

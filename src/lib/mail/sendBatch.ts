@@ -27,6 +27,9 @@ export interface SendBatch {
   /** Letters per class, over the rounds that go. */
   byClass: Record<MailClass, number>;
   totalMills: number;
+  /** Address checks before mailing, over the rounds that go (sendPlan.ts: verifications), and their most cost. */
+  verifications: number;
+  verificationMills: number;
 }
 
 export function buildSendBatch(
@@ -71,5 +74,7 @@ export function buildSendBatch(
     letters: ready.reduce((n, p) => n + p.letters.length, 0),
     byClass,
     totalMills: ready.reduce((n, p) => n + p.totalMills, 0),
+    verifications: ready.reduce((n, p) => n + p.verifications, 0),
+    verificationMills: ready.reduce((n, p) => n + p.verificationMills, 0),
   };
 }

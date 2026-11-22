@@ -24,15 +24,31 @@ trabajo humano por cliente activo» is where real numbers will show.
 | 8:35 | Open the link: **focus mode** (`/equipo?siguiente=1`). One item at a time, overdue first. Each shows why it needs a person, what the system already tried, the one button, and its **«Cómo se resuelve»** card with «Hecho cuando…» | — |
 | | Questions from clients (≈5 min each): the conversation opens with the **saved answer** that matches, or **AltiBot's draft**. Read, edit if needed, **«Enviar así»**. If it will help the next client, **«Guardar como respuesta»** | 2–5 min each |
 | | Calls after three automatic reminders (unsigned agreement, missing documents, stalled review, monitoring): the card says what to ask and what not to say | 5–6 min each |
-| | Money (payment past due, missing method): write with the button; never collect by hand, never ask for a card number | 5–8 min each |
-| | Addresses and returned letters: «Acreedores», only verified addresses | 8–10 min each |
+| | Money (payment past due, missing method): only after the client got every notice with the «Actualizar mi tarjeta» link and did not use it. The card shows the exact words they got. Call; never collect by hand, never ask for a card number | 5–8 min each, about 1 a day |
+| | A company's missing dispute address: **one item per company**, listing every client waiting on it, with the address the reports print as an unverified suggestion. Check it against a source, save it once in «Acreedores», and every waiting round can go | 8 min per company (not per client) |
+| | Returned letters, addresses the client did not confirm, documents the client did not re-upload: only what the system could not settle (see «Lo que se arregla solo» in `docs/AUTOPILOT.md`) | 4–10 min each, rare |
 | ~9:45 | **Listas para enviar**: review the prepared rounds and send them (or let automatic sending do it after its review window) | 5–10 min |
 | Afternoon | New questions as they come in; the home screen and the morning summary say what is new. Everything else moves by itself | 15–30 min |
 
-A typical day for 100 clients: **about 1½ to 2 hours of a person's work**,
-the rest of the day free for calls, new clients or a second job role. As the
-saved-answer library grows, AltiBot answers more questions by itself and the
-question time falls.
+A typical day for 100 clients: **about 1¼ to 1¾ hours of a person's work**
+(it was 1½ to 2 before the system began fixing addresses, returned letters,
+payments and documents by itself), the rest of the day free for calls, new
+clients or a second job role. As the saved-answer library grows, AltiBot
+answers more questions by itself and the question time falls.
+
+What changed, estimated for 100 clients (not measured):
+
+| Notice | Before | Now |
+| --- | --- | --- |
+| Missing creditor address | 8 min × every client waiting (often 2–4 a week) | 8 min once per company; candidates from the reports |
+| Returned letter | 10 min each | the system re-mails once when the post office's data corrects the address; a person sees only the rest |
+| Payment past due / missing method | 5–8 min each, a message written by hand | the client fixes it from the link; the person's card shows what was sent |
+| Document the AI could not accept | 4 min each | the client gets the plain reason and an upload button; a person only after a second failure or no answer |
+| Client address the post office cannot confirm | new: caught before mailing, instead of a returned letter weeks later | the client confirms with one tap |
+
+The home screen says how much: **«Esta semana el sistema resolvió N cosas
+por su cuenta»**, with the count of each kind under «Resuelto solo»
+(`autopilot_resolutions`, migration 0022).
 
 ## AltiBot's drafted replies
 
@@ -110,7 +126,7 @@ shows.
 
 ## «Cómo se resuelve» cards
 
-`src/lib/staff/playbook.ts`. One card per kind of notice (all 14), 3–5 steps
+`src/lib/staff/playbook.ts`. One card per kind of notice (all 15), 3–5 steps
 in plain Spanish and a «Hecho cuando…» line, written from what the app does
 for that notice (the rule in `stage.ts` or `intake/exceptions.ts`, the button,
 what the autopilot already tried). Folded under each item in the queue, open in

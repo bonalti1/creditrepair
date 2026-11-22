@@ -387,3 +387,53 @@ export interface StaffClientPulseFields {
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StaffClient extends StaffClientPulseFields {}
+
+// ── What fixes itself (migration 0022) ──────────────────────────────────
+//
+// Additions for the things that used to wait for a person and now go to the
+// client or the system first (docs/AUTOPILOT.md, "Lo que se arregla solo").
+// All optional: a record without them reads as before.
+
+/** The client's address, asked to be confirmed (address_confirmations): the newest request. */
+export interface AddressCheck {
+  id: string;
+  /** Why: the check before mailing, or a letter that came back. */
+  reason: "verification" | "returned_letter";
+  /** What the post office's data said about the address on file. */
+  finding: "undeliverable" | "ambiguous";
+  requestedAt: string;
+  inputLines: string[];
+  /** What the post office suggests; empty when it suggests nothing. */
+  suggestionLines: string[];
+  letterId: string | null;
+  roundNumber: number | null;
+  confirmedAt: string | null;
+  confirmedLines: string[] | null;
+  closedAt: string | null;
+  /** How many times the client has been asked, this request included. */
+  requests: number;
+}
+
+/** One thing the system resolved by itself (autopilot_resolutions). */
+export interface SelfResolution {
+  id: string;
+  kind: "address_corrected" | "address_confirmed" | "letter_remailed" | "payment_fixed" | "document_reuploaded" | "furnisher_matched";
+  at: string;
+  /** One line for the team, in Spanish. */
+  text: string;
+}
+
+export interface StaffClientSelfHealingFields {
+  addressCheck?: AddressCheck | null;
+  resolutions?: SelfResolution[];
+}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientSelfHealingFields {}
+
+/** Fields the re-mail adds to a letter. */
+export interface StaffLetterSelfHealingFields {
+  /** Set on a letter that re-mails one that came back: the returned letter's id (same round, never charged again). */
+  remailOf?: string | null;
+}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffLetter extends StaffLetterSelfHealingFields {}

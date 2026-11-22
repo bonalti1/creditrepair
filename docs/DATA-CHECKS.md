@@ -171,7 +171,7 @@ stripped with the reasons from the letters that print none
 (`TEMPLATES_WITHOUT_REASONS`: debt validation, collector letters, goodwill…).
 The `{partidas}` chip's help and attorney label now say so.
 
-**One step left for the team that owns `rounds/send.ts`** (not touched here,
+**Done (merge, Nov 22):** `rounds/send.ts` now passes the facts to the mailed letter, as the preview does; a database test mails a round and finds them. The original note:
 by agreement): pass the facts to the mailed letter, as the preview already does.
 
 ```ts

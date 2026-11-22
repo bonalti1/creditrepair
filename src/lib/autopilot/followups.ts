@@ -9,6 +9,7 @@ import {
   identityTheftItemsWithoutReport,
   latestRound,
   missingDocuments,
+  openAddressCheck,
   overdueResponseRound,
   reviewProgress,
   workStartsAt,
@@ -16,6 +17,7 @@ import {
 } from "../staff/stage";
 import type { DocumentKind, StaffClient } from "../staff/types";
 import { responseWindowStart } from "../mail/tracking";
+import { DOCUMENT_NAME, failuresSinceAccepted, reuploadRequest } from "../intake/reupload";
 import { RESPONSE_WINDOW_DAYS } from "../ux/journey";
 import { chooseChannel, type ChannelChoice } from "./channels";
 import { appLink, FOLLOWUP_TEMPLATES, renderTemplate, type MessageTemplate } from "./templates";
@@ -119,7 +121,8 @@ export const FOLLOWUP_SCHEDULES: Record<FollowupKind, FollowupSchedule> = {
     stepDays: [3, 5, 8],
     personAfterDays: 10,
     personFromStart: false,
-    path: "/pagos",
+    // The one-tap card page (the processor's hosted fields); a charge waiting on it is tried at once.
+    path: "/pagos/tarjeta",
     covers: ["payment_method_missing"],
   },
   identity_theft_report_missing: {
@@ -132,6 +135,28 @@ export const FOLLOWUP_SCHEDULES: Record<FollowupKind, FollowupSchedule> = {
     personFromStart: true,
     path: "/asistente",
     covers: ["identity_theft_report_missing"],
+  },
+  address_unconfirmed: {
+    kind: "address_unconfirmed",
+    label: "Dirección por confirmar",
+    description:
+      "El correo no pudo confirmar la dirección del cliente (antes de enviar, o por una carta devuelta). Se le pide confirmarla o corregirla con un toque. Cuenta desde la solicitud; si la que confirma tampoco pasa, es de una persona.",
+    stepDays: [0, 2, 4],
+    personAfterDays: 6,
+    personFromStart: false,
+    path: "/confirmar-direccion",
+    covers: ["client_address_unconfirmed"],
+  },
+  document_reupload: {
+    kind: "document_reupload",
+    label: "Documento por subir de nuevo",
+    description:
+      "La revisión automática no aceptó su identificación o su comprobante por algo que el cliente puede corregir (foto borrosa, comprobante viejo). Se le dice el motivo y se le pide otro. Un segundo rechazo, o un motivo que no se corrige con otra foto, es de una persona.",
+    stepDays: [0, 2, 5],
+    personAfterDays: 7,
+    personFromStart: false,
+    path: "/documentos",
+    covers: ["document_check_needs_person"],
   },
 };
 
@@ -149,6 +174,12 @@ export interface Situation {
   startedAt: string;
   /** The template's values besides the name and the link, per language. */
   values: Record<MessageLocale, string[]>;
+  /**
+   * The one console notice this occurrence stands for, when a kind can have
+   * several at once (a re-upload request per document). Absent: any notice of
+   * the kinds the schedule covers.
+   */
+  exceptionKey?: string;
 }
 
 const DOCUMENT_EN: Record<DocumentKind, string> = {
@@ -227,6 +258,29 @@ export function openSituations(client: StaffClient, now: Date): Situation[] {
   if (theft.length > 0) {
     const start = theft.map((t) => t.confirmedAt).sort()[0]!;
     add("identity_theft_report_missing", start, day(start));
+  }
+
+  // The client's own address, which the post office could not confirm: the
+  // first request only. If the address they confirm fails again, a person.
+  const check = openAddressCheck(client);
+  if (check && check.requests <= 1) {
+    add("address_unconfirmed", check.requestedAt, check.id);
+    found[found.length - 1]!.exceptionKey = `client_address_unconfirmed:${check.id}`;
+  }
+
+  // A document the automatic check did not accept, for reasons the client can
+  // fix: the first time only. A second failure goes to a person.
+  for (const kind of ["government_id", "proof_of_address"] as const) {
+    const failures = failuresSinceAccepted(client.intake ?? [], kind);
+    const newest = failures[0];
+    if (!newest || failures.length > 1) continue;
+    const request = reuploadRequest(newest);
+    if (!request) continue;
+    add("document_reupload", newest.at, `${kind}:${newest.id}`, {
+      es: [DOCUMENT_NAME[kind].es, request.motivo.es],
+      en: [DOCUMENT_NAME[kind].en, request.motivo.en],
+    });
+    found[found.length - 1]!.exceptionKey = `document_check_needs_person:${newest.id}`;
   }
 
   return found.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
