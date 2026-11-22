@@ -161,7 +161,9 @@ that message never goes on WhatsApp outside the 24-hour window.
 | `credalti_ronda_preparada` | nombre, ronda, enlace | Next round prepared |
 | `credalti_recibo` | nombre, recibo, monto, fecha, trabajo, enlace | Payment receipt |
 
-24 templates. Meta may reject a template whose variables carry whole
+24 templates for clients. One more, for the team: `credalti_resumen_equipo`
+(nombre, cosas, minutos, lo primero, lo que hizo el sistema, enlace), the
+morning summary (`docs/STAFF.md`). Meta may reject a template whose variables carry whole
 sentences; `cambio` and `trabajo` are short generated phrases, and if Meta
 objects, split them into fixed-text templates.
 
@@ -186,6 +188,11 @@ objects, split them into fixed-text templates.
 In the demo: 12 notices on the console's raw list become 8 in the queue
 (documents, an unfinished review, monitoring and a payment method are left to
 the reminders).
+
+Each item also carries its «Cómo se resuelve» card, a waiting question shows
+the saved answer that matches it, and each teammate can get the queue as a
+morning summary by WhatsApp or email. The one-person day, start to finish, is
+in `docs/STAFF.md`.
 
 ## Setup
 

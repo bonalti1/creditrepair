@@ -475,9 +475,28 @@ describe("D. the coach with no key", () => {
     const saved = process.env.ANTHROPIC_API_KEY;
     delete process.env.ANTHROPIC_API_KEY;
     try {
-      const res = await ask({ messages: [{ role: "user", content: "¿Cuánto tardan los burós en responder?" }] });
+      // A question no saved answer covers: without a key there is nothing to answer it with.
+      const res = await ask({ messages: [{ role: "user", content: "¿Qué es una cuenta de cobranza médica?" }] });
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ reply: null, configured: false });
+    } finally {
+      if (saved !== undefined) process.env.ANTHROPIC_API_KEY = saved;
+    }
+  });
+
+  it("answers from an approved saved answer even without a key, marked as the team's (src/lib/staff/answers.ts)", async () => {
+    const saved = process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    try {
+      const res = await ask({ messages: [{ role: "user", content: "¿Cuánto tardan los burós en responder?" }] });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { reply: string; source: string };
+      expect(body.source).toBe("saved_answer");
+      expect(body.reply).toMatch(/30 días/);
+      expect(body.reply).toMatch(/Respuesta aprobada por el equipo/);
+      // A question only a proposal covers is not answered from the library.
+      const itin = await ask({ messages: [{ role: "user", content: "¿Puedo activar el monitoreo con mi ITIN?" }] });
+      expect(await itin.json()).toEqual({ reply: null, configured: false });
     } finally {
       if (saved !== undefined) process.env.ANTHROPIC_API_KEY = saved;
     }

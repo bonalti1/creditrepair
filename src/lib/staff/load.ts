@@ -113,6 +113,9 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     optionalRows(sel("chat_messages", "user_id, created_at").eq("channel", "whatsapp").eq("role", "user").order("created_at", { ascending: false }).limit(2000), "chat_messages"),
   ]);
 
+  // "¿Cómo vamos?" answers (migration 0018): the "staff read pulses" policy decides (admin, assigned specialist).
+  const pulses = await optionalRows(sel("client_pulses", "user_id, moment, rating, comment, created_at"), "client_pulses");
+
   // Referral partners' names and codes, for a lead's source (migration 0017). A role that may not read them gets none.
   const partners = await rows(db.from("partners").select("id, name, referral_code"), "partners");
 
@@ -164,6 +167,7 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     inbound,
     intake,
     partners,
+    pulses,
   };
 }
 

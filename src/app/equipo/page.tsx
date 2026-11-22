@@ -26,7 +26,11 @@ import {
 import { fullName, type StaffClient, type StaffRound } from "@/lib/staff/types";
 import { staffAuthor, useStaff } from "@/lib/staff/useStaff";
 import { FOLLOWUP_SCHEDULES } from "@/lib/autopilot/followups";
-import { FocusMode, QueueList } from "@/components/staff/WorkQueue";
+import { FocusMode, QueueList, type AnswerFor } from "@/components/staff/WorkQueue";
+import NewHireChecklist from "@/components/staff/NewHireChecklist";
+import { bestMatch } from "@/lib/staff/answers";
+import { openQuestions } from "@/lib/staff/conversation";
+import { useSavedAnswers } from "@/lib/staff/useSavedAnswers";
 import Icon from "@/components/Icon";
 import NewLeadsCard from "@/components/staff/NewLeadsCard";
 import {
@@ -71,6 +75,18 @@ export default function EquipoHome() {
   const [holding, setHolding] = useState<string | null>(null);
   const [holdReason, setHoldReason] = useState("");
   const [holdError, setHoldError] = useState<string | null>(null);
+  // The saved answers: a waiting question shows the one that matches it.
+  const { answers } = useSavedAnswers(viewer);
+  const answerFor: AnswerFor = (item) => {
+    const question = openQuestions(item.client).find((q) => `question:${q.id}` === item.exception.key);
+    return question ? bestMatch(question.text, answers) : null;
+  };
+
+  // The morning summary's link (/equipo?siguiente=1) opens "Siguiente" at once.
+  const [openFocus, setOpenFocus] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("siguiente") === "1") setOpenFocus(true);
+  }, []);
 
   const view = useMemo(() => {
     const queue: QueueItem[] = workQueue(clients, now, { furnishers, autopilot: env }, viewer?.role ?? null);
@@ -96,6 +112,13 @@ export default function EquipoHome() {
     const sentToday = sentBetween(clients, new Date(now.getTime() - 24 * 60 * 60 * 1000), now);
     return { queue, sendable, quiet, byStage, working, sentToday };
   }, [clients, now, viewer, sends, furnishers, env]);
+
+  useEffect(() => {
+    if (openFocus && ready && autopilotReady) {
+      setFocus(0);
+      setOpenFocus(false);
+    }
+  }, [openFocus, ready, autopilotReady]);
 
   // Every prepared round starts selected: sending them all is the routine.
   useEffect(() => {
@@ -185,6 +208,9 @@ export default function EquipoHome() {
         )}
       </section>
 
+      {/* A new teammate's first-day list, under the day's work so the work stays the first thing on a phone. */}
+      <NewHireChecklist viewer={viewer} />
+
       {focus !== null && (
         <FocusMode
           items={view.queue}
@@ -195,13 +221,14 @@ export default function EquipoHome() {
             await markHandled(item);
           }}
           onClose={() => setFocus(null)}
+          answerFor={answerFor}
         />
       )}
 
       <div className="mt-7 grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_23rem]">
         <section aria-labelledby="necesita">
           <SectionTitle aside={<span className="text-[13px] tabular-nums text-slate-500">{view.queue.length}</span>}>
-            <span id="necesita">Necesita una persona</span>
+            <span id="necesita" className="scroll-mt-28">Necesita una persona</span>
           </SectionTitle>
 
           {view.queue.length === 0 ? (
@@ -212,7 +239,7 @@ export default function EquipoHome() {
               Nada necesita una persona ahora.
             </div>
           ) : (
-            <QueueList items={view.queue} now={now} onHandled={markHandled} />
+            <QueueList items={view.queue} now={now} onHandled={markHandled} answerFor={answerFor} />
           )}
           {view.queue.length > 0 && (
             <p className="px-1 pt-2 text-xs leading-relaxed text-slate-500">
@@ -257,7 +284,7 @@ export default function EquipoHome() {
             <SectionTitle
               aside={
                 view.sendable.length > 1 ? (
-                  <label className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-slate-600">
+                  <label className="flex min-h-11 cursor-pointer items-center gap-2 text-[13px] font-medium text-slate-600">
                     <input
                       type="checkbox"
                       className="h-4 w-4 accent-blue-700"
@@ -296,13 +323,16 @@ export default function EquipoHome() {
                     {view.sendable.map(({ client, round }, index) => (
                       <Fragment key={client.id}>
                       <li className={`flex items-center gap-3 px-5 py-3 ${index > 0 ? "border-t hairline" : ""}`}>
-                        <input
-                          id={`send-${client.id}`}
-                          type="checkbox"
-                          className="h-[18px] w-[18px] shrink-0 accent-blue-700"
-                          checked={selected?.has(client.id) ?? false}
-                          onChange={() => toggle(client.id)}
-                        />
+                        {/* A 44-pixel box around the checkbox, for a finger. */}
+                        <label className="-m-3 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
+                          <input
+                            id={`send-${client.id}`}
+                            type="checkbox"
+                            className="h-5 w-5 accent-blue-700"
+                            checked={selected?.has(client.id) ?? false}
+                            onChange={() => toggle(client.id)}
+                          />
+                        </label>
                         <label htmlFor={`send-${client.id}`} className="min-w-0 flex-1 cursor-pointer">
                           <span className="block truncate text-[15px] font-medium text-slate-900">{fullName(client)}</span>
                           <span className="block text-[13px] text-slate-500">
@@ -320,13 +350,13 @@ export default function EquipoHome() {
                         <span className="flex shrink-0 flex-col items-end gap-1">
                           <Link
                             href={`/equipo/clientes/${client.id}#cartas`}
-                            className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline"
+                            className="inline-flex min-h-11 items-center text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline md:min-h-0"
                           >
                             Ver cartas
                           </Link>
                           {env.settings.roundsEnabled &&
                             (client.holds ?? []).some((h) => !h.releasedAt) ? (
-                              <button type="button" onClick={() => release(client.id)} className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
+                              <button type="button" onClick={() => release(client.id)} className="inline-flex min-h-11 items-center text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline md:min-h-0">
                                 Soltar
                               </button>
                             ) : env.settings.roundsEnabled ? (
@@ -336,7 +366,7 @@ export default function EquipoHome() {
                                   setHolding(holding === client.id ? null : client.id);
                                   setHoldError(null);
                                 }}
-                                className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline"
+                                className="inline-flex min-h-11 items-center text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline md:min-h-0"
                                 data-testid="hold-button"
                               >
                                 Detener
@@ -414,7 +444,7 @@ export default function EquipoHome() {
           <section aria-labelledby="sistema">
             <SectionTitle
               aside={
-                <Link href="/equipo/piloto" className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
+                <Link href="/equipo/piloto" className="inline-flex min-h-11 items-center text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline md:min-h-0">
                   Piloto automático
                 </Link>
               }
@@ -484,7 +514,7 @@ export default function EquipoHome() {
                 </ul>
               )}
               {view.quiet.length > 6 && (
-                <Link href="/equipo/clientes" className="mt-3 block text-[13px] font-medium text-blue-700">
+                <Link href="/equipo/clientes" className="mt-1 flex min-h-11 items-center text-[13px] font-medium text-blue-700 md:mt-3 md:min-h-0">
                   Ver los {view.quiet.length}
                 </Link>
               )}
@@ -496,7 +526,7 @@ export default function EquipoHome() {
       <section className="mt-8" aria-labelledby="etapas">
         <SectionTitle
           aside={
-            <Link href="/equipo/clientes" className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
+            <Link href="/equipo/clientes" className="inline-flex min-h-11 items-center text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline md:min-h-0">
               Ver los {clients.length} clientes
             </Link>
           }

@@ -36,7 +36,7 @@ export default function NewLeadsCard({ clients, now, canInvite }: { clients: Sta
                 <span className="block text-slate-500">Llegó {relativeDay(client.createdAt, now)}</span>
               </span>
               {canInvite && (
-                <Link href={`/equipo/invitar?cliente=${client.id}`} className="shrink-0 rounded-full bg-blue-50 px-3 py-1.5 text-[13px] font-semibold text-blue-700 hover:bg-blue-100">
+                <Link href={`/equipo/invitar?cliente=${client.id}`} className="inline-flex min-h-11 shrink-0 items-center rounded-full bg-blue-50 px-3 text-[13px] md:min-h-0 md:py-1.5 font-semibold text-blue-700 hover:bg-blue-100">
                   Invitar
                 </Link>
               )}

@@ -6,6 +6,7 @@ import type { DisputeReasonCode } from "../letters/reasons";
 import type { LetterMail, MailClass } from "../mail/types";
 import type { IntakeRecord } from "../intake/types";
 import type { LeadSource } from "../leads/source";
+import type { PulseRow } from "../pulse/pulse";
 
 // The staff-side view of one client: everything the console needs to say where
 // a person is and why, in one object. It mirrors what the database already
@@ -358,3 +359,14 @@ export interface StaffClientSourceFields {
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StaffClient extends StaffClientSourceFields {}
+
+// ── "¿Cómo vamos?" (migration 0018) ──────────────────────────────────────
+
+/** The client's answers to the satisfaction pulse, as this member may read them (admin; the assigned specialist). */
+export interface StaffClientPulseFields {
+  /** Absent: none, or a role that may not read them (sales). */
+  pulses?: PulseRow[];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientPulseFields {}

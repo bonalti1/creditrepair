@@ -37,7 +37,7 @@ const who = (by: string) => (!by.trim() || by.trim().toLowerCase() === "equipo" 
 
 const FIELD =
   "mt-2 w-full resize-y rounded-2xl bg-slate-50 px-3.5 py-2.5 text-[14px] text-slate-900 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-300";
-const SMALL_BUTTON = "pressable inline-flex h-9 items-center justify-center rounded-full px-3.5 text-[13px] font-semibold";
+const SMALL_BUTTON = "pressable inline-flex h-11 md:h-9 items-center justify-center rounded-full px-3.5 text-[13px] font-semibold";
 
 /** What happened to a charge after it was created, in a line. */
 function chargeDetail(charge: BillingCharge): string {
@@ -278,7 +278,7 @@ export default function BillingCard({
                   setError(null);
                 }}
                 data-testid="pause-open"
-                className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline"
+                className="inline-flex min-h-11 items-center text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline"
               >
                 Pausar los cobros de este cliente
               </button>

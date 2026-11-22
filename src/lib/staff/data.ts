@@ -10,6 +10,7 @@ import { mergeReport, planImport } from "../reports/merge";
 import { checkStaffReply, MAX_REPLY_CHARS, openQuestions, type ReplyProblem } from "./conversation";
 import { buildDemoClients } from "./demoClients";
 import { withDemoLeadSources } from "../partners/demo";
+import { withDemoPulses } from "../pulse/demo";
 import { sampleMethod } from "./billing";
 import { applyDemoSends, demoFurnisherBook, loadDemoSends, recordDemoSend, resetDemoMail } from "../mail/data";
 import { demoClientsWithMail } from "../mail/demo";
@@ -330,7 +331,8 @@ function createDemoData(): StaffData & {
       const now = new Date();
       // The invented clients, with what a mail service would have reported for their letters (mail/demo.ts).
       // Plus where some of them came from: partners' referrals and leads from HighLevel (partners/demo.ts).
-      base = withDemoLeadSources(demoClientsWithMail(buildDemoClients(now), now), now);
+      // And a few invented answers to "¿Cómo vamos?" (pulse/demo.ts).
+      base = withDemoPulses(withDemoLeadSources(demoClientsWithMail(buildDemoClients(now), now), now), now);
     }
     actions ??= loadActions();
     return { base, actions };

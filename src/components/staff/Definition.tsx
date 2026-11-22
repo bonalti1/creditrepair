@@ -64,9 +64,10 @@ export default function Definition({ label, text }: { label: string; text: strin
         aria-expanded={open}
         aria-describedby={open ? id : undefined}
         aria-label={`Cómo se cuenta: ${label}`}
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-slate-400 ring-1 ring-slate-200 hover:bg-slate-100 hover:text-slate-600"
+        // A 44-pixel target around the small circle, for a finger; the negative margin keeps the layout.
+        className="group -m-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
       >
-        ?
+        <span className="flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold text-slate-400 ring-1 ring-slate-200 group-hover:bg-slate-100 group-hover:text-slate-600">?</span>
       </button>
       {open &&
         at &&

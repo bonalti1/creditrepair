@@ -34,16 +34,16 @@ Legend: ✅ have it · 🟡 partly · ❌ missing · — not planned here
 | Letters and status tracking | Each letter's mail status, tracking number and events in the console and the client app, fed by the Lob webhook; returned letters become a notice for a person. The client hears automatically when a certified letter is delivered | ✅ |
 | Dispute item list and report views | Item list, per-bureau views, cross-bureau notes | ✅ |
 | Calculators for clients | None | ❌ |
-| Tasks, calendar, daily agenda email | Replaced by one prioritized work queue: only what needs a person, each with what the system already tried, estimated minutes, waiting time and a due time, and a "Siguiente" mode with keyboard shortcuts. Routine follow-ups are sent by the system (3 reminders, then a person). No calendar or appointments | ✅ different |
-| Secure messages | Client chat with the assistant; staff reply in the same thread, and promises of results are blocked before sending; WhatsApp, with automatic reminders and status messages under quiet hours, a daily cap and opt-out (BAJA / STOP) | ✅ |
+| Tasks, calendar, daily agenda email | Replaced by one prioritized work queue: only what needs a person, each with what the system already tried, estimated minutes, waiting time, a due time and a «Cómo se resuelve» card (steps and «Hecho cuando…»), and a "Siguiente" mode with keyboard shortcuts. Routine follow-ups are sent by the system (3 reminders, then a person). A morning summary per teammate by WhatsApp or email ("Hoy: N cosas · ~M minutos", the first three, what the system did overnight), opt-in, once a day. No calendar or appointments (`docs/STAFF.md`) | ✅ different |
+| Secure messages | Client chat with the assistant; staff reply in the same thread, and promises of results are blocked before sending. A waiting question opens with a matching saved answer and an AI-drafted reply (checked against the same rules before it is shown, sent with one tap through the same checks). A library of approved answers, which the assistant also uses to answer a close match by itself; anything else still goes to a person. WhatsApp, with automatic reminders and status messages under quiet hours, a daily cap and opt-out (BAJA / STOP). Drafts not yet tried with a live key | ✅ |
 | Client email and notification settings | Automatic messages by WhatsApp, then email (with unsubscribe link and postal address); never SMS. The client opts out with BAJA/STOP or the email link; staff can record it too. Email adapter not yet tried live; no settings screen for the client | 🟡 |
 | Invoices, plans, refunds, pay-per-delete | Charges per mailed round at the signed price, receipts (sent to the client automatically), refunds, pause. One plan only, no invoice list, no pay-per-delete | 🟡 |
 | Payment gateway and transaction log | Adapter, the charge and refund records, and the client's "Mis pagos"; no processor connected (one that accepts credit repair is the owner's to find); no CSV export | ❌ |
 | Failed-payment follow-up | Retries on day 3 and 7 with a plain message, then the case pauses and resumes on payment. A missing payment method gets three automatic reminders before a person | ✅ |
 | Affiliate portal, commissions, payouts | None | ❌ |
-| Team members, roles, permissions | Admin, specialist and sales limit what each person sees and does, in the console, in every staff route and in the database's read policies. Team screen: add by email or phone, change role, deactivate (never delete) | ✅ |
+| Team members, roles, permissions | Admin, specialist and sales limit what each person sees and does, in the console, in every staff route and in the database's read policies. Team screen: add by email or phone, change role, deactivate (never delete). A new teammate gets a first-day checklist, a welcome page with the rules and a 5-minute guided tour, and «¿Qué hago aquí?» on every screen | ✅ |
 | Marketing Hub (CRM, SMS, pipelines, funnels) | Not here: marketing and CRM are in HighLevel (leads, nurture, reviews). The app owns the client after signup | — |
-| Business stats, activity log | Business dashboard (clients, work, money, team, sales) with a written definition for every number, including "Minutos de trabajo humano por cliente activo"; who-did-what log per client and for the team, with what the system did by itself | ✅ |
+| Business stats, activity log | Business dashboard (clients, work, money, team, sales, and the clients' «¿Cómo vamos?» pulse with recent comments) with a written definition for every number, including "Minutos de trabajo humano por cliente activo"; who-did-what log per client and for the team, with what the system did by itself | ✅ |
 | Zapier / API | n8n webhooks, hourly runs (rounds, billing, autopilot) and a health endpoint; no public API | 🟡 |
 | Monitoring partner and commissions | IdentityIQ link with disclosure; no commission tracking | 🟡 |
 
@@ -72,7 +72,12 @@ Legend: ✅ have it · 🟡 partly · ❌ missing · — not planned here
 - **Identity theft is held.** No identity theft letter goes out until the
   client's report is on file.
 - **Spanish and phone first,** with WhatsApp and an assistant that explains
-  each item.
+  each item. The staff console works on a phone too (a bottom tab bar, every
+  screen checked at 390 px).
+- **One person, not a back office.** Drafted replies, saved answers the
+  assistant reuses, a card with the steps for every kind of notice and a
+  morning summary keep one teammate's day to about two hours for 100 clients
+  (an estimate, `docs/STAFF.md`).
 
 None of this is proven until real clients use it.
 
@@ -97,7 +102,9 @@ None of this is proven until real clients use it.
 4. Syncing opt-outs and new clients with HighLevel.
 5. Affiliates (here or in HighLevel).
 
-Done since this list was written: team roles, a team screen, assignment, the
+Done since this list was written: the one-person console (AI-drafted replies,
+saved answers, playbook cards, morning summary, new-hire mode, phone layout;
+`docs/STAFF.md`), team roles, a team screen, assignment, the
 business dashboard, the real database behind the console and the client app,
 certified mail with tracking, the furnisher address book, and the autopilot
 (automatic follow-ups, status messages, automatic sending, the work queue).

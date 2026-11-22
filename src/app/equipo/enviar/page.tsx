@@ -61,7 +61,7 @@ function LetterRow({ plan, onClass }: { plan: LetterMailPlan; onClass: (value: M
         <select
           value={plan.mailClass}
           onChange={(e) => onClass(e.target.value as MailClass)}
-          className="h-10 w-full rounded-xl border border-slate-300 bg-white px-2.5 text-[14px] text-slate-900"
+          className="h-11 w-full rounded-xl border border-slate-300 bg-white px-2.5 text-[14px] text-slate-900"
           data-testid="mail-class"
         >
           {MAIL_CLASSES.map((cls) => (
@@ -150,7 +150,7 @@ function SendView() {
 
   return (
     <main className="animate-rise">
-      <Link href="/equipo" className="inline-flex items-center gap-1 text-[14px] font-medium text-blue-700">
+      <Link href="/equipo" className="inline-flex min-h-11 items-center gap-1 text-[14px] font-medium text-blue-700">
         <Icon name="chevron" size={16} className="rotate-180" />
         Inicio
       </Link>

@@ -11,10 +11,10 @@ import { usePulseStore } from "@/lib/pulse/store";
 // The faces are drawn here (no emoji: they render differently on every phone)
 // and each one has its words written under it.
 
-function Face({ rating }: { rating: PulseRating }) {
+export function Face({ rating, size = 34 }: { rating: PulseRating; size?: number }) {
   const mouth = rating === 1 ? "M8.5 16.5c1.8-1.6 5.2-1.6 7 0" : rating === 2 ? "M8.5 15.5h7" : "M8.5 14.5c1.8 2 5.2 2 7 0";
   return (
-    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />
       <path d="M9 10v.5M15 10v.5" strokeWidth="2.2" />
       <path d={mouth} />

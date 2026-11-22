@@ -16,12 +16,18 @@ import type { StaffData } from "@/lib/staff/data";
 import { relativeDay, shortDateTime } from "@/lib/staff/format";
 import { STAFF_MESSAGE_RULES } from "@/lib/staff/messages";
 import type { StaffClient } from "@/lib/staff/types";
+import { bestMatch } from "@/lib/staff/answers";
+import { questionToAnswer } from "@/lib/staff/drafts";
+import type { Viewer } from "@/lib/staff/permissions";
+import { useSavedAnswers } from "@/lib/staff/useSavedAnswers";
 import { rememberStaffName, staffName } from "@/lib/staff/useStaff";
 import { messageVoice } from "@/lib/ux/chatMessages";
 import { CharacterAvatar } from "@/components/Character";
 import Icon from "@/components/Icon";
 import TeamMessage from "@/components/TeamMessage";
 import { DeniedNote, PRIMARY_BUTTON, SectionTitle } from "@/components/staff/ui";
+import ReplyAssist, { useDraft } from "@/components/staff/ReplyAssist";
+import SaveAnswer from "@/components/staff/SaveAnswer";
 
 // The client's conversation in the app, and a box to answer in it.
 //
@@ -30,6 +36,13 @@ import { DeniedNote, PRIMARY_BUTTON, SectionTitle } from "@/components/staff/ui"
 // person's message, signed with the teammate's name. It is checked against
 // the claim rules first: a reply that promises a result is not sent, and the
 // teammate is shown the phrase and the reason.
+//
+// When a question is waiting (one the assistant passed to the team, or the
+// client's last message), the box opens with help: the approved saved answer
+// that matches it, then the assistant's draft, checked against the same rules
+// on the server (ReplyAssist). Either goes with one tap, through the same send
+// and the same checks as a reply typed here. After a reply goes out,
+// «Guardar como respuesta» offers it to the library (SaveAnswer).
 //
 // Only the assistant's messages carry a character (the robot's head beside
 // its "(IA)" label). A teammate's message is labelled with that person's own
@@ -51,11 +64,14 @@ export default function Conversation({
   now,
   onSent,
   replyDenied = null,
+  viewer = null,
 }: {
   client: StaffClient;
   data: StaffData;
   now: Date;
   onSent: () => void | Promise<void>;
+  /** Who is answering: their role decides the draft's facts and whether a saved answer goes in approved. */
+  viewer?: Viewer | null;
   /** Set when the viewer's role may read the conversation but not answer in it: the reason, shown instead of the box. */
   replyDenied?: string | null;
 }) {
@@ -67,10 +83,19 @@ export default function Conversation({
   const [problems, setProblems] = useState<ReplyProblem[] | null>(null);
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  // What was just sent, and the question it answered: what «Guardar como respuesta» offers.
+  const [justSent, setJustSent] = useState<{ question: string; answer: string } | null>(null);
 
   const thread = client.conversation ?? [];
   const waiting = openQuestions(client);
   const lastReply = lastTeamMessage(thread);
+
+  // The question to help with, and the help: a saved answer first, then the assistant's draft.
+  const question = replyDenied ? null : questionToAnswer(client);
+  const questionKey = question ? (waiting[0]?.id ?? thread[thread.length - 1]?.id ?? question) : null;
+  const library = useSavedAnswers(viewer);
+  const match = question ? bestMatch(question, library.answers) : null;
+  const [draft, retryDraft] = useDraft(client.id, questionKey, viewer?.role ?? null, data.demo);
 
   useEffect(() => {
     const stored = staffName();
@@ -87,20 +112,23 @@ export default function Conversation({
   const signature = displayName(name);
   const canSend = text.trim().length > 0 && signature.length >= 2 && !busy;
 
-  const send = async () => {
-    if (!canSend) return;
+  /** The one send: typed here, or a saved answer or draft sent with one tap. Checked here, and again by the data layer and the route. */
+  const send = async (words: string = text) => {
+    if (!words.trim() || signature.length < 2 || busy) return;
     setSent(false);
-    // Checked before anything is sent; the data layer checks again.
-    const found = checkStaffReply(text);
+    setJustSent(null);
+    const found = checkStaffReply(words);
     if (found.length > 0) {
+      setText(words);
       setProblems(found);
       return;
     }
     setBusy(true);
     try {
       rememberStaffName(signature);
-      const result = await data.sendReply(client.id, text, signature);
+      const result = await data.sendReply(client.id, words, signature);
       if (!result.sent) {
+        setText(words);
         setProblems(result.problems);
         return;
       }
@@ -108,6 +136,10 @@ export default function Conversation({
       setProblems(null);
       setEditingName(false);
       setSent(true);
+      // Offered to the library without the client's name in the greeting: a saved answer is for anyone.
+      const first = client.firstName.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const general = first ? result.message.text.replace(new RegExp(`^(hola|buenos días|buenas tardes|hi)\\s*,?\\s+${first}\\s*[.,!]?\\s*`, "i"), "Hola. ") : result.message.text;
+      setJustSent({ question: question ?? "", answer: general });
       await onSent();
     } finally {
       setBusy(false);
@@ -205,6 +237,22 @@ export default function Conversation({
               </p>
             ))}
 
+            {question && (
+              <ReplyAssist
+                match={match}
+                draft={draft}
+                onSend={(words) => void send(words)}
+                onEdit={(words) => {
+                  setText(words);
+                  setProblems(null);
+                  setSent(false);
+                  document.getElementById(`${id}-reply`)?.focus();
+                }}
+                onRetry={retryDraft}
+                sendDisabled={busy || signature.length < 2}
+              />
+            )}
+
             {editingName ? (
               <div className="mb-3">
                 <label htmlFor={`${id}-name`} className="block text-[14px] font-medium text-slate-900">
@@ -227,7 +275,8 @@ export default function Conversation({
                 <button
                   type="button"
                   onClick={() => setEditingName(true)}
-                  className="font-medium text-blue-700 underline-offset-2 hover:underline"
+                  // Inside the sentence, so the hit area grows instead of the line.
+                  className="relative font-medium after:absolute after:-inset-x-2 after:-inset-y-3.5 after:content-[''] text-blue-700 underline-offset-2 hover:underline"
                 >
                   Cambiar
                 </button>
@@ -274,9 +323,19 @@ export default function Conversation({
                 </span>
               </p>
             )}
+            {sent && justSent && viewer && (viewer.role === "admin" || viewer.role === "specialist") && (
+              <SaveAnswer
+                key={justSent.answer}
+                role={viewer.role}
+                question={justSent.question}
+                answer={justSent.answer}
+                clientFirstName={client.firstName}
+                onSave={library.save}
+              />
+            )}
 
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <button type="button" onClick={send} disabled={!canSend} className={`${PRIMARY_BUTTON} shrink-0`}>
+              <button type="button" onClick={() => void send()} disabled={!canSend} className={`${PRIMARY_BUTTON} shrink-0`}>
                 Enviar respuesta
               </button>
               <ul className="min-w-0 space-y-0.5 text-xs leading-relaxed text-slate-500 sm:text-right">

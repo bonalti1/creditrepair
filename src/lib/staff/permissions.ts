@@ -47,6 +47,8 @@ export const CAPABILITIES = [
   // Referral partners (src/lib/partners, migration 0017): see the list, and approve them and set commissions.
   "partners.view",
   "partners.manage",
+  // The letter templates (/equipo/cartas): editing what every letter says is the owner's.
+  "letters.edit",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -78,6 +80,7 @@ export const CAPABILITY_LABEL: Record<Capability, string> = {
   "autopilot.manage": "Configurar el piloto automático",
   "partners.view": "Ver los socios que refieren clientes",
   "partners.manage": "Aprobar socios y fijar sus comisiones",
+  "letters.edit": "Editar las plantillas de las cartas",
 };
 
 export interface RolePermissions {
@@ -112,6 +115,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "autopilot.manage": false,
       "partners.view": false,
       "partners.manage": false,
+      "letters.edit": false,
     },
   },
   sales: {
@@ -135,6 +139,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       // Sales follows up the people partners refer, so they see who the partners are. Only an administrator approves.
       "partners.view": true,
       "partners.manage": false,
+      "letters.edit": false,
     },
   },
 };

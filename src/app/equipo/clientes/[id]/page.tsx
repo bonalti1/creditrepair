@@ -59,6 +59,7 @@ import AssignmentCard from "@/components/staff/AssignmentCard";
 import LeadSourceCard from "@/components/staff/LeadSourceCard";
 import BillingCard from "@/components/staff/BillingCard";
 import Conversation from "@/components/staff/Conversation";
+import { ClientPulse } from "@/components/staff/PulseCards";
 import ReportImport from "@/components/staff/ReportImport";
 import IntakeChecks from "@/components/staff/IntakeChecks";
 import {
@@ -377,7 +378,7 @@ export default function ClientePage() {
 
   return (
     <main className="animate-rise">
-      <Link href="/equipo/clientes" className="inline-flex items-center gap-1 text-[14px] font-medium text-blue-700">
+      <Link href="/equipo/clientes" className="inline-flex min-h-11 items-center gap-1 text-[14px] font-medium text-blue-700">
         <Icon name="chevron" size={16} className="rotate-180" />
         Clientes
       </Link>
@@ -508,8 +509,10 @@ export default function ClientePage() {
           )}
 
           {caseView && (
-            <Conversation client={client} data={data} now={now} onSent={reload} replyDenied={can("clients.reply") ? null : deniedReason("clients.reply")} />
+            <Conversation client={client} data={data} now={now} onSent={reload} viewer={viewer} replyDenied={can("clients.reply") ? null : deniedReason("clients.reply")} />
           )}
+
+          {caseView && client.pulses && client.pulses.length > 0 && <ClientPulse client={client} />}
 
           {caseView && (
           <section aria-labelledby="reporte">
@@ -526,7 +529,7 @@ export default function ClientePage() {
                         setImporting(true);
                         setImportNote(null);
                       }}
-                      className="pressable inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-blue-50 px-3.5 text-[13px] font-semibold text-blue-700 hover:bg-blue-100"
+                      className="pressable inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full bg-blue-50 px-3.5 md:h-9 text-[13px] font-semibold text-blue-700 hover:bg-blue-100"
                     >
                       <Icon name="arrowUp" size={15} strokeWidth={2.25} />
                       Importar reporte
@@ -608,7 +611,7 @@ export default function ClientePage() {
                         )}
                         {facts.length > 0 && (
                           <details className="group mt-1.5">
-                            <summary className="cursor-pointer list-none text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden">
+                            <summary className="flex min-h-11 cursor-pointer list-none items-center text-[13px] md:min-h-0 font-medium text-blue-700 underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden">
                               <span className="group-open:hidden">Lo que dice el reporte</span>
                               <span className="hidden group-open:inline">Ocultar</span>
                             </summary>
@@ -865,7 +868,7 @@ export default function ClientePage() {
           <section aria-labelledby="actividad" data-testid="client-activity">
             <SectionTitle
               aside={
-                <Link href={`/equipo/actividad?cliente=${client.id}`} className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
+                <Link href={`/equipo/actividad?cliente=${client.id}`} className="inline-flex min-h-11 items-center md:min-h-0 text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
                   Ver todo
                 </Link>
               }
@@ -912,7 +915,7 @@ export default function ClientePage() {
                 type="button"
                 onClick={saveNote}
                 disabled={!note.trim()}
-                className="pressable mt-2 flex h-10 w-full items-center justify-center rounded-full bg-slate-100 text-[14px] font-medium text-slate-900 hover:bg-slate-200 disabled:text-slate-400"
+                className="pressable mt-2 flex h-11 w-full items-center justify-center rounded-full bg-slate-100 text-[14px] font-medium text-slate-900 hover:bg-slate-200 disabled:text-slate-400"
               >
                 Guardar nota
               </button>

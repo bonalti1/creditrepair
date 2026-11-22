@@ -639,7 +639,10 @@ describe("team: what the staff routes accept", () => {
     expect(read("src/app/api/staff/intake/letter/route.ts")).toMatch(/requireCapability\("reports\.import"\)/);
     expect(read("src/app/api/staff/partners/route.ts")).toMatch(/requireCapability\("partners\.manage"\)/);
     expect(read("src/app/api/staff/prospects/route.ts")).toMatch(/requireCapability\("clients\.invite"\)/);
-    expect(staffRoutes.length).toBe(14);
+    // Saved answers and AltiBot's drafts (migration 0020): whoever answers clients.
+    expect(read("src/app/api/staff/answers/route.ts")).toMatch(/requireCapability\("clients\.reply"\)/);
+    expect(read("src/app/api/staff/drafts/route.ts")).toMatch(/requireCapability\("clients\.reply"\)/);
+    expect(staffRoutes.length).toBe(16);
   });
 });
 

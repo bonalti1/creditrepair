@@ -29,6 +29,15 @@ The app exposes everything n8n needs; n8n only provides the clock.
 
 - `POST {APP_URL}/api/cron/billing`, same header. See `docs/BILLING.md`.
 
+## Workflow 5: the team's morning summary (every 15 minutes)
+
+- `POST {APP_URL}/api/cron/staff-digest`, same header. Each member who turned
+  it on in their profile gets one message a day at or after their chosen time
+  (8:30 a.m. Texas by default), by WhatsApp (template
+  `credalti_resumen_equipo`) or email. Every 15 minutes keeps it close to the
+  time chosen; hourly works too, just later. Running it twice sends nothing
+  twice. See `docs/STAFF.md`.
+
 ## Workflow 2 (optional): notification relays
 
 For ad-hoc messages (e.g. manual "attack ready" nudges), call

@@ -6,6 +6,7 @@ import { exceptionKindOfKey } from "./guard";
 import { feeToCents } from "../billing/rules";
 import { ROUND_CYCLE_DAYS } from "../domain/attack";
 import { actorHandle } from "./activity";
+import { pulseSummary, type PulseSummary } from "../pulse/pulse";
 import { clientBillingOutlook, clientExceptions, clientStage, daysSince, roundItemCount, STAFF_TIME_ZONE } from "./stage";
 import { memberName, type TeamMember } from "./team";
 import type { StaffClient, StaffRole, StaffRound } from "./types";
@@ -105,6 +106,8 @@ export type MetricKey =
   | "scheduled30"
   | "revenuePerActive"
   | "humanMinutesPerActive"
+  | "pulse"
+  | "pulseAnswers"
   | "memberAssigned"
   | "memberRounds"
   | "memberReplies"
@@ -165,6 +168,15 @@ export const METRIC_INFO: Record<MetricKey, { label: string; definition: string 
     label: "Minutos de trabajo humano por cliente activo",
     definition:
       "Los avisos de «Necesita una persona» que el equipo marcó como atendidos en el periodo, más los que esperan hoy, cada uno con sus minutos estimados (Piloto automático), divididos entre los clientes activos de hoy. Lo que el sistema hace solo (recordatorios, avisos, envíos) no cuenta. Es un estimado, no un registro de horas.",
+  },
+  pulse: {
+    label: "¿Cómo vamos? (promedio)",
+    definition:
+      "Promedio de las respuestas a «¿Cómo vamos?» dadas en el periodo: 1 = no muy bien, 2 = más o menos, 3 = bien. Una respuesta por cliente por momento (firmó su acuerdo, salieron sus primeras cartas, llegó la primera respuesta). Las preguntas que el cliente saltó no cuentan. Pregunta por el servicio, nunca por resultados.",
+  },
+  pulseAnswers: {
+    label: "Respuestas a «¿Cómo vamos?»",
+    definition: "Cuántas respuestas dieron los clientes en el periodo, y cuántas de cada cara. Solo de los clientes que tu rol puede ver.",
   },
   memberAssigned: { label: "Clientes", definition: "Hoy: clientes asignados a la persona, sin contar los que terminaron." },
   memberRounds: { label: "Rondas", definition: "Rondas que la persona envió en el periodo." },
@@ -269,6 +281,8 @@ export interface BusinessMetrics {
   };
   team: MemberMetrics[];
   sales: SalesMetrics[];
+  /** "¿Cómo vamos?" over the answers given in the period (src/lib/pulse/pulse.ts: pulseSummary). */
+  pulse: PulseSummary;
 }
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
@@ -403,6 +417,7 @@ export function businessMetrics(
     },
     team,
     sales,
+    pulse: pulseSummary(clients.flatMap((c) => (c.pulses ?? []).filter((p) => within(p.createdAt)))),
   };
 }
 

@@ -13,6 +13,7 @@ import type { LetterMail, MailClass, MailEventKind, MailEventRecord, MailProvide
 import { itemFromRow, letterKey, planNextRound } from "../rounds/plan";
 import { isDisputeReasonCode } from "../ux/disputeReason";
 import { leadSourceFromRows } from "../leads/fromRows";
+import { pulseFromRow, type PulseRow } from "../pulse/pulse";
 import type {
   ClientAssignment,
   DocumentKind,
@@ -99,6 +100,8 @@ export interface StaffRows {
   intake?: Row[];
   /** Referral partners this member may read (admin, sales), for the partner's name on a lead source (migration 0017). */
   partners?: Row[];
+  /** client_pulses (migration 0018), as this member may read them: admin all, a specialist their assigned clients, sales none. */
+  pulses?: Row[];
 }
 
 export const EMPTY_STAFF_ROWS: StaffRows = {
@@ -296,6 +299,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
   const marksBy = groupBy(rows.marks, "user_id");
   const samplesBy = groupBy(rows.samples, "user_id");
   const intakeBy = groupBy(rows.intake ?? [], "user_id");
+  const pulsesBy = groupBy(rows.pulses ?? [], "user_id");
   const assignmentBy = new Map(rows.assignments.map((a) => [text(a.user_id), a]));
   const outboundBy = groupBy(rows.outbound ?? [], "user_id");
   const optOutsBy = groupBy(rows.optOuts ?? [], "user_id");
@@ -610,6 +614,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       ...(reportImports.length > 0 ? { reportImports } : {}),
       ...(reportSamples.length > 0 ? { reportSamples } : {}),
       ...(intake.length > 0 ? { intake } : {}),
+      ...pulseFields(pulsesBy.get(id)),
       assignedTo: assignment ? handle(context, assignment.staff_user_id) : null,
       ...(assignmentsFrom(auditByClient.get(id)) ? { assignments: assignmentsFrom(auditByClient.get(id)) } : {}),
       email: textOrNull(prospect?.email),
@@ -669,4 +674,10 @@ export function plannedLetterId(clientId: string, roundNumber: number, key: stri
 export function plannedLetterKey(letterId: string, clientId: string, roundNumber: number): string | null {
   const prefix = `planned:${clientId}:${roundNumber}:`;
   return letterId.startsWith(prefix) ? letterId.slice(prefix.length) : null;
+}
+
+/** The client's pulse answers, oldest first; nothing when there are none. */
+function pulseFields(rows: Row[] | undefined): { pulses?: PulseRow[] } {
+  const pulses = (rows ?? []).flatMap((row) => pulseFromRow(row) ?? []).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return pulses.length > 0 ? { pulses } : {};
 }

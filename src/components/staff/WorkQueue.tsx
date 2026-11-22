@@ -5,14 +5,43 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { dueText, waitedText, type QueueItem } from "@/lib/autopilot/queue";
 import { shortDateTime } from "@/lib/staff/format";
+import type { AnswerMatch } from "@/lib/staff/answers";
 import { EXCEPTION_LABEL } from "@/lib/staff/stage";
 import { fullName } from "@/lib/staff/types";
 import Icon from "@/components/Icon";
 import { Chip, PRIMARY_BUTTON, QUIET_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SeverityDot } from "@/components/staff/ui";
+import { PlaybookCard, PlaybookToggle } from "@/components/staff/PlaybookCard";
 
 // The one-person work queue: each thing that needs a human, why, what the
 // system already tried, about how long it takes, how long it has waited and
 // when it is due, with one button. "Siguiente" walks it one item at a time.
+// Every item carries its «Cómo se resuelve» card (src/lib/staff/playbook.ts):
+// folded in the list, open in focus mode. A waiting question shows the saved
+// answer that matches it, when there is one, and a way to answer in the app.
+
+/** The approved saved answer that matches a waiting question, if any. */
+export type AnswerFor = (item: QueueItem) => AnswerMatch | null;
+
+/** For a client's question: answer it in the app, where the saved answer or AltiBot's draft is waiting. */
+function AnswerHint({ item, answerFor }: { item: QueueItem; answerFor?: AnswerFor }) {
+  if (item.exception.kind !== "question_waiting") return null;
+  const match = answerFor?.(item) ?? null;
+  return (
+    <div className="mt-2 rounded-xl bg-blue-50 px-3 py-2 text-[13.5px] leading-snug text-blue-900" data-testid="answer-hint">
+      {match ? (
+        <p>
+          <span className="font-semibold">Hay una respuesta guardada que coincide:</span> «{match.answer.question}»
+        </p>
+      ) : (
+        <p>Al abrir su conversación hay un borrador para revisar.</p>
+      )}
+      <Link href={`/equipo/clientes/${item.client.id}#conversacion`} className="mt-1 inline-flex min-h-11 items-center gap-1 font-semibold text-blue-700 underline-offset-2 hover:underline">
+        Responder en la app
+        <Icon name="chevron" size={14} />
+      </Link>
+    </div>
+  );
+}
 
 function ActionLink({ item, className, id }: { item: QueueItem; className: string; id?: string }) {
   const { action } = item;
@@ -65,7 +94,7 @@ function Meta({ item, now }: { item: QueueItem; now: Date }) {
   );
 }
 
-export function QueueList({ items, now, onHandled }: { items: QueueItem[]; now: Date; onHandled: (item: QueueItem) => void }) {
+export function QueueList({ items, now, onHandled, answerFor }: { items: QueueItem[]; now: Date; onHandled: (item: QueueItem) => void; answerFor?: AnswerFor }) {
   return (
     <ul className="card overflow-hidden" data-testid="work-queue">
       {items.map((item, index) => (
@@ -74,14 +103,16 @@ export function QueueList({ items, now, onHandled }: { items: QueueItem[]; now: 
             <SeverityDot severity={item.exception.severity} />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <Link href={`/equipo/clientes/${item.client.id}`} className="text-[16px] font-semibold text-slate-900 underline-offset-2 hover:underline">
+                <Link href={`/equipo/clientes/${item.client.id}`} className="inline-flex min-h-11 items-center text-[16px] font-semibold md:min-h-0 text-slate-900 underline-offset-2 hover:underline">
                   {fullName(item.client)}
                 </Link>
                 <Chip tone="bg-slate-100 text-slate-700">{EXCEPTION_LABEL[item.exception.kind]}</Chip>
               </div>
               <p className="mt-0.5 text-[14px] leading-snug text-slate-600">{item.why}</p>
+              <AnswerHint item={item} answerFor={answerFor} />
               <TriedBox item={item} compact />
               <Meta item={item} now={now} />
+              <PlaybookToggle kind={item.exception.kind} />
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1 pl-[22px] sm:shrink-0 sm:flex-nowrap sm:pl-0 sm:pt-0.5">
@@ -108,6 +139,7 @@ export function FocusMode({
   onIndex,
   onHandled,
   onClose,
+  answerFor,
 }: {
   items: QueueItem[];
   index: number;
@@ -115,6 +147,7 @@ export function FocusMode({
   onIndex: (index: number) => void;
   onHandled: (item: QueueItem) => void;
   onClose: () => void;
+  answerFor?: AnswerFor;
 }) {
   const item = items[Math.min(index, items.length - 1)];
   const panel = useRef<HTMLDivElement>(null);
@@ -153,7 +186,7 @@ export function FocusMode({
             Siguiente · {items.length === 0 ? "0 de 0" : `${at + 1} de ${items.length}`}
           </p>
           <button type="button" onClick={onClose} className={QUIET_BUTTON} aria-label="Cerrar">
-            Cerrar <kbd className="ml-1 rounded border border-slate-300 px-1 text-[11px]">Esc</kbd>
+            Cerrar <kbd className="ml-1 hidden rounded border border-slate-300 px-1 text-[11px] sm:inline">Esc</kbd>
           </button>
         </div>
 
@@ -179,9 +212,15 @@ export function FocusMode({
                   <Chip tone="bg-slate-100 text-slate-700">{EXCEPTION_LABEL[item.exception.kind]}</Chip>
                 </div>
                 <p className="mt-2 text-[16px] leading-relaxed text-slate-700">{item.why}</p>
+                <AnswerHint item={item} answerFor={answerFor} />
                 <TriedBox item={item} />
                 <Meta item={item} now={now} />
               </div>
+            </div>
+            {/* On a phone the buttons come first and the card under them; on a laptop, read the card, then act. */}
+            <div className="flex flex-col">
+            <div className="order-last mt-4 sm:order-none">
+              <PlaybookCard kind={item.exception.kind} />
             </div>
             <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <ActionLink id="focus-action" item={item} className={`${PRIMARY_BUTTON} gap-2`} />
@@ -194,16 +233,17 @@ export function FocusMode({
               <button type="button" onClick={() => go(-1)} disabled={at === 0} className={`${QUIET_BUTTON} disabled:opacity-40`}>
                 ← Anterior
               </button>
-              <Link href={`/equipo/clientes/${item.client.id}`} className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
+              <Link href={`/equipo/clientes/${item.client.id}`} className="inline-flex min-h-11 items-center text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
                 Abrir su caso
               </Link>
               <button type="button" onClick={() => go(1)} disabled={at >= items.length - 1} className={`${QUIET_BUTTON} disabled:opacity-40`}>
                 Siguiente →
               </button>
             </div>
+            </div>
           </>
         )}
-        <p className="mt-4 border-t hairline pt-3 text-[12px] text-slate-500">
+        <p className="mt-4 hidden border-t hairline pt-3 text-[12px] text-slate-500 sm:block">
           Teclado: <Kbd>J</Kbd> siguiente · <Kbd>K</Kbd> anterior · <Kbd>E</Kbd> abrir la acción · <Kbd>H</Kbd> atendido · <Kbd>Esc</Kbd> cerrar
         </p>
       </div>
