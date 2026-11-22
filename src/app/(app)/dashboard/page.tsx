@@ -10,9 +10,15 @@ import { useClientReport, withReport } from "@/lib/ux/reportStore";
 import ReportPending from "@/components/ReportPending";
 import { useLocale } from "@/lib/i18n";
 import Icon, { type IconName } from "@/components/Icon";
+import { CaseCard, CaseStatus } from "@/components/case/CaseViews";
+import { useCase } from "@/lib/case/useCase";
+import Pulse from "@/components/Pulse";
 
-// Home. The journey's next step comes first, with its one button; shortcuts
-// and the client's own scores follow.
+// Home. "¿Qué está pasando?" comes first: one plain sentence of where the case
+// stands (src/lib/case/timeline.ts), so the client never has to ask for an
+// update. Then the journey's next step, with its one button; the "Mi caso"
+// card (what comes next, the latest events); shortcuts and the client's own
+// scores follow.
 //
 // Scores are shown as plain facts from the report: each bureau's current
 // number, in neutral colours, with its source and date. No dial or gauge, no
@@ -36,6 +42,8 @@ export default function Home() {
   // The sample report in the demo; the client's own with a database (lib/ux/reportStore.ts).
   const view = useClientReport();
   const { report, items } = view;
+  // The case's status sentence and timeline: the same facts "Mi caso" shows.
+  const caseView = useCase(locale);
   const negatives = items.filter((i) => i.negative);
 
   // The report's date, as the audit shows it: the demo reads as imported today, the client's own
@@ -45,7 +53,7 @@ export default function Home() {
   const pulledAt = view.live ? view.report.pulledAt : null;
   useEffect(() => setImportedAt(pulledAt === null ? demoImportedAt() : pulledAt ? new Date(pulledAt) : null), [pulledAt]);
 
-  if (!hydrated || !agreementReady || !view.ready) return null;
+  if (!hydrated || !agreementReady || !view.ready || !caseView.ready) return null;
 
   // Built by the shared helper so Home, Review, Audit and Rounds agree on the next step.
   const step = nextAction(withReport(sessionJourneyState(items, flags, roundApproved, agreement), view, roundMailedAt), locale);
@@ -60,6 +68,8 @@ export default function Home() {
 
   return (
     <main className="animate-rise space-y-5">
+      <CaseStatus view={caseView} />
+
       <section className="card px-6 pb-6 pt-6" data-testid="next-step">
         <p className="text-[13px] font-semibold uppercase tracking-wide text-blue-700">
           {es ? `Tu siguiente paso · ${step.step} de ${step.totalSteps}` : `Your next step · ${step.step} of ${step.totalSteps}`}
@@ -83,6 +93,10 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      <Pulse state={caseView.timeline.state} facts={caseView.facts} />
+
+      <CaseCard view={caseView} />
 
       <section className="grid grid-cols-4 gap-3">
         {shortcuts.map((s) => (

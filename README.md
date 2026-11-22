@@ -112,6 +112,10 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/clientCase/server.ts`, `src/app/api/{report,rounds,profile/address}`, `src/lib/ux/reportStore.ts` | The client app on the database: their report (or "Tu equipo está importando tu reporte"), their mailed round and letters, their mailing address |
 | `src/lib/__tests__/db/` | The real migrations in PGlite with a supabase-js adapter: RLS per role, every staff route, and invite → sign → import → answers → send → tracking → charge |
 | `src/lib/intake/`, `src/app/api/intake`, `src/app/api/staff/intake`, `supabase/migrations/0016_intake.sql` | AI intake (Claude): a report PDF or saved page read into the import preview with a citation per item and the doubtful ones marked; ID and proof of address checked automatically (a person sees only what fails); optional bureau letters. Round results come from the next report. See `docs/INTAKE.md` |
+| `src/lib/case/`, `src/app/(app)/caso`, `src/app/api/case` | "Mi caso": the client's timeline and the one status sentence ("¿Qué está pasando?") on Home and behind the header's (i) button; demo example case; the database read (own rows only). See `docs/UX.md`, "Client experience" |
+| `src/lib/learn/`, `src/app/(app)/aprende` | "Aprende": ten lessons with sources and two calculators (utilization, FCRA § 605 dates) — see `docs/LEARN.md` |
+| `src/lib/pulse/`, `src/app/api/pulse`, `supabase/migrations/0018_client_experience.sql` | The "¿Cómo vamos?" satisfaction pulse and `pulseSummary` for the business dashboard |
+| `src/lib/voice/`, `src/lib/ux/textSize.ts`, `src/lib/ux/plainLanguage.ts`, `src/lib/ux/firstWeek.ts` | Read-aloud voice adapter (`docs/VOICE.md`), "Letra grande", the plain-language check, first-week progress and timings |
 | `docs/DATABASE.md`, `supabase/first-admin.sql` | The owner's checklist to go from demo to database, and the first administrator |
 
 ## Load-bearing invariants

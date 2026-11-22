@@ -28,6 +28,7 @@ import { InfoNote, WaitingNote } from "@/components/RoundNotes";
 import { CharacterAvatar } from "@/components/Character";
 import { ASSISTANT_NAME } from "@/lib/brand";
 import TeamMessage from "@/components/TeamMessage";
+import { markMilestone } from "@/lib/ux/firstWeek";
 
 // The conversation. The client's whole journey lives in one thread with their
 // AI assistant: it leads with proactive messages and action cards. The client
@@ -113,6 +114,11 @@ export default function Asistente() {
   });
   const say = (esText: string, enText: string) => append([line("assistant", esText, enText)]);
   const youSay = (esText: string, enText: string) => append([line("user", esText, enText)]);
+
+  // First week: the first time an item is on screen, the review has started (kept on this device only).
+  useEffect(() => {
+    if (phase === "review" && current) markMilestone("review_started");
+  }, [phase, current]);
 
   // Seed the opening messages once, matched to where the client is. A saved
   // thread is shown as it was left: nothing is added on a return visit.
@@ -429,7 +435,10 @@ export default function Asistente() {
                 </div>
               )}
               {/* Read-aloud says who wrote a teammate's message before reading it. */}
-              {voice.kind !== "client" && <SpeakButton text={voice.spoken} compact />}
+              {voice.kind !== "client" && (
+                // AltiBot's words may get his own voice one day (src/lib/voice); a teammate's never get a character's.
+                <SpeakButton text={voice.spoken} compact speaker={voice.kind === "assistant" ? "assistant" : "neutral"} />
+              )}
             </div>
           );
         })}

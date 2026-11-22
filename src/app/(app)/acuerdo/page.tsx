@@ -20,6 +20,8 @@ import { useAgreement, type AgreementActionResult } from "@/lib/ux/agreementStor
 import { useFlags } from "@/lib/ux/flagsStore";
 import { humanHelpHref } from "@/lib/ux/humanHelp";
 import { nextAction, sessionJourneyState } from "@/lib/ux/journey";
+import { markMilestone } from "@/lib/ux/firstWeek";
+import FirstWeekProgress from "@/components/FirstWeekProgress";
 
 // "Mi acuerdo": everything the law asks for before any work can begin, as two
 // calm steps and one status screen.
@@ -89,6 +91,17 @@ function Check({
       <span className="min-w-0 text-[15px] leading-snug text-slate-800">{children}</span>
     </label>
   );
+}
+
+/** The name to suggest for the signature: the account's, else a full name from the invitation link. */
+function prefilledSignerName(profileName: string | null): string {
+  if (profileName && isFullName(profileName)) return profileName;
+  try {
+    const invited = window.localStorage.getItem("bonalti.inviteName");
+    return invited && isFullName(invited) ? invited : "";
+  } catch {
+    return "";
+  }
 }
 
 function errorText(code: string, locale: L, profileName: string | null): string {
@@ -179,9 +192,11 @@ export default function AcuerdoPage() {
         documents={[find("federal_disclosure"), find("texas_disclosure"), find("esign_consent")]}
         alreadyAcknowledged={rereading}
         onBack={() => { setRereading(false); goTop(); }}
+        fromOnboarding={fromOnboarding}
         onAcknowledge={async () => {
           const result = await acknowledge(locale);
           if (result.ok) {
+            markMilestone("disclosures_acknowledged");
             setStartOver(false);
             goTop();
           }
@@ -206,9 +221,13 @@ export default function AcuerdoPage() {
       signedIn={signedIn}
       acknowledgedAt={agreement?.disclosureAcknowledgedAt ?? null}
       onReread={() => { setRereading(true); goTop(); }}
+      fromOnboarding={fromOnboarding}
       onSign={async (name) => {
         const result = await sign(name, locale);
-        if (result.ok) goTop();
+        if (result.ok) {
+          markMilestone("agreement_signed");
+          goTop();
+        }
         else if (result.code === "disclosure_not_acknowledged") setStartOver(true);
         return result;
       }}
@@ -227,12 +246,14 @@ function StepOne({
   onBack,
   onAcknowledge,
   profileName,
+  fromOnboarding = false,
 }: {
   locale: L;
   banner: React.ReactNode;
   marks: boolean;
   documents: AgreementDocument[];
   alreadyAcknowledged: boolean;
+  fromOnboarding?: boolean;
   onBack: () => void;
   onAcknowledge: () => Promise<AgreementActionResult>;
   profileName: string | null;
@@ -253,6 +274,7 @@ function StepOne({
 
   return (
     <main className="animate-rise space-y-5" data-testid="agreement-step-1">
+      {fromOnboarding && <FirstWeekProgress step="agreement" className="px-1" />}
       <StepDots step={1} label={es ? "Paso 1 de 2" : "Step 1 of 2"} />
       <PageTitle
         title={es ? "Primero, tus derechos" : "First, your rights"}
@@ -334,7 +356,9 @@ function StepTwo({
   acknowledgedAt,
   onReread,
   onSign,
+  fromOnboarding = false,
 }: {
+  fromOnboarding?: boolean;
   locale: L;
   banner: React.ReactNode;
   marks: boolean;
@@ -350,7 +374,11 @@ function StepTwo({
   onSign: (name: string) => Promise<AgreementActionResult>;
 }) {
   const es = locale === "es";
-  const [name, setName] = useState("");
+  // Filled in with the name on the account (or a full name from the invitation link), like any
+  // e-signature service: the client reads it, can change it, and signing still takes the three
+  // consents and the button. The server checks it against the account (signerNameMatches).
+  const [suggested] = useState(() => prefilledSignerName(profileName));
+  const [name, setName] = useState(suggested);
   const [agreeContract, setAgreeContract] = useState(false);
   const [agreeAuthorization, setAgreeAuthorization] = useState(false);
   const [agreeEsign, setAgreeEsign] = useState(false);
@@ -381,6 +409,7 @@ function StepTwo({
 
   return (
     <main className="animate-rise space-y-5" data-testid="agreement-step-2">
+      {fromOnboarding && <FirstWeekProgress step="agreement" className="px-1" />}
       <StepDots step={2} label={es ? "Paso 2 de 2" : "Step 2 of 2"} />
       <PageTitle
         title={es ? "Tu contrato" : "Your contract"}
@@ -448,7 +477,13 @@ function StepTwo({
           {es ? "Tu nombre legal completo" : "Your full legal name"}
         </label>
         <p className="mt-0.5 text-[13px] leading-snug text-slate-500">
-          {es ? "Como aparece en tu identificación. Escribirlo es tu firma." : "As it appears on your ID. Typing it is your signature."}
+          {suggested && name === suggested
+            ? es
+              ? "Lo llenamos con el nombre que nos diste. Revisa que esté como en tu identificación. Este nombre es tu firma."
+              : "We filled in the name you gave us. Check that it matches your ID. This name is your signature."
+            : es
+              ? "Como aparece en tu identificación. Escribirlo es tu firma."
+              : "As it appears on your ID. Typing it is your signature."}
         </p>
         <input
           id="signer-name"

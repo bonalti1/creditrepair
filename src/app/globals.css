@@ -105,6 +105,19 @@ h3 {
   }
 }
 
+/* "Letra grande" (src/lib/ux/textSize.ts): the client app's text, spacing and
+   tap targets, 1.2 times larger, on this device. Zoom keeps every layout as
+   it is, laid out for a slightly narrower screen. */
+html[data-text-size="large"] .client-scale {
+  zoom: 1.2;
+}
+
+/* A visible keyboard focus ring on everything that can take focus (WCAG 2.4.7). */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--color-blue-600);
+  outline-offset: 2px;
+}
+
 /* Hairline used for separators inside grouped lists. */
 .hairline {
   border-color: color-mix(in srgb, var(--color-slate-900) 9%, transparent);

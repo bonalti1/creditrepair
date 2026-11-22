@@ -16,6 +16,7 @@ import { nextAction, sessionJourneyState } from "@/lib/ux/journey";
 import { useLocale } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/dictionaries";
 import DisputeFields, { EMPTY_DRAFT } from "@/components/DisputeFields";
+import SpeakButton from "@/components/SpeakButton";
 import Icon from "@/components/Icon";
 import ItemFacts from "@/components/ItemFacts";
 import { InfoNote } from "@/components/RoundNotes";
@@ -303,7 +304,15 @@ function WizardCard({
       </div>
 
       <div className="border-t hairline px-5 py-4">
-        <p className="text-[15px] font-semibold text-slate-900">{d.items.whatIsThis}</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[15px] font-semibold text-slate-900">{d.items.whatIsThis}</p>
+          {/* "Escuchar": the item's explanation, read aloud. */}
+          <SpeakButton
+            compact
+            text={[heading.title, itemKindLine(item, locale), explainer.whyItMatters, ...glossary].join(". ")}
+            label={d.items.whatIsThis}
+          />
+        </div>
         <p className="mt-1.5 text-[15px] leading-relaxed text-slate-600">{itemKindLine(item, locale)}</p>
         <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{explainer.whyItMatters}</p>
         {glossary.map((g, i) => (
