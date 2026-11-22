@@ -66,7 +66,19 @@ export function variationProblems(original: string, varied: string): string[] {
   return problems;
 }
 
+/**
+ * AI rewording is OFF by default, pending the attorney: its purpose was to keep
+ * letters from looking like a template, which under full service could read as
+ * hiding that Credalti prepared them (see letters/fonts.ts). Until cleared,
+ * letters go out exactly as the reviewed template renders them.
+ * LETTER_AI_REWORDING=1 turns it back on.
+ */
+export function rewordingEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.LETTER_AI_REWORDING === "1";
+}
+
 export async function varyLetterWording(letterBody: string): Promise<string> {
+  if (!rewordingEnabled()) return letterBody;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return letterBody;
 
