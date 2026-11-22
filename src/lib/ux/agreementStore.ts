@@ -6,7 +6,9 @@ import { AGREEMENT_VERSION, disclosureHash, documentHash, type AgreementLocale }
 import { canCancelWithoutPenalty } from "../agreement/gate";
 import { agreementReadiness, type AgreementMode } from "../agreement/readiness";
 import { EMPTY_AGREEMENT, normalizeAgreement, type AgreementState } from "../agreement/record";
-import { resolveTerms } from "../agreement/terms";
+import { resolveTerms, withPlan } from "../agreement/terms";
+import { demoOfferedPlan } from "../billing/planData";
+import { readPlanSnapshot, type PlanSnapshot } from "../billing/plans";
 import { readStoredAgreement, writeStoredAgreement } from "./agreementLocal";
 
 // The client's agreement, shared by the /acuerdo screens, Home and "Más".
@@ -29,6 +31,8 @@ interface ServerStatus {
   agreement: unknown;
   profileName?: string | null;
   readiness?: { mode: AgreementMode; canSign: boolean; version: string };
+  /** The plan the client would sign (billing/plans.ts), or null when the catalogue has none. */
+  plan?: unknown;
 }
 
 async function post(path: string, body: unknown): Promise<{ status: number; data: Record<string, unknown> }> {
@@ -49,6 +53,9 @@ export function useAgreement() {
   const [profileName, setProfileName] = useState<string | null>(null);
   /** Whether a signature can be taken: the server's answer when signed in, this build's otherwise. */
   const [mode, setMode] = useState<AgreementMode>(() => agreementReadiness().mode);
+  /** The plan the client is offered: the server's answer when signed in, the demo catalogue's default otherwise. */
+  const [plan, setPlan] = useState<PlanSnapshot | null>(null);
+  const planRef = useRef<PlanSnapshot | null>(null);
   const synced = useRef(false);
 
   const store = useCallback((next: AgreementState | null) => {
@@ -68,13 +75,20 @@ export function useAgreement() {
           setSignedIn(true);
           setProfileName(data.profileName ?? null);
           if (data.readiness) setMode(data.readiness.mode);
+          planRef.current = readPlanSnapshot(data.plan);
+          setPlan(planRef.current);
           store(normalizeAgreement(data.agreement));
         } else {
+          planRef.current = demoOfferedPlan();
+          setPlan(planRef.current);
           setAgreement(local);
         }
       })
       .catch(() => {
-        if (!cancelled) setAgreement(local);
+        if (cancelled) return;
+        planRef.current = demoOfferedPlan();
+        setPlan(planRef.current);
+        setAgreement(local);
       })
       .finally(() => {
         if (!cancelled) setHydrated(true);
@@ -100,7 +114,7 @@ export function useAgreement() {
   /** Step 1: "I received it and read it", with consent to electronic records. */
   const acknowledge = useCallback(
     async (locale: AgreementLocale): Promise<AgreementActionResult> => {
-      const terms = resolveTerms();
+      const terms = withPlan(resolveTerms(), planRef.current);
       if (synced.current) {
         try {
           return fromServer(
@@ -124,7 +138,7 @@ export function useAgreement() {
   /** Step 2: the typed signature. */
   const sign = useCallback(
     async (fullName: string, locale: AgreementLocale): Promise<AgreementActionResult> => {
-      const terms = resolveTerms();
+      const terms = withPlan(resolveTerms(), planRef.current);
       const hash = documentHash(AGREEMENT_VERSION, locale, terms);
       if (synced.current) {
         try {
@@ -193,5 +207,5 @@ export function useAgreement() {
     if (!synced.current) store(null);
   }, [store]);
 
-  return { agreement, hydrated, signedIn, profileName, mode, acknowledge, sign, cancel, resetDemo };
+  return { agreement, hydrated, signedIn, profileName, mode, plan, acknowledge, sign, cancel, resetDemo };
 }

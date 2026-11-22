@@ -83,6 +83,13 @@ export interface StaffData {
   pauseBilling(clientId: string, reason: string, by: string): Promise<BillingActionResult>;
   /** Lift that pause: the system bills again by its rules. */
   resumeBilling(clientId: string): Promise<BillingActionResult>;
+  /**
+   * A chargeback the processor's portal shows (when it sends no webhook):
+   * recorded open on the charge. Only for money that was taken.
+   */
+  recordChargeback(clientId: string, chargeId: string, input: { reasonCode: string | null; receivedOn: string; note?: string }, by: string): Promise<BillingActionResult>;
+  /** Close a chargeback (won, lost, accepted) or mark the evidence sent. */
+  setChargebackStatus(clientId: string, chargeId: string, status: "won" | "lost" | "accepted" | "responded"): Promise<BillingActionResult>;
 }
 
 export type BillingActionResult = { ok: true } | { ok: false; message: string };
@@ -472,6 +479,43 @@ function createDemoData(): StaffData & {
       saveActions(a);
       return { ok: true };
     },
+    async recordChargeback(clientId, chargeId, input, by) {
+      const client = current().find((c) => c.id === clientId);
+      const charge = client?.billing.charges.find((c) => c.id === chargeId);
+      if (!client || !charge) return { ok: false, message: "No encontramos ese cobro." };
+      // The same rule as the database: only money that was taken can be disputed, once.
+      if (!charge.chargedAt) return { ok: false, message: "Solo se puede disputar dinero que se cobró." };
+      if (charge.chargeback) return { ok: false, message: "Este cobro ya tiene un contracargo." };
+      const at = new Date(`${input.receivedOn}T12:00:00Z`).toISOString();
+      const disputed = {
+        ...charge,
+        chargeback: {
+          id: `${chargeId}-cb`,
+          status: "open" as const,
+          reasonCode: input.reasonCode,
+          amountCents: charge.amountCents - (charge.creditCents ?? 0),
+          receivedAt: at,
+          source: "manual" as const,
+          respondedAt: null,
+        },
+      };
+      void by;
+      const { actions: a } = state();
+      a.billing[clientId] = { ...client.billing, charges: client.billing.charges.map((c) => (c.id === chargeId ? disputed : c)) };
+      saveActions(a);
+      return { ok: true };
+    },
+    async setChargebackStatus(clientId, chargeId, status) {
+      const client = current().find((c) => c.id === clientId);
+      const charge = client?.billing.charges.find((c) => c.id === chargeId);
+      if (!client || !charge?.chargeback) return { ok: false, message: "No encontramos ese contracargo." };
+      if (charge.chargeback.status !== "open") return { ok: false, message: "Un contracargo cerrado sigue cerrado." };
+      const chargeback = status === "responded" ? { ...charge.chargeback, respondedAt: new Date().toISOString() } : { ...charge.chargeback, status };
+      const { actions: a } = state();
+      a.billing[clientId] = { ...client.billing, charges: client.billing.charges.map((c) => (c.id === chargeId ? { ...charge, chargeback } : c)) };
+      saveActions(a);
+      return { ok: true };
+    },
     async runBilling(clientId, options = {}) {
       const client = current().find((c) => c.id === clientId);
       if (!client) return;
@@ -676,6 +720,14 @@ export function createDatabaseStaffData(): StaffData {
     refundCharge: (_clientId, chargeId, reason) => billing("/api/billing/refund", { chargeId, reason }),
     pauseBilling: (clientId, reason) => billing("/api/billing/pause", { userId: clientId, action: "pause", reason }),
     resumeBilling: (clientId) => billing("/api/billing/pause", { userId: clientId, action: "resume" }),
+    recordChargeback: (_clientId, chargeId, input) =>
+      billing("/api/staff/billing", { action: "chargeback", chargeId, reasonCode: input.reasonCode, receivedOn: input.receivedOn, ...(input.note ? { note: input.note } : {}) }),
+    setChargebackStatus: async (clientId, chargeId, status) => {
+      const client = (await load()).find((c) => c.id === clientId);
+      const id = client?.billing.charges.find((c) => c.id === chargeId)?.chargeback?.id;
+      if (!id) return { ok: false, message: "No encontramos ese contracargo." };
+      return billing("/api/staff/billing", { action: "chargeback_status", chargebackId: id, status });
+    },
   };
 }
 

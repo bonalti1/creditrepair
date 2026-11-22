@@ -3,11 +3,14 @@ import { DEFAULT_AUTOPILOT, NO_CHANNELS, type AutopilotEnv } from "../autopilot/
 import { unpaidCharge } from "../billing/dunning";
 import type { FurnisherEntry } from "../mail/furnishers";
 import { exceptionKindOfKey } from "./guard";
+import { collectedCents, feeEstimateCents } from "../billing/invoices";
+import type { PlanType } from "../billing/plans";
 import { feeToCents } from "../billing/rules";
+import { upcomingCharges } from "../billing/schedule";
 import { ROUND_CYCLE_DAYS } from "../domain/attack";
 import { actorHandle } from "./activity";
 import { pulseSummary, type PulseSummary } from "../pulse/pulse";
-import { clientBillingOutlook, clientExceptions, clientStage, daysSince, roundItemCount, STAFF_TIME_ZONE } from "./stage";
+import { clientBilling, clientBillingOutlook, clientExceptions, clientStage, daysSince, roundItemCount, STAFF_TIME_ZONE } from "./stage";
 import { memberName, type TeamMember } from "./team";
 import type { StaffClient, StaffRole, StaffRound } from "./types";
 import { dateLocale, type StaffLocale } from "./i18n/locale";
@@ -108,6 +111,10 @@ export type MetricKey =
   | "recoveredPayments"
   | "scheduled30"
   | "revenuePerActive"
+  | "revenueByPlan"
+  | "achShare"
+  | "feesEstimate"
+  | "chargebackRate"
   | "humanMinutesPerActive"
   | "pulse"
   | "pulseAnswers"
@@ -169,6 +176,10 @@ const METRIC_INFO_ES: Record<MetricKey, MetricInfo> = {
       "Cobros y reintentos que el sistema ya tiene con fecha en los próximos 30 días, solo por rondas ya enviadas y por la cuota del acuerdo firmado. No cuenta rondas que todavía no salen.",
   },
   revenuePerActive: { label: "Neto por cliente activo", definition: "El neto del periodo dividido entre los clientes activos de hoy." },
+  revenueByPlan: { label: "Cobrado por tipo de plan", definition: "Lo cobrado en el periodo, por el tipo de plan del acuerdo firmado. «Por ronda (anterior)»: acuerdos firmados antes de los planes." },
+  achShare: { label: "ACH frente a tarjeta", definition: "Parte de lo cobrado en el periodo que se pagó con cuenta bancaria (ACH). El resto, con tarjeta." },
+  feesEstimate: { label: "Comisiones del procesador (estimado)", definition: "Lo que el procesador se queda de lo cobrado en el periodo, con las tarifas configuradas (NEXT_PUBLIC_BILLING_FEE_*). Es un estimado: la cifra real está en el estado de cuenta del procesador." },
+  chargebackRate: { label: "Contracargos por cobro", definition: "Contracargos recibidos en el periodo entre cobros que tomaron dinero en el periodo, por número. Los procesadores suelen actuar cerca del 1%." },
   humanMinutesPerActive: {
     label: "Minutos de trabajo humano por cliente activo",
     definition:
@@ -241,6 +252,10 @@ const METRIC_INFO_EN: Record<MetricKey, MetricInfo> = {
       "Charges and retries the system already has dated in the next 30 days, only for rounds already mailed and the signed agreement's fee. Rounds that haven't gone out don't count.",
   },
   revenuePerActive: { label: "Net per active client", definition: "The period's net divided by today's active clients." },
+  revenueByPlan: { label: "Charged by plan type", definition: "What was charged in the period, by the plan type of the signed agreement. “Per round (before plans)”: agreements signed before plans existed." },
+  achShare: { label: "ACH vs card", definition: "Share of what was charged in the period that was paid from a bank account (ACH). The rest was paid by card." },
+  feesEstimate: { label: "Processor fees (estimate)", definition: "What the processor keeps of what was charged in the period, at the configured rates (NEXT_PUBLIC_BILLING_FEE_*). An estimate: the real figure is on the processor's statement." },
+  chargebackRate: { label: "Chargeback rate", definition: "Chargebacks received in the period divided by charges that took money in the period, by count. Processors commonly act around 1%." },
   humanMinutesPerActive: {
     label: "Minutes of human work per active client",
     definition:
@@ -358,6 +373,16 @@ export interface BusinessMetrics {
     scheduledCents: number;
     /** Null when there is no active client. */
     revenuePerActiveCents: number | null;
+    /** What was charged in the period, by plan type ("legacy": signed before plans). */
+    byPlanType: Array<{ type: PlanType | "legacy"; cents: number }>;
+    achCents: number;
+    cardCents: number;
+    /** Null when nothing was charged. */
+    achShare: number | null;
+    feesEstimateCents: number;
+    chargebacks: number;
+    /** Null when nothing was charged in the period. */
+    chargebackRate: number | null;
   };
   team: MemberMetrics[];
   sales: SalesMetrics[];
@@ -420,10 +445,24 @@ export function businessMetrics(
     const outlook = clientBillingOutlook(client, now);
     if ((outlook.kind !== "charge_scheduled" && outlook.kind !== "retry_scheduled") || !outlook.at) return [];
     if (new Date(outlook.at).getTime() > horizon) return [];
-    const cents = outlook.kind === "retry_scheduled" ? (unpaidCharge(client.billing)?.amountCents ?? 0) : (feeToCents(client.agreementMonthlyFee) ?? 0);
+    const cents =
+      outlook.kind === "retry_scheduled"
+        ? (unpaidCharge(client.billing)?.amountCents ?? 0)
+        : client.agreementPlan
+          ? (upcomingCharges(clientBilling(client), now, 1)[0]?.amountCents ?? 0)
+          : (feeToCents(client.agreementMonthlyFee) ?? 0);
     return cents > 0 ? [cents] : [];
   });
   const chargedCents = sum(charged.map((ch) => ch.amountCents));
+  // By plan type, by method, the processor's estimated share and the chargebacks of the period.
+  const planOf = new Map(clients.flatMap((c) => c.billing.charges.map((ch) => [ch.id, ch.planType ?? c.agreementPlan?.terms.type ?? "legacy"] as const)));
+  const methodOf = new Map(clients.flatMap((c) => c.billing.charges.map((ch) => [ch.id, ch.methodKind ?? c.billing.paymentMethod?.kind ?? "card"] as const)));
+  const byPlan = new Map<PlanType | "legacy", number>();
+  for (const ch of charged) byPlan.set(planOf.get(ch.id) ?? "legacy", (byPlan.get(planOf.get(ch.id) ?? "legacy") ?? 0) + collectedCents(ch));
+  const achCents = sum(charged.filter((ch) => methodOf.get(ch.id) === "ach").map(collectedCents));
+  const cardCents = sum(charged.filter((ch) => methodOf.get(ch.id) !== "ach").map(collectedCents));
+  const feesEstimateCents = sum(charged.map((ch) => feeEstimateCents({ ...ch, methodKind: methodOf.get(ch.id) ?? "card" })));
+  const chargebacksInRange = charges.filter((ch) => ch.chargeback && within(ch.chargeback.receivedAt)).length;
   const refundedCents = sum(refunds.map((r) => r.amountCents));
   const netCents = chargedCents - refundedCents;
 
@@ -494,6 +533,13 @@ export function businessMetrics(
       scheduledCount: scheduled.length,
       scheduledCents: sum(scheduled),
       revenuePerActiveCents: active.length === 0 ? null : Math.round(netCents / active.length),
+      byPlanType: [...byPlan.entries()].map(([type, cents]) => ({ type, cents })).sort((a, b) => b.cents - a.cents),
+      achCents,
+      cardCents,
+      achShare: achCents + cardCents === 0 ? null : achCents / (achCents + cardCents),
+      feesEstimateCents,
+      chargebacks: chargebacksInRange,
+      chargebackRate: charged.length === 0 ? null : chargebacksInRange / charged.length,
     },
     team,
     sales,

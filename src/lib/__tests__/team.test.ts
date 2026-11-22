@@ -273,6 +273,14 @@ function fakeData() {
       calls.push(`resume:${clientId}`);
       return { ok: true };
     },
+    recordChargeback: async (clientId) => {
+      calls.push(`chargeback:${clientId}`);
+      return { ok: true };
+    },
+    setChargebackStatus: async (clientId) => {
+      calls.push(`chargeback-status:${clientId}`);
+      return { ok: true };
+    },
   };
   return { data, calls };
 }
@@ -651,7 +659,11 @@ describe("team: what the staff routes accept", () => {
     // The letter editor (letters.edit) and the approved letter texts (case.view).
     expect(read("src/app/api/staff/letters/route.ts")).toMatch(/requireCapability\("letters\.edit"\)/);
     expect(read("src/app/api/staff/letters/approved/route.ts")).toMatch(/requireCapability\("case\.view"\)/);
-    expect(staffRoutes.length).toBe(18);
+    // Billing plans, invoices and exports, the evidence pack (migration 0026): administrators.
+    expect(read("src/app/api/staff/plans/route.ts")).toMatch(/requireCapability\("billing\.plans"\)/);
+    expect(read("src/app/api/staff/billing/route.ts")).toMatch(/requireCapability\("billing\.plans"\)/);
+    expect(read("src/app/api/staff/billing/evidence/route.ts")).toMatch(/requireCapability\("billing\.plans"\)/);
+    expect(staffRoutes.length).toBe(21);
   });
 });
 

@@ -17,7 +17,7 @@ export const METHOD_FLAG_KEY = "bonalti.paymentMethodOnFile";
 
 /** The demo's payment method: what the server would keep, plus the demo token that stands in for the vault. */
 export interface DemoMethod extends PaymentMethodSummary {
-  /** A demo token ("demo_tok_visa_4242"). Never a card number. */
+  /** A demo token ("demo_tok_visa_4242", "demo_bank_checking_6789"). Never a card or account number. */
   token: string;
   authorizationHash: string;
 }

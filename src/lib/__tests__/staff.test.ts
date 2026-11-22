@@ -674,6 +674,8 @@ describe("staff: what the console says", () => {
       "refundCharge",
       "pauseBilling",
       "resumeBilling",
+      "recordChargeback",
+      "setChargebackStatus",
     ]);
   });
 

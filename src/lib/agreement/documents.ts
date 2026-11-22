@@ -10,6 +10,7 @@ import {
   TEXAS_DISCLOSURE_REQUIREMENTS,
   type StatuteText,
 } from "./statutes";
+import { neverInAdvance, paymentTermsLines } from "../billing/plans";
 import { placeholder, type ResolvedTerms, type TermKey } from "./terms";
 
 // The agreement: six documents a client reads and signs before any work
@@ -229,6 +230,23 @@ function serviceItems(terms: ResolvedTerms, locale: L): string[] {
 }
 
 function costItems(terms: ResolvedTerms, locale: L): string[] {
+  if (terms.plan) {
+    // Under a plan: its payment terms, generated from the plan (billing/plans.ts, attorney-pending), then the rest as before.
+    const provider = toMonitoringProvider(terms, locale);
+    const price = monitoringPrice(terms);
+    return [
+      ...paymentTermsLines(terms.plan.terms, terms.plan.effective, locale),
+      ...(locale === "es"
+        ? [
+            `Pagos a otra empresa: el servicio requiere una suscripción activa de monitoreo de crédito, que usted contrata y paga directamente ${provider}: aproximadamente ${price} al mes. Ese pago no es para nosotros. ${BRAND.name} recibe una comisión del servicio de monitoreo cuando usted contrata su suscripción.`,
+            "No hay otros cargos: no hay cuota de inscripción, ni cargo por cancelar, ni cargo por el envío de las cartas.",
+          ]
+        : [
+            `Payments to another company: the service requires an active credit monitoring subscription, which you buy and pay for directly ${provider}: about ${price} per month. That payment is not to us. ${BRAND.name} earns a commission from the monitoring service when you subscribe.`,
+            "There are no other charges: no enrollment fee, no charge for cancelling, and no charge for mailing the letters.",
+          ]),
+    ];
+  }
   const fee = dollars(terms, "monthlyFee", locale);
   const total = dollars(terms, "estimatedTotal", locale);
   const length = months(terms, locale);
@@ -481,7 +499,9 @@ function contract(terms: ResolvedTerms, locale: L): AgreementDocument {
           heading("5. Lo que cuesta (condiciones de pago)"),
           ...costItems(terms, locale).map((text) => item(text)),
           para(
-            `Nunca cobramos por adelantado. No cobramos ni recibimos dinero ni ninguna otra cosa de valor por un servicio antes de haberlo realizado por completo (15 U.S.C. §1679b(b)). Cada cuota de ${fee} se cobra únicamente después de terminado el trabajo que paga: después de que la ronda de cartas de ese periodo fue preparada y enviada por correo.`,
+            terms.plan
+              ? neverInAdvance(terms.plan.terms, locale)
+              : `Nunca cobramos por adelantado. No cobramos ni recibimos dinero ni ninguna otra cosa de valor por un servicio antes de haberlo realizado por completo (15 U.S.C. §1679b(b)). Cada cuota de ${fee} se cobra únicamente después de terminado el trabajo que paga: después de que la ronda de cartas de ese periodo fue preparada y enviada por correo.`,
           ),
           heading("6. Garantías y reembolsos"),
           para(
@@ -569,7 +589,9 @@ function contract(terms: ResolvedTerms, locale: L): AgreementDocument {
           heading("5. What it costs (payment terms)"),
           ...costItems(terms, locale).map((text) => item(text)),
           para(
-            `We never charge in advance. We do not charge or receive any money or other valuable consideration for a service before that service has been fully performed (15 U.S.C. §1679b(b)). Each ${fee} fee is charged only after the work it pays for is complete: after that period's round of letters has been prepared and mailed.`,
+            terms.plan
+              ? neverInAdvance(terms.plan.terms, locale)
+              : `We never charge in advance. We do not charge or receive any money or other valuable consideration for a service before that service has been fully performed (15 U.S.C. §1679b(b)). Each ${fee} fee is charged only after the work it pays for is complete: after that period's round of letters has been prepared and mailed.`,
           ),
           heading("6. Guarantees and refunds"),
           para(

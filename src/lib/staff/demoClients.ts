@@ -13,7 +13,11 @@ import type { DisputeReasonCode } from "../letters/reasons";
 import { DEMO_RAW_REPORT } from "../demo";
 import { attachDemoIntake } from "../intake/demo";
 import { attachDemoSelfHealing } from "../autopilot/selfHealingDemo";
-import { paidCharge, sampleMethod } from "./billing";
+import { billingContextFor, paidCharge, sampleMethod } from "./billing";
+import { demoCatalogue } from "../billing/catalogue";
+import { snapshotPlan } from "../billing/plans";
+import { simulatedCharges } from "../billing/schedule";
+import { sha256Hex } from "../agreement/sha256";
 import type {
   ItemAnswer,
   MailStatus,
@@ -847,6 +851,74 @@ export function buildDemoClients(now: Date): StaffClient[] {
 
   // Ximena: declined once, two days ago; the next try is tomorrow.
   ximena.billing = { paymentMethod: sampleMethod(ago(5), "7718"), charges: [declined(ximena, 1, 2)], pause: null };
+
+  // ── Plans (billing/plans.ts, migration 0026) ──────────────────────────
+  // Three clients signed under a plan from the example catalogue; their
+  // charges are what the rule would have made, day by day (simulatedCharges).
+  // Rosa: subscription with a first work fee (one 30-day period had no round:
+  // no charge). Gerardo: flat fee in three installments. Patricia: per round,
+  // paying from her bank account (ACH). Everyone else signed before plans and
+  // is billed per round at the agreement's fee.
+  {
+    const catalogue = demoCatalogue(now);
+    const byId = (id: string) => clients.find((c) => c.id === id)!;
+    const onPlan = (client: StaffClient, key: string, method?: { last4: string; brand: string; kind: "ach" }) => {
+      const plan = snapshotPlan(catalogue.find((p) => p.key === key)!);
+      client.agreementPlan = plan;
+      const days = methodDaysAgo.get(client.id) ?? 0;
+      const paymentMethod = method ? { ...sampleMethod(ago(days), method.last4, method.brand), kind: method.kind } : client.billing.paymentMethod;
+      const context = billingContextFor(client, {
+        disclosureAcknowledgedAt: client.disclosureAcknowledgedAt ?? null,
+        signedAt: client.agreementSignedAt,
+        cancellationDeadline: client.cancellationDeadline ?? null,
+        cancelledAt: null,
+        serviceEndRequestedAt: null,
+      });
+      const charges = simulatedCharges({ ...context, account: { paymentMethod, charges: [], pause: null } }, new Date(client.agreementSignedAt!), now, client.id).map((c) => ({
+        ...c,
+        planType: plan.terms.type,
+        methodKind: method?.kind ?? ("card" as const),
+      }));
+      client.billing = { paymentMethod, charges, pause: null };
+    };
+    onPlan(byId("c24"), "monthly");
+    onPlan(byId("c25"), "flat-3-rounds");
+    onPlan(byId("c26"), "per-round", { last4: "6789", brand: "checking", kind: "ach" });
+
+    // Héctor disputed his round 1 charge with his card issuer six days ago: open, evidence not sent yet.
+    const hector = byId("c27");
+    const first = hector.billing.charges[0];
+    if (first?.chargedAt) {
+      hector.billing = {
+        ...hector.billing,
+        charges: hector.billing.charges.map((c, i) =>
+          i === 0 ? { ...c, chargeback: { id: "c27-cb1", status: "open" as const, reasonCode: "13.6", amountCents: c.amountCents, receivedAt: ago(6), source: "manual" as const, respondedAt: null } } : c,
+        ),
+      };
+    }
+
+    // What a signature and an authorization record (the evidence pack reads them). Invented: the
+    // addresses are from the documentation range (203.0.113.0/24), the hashes from the client's id.
+    for (const c of clients) {
+      if (!c.agreementSignedAt) continue;
+      const n = Number(c.id.replace(/\D/g, "")) || 1;
+      c.agreementRecord = {
+        documentHash: sha256Hex(`demo-agreement-${c.id}`),
+        signerName: `${c.firstName} ${c.lastName}`.trim(),
+        signerIp: `203.0.113.${n}`,
+        signerUserAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) Mobile/15E148 Safari/604.1",
+        locale: "en",
+      };
+      if (c.billing.paymentMethod) {
+        c.methodAuthorization = { hash: sha256Hex(`demo-authorization-${c.id}`), locale: "en", ip: `203.0.113.${n}`, userAgent: c.agreementRecord.signerUserAgent, gateway: "demo" };
+      }
+    }
+
+    // Every charge is an invoice: numbered in the order they were made.
+    const all = clients.flatMap((c) => c.billing.charges.map((charge) => ({ c, charge }))).sort((a, b) => a.charge.createdAt.localeCompare(b.charge.createdAt));
+    const numbers = new Map(all.map(({ charge }, i) => [charge.id, `INV-${charge.createdAt.slice(0, 4)}-${String(101 + i).padStart(6, "0")}`]));
+    for (const c of clients) c.billing = { ...c.billing, charges: c.billing.charges.map((ch) => ({ ...ch, invoiceNumber: numbers.get(ch.id) ?? null, methodKind: ch.methodKind ?? "card" })) };
+  }
 
   // ── Who works each client ─────────────────────────────────────────────
   // The demo team is in team.ts (buildDemoTeam): Carmen administers and works

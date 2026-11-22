@@ -42,7 +42,8 @@ export function refundEligibility(charge: BillingCharge, reason: string): Refund
   if (charge.status === "refunded" || charge.refund) return block("already_refunded");
   if (charge.status !== "succeeded") return block("not_paid");
   if (cleanRefundReason(reason).length < REFUND_REASON_MIN_CHARS) return block("reason_required");
-  return { allowed: true, amountCents: charge.amountCents };
+  // What the processor took: a referral credit applied to the charge was never money (migration 0026).
+  return { allowed: true, amountCents: Math.max(0, charge.amountCents - (charge.creditCents ?? 0)) };
 }
 
 /** The charge as it stands once its refund is recorded. Pure: returns a new object. */

@@ -13,7 +13,8 @@ import { agreementPhase, canCancelWithoutPenalty, deadlineOf } from "@/lib/agree
 import { agreementReadiness } from "@/lib/agreement/readiness";
 import type { AgreementState } from "@/lib/agreement/record";
 import { isFullName, signerNameMatches } from "@/lib/agreement/signature";
-import { resolveTerms, type ResolvedTerms } from "@/lib/agreement/terms";
+import { resolveTerms, withPlan, type ResolvedTerms } from "@/lib/agreement/terms";
+import { mostYoullPay, planSummary } from "@/lib/billing/plans";
 import { useClientReport, withReport } from "@/lib/ux/reportStore";
 import { useLocale } from "@/lib/i18n";
 import { useAgreement, type AgreementActionResult } from "@/lib/ux/agreementStore";
@@ -133,9 +134,10 @@ function errorText(code: string, locale: L, profileName: string | null): string 
 
 export default function AcuerdoPage() {
   const { locale } = useLocale();
-  const { agreement, hydrated, signedIn, profileName, mode, acknowledge, sign, cancel } = useAgreement();
-  const terms = useMemo(() => resolveTerms(), []);
-  const readiness = useMemo(() => agreementReadiness(), []);
+  const { agreement, hydrated, signedIn, profileName, mode, plan, acknowledge, sign, cancel } = useAgreement();
+  // Under a plan, the contract's payment terms are generated from it (billing/plans.ts).
+  const terms = useMemo(() => withPlan(resolveTerms(), plan), [plan]);
+  const readiness = useMemo(() => agreementReadiness({ terms }), [terms]);
   // A new agreement after a cancellation starts again at step 1.
   const [startOver, setStartOver] = useState(false);
   /** Re-reading the disclosures from step 2: shows step 1 without asking again. */
@@ -437,7 +439,14 @@ function StepTwo({
               : "You review your report and say what is inaccurate. Only you decide; nobody on the team decides for you."}
           </SummaryRow>
           <SummaryRow icon="doc" title={es ? "Lo que cuesta" : "What it costs"}>
-            {es
+            {terms.plan ? (
+              <span data-testid="plan-summary">
+                {planSummary(terms.plan, locale)}. <strong className="font-semibold">{mostYoullPay(terms.plan, locale)}.</strong>{" "}
+                {es
+                  ? `Cada cobro se hace solo después del trabajo que paga. Aparte pagas tu monitoreo de crédito (${terms.monitoringPriceLabel} al mes) directamente a quien lo ofrece.`
+                  : `Each charge is made only after the work it pays for. Separately you pay for your credit monitoring (${terms.monitoringPriceLabel} a month), directly to its provider.`}
+              </span>
+            ) : es
               ? `${fee} al mes, y solo se cobra después de hecho el trabajo de ese mes. Aparte pagas tu monitoreo de crédito (${terms.monitoringPriceLabel} al mes) directamente a quien lo ofrece.`
               : `${fee} a month, charged only after that month's work is done. Separately you pay for your credit monitoring (${terms.monitoringPriceLabel} a month), directly to its provider.`}
           </SummaryRow>

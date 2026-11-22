@@ -2,7 +2,9 @@ import { z } from "zod";
 import type { AgreementRecord } from "../agreement/gate";
 import type { AuthorizationTerms } from "./authorization";
 import { REFUND_REASON_MAX_CHARS, REFUND_REASON_MIN_CHARS } from "./refunds";
-import type { BillableRound, BillingAccount } from "./types";
+import type { HostedFieldsConfig } from "./gateway";
+import type { PlanSnapshot } from "./plans";
+import type { BillableRound, BillingAccount, BillingSwitches, ProvenResult } from "./types";
 
 // What the billing endpoints accept and answer. Kept apart from the routes so
 // the tests can check the request rules without a server.
@@ -25,9 +27,12 @@ export const paymentMethodBodySchema = z
     token: z
       .string()
       .min(8)
-      .max(300)
-      .regex(/^[A-Za-z0-9_.:\-]+$/)
+      .max(4000)
+      // Processor tokens: NMI's payment_token, Authorize.Net's opaqueData value (base64: + / =).
+      .regex(/^[A-Za-z0-9_.:+/=\-]+$/)
       .refine((value) => !looksLikeCardNumber(value), { message: "card_number" }),
+    /** "ach" for a bank account; the authorization is then the ACH debit authorization. */
+    kind: z.enum(["card", "ach"]).optional(),
     /** The recurring-payment authorization, as the client was shown it. */
     authorization: z.object({
       version: z.string().min(1).max(60),
@@ -76,7 +81,16 @@ export interface ClientBillingPayload {
   rounds: BillableRound[];
   /** The pause, when there is one, comes without the team's note. */
   account: BillingAccount;
+  /** The plan snapshot of the signed agreement, when it was signed under one. */
+  plan: PlanSnapshot | null;
+  results?: ProvenResult[];
+  switches?: BillingSwitches;
+  creditBalanceCents?: number;
   processor: {
+    /** The processor's hosted fields, for the browser. Null when none is configured. */
+    hostedFields: HostedFieldsConfig | null;
+    /** True when the processor takes bank accounts (ACH) and the ACH authorization may be accepted. */
+    canAddBank: boolean;
     /** False while no processor is set up: nothing can be charged and no method can be added. */
     configured: boolean;
     /** False for the demo processor. */

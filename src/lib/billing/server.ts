@@ -10,6 +10,7 @@ import { runClientBilling, type ChargeStore, type ClientBillingReport, type Paym
 import { paymentFailedMessage, paymentMethodNeededMessage } from "./dunning";
 import type { PaymentGateway } from "./gateway";
 import { receiptFor, receiptMessage } from "./receipts";
+import { readPlanSnapshot } from "./plans";
 import { billingDay, CHARGE_DELAY_DAYS, formatCents } from "./rules";
 import { recordResolution } from "../autopilot/resolutions";
 import type {
@@ -18,9 +19,14 @@ import type {
   BillingCharge,
   BillingContext,
   BillingRefund,
+  BillingSwitches,
   ChargeStatus,
+  ChargeUnit,
+  ChargebackSummary,
   L,
+  MethodKind,
   PaymentMethodSummary,
+  ProvenResult,
 } from "./types";
 
 // Billing against the database (migration 0011). Reads map rows to the types
@@ -48,11 +54,28 @@ export function refundFromRow(row: Row): BillingRefund {
     by: text(row.requested_by_name) || "equipo",
     at: iso(row.created_at) ?? "",
     completedAt: iso(row.completed_at),
+    kind: row.kind === "void" ? "void" : "refund",
   };
 }
 
-export function chargeFromRow(row: Row, refund: Row | null | undefined = null): BillingCharge {
+const UNITS: readonly ChargeUnit[] = ["round", "period", "installment", "flat", "results", "first_work"];
+
+export function chargebackFromRow(row: Row): ChargebackSummary {
+  const status = row.status === "won" || row.status === "lost" || row.status === "accepted" ? row.status : "open";
+  return {
+    id: text(row.id),
+    status,
+    reasonCode: text(row.reason_code) || null,
+    amountCents: Number(row.amount_cents),
+    receivedAt: iso(row.received_at) ?? "",
+    source: row.source === "webhook" ? "webhook" : "manual",
+    respondedAt: iso(row.responded_at),
+  };
+}
+
+export function chargeFromRow(row: Row, refund: Row | null | undefined = null, chargeback: Row | null | undefined = null): BillingCharge {
   const status = STATUSES.find((s) => s === row.status) ?? "pending";
+  const unit = UNITS.find((u) => u === row.unit);
   return {
     id: text(row.id),
     roundNumber: Number(row.round_number),
@@ -66,6 +89,17 @@ export function chargeFromRow(row: Row, refund: Row | null | undefined = null): 
     chargedAt: iso(row.charged_at),
     failureCode: text(row.failure_code) || null,
     refund: refund ? refundFromRow(refund) : null,
+    ...(unit ? { unit } : {}),
+    ...(row.plan_type ? { planType: row.plan_type as BillingCharge["planType"] } : {}),
+    ...(row.period_start ? { periodStart: iso(row.period_start), periodEnd: iso(row.period_end) } : {}),
+    ...(row.installment_number ? { installmentNumber: Number(row.installment_number) } : {}),
+    ...(row.first_work_cents !== undefined ? { firstWorkCents: Number(row.first_work_cents ?? 0) } : {}),
+    ...(row.credit_cents !== undefined ? { creditCents: Number(row.credit_cents ?? 0) } : {}),
+    ...(Array.isArray(row.result_item_ids) && row.result_item_ids.length > 0 ? { resultItemIds: (row.result_item_ids as unknown[]).map(String) } : {}),
+    ...(row.invoice_number ? { invoiceNumber: text(row.invoice_number) } : {}),
+    ...(row.method_kind ? { methodKind: (row.method_kind === "ach" ? "ach" : "card") as MethodKind } : {}),
+    ...(row.return_code ? { returnCode: text(row.return_code) } : {}),
+    ...(chargeback ? { chargeback: chargebackFromRow(chargeback) } : {}),
   };
 }
 
@@ -76,6 +110,7 @@ export function paymentMethodFromRow(row: Row): PaymentMethodSummary {
     addedAt: iso(row.created_at) ?? "",
     authorizationVersion: text(row.authorization_version),
     authorizedAt: iso(row.authorized_at) ?? "",
+    ...(row.kind ? { kind: (row.kind === "ach" ? "ach" : "card") as MethodKind } : {}),
   };
 }
 
@@ -135,7 +170,7 @@ export async function loadBilling(db: SupabaseClient, userId: string, options: {
   const [agreementRow, roundRows, letterRows, methodRows, chargeRows, refundRows, pauseRows] = await Promise.all([
     loadAgreementRow(db, userId),
     rows(db.from("attack_rounds").select("id, round_number, status, mailed_at").eq("user_id", userId), "attack_rounds"),
-    rows(db.from("letters").select("round_id, target_type, target_key, target_name, status, mail_status").eq("user_id", userId), "letters"),
+    rows(db.from("letters").select("id, round_id, target_type, target_key, target_name, status, mail_status").eq("user_id", userId), "letters"),
     rows(db.from("payment_methods").select("*").eq("user_id", userId).is("removed_at", null).limit(1), "payment_methods"),
     rows(db.from("charges").select("*").eq("user_id", userId).order("work_date", { ascending: true }), "charges"),
     rows(db.from("refunds").select("*").eq("user_id", userId), "refunds"),
@@ -165,16 +200,26 @@ export async function loadBilling(db: SupabaseClient, userId: string, options: {
       db.from("payment_method_vault").select("customer_ref, payment_method_ref").eq("payment_method_id", text(method.id)).limit(1),
       "payment_method_vault",
     );
-    if (vault[0]) handle = { customerRef: text(vault[0].customer_ref), paymentMethodRef: text(vault[0].payment_method_ref) };
+    if (vault[0]) handle = { customerRef: text(vault[0].customer_ref), paymentMethodRef: text(vault[0].payment_method_ref), methodKind: method.kind === "ach" ? "ach" : "card" };
   }
 
   const terms = agreement?.signedAt ? agreement.terms : null;
+  const plan = readPlanSnapshot((terms as { plan?: unknown } | null)?.plan);
+  const chargebacks = chargeRows.length > 0 ? await optionalRows(db.from("chargebacks").select("*").eq("user_id", userId)) : [];
+  if (chargebacks.length > 0) {
+    const byCharge = new Map(chargebacks.map((row) => [text(row.charge_id), row]));
+    account.charges = chargeRows.map((row) => chargeFromRow(row, refundByCharge.get(text(row.id)), byCharge.get(text(row.id))));
+  }
+  const switches = plan ? await loadSwitches(db) : undefined;
+  const creditBalanceCents = switches?.referralCredits ? await creditBalance(db, userId) : 0;
+  const results = plan?.terms.type === "pay_per_delete" ? await loadProvenResults(db, userId, roundRows, letterRows) : undefined;
   return {
     agreement,
     authorizationTerms: {
       companyLegalName: terms?.companyLegalName ?? null,
       companyEmail: terms?.companyEmail ?? null,
       monthlyFee: terms?.monthlyFee ?? null,
+      ...(plan ? { plan } : {}),
     },
     context: {
       agreement,
@@ -182,11 +227,84 @@ export async function loadBilling(db: SupabaseClient, userId: string, options: {
       signedMonthlyFee: terms?.monthlyFee ?? null,
       rounds: roundRows.map((round) => billableRoundFromRows(round, lettersByRound.get(text(round.id)) ?? [])),
       account,
+      ...(plan ? { plan, switches, creditBalanceCents, ...(results ? { results } : {}) } : {}),
     },
     roundIds: new Map(roundRows.map((round) => [Number(round.round_number), text(round.id)])),
     paymentMethodId: method ? text(method.id) : null,
     handle,
   };
+}
+
+/** Rows from a table a reader may not see (row level security): none, rather than an error. */
+async function optionalRows(query: PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<Row[]> {
+  const { data, error } = await query;
+  return error ? [] : ((data as Row[] | null) ?? []);
+}
+
+/** The attorney-approved switches (migration 0026). Off when they cannot be read. */
+export async function loadSwitches(db: SupabaseClient): Promise<BillingSwitches> {
+  const read = async (name: string) => {
+    const { data, error } = await db.rpc("billing_switch_on", { name });
+    return !error && data === true;
+  };
+  const [payPerDelete, referralCredits] = await Promise.all([read("pay_per_delete"), read("referral_credits")]);
+  return { payPerDelete, referralCredits };
+}
+
+async function creditBalance(db: SupabaseClient, userId: string): Promise<number> {
+  const credits = await optionalRows(db.from("client_credits").select("cents").eq("user_id", userId));
+  return credits.reduce((n, row) => n + Number(row.cents ?? 0), 0);
+}
+
+const BUREAU_LABEL: Record<string, string> = { equifax: "Equifax", experian: "Experian", transunion: "TransUnion" };
+
+/**
+ * Pay per delete: each item disputed through us (a letter of a mailed round
+ * names it) that a later report proved gone (item_results). The rule and the
+ * trigger decide what may be charged; this only reads.
+ */
+export async function loadProvenResults(db: SupabaseClient, userId: string, roundRows: Row[], letterRows: Row[]): Promise<ProvenResult[]> {
+  const proofs = await optionalRows(db.from("item_results").select("item_id, outcome, proof_pull_id").eq("user_id", userId));
+  if (proofs.length === 0) return [];
+  const itemIds = [...new Set(proofs.map((p) => text(p.item_id)))];
+  const letterIds = letterRows.filter((l) => l.status === "queued" || l.status === "mailed" || l.status === "delivered").map((l) => text(l.id));
+  const [pulls, items, links] = await Promise.all([
+    optionalRows(db.from("report_pulls").select("id, pulled_at").eq("user_id", userId)),
+    optionalRows(db.from("report_items").select("id, bureau, name, status, last_seen_pull").in("id", itemIds)),
+    letterIds.length === 0 ? Promise.resolve([] as Row[]) : optionalRows(db.from("letter_items").select("letter_id, item_id").in("letter_id", letterIds).in("item_id", itemIds)),
+  ]);
+  const pulledAt = new Map(pulls.map((p) => [text(p.id), iso(p.pulled_at)]));
+  const roundOfLetter = new Map(letterRows.map((l) => [text(l.id), text(l.round_id)]));
+  const round = new Map(roundRows.map((r) => [text(r.id), r]));
+  const out: ProvenResult[] = [];
+  for (const item of items) {
+    const id = text(item.id);
+    const disputes = links
+      .filter((l) => text(l.item_id) === id)
+      .map((l) => round.get(roundOfLetter.get(text(l.letter_id)) ?? ""))
+      .filter((r): r is Row => Boolean(r && (r.status === "mailed" || r.status === "complete") && iso(r.mailed_at)))
+      .sort((a, b) => text(a.mailed_at).localeCompare(text(b.mailed_at)));
+    const dispute = disputes[0];
+    if (!dispute) continue;
+    const disputedAt = iso(dispute.mailed_at)!;
+    const lastSeen = pulledAt.get(text(item.last_seen_pull)) ?? null;
+    for (const proof of proofs.filter((p) => text(p.item_id) === id)) {
+      const provedAt = pulledAt.get(text(proof.proof_pull_id));
+      if (!provedAt || provedAt <= disputedAt) continue;
+      const outcome = proof.outcome === "updated" ? "updated" : "deleted";
+      out.push({
+        itemId: id,
+        label: `${BUREAU_LABEL[text(item.bureau)] ?? text(item.bureau)} · ${text(item.name)}`,
+        outcome,
+        disputedRound: Number(dispute.round_number),
+        disputedAt,
+        provedAt,
+        stillGone: outcome === "updated" || (item.status === "deleted" && (!lastSeen || lastSeen < provedAt)),
+      });
+      break;
+    }
+  }
+  return out;
 }
 
 // ── The store the collection code writes through ────────────────────────
@@ -197,16 +315,26 @@ export async function loadBilling(db: SupabaseClient, userId: string, options: {
  * and fills in the round number, the work date and the agreement. If the
  * database refuses, no processor is ever asked.
  */
-export function databaseChargeStore(db: SupabaseClient, userId: string, roundIds: Map<number, string>, gatewayName: string): ChargeStore {
+export function databaseChargeStore(
+  db: SupabaseClient,
+  userId: string,
+  roundIds: Map<number, string>,
+  gatewayName: string,
+  methodKind: MethodKind = "card",
+): ChargeStore {
   return {
-    async createCharge({ roundNumber, amountCents }) {
-      const roundId = roundIds.get(roundNumber);
-      if (!roundId) return { created: false, reason: `round ${roundNumber} has no row` };
-      const { data, error } = await db
-        .from("charges")
-        .insert({ user_id: userId, round_id: roundId, amount_cents: amountCents })
-        .select("*")
-        .single();
+    async createCharge({ roundNumber, amountCents, unit, firstWorkCents, creditCents, resultItemIds }) {
+      const roundId = unit === "results" ? null : roundIds.get(roundNumber);
+      if (unit !== "results" && !roundId) return { created: false, reason: `round ${roundNumber} has no row` };
+      // The work and the amount; the trigger fills in the rest (work date, period, installment, invoice) and refuses anything else.
+      const row: Record<string, unknown> = { user_id: userId, round_id: roundId, amount_cents: amountCents };
+      if (unit) {
+        row.unit = unit;
+        row.first_work_cents = firstWorkCents ?? 0;
+        row.credit_cents = creditCents ?? 0;
+        if (unit === "results") row.result_item_ids = resultItemIds ?? [];
+      }
+      const { data, error } = await db.from("charges").insert(row).select("*").single();
       if (error || !data) return { created: false, reason: error?.message ?? "insert returned no row" };
       return { created: true, charge: chargeFromRow(data as Row) };
     },
@@ -221,6 +349,7 @@ export function databaseChargeStore(db: SupabaseClient, userId: string, roundIds
           charged_at: charge.chargedAt,
           failure_code: charge.failureCode,
           gateway: gatewayName,
+          method_kind: methodKind,
           ...(gatewayReference ? { gateway_reference: gatewayReference } : {}),
         })
         .eq("id", charge.id);
@@ -294,7 +423,7 @@ export async function runBillingForUser(
   options: { afterCardUpdate?: boolean } = {},
 ): Promise<UserBillingSummary> {
   const loaded = await loadBilling(db, userId, { withHandle: true });
-  const store = databaseChargeStore(db, userId, loaded.roundIds, gateway.name);
+  const store = databaseChargeStore(db, userId, loaded.roundIds, gateway.name, loaded.context.account.paymentMethod?.kind ?? "card");
   const report: ClientBillingReport = await runClientBilling({ gateway, store }, loaded.context, loaded.handle, now);
   const summary: UserBillingSummary = {
     userId,
@@ -457,5 +586,13 @@ export async function billingCandidates(db: SupabaseClient, now: Date, limit = B
   const users = new Set<string>();
   for (const row of [...due, ...waiting]) users.add(text(row.user_id));
   for (const round of mailed) if (!charged.has(text(round.id))) users.add(text(round.user_id));
+  // Under a plan the next unit of work is not always a new round: a subscription period that ended, a
+  // flat fee's last round, a report that proved a disputed item gone. Every client whose agreement in
+  // force carries a plan is looked at; the rule decides (and charges nothing when nothing is due).
+  const agreements = await rows(db.from("service_agreements").select("user_id, terms, signed_at, cancelled_at").limit(5000), "service_agreements");
+  for (const a of agreements) {
+    const terms = a.terms as { plan?: unknown } | null;
+    if (a.signed_at && !a.cancelled_at && terms?.plan) users.add(text(a.user_id));
+  }
   return [...users].slice(0, limit);
 }

@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { agreementReadiness } from "@/lib/agreement/readiness";
+import { resolveTerms, withPlan } from "@/lib/agreement/terms";
+import { offeredSnapshot } from "@/lib/billing/planStore";
+import { getAdminClient } from "@/lib/supabase/admin";
 import { agreementFromRow } from "@/lib/agreement/record";
 import { AGREEMENT_TABLE } from "@/lib/agreement/server";
 import { reportError } from "@/lib/observability/errors";
@@ -31,8 +34,12 @@ export async function GET() {
     return NextResponse.json({ error: "Could not load the agreement" }, { status: 500 });
   }
 
-  const readiness = agreementReadiness();
+  // The plan the client would sign (read with the service role: the catalogue is not the client's to read).
+  const admin = getAdminClient();
+  const plan = admin ? await offeredSnapshot(admin, user.id).catch(() => null) : null;
+  const readiness = agreementReadiness({ terms: withPlan(resolveTerms(), plan) });
   return NextResponse.json({
+    plan,
     authenticated: true,
     agreement: row ? agreementFromRow(row as Record<string, unknown>) : null,
     profileName: (profile?.full_name as string | undefined) || null,

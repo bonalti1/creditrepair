@@ -1,6 +1,8 @@
 import { AGREEMENT_TIME_ZONE } from "../agreement/businessDays";
-import { workMayStart } from "../agreement/gate";
-import type { Bilingual, BillableRound, BillingCharge, BillingContext, L } from "./types";
+import { deadlineOf, workMayStart } from "../agreement/gate";
+import { feeToCents } from "./money";
+import { installmentCents, type PlanSnapshot } from "./plans";
+import type { Bilingual, BillableRound, BillingCharge, BillingContext, ChargeUnit, L, ProvenResult } from "./types";
 
 // When may a client be charged?
 //
@@ -67,7 +69,15 @@ export type IneligibleCode =
   /** Fewer than 30 days since the work date of the last charged round. */
   | "too_soon_after_last_charge"
   /** The charge is due and there is no payment method on file. */
-  | "no_payment_method";
+  | "no_payment_method"
+  /** The plan's most-you'll-pay total is reached, or its duration is over: nothing more is ever charged. */
+  | "plan_complete"
+  /** Work was done and the plan does not charge for it yet (a flat fee before its last round, a period still open). */
+  | "waiting_for_work"
+  /** The first charge waits for the plan's due date: N days after the first round was mailed. */
+  | "before_due_date"
+  /** Pay per delete is off until an administrator records the attorney's approval. A person looks. */
+  | "pay_per_delete_off";
 
 export type ChargeEligibility =
   | {
@@ -77,6 +87,16 @@ export type ChargeEligibility =
       amountCents: number;
       /** The round's mailing date: the day the work was done (ISO). */
       workDate: string;
+      /** Set only under a plan (migration 0026): what the charge pays for. */
+      unit?: ChargeUnit;
+      /** The part of amountCents that is the first work fee. */
+      firstWorkCents?: number;
+      /** Referral credit applied to this charge. */
+      creditCents?: number;
+      periodStart?: string;
+      periodEnd?: string;
+      installmentNumber?: number;
+      resultItemIds?: string[];
     }
   | {
       eligible: false;
@@ -93,20 +113,7 @@ export type ChargeEligibility =
 
 // ── Money and dates ─────────────────────────────────────────────────────
 
-/** "89.00" → 8900. Null for anything that is not a positive amount with at most two decimals. */
-export function feeToCents(fee: string | null | undefined): number | null {
-  if (typeof fee !== "string" || !/^\d{1,6}(\.\d{1,2})?$/.test(fee.trim())) return null;
-  const [whole, fraction = ""] = fee.trim().split(".");
-  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
-  return Number.isSafeInteger(cents) && cents > 0 ? cents : null;
-}
-
-/** 8900 → "$89.00". */
-export function formatCents(cents: number): string {
-  const whole = Math.floor(Math.abs(cents) / 100).toLocaleString("en-US");
-  const fraction = String(Math.abs(cents) % 100).padStart(2, "0");
-  return `${cents < 0 ? "-" : ""}$${whole}.${fraction}`;
-}
+export { feeToCents, formatCents } from "./money";
 
 /** "4 de noviembre" / "November 4", on the Texas calendar. */
 export function billingDay(iso: string | Date, locale: L): string {
@@ -204,6 +211,9 @@ const no = (
  *  10. a payment method is on file, with the client's recurring authorization.
  */
 export function chargeEligibility(context: BillingContext, now: Date): ChargeEligibility {
+  // Under a plan the unit of work depends on the plan type. Without one (an
+  // agreement signed before plans existed) it is the mailed round, as below.
+  if (context.plan) return planEligibility(context, context.plan, now);
   const { agreement, account } = context;
 
   // 1. The agreement. The same gate that holds the letters holds the money.
@@ -345,4 +355,372 @@ export function chargeEligibility(context: BillingContext, now: Date): ChargeEli
   }
 
   return { eligible: true, roundNumber, amountCents, workDate: new Date(round.mailedAt).toISOString() };
+}
+
+// ── Under a plan (migration 0026) ───────────────────────────────────────
+//
+// The same rule, for every plan type. What changes is the unit of work a
+// charge pays for (pickUnit); everything else is common and in this order:
+//   the agreement gate; work on record, mailed after the cancellation window;
+//   the unit has no charge yet; the client did not ask to stop; the letters
+//   reached someone; no pause and nothing unpaid; the plan's most-you'll-pay
+//   total is not reached (the amount is trimmed to what is left); the
+//   correction delay, the plan's due date and 30 days since the work date AND
+//   the creation of the last charge; a payment method, unless a referral
+//   credit covers it all. The database trigger checks the same (0026).
+
+const unitOf = (charge: BillingCharge): ChargeUnit => charge.unit ?? "round";
+
+/** What counts toward the cap: everything charged that was not returned. */
+export function chargedTowardCap(charges: BillingCharge[]): number {
+  return charges.filter((c) => c.status !== "refunded").reduce((n, c) => n + c.amountCents, 0);
+}
+
+/** What is left before the plan's most-you'll-pay total. */
+export function remainingUnderCap(plan: Pick<PlanSnapshot, "effective">, charges: BillingCharge[]): number {
+  return Math.max(0, plan.effective.maxTotalCents - chargedTowardCap(charges));
+}
+
+/** Subscription periods are 30 days long, counted from the first round's mailing. */
+export const PERIOD_DAYS = 30;
+
+export interface WorkPeriod {
+  index: number;
+  start: string;
+  end: string;
+  /** Rounds mailed inside the period. Empty: no work, no charge. */
+  rounds: number[];
+  /** True once the period is over. */
+  ended: boolean;
+  charged: boolean;
+}
+
+/** The rounds that count as work under a plan: mailed, in the past, and after the cancellation window. */
+export function planRounds(context: BillingContext, now: Date): BillableRound[] {
+  const deadline = context.agreement ? deadlineOf(context.agreement) : null;
+  return performedRounds(context.rounds, now).filter((r) => !deadline || new Date(r.mailedAt!).getTime() > deadline.getTime());
+}
+
+/** The subscription's periods up to now, the current one included. */
+export function subscriptionPeriods(context: BillingContext, now: Date): WorkPeriod[] {
+  const rounds = planRounds(context, now);
+  const first = rounds[0];
+  if (!first?.mailedAt) return [];
+  const anchor = new Date(first.mailedAt).getTime();
+  const charged = new Set(context.account.charges.filter((c) => unitOf(c) === "period" && c.periodStart).map((c) => new Date(c.periodStart!).toISOString()));
+  const periods: WorkPeriod[] = [];
+  for (let i = 0; anchor + i * PERIOD_DAYS * DAY_MS <= now.getTime() && i < 120; i++) {
+    const start = anchor + i * PERIOD_DAYS * DAY_MS;
+    const end = start + PERIOD_DAYS * DAY_MS;
+    const startIso = new Date(start).toISOString();
+    periods.push({
+      index: i,
+      start: startIso,
+      end: new Date(end).toISOString(),
+      rounds: rounds.filter((r) => {
+        const t = new Date(r.mailedAt!).getTime();
+        return t >= start && t < end;
+      }).map((r) => r.number),
+      ended: end <= now.getTime(),
+      charged: charged.has(startIso),
+    });
+  }
+  return periods;
+}
+
+/** Pay per delete: the items that may be charged now. Disputed through us, after the window, shown gone by a later report. */
+export function chargeableResults(context: BillingContext, plan: PlanSnapshot, now: Date): ProvenResult[] {
+  const deadline = context.agreement ? deadlineOf(context.agreement) : null;
+  const paid = new Set(context.account.charges.flatMap((c) => c.resultItemIds ?? []));
+  return (context.results ?? []).filter((r) => {
+    if (paid.has(r.itemId)) return false;
+    if (r.outcome === "updated" && !plan.terms.countsUpdated) return false;
+    if (r.outcome === "deleted" && !r.stillGone) return false;
+    const disputed = new Date(r.disputedAt).getTime();
+    const proved = new Date(r.provedAt).getTime();
+    if (Number.isNaN(disputed) || Number.isNaN(proved)) return false;
+    if (deadline && disputed <= deadline.getTime()) return false;
+    return proved > disputed && proved <= now.getTime();
+  });
+}
+
+interface Candidate {
+  unit: ChargeUnit;
+  /** The round the work is, for a round-based unit; null for results. */
+  round: BillableRound | null;
+  roundNumber: number;
+  workDate: string;
+  baseCents: number;
+  firstWorkCents: number;
+  periodStart?: string;
+  periodEnd?: string;
+  installmentNumber?: number;
+  resultItemIds?: string[];
+}
+
+type Refusal = { code: IneligibleCode; reason: Bilingual; roundNumber?: number; availableAt?: string; needsPerson?: boolean };
+
+function pickUnit(context: BillingContext, plan: PlanSnapshot, rounds: BillableRound[], now: Date): Candidate | Refusal {
+  const charges = context.account.charges;
+  const e = plan.effective;
+  const t = plan.terms;
+  const first = rounds[0] ?? null;
+  const firstWorkDue = e.firstWorkFeeCents > 0 && !charges.some((c) => (c.firstWorkCents ?? 0) > 0 || unitOf(c) === "first_work");
+  const nothingMailed: Refusal = {
+    code: "nothing_mailed",
+    reason: { es: "No hay nada que cobrar: todavía no se envía ninguna ronda.", en: "There is nothing to charge: no round has been mailed yet." },
+  };
+  const complete: Refusal = {
+    code: "plan_complete",
+    reason: {
+      es: "No se cobra nada más: el plan llegó a su total máximo o a su duración.",
+      en: "Nothing more is charged: the plan reached its maximum total or its length.",
+    },
+  };
+  const unbilled = (es: string, en: string, extra: Partial<Refusal> = {}): Refusal => ({ code: "nothing_unbilled", reason: { es, en }, ...extra });
+  if (!first) return nothingMailed;
+  const firstWork = (): Candidate => ({ unit: "first_work", round: first, roundNumber: first.number, workDate: first.mailedAt!, baseCents: 0, firstWorkCents: e.firstWorkFeeCents });
+
+  switch (t.type) {
+    case "per_round": {
+      const limit = t.duration.kind === "rounds" ? t.duration.count : Infinity;
+      const charged = new Set(charges.filter((c) => unitOf(c) === "round").map((c) => c.roundNumber));
+      const round = rounds.find((r) => r.number <= limit && !charged.has(r.number));
+      if (!round) {
+        return charged.size >= limit
+          ? complete
+          : unbilled("No hay nada que cobrar: cada ronda enviada ya tiene su cobro.", "There is nothing to charge: every mailed round already has its charge.");
+      }
+      return { unit: "round", round, roundNumber: round.number, workDate: round.mailedAt!, baseCents: e.recurringCents, firstWorkCents: firstWorkDue ? e.firstWorkFeeCents : 0 };
+    }
+    case "flat_fee": {
+      const f = t.flat!;
+      if (f.schedule === "installments") {
+        const done = charges.filter((c) => unitOf(c) === "installment");
+        if (done.length >= f.rounds) return complete;
+        const charged = new Set(done.map((c) => c.roundNumber));
+        const round = rounds.find((r) => r.number <= f.rounds && !charged.has(r.number));
+        if (!round) return unbilled("No hay nada que cobrar: cada ronda enviada ya tiene su pago.", "There is nothing to charge: every mailed round already has its installment.");
+        const k = done.length + 1;
+        return {
+          unit: "installment",
+          round,
+          roundNumber: round.number,
+          workDate: round.mailedAt!,
+          baseCents: installmentCents(e.flatTotalCents, f.rounds, k),
+          firstWorkCents: firstWorkDue ? e.firstWorkFeeCents : 0,
+          installmentNumber: k,
+        };
+      }
+      if (firstWorkDue) return firstWork();
+      if (charges.some((c) => unitOf(c) === "flat")) return complete;
+      const last = rounds.find((r) => r.number === f.rounds);
+      if (!last) {
+        return {
+          code: "waiting_for_work",
+          reason: {
+            es: `Todavía no: la tarifa fija se cobra después de enviar la ronda ${f.rounds}.`,
+            en: `Not yet: the flat fee is charged after round ${f.rounds} is mailed.`,
+          },
+        };
+      }
+      return { unit: "flat", round: last, roundNumber: last.number, workDate: last.mailedAt!, baseCents: e.flatTotalCents, firstWorkCents: 0 };
+    }
+    case "subscription": {
+      if (firstWorkDue) return firstWork();
+      const limit = t.duration.kind === "months" ? t.duration.count : Infinity;
+      const periods = subscriptionPeriods(context, now);
+      const chargedCount = charges.filter((c) => unitOf(c) === "period").length;
+      const due = periods.find((p) => p.index < limit && p.ended && !p.charged && p.rounds.length > 0);
+      if (!due) {
+        if (chargedCount >= limit || (periods.length > limit && periods.slice(0, limit).every((p) => p.ended))) return complete;
+        const open = periods.find((p) => p.index < limit && !p.ended && p.rounds.length > 0 && !p.charged);
+        if (open) {
+          return {
+            code: "waiting_for_work",
+            reason: {
+              es: `Todavía no: el mes con trabajo se cobra al cerrar el periodo, el ${billingDay(open.end, "es")}.`,
+              en: `Not yet: the month with work is charged when the period ends, on ${billingDay(open.end, "en")}.`,
+            },
+            availableAt: open.end,
+          };
+        }
+        return unbilled(
+          "No hay nada que cobrar: los periodos sin cartas enviadas no se cobran.",
+          "There is nothing to charge: a period with no letters mailed is not charged.",
+        );
+      }
+      const round = rounds.find((r) => r.number === due.rounds[0]) ?? null;
+      return {
+        unit: "period",
+        round,
+        roundNumber: due.rounds[0]!,
+        workDate: due.end,
+        baseCents: e.recurringCents,
+        firstWorkCents: 0,
+        periodStart: due.start,
+        periodEnd: due.end,
+      };
+    }
+    case "pay_per_delete": {
+      if (!context.switches?.payPerDelete) {
+        return {
+          code: "pay_per_delete_off",
+          reason: {
+            es: "No se cobra: el pago por eliminación está apagado hasta que se registre la aprobación del abogado.",
+            en: "Nothing is charged: pay per delete is off until the attorney's approval is recorded.",
+          },
+          needsPerson: (context.results ?? []).length > 0,
+        };
+      }
+      const results = chargeableResults(context, plan, now);
+      if (results.length === 0) {
+        return unbilled(
+          "No hay nada que cobrar: ningún punto disputado aparece fuera de un reporte posterior sin cobrar.",
+          "There is nothing to charge: no disputed item is shown gone by a later report and still unbilled.",
+        );
+      }
+      const workDate = results.map((r) => new Date(r.provedAt).toISOString()).sort().at(-1)!;
+      return {
+        unit: "results",
+        round: null,
+        roundNumber: 0,
+        workDate,
+        baseCents: results.length * e.recurringCents,
+        firstWorkCents: 0,
+        resultItemIds: results.map((r) => r.itemId).sort(),
+      };
+    }
+  }
+}
+
+function planEligibility(context: BillingContext, plan: PlanSnapshot, now: Date): ChargeEligibility {
+  const { agreement, account } = context;
+  const gate = workMayStart(agreement, now);
+  if (!gate.allowed && (gate.code === "disclosure_not_acknowledged" || gate.code === "not_signed")) {
+    return no("agreement_not_signed", { es: "No se cobra: no hay un acuerdo de servicio firmado.", en: "Nothing is charged: there is no signed service agreement." });
+  }
+  if (!gate.allowed && gate.code === "cancelled") {
+    return no("agreement_cancelled", { es: "No se cobra: el cliente canceló su acuerdo.", en: "Nothing is charged: the client cancelled their agreement." });
+  }
+  if (!gate.allowed && gate.code === "in_cancellation_window") {
+    return no(
+      "in_cancellation_window",
+      { es: "No se cobra: está en su periodo de cancelación.", en: "Nothing is charged: the client is inside the cancellation period." },
+      gate.startsAt ? { availableAt: gate.startsAt } : {},
+    );
+  }
+
+  const rounds = planRounds(context, now);
+  const picked = pickUnit(context, plan, rounds, now);
+  if ("code" in picked) return no(picked.code, picked.reason, { roundNumber: picked.roundNumber, availableAt: picked.availableAt, needsPerson: picked.needsPerson });
+  const c = picked;
+  const n = c.roundNumber;
+  const which = c.unit === "results" ? { es: "los puntos que ya no aparecen", en: "the items no longer reported" } : { es: `la ronda ${n}`, en: `round ${n}` };
+  const at = c.unit === "results" ? {} : { roundNumber: n };
+
+  if (!gate.allowed && gate.code === "service_end_requested" && !BILL_PERFORMED_WORK_AFTER_END_REQUEST) {
+    return no(
+      "service_end_requested",
+      {
+        es: `No se cobra solo: el cliente pidió terminar el servicio y ${which.es} quedó sin cobrar. Lo decide una persona.`,
+        en: `Not charged automatically: the client asked to end the service and ${which.en} is unbilled. A person decides.`,
+      },
+      { ...at, needsPerson: true },
+    );
+  }
+  if (c.round && allLettersReturned(c.round)) {
+    return no(
+      "all_letters_returned",
+      {
+        es: `No se cobra sola: el correo devolvió todas las cartas de la ronda ${n}. La revisa una persona.`,
+        en: `Not charged automatically: the post office returned every letter of round ${n}. A person reviews it.`,
+      },
+      { ...at, needsPerson: true },
+    );
+  }
+  if (account.pause) {
+    return no(
+      "billing_paused",
+      { es: `No se cobra: el equipo puso los cobros en pausa («${account.pause.reason}»).`, en: `Nothing is charged: the team paused billing ("${account.pause.reason}").` },
+      at,
+    );
+  }
+  const unpaid = account.charges.find(isUnpaid);
+  if (unpaid) {
+    return no(
+      "earlier_charge_unpaid",
+      { es: "No se crea un cobro nuevo: uno anterior sigue sin pagarse.", en: "No new charge is created: an earlier one is still unpaid." },
+      at,
+    );
+  }
+
+  // The amount: from the signed snapshot, trimmed to what is left under the cap.
+  const remaining = remainingUnderCap(plan, account.charges);
+  if (remaining <= 0) {
+    return no("plan_complete", {
+      es: "No se cobra nada más: ya se cobró el total máximo del plan.",
+      en: "Nothing more is charged: the plan's maximum total has been charged.",
+    });
+  }
+  const amountCents = Math.min(c.baseCents + c.firstWorkCents, remaining);
+  if (!Number.isInteger(amountCents) || amountCents <= 0) {
+    return no("no_amount", { es: "No se cobra: el plan firmado no da un monto válido. Lo revisa una persona.", en: "Nothing is charged: the signed plan gives no valid amount. A person has to look." }, { ...at, needsPerson: true });
+  }
+  const firstWorkCents = Math.min(c.firstWorkCents, amountCents);
+
+  // When: the correction delay, the due date, and 30 days since the last charge's work AND its creation.
+  const afterDelay = addDays(c.workDate, CHARGE_DELAY_DAYS);
+  const first = rounds[0]!;
+  const dueDays = plan.terms.dueRule.kind === "days_after_first_round" ? plan.terms.dueRule.days : 0;
+  const afterDue = addDays(first.mailedAt!, Math.max(CHARGE_DELAY_DAYS, dueDays));
+  const previous = lastChargedWork(account.charges);
+  const lastCreated = account.charges.reduce<string | null>((latest, ch) => (ch.createdAt && (!latest || ch.createdAt > latest) ? ch.createdAt : latest), null);
+  const spacing = [previous ? addDays(previous.workDate, MIN_DAYS_BETWEEN_CHARGES) : null, lastCreated ? addDays(lastCreated, MIN_DAYS_BETWEEN_CHARGES) : null].filter(
+    (d): d is Date => d !== null && !Number.isNaN(d.getTime()),
+  );
+  const afterSpacing = spacing.sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+  const candidates: Array<[IneligibleCode, Date]> = [["too_soon_after_mailing", afterDelay], ["before_due_date", afterDue]];
+  if (afterSpacing) candidates.push(["too_soon_after_last_charge", afterSpacing]);
+  const [code, availableAt] = candidates.reduce((a, b) => (b[1].getTime() > a[1].getTime() ? b : a));
+  if (now.getTime() < availableAt.getTime()) {
+    const day = { es: billingDay(availableAt, "es"), en: billingDay(availableAt, "en") };
+    const why =
+      code === "too_soon_after_last_charge"
+        ? { es: `${MIN_DAYS_BETWEEN_CHARGES} días después del cobro anterior`, en: `${MIN_DAYS_BETWEEN_CHARGES} days after the previous charge` }
+        : code === "before_due_date"
+          ? { es: "en la fecha de cobro del plan", en: "on the plan's due date" }
+          : { es: "un día después del trabajo", en: "a day after the work" };
+    return no(
+      code,
+      { es: `Todavía no: ${which.es} se cobra a partir del ${day.es}, ${why.es}.`, en: `Not yet: ${which.en} is charged from ${day.en}, ${why.en}.` },
+      { ...at, availableAt: availableAt.toISOString() },
+    );
+  }
+
+  // A referral credit is applied first; it never creates a charge, it only lowers one that is due.
+  const creditCents = context.switches?.referralCredits ? Math.min(Math.max(0, context.creditBalanceCents ?? 0), amountCents) : 0;
+  if (amountCents - creditCents > 0 && (!account.paymentMethod || !account.paymentMethod.authorizedAt || !account.paymentMethod.authorizationVersion)) {
+    return no(
+      "no_payment_method",
+      {
+        es: `Falta su método de pago: ${which.es} ya se puede cobrar y no hay con qué.`,
+        en: `No payment method on file: ${which.en} can be charged and there is nothing to charge.`,
+      },
+      { ...at, needsPerson: true },
+    );
+  }
+
+  return {
+    eligible: true,
+    roundNumber: n,
+    amountCents,
+    workDate: new Date(c.workDate).toISOString(),
+    unit: c.unit,
+    firstWorkCents,
+    creditCents,
+    ...(c.periodStart ? { periodStart: c.periodStart, periodEnd: c.periodEnd } : {}),
+    ...(c.installmentNumber ? { installmentNumber: c.installmentNumber } : {}),
+    ...(c.resultItemIds ? { resultItemIds: c.resultItemIds } : {}),
+  };
 }

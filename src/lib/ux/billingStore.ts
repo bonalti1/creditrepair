@@ -5,7 +5,11 @@ import { isDemoMode } from "../agreement/readiness";
 import { resolveTerms } from "../agreement/terms";
 import type { ClientBillingPayload } from "../billing/api";
 import { PAYMENT_AUTHORIZATION_VERSION, paymentAuthorizationHash, type AuthorizationTerms } from "../billing/authorization";
+import { ACH_AUTHORIZATION_VERSION, achAuthorizationHash } from "../billing/achAuthorization";
 import { createMemoryChargeStore, runClientBilling } from "../billing/collect";
+import type { HostedFieldsConfig } from "../billing/gateway";
+import { demoOfferedPlan } from "../billing/planData";
+import { readPlanSnapshot, type PlanSnapshot } from "../billing/plans";
 import { rearmAfterNewPaymentMethod } from "../billing/dunning";
 import { createDemoGateway } from "../billing/gateway";
 import { paymentAuthorizationApproved } from "../billing/readiness";
@@ -39,6 +43,26 @@ export interface BillingView {
   simulated: boolean;
   /** True when the authorization text is still a draft (not attorney-approved). */
   draft: boolean;
+  /** The processor's hosted fields; null in the demo or when none is configured. */
+  hostedFields: HostedFieldsConfig | null;
+  /** True when a bank account (ACH) can be put on file. */
+  canAddBank: boolean;
+}
+
+/** The plan of the signed agreement on this device (demo), or, for an example situation, the catalogue's default. */
+function demoPlan(scenario: string): PlanSnapshot | null {
+  if (scenario === "live") {
+    const stored = readStoredAgreement();
+    return stored?.signedAt ? readPlanSnapshot((stored.terms as { plan?: unknown } | null)?.plan) : null;
+  }
+  return demoOfferedPlan();
+}
+
+/** An invoice number for an invented charge: stable per charge. */
+function demoInvoice(id: string, at: string): string {
+  let n = 0;
+  for (const ch of id) n = (n * 31 + ch.charCodeAt(0)) % 1_000_000;
+  return `INV-${at.slice(0, 4)}-${String(n).padStart(6, "0")}`;
 }
 
 export type BillingActionResult =
@@ -58,10 +82,10 @@ function demoFee(): { fee: string; configured: boolean } {
   return fee && feeToCents(fee) !== null ? { fee, configured: true } : { fee: DEMO_HIDDEN_FEE, configured: false };
 }
 
-function demoTerms(): AuthorizationTerms {
+function demoTerms(plan: PlanSnapshot | null = null): AuthorizationTerms {
   const stored = readStoredAgreement();
   const terms = (stored?.signedAt ? stored.terms : null) ?? resolveTerms();
-  return { companyLegalName: terms.companyLegalName, companyEmail: terms.companyEmail, monthlyFee: terms.monthlyFee };
+  return { companyLegalName: terms.companyLegalName, companyEmail: terms.companyEmail, monthlyFee: terms.monthlyFee, ...(plan ? { plan } : {}) };
 }
 
 function demoView(state: DemoBillingState): BillingView {
@@ -70,6 +94,7 @@ function demoView(state: DemoBillingState): BillingView {
   const scenario = isDemoScenario(state.scenario) ? state.scenario : "live";
   // An example situation brings its own agreement; "live" is whatever was signed on this device.
   const agreement = scenario === "live" ? stored : state.agreement;
+  const plan = demoPlan(scenario);
   return {
     demo: true,
     scenario,
@@ -85,14 +110,18 @@ function demoView(state: DemoBillingState): BillingView {
               addedAt: state.method.addedAt,
               authorizationVersion: state.method.authorizationVersion,
               authorizedAt: state.method.authorizedAt,
+              ...(state.method.kind ? { kind: state.method.kind } : {}),
             }
           : null,
-        charges: state.charges,
+        charges: state.charges.map((c) => ({ ...c, invoiceNumber: c.invoiceNumber ?? demoInvoice(c.id, c.createdAt), methodKind: c.methodKind ?? state.method?.kind ?? "card" })),
         pause: null,
       },
+      ...(plan ? { plan, switches: { payPerDelete: false, referralCredits: false } } : {}),
     },
-    authorizationTerms: demoTerms(),
-    showAmounts: configured,
+    authorizationTerms: demoTerms(plan),
+    showAmounts: configured || plan !== null,
+    hostedFields: null,
+    canAddBank: true,
     agreementSigned: Boolean(agreement?.signedAt) && !agreement?.cancelledAt,
     canAddMethod: true,
     simulated: true,
@@ -109,8 +138,14 @@ function serverView(payload: ClientBillingPayload): BillingView {
       signedMonthlyFee: payload.signedMonthlyFee,
       rounds: payload.rounds,
       account: payload.account,
+      ...(payload.plan ? { plan: payload.plan } : {}),
+      ...(payload.results ? { results: payload.results } : {}),
+      ...(payload.switches ? { switches: payload.switches } : {}),
+      creditBalanceCents: payload.creditBalanceCents ?? 0,
     },
-    authorizationTerms: payload.authorizationTerms,
+    authorizationTerms: { ...payload.authorizationTerms, ...(payload.plan ? { plan: payload.plan } : {}) },
+    hostedFields: payload.processor.hostedFields,
+    canAddBank: payload.processor.canAddBank,
     showAmounts: true,
     agreementSigned: Boolean(payload.agreement?.signedAt) && !payload.agreement?.cancelledAt,
     canAddMethod: payload.processor.canAddMethod,
@@ -157,7 +192,7 @@ export function useBilling() {
 
   /** Put a payment method on file: the processor's token and the accepted authorization. Never a card number. */
   const addMethod = useCallback(
-    async (token: string, locale: L): Promise<BillingActionResult> => {
+    async (token: string, locale: L, kind: "card" | "ach" = "card"): Promise<BillingActionResult> => {
       if (synced.current) {
         try {
           const current = view;
@@ -167,12 +202,11 @@ export function useBilling() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               token,
-              authorization: {
-                version: PAYMENT_AUTHORIZATION_VERSION,
-                locale,
-                hash: paymentAuthorizationHash(PAYMENT_AUTHORIZATION_VERSION, locale, terms),
-                accepted: true,
-              },
+              kind,
+              authorization:
+                kind === "ach"
+                  ? { version: ACH_AUTHORIZATION_VERSION, locale, hash: achAuthorizationHash(ACH_AUTHORIZATION_VERSION, locale, terms), accepted: true }
+                  : { version: PAYMENT_AUTHORIZATION_VERSION, locale, hash: paymentAuthorizationHash(PAYMENT_AUTHORIZATION_VERSION, locale, terms), accepted: true },
             }),
           });
           const data = (await res.json().catch(() => ({}))) as { code?: string; settled?: number; declined?: number };
@@ -189,8 +223,11 @@ export function useBilling() {
       const state = readDemoBilling();
       const before = demoView(state);
       if (!before.agreementSigned) return { ok: false, code: "agreement_required" };
-      const hash = paymentAuthorizationHash(PAYMENT_AUTHORIZATION_VERSION, locale, before.authorizationTerms);
-      const method = demoMethod(token, now.toISOString(), { version: PAYMENT_AUTHORIZATION_VERSION, hash });
+      const hash =
+        kind === "ach"
+          ? achAuthorizationHash(ACH_AUTHORIZATION_VERSION, locale, before.authorizationTerms)
+          : paymentAuthorizationHash(PAYMENT_AUTHORIZATION_VERSION, locale, before.authorizationTerms);
+      const method = demoMethod(token, now.toISOString(), { version: kind === "ach" ? ACH_AUTHORIZATION_VERSION : PAYMENT_AUTHORIZATION_VERSION, hash });
       if (!method) return { ok: false, code: "payment_method_refused" };
 
       // A charge declined earlier gets one more try with the new method (the same charge).
@@ -199,7 +236,7 @@ export function useBilling() {
       const report = await runClientBilling(
         { gateway: createDemoGateway(), store },
         demoView(rearmed).context,
-        { customerRef: "demo_cus_device", paymentMethodRef: `demo_pm_${method.brand}_${method.last4}` },
+        { customerRef: "demo_cus_device", paymentMethodRef: `demo_pm_${method.brand}_${method.last4}`, methodKind: method.kind ?? "card" },
         now,
       );
       const next = { ...rearmed, charges: report.charges };
@@ -237,8 +274,10 @@ export function useBilling() {
     if (synced.current) return;
     const state = readDemoBilling();
     const { fee } = demoFee();
-    const terms = demoTerms();
-    const next = demoScenarioState(scenario, new Date(), feeToCents(fee) ?? 0, state, {
+    const plan = demoPlan(scenario);
+    const terms = demoTerms(plan);
+    // Under the example plan, each round costs the plan's amount; without one, the fee in the settings.
+    const next = demoScenarioState(scenario, new Date(), plan ? plan.effective.recurringCents : (feeToCents(fee) ?? 0), state, {
       version: PAYMENT_AUTHORIZATION_VERSION,
       hash: paymentAuthorizationHash(PAYMENT_AUTHORIZATION_VERSION, "es", terms),
     });

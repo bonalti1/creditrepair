@@ -121,6 +121,9 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     optionalRows(sel("letters", "id, remail_of"), "letters"),
   ]);
 
+  // Chargebacks (migration 0026): administrators read them; another role gets none.
+  const chargebacks = await optionalRows(sel("chargebacks", "*"), "chargebacks");
+
   // "¿Cómo vamos?" answers (migration 0018): the "staff read pulses" policy decides (admin, assigned specialist).
   const pulses = await optionalRows(sel("client_pulses", "user_id, moment, rating, comment, created_at"), "client_pulses");
 
@@ -179,6 +182,7 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     addressConfirmations,
     resolutions,
     remails: remails.filter((r) => r.remail_of),
+    chargebacks,
   };
 }
 

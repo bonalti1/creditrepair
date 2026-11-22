@@ -3,7 +3,19 @@ import { placeholder, type ResolvedTerms } from "../agreement/terms";
 import { BRAND } from "../brand";
 import { DUNNING_RETRY_DAYS } from "./dunning";
 import { feeToCents, formatCents, MIN_DAYS_BETWEEN_CHARGES } from "./rules";
+import { mostYoullPay, paymentTermsLines, type PlanSnapshot } from "./plans";
 import type { L } from "./types";
+
+/** Under a plan: what the plan charges, in the plan's own generated words, and the most-you'll-pay total. */
+function planCharged(terms: AuthorizationTerms, locale: L): string | null {
+  if (!terms.plan) return null;
+  const lines = paymentTermsLines(terms.plan.terms, terms.plan.effective, locale).filter((l) => !/^(Most you'll pay|Lo máximo)/.test(l));
+  const none =
+    locale === "es"
+      ? "No hay cuota de inscripción, cargos por pago tardío, cargos por cancelar ni cargos por el envío de las cartas."
+      : "There is no enrollment fee, no late fee, no charge for cancelling and no charge for mailing the letters.";
+  return `${lines.join(" ")} ${mostYoullPay(terms.plan, locale)}. ${none}`;
+}
 
 // The recurring-payment authorization: the short text a client accepts when
 // they put a payment method on file. It says what will be charged, when (only
@@ -17,8 +29,12 @@ import type { L } from "./types";
 
 export const PAYMENT_AUTHORIZATION_VERSION = "2026-11-21-draft.1";
 
-/** The business facts the text is filled in with. From the client's SIGNED agreement when there is one. */
-export type AuthorizationTerms = Pick<ResolvedTerms, "companyLegalName" | "companyEmail" | "monthlyFee">;
+/**
+ * The business facts the text is filled in with. From the client's SIGNED
+ * agreement when there is one; `plan` is its plan snapshot (migration 0026),
+ * absent for an agreement signed before plans existed.
+ */
+export type AuthorizationTerms = Pick<ResolvedTerms, "companyLegalName" | "companyEmail" | "monthlyFee"> & { plan?: PlanSnapshot | null };
 
 export interface PaymentAuthorization {
   version: string;
@@ -56,13 +72,15 @@ export function paymentAuthorization(locale: L, terms: AuthorizationTerms): Paym
       points: [
         {
           heading: "Qué se cobra",
-          text: fee
+          text: planCharged(terms, locale) ?? (fee
             ? `La cuota de mi acuerdo firmado: ${fee} cada vez. No hay cuota de inscripción, cargos por pago tardío, cargos por cancelar ni cargos por el envío de las cartas.`
-            : "La cuota de servicio que dice mi acuerdo firmado, y nada más. No hay cuota de inscripción, cargos por pago tardío, cargos por cancelar ni cargos por el envío de las cartas.",
+            : "La cuota de servicio que dice mi acuerdo firmado, y nada más. No hay cuota de inscripción, cargos por pago tardío, cargos por cancelar ni cargos por el envío de las cartas."),
         },
         {
           heading: "Cuándo se cobra",
-          text: `Solo después de que mi equipo envió por correo una ronda de mis cartas. Cada cobro paga ese trabajo, que ya se hizo. Nunca se cobra por adelantado, nunca más de un cobro por ronda y nunca más de una vez cada ${MIN_DAYS_BETWEEN_CHARGES} días. El cobro se hace a partir del día siguiente al envío.`,
+          text: terms.plan
+            ? `Solo después de realizado el trabajo que paga cada cobro, como dice arriba. Nunca por adelantado, nunca dos veces por el mismo trabajo y nunca más de una vez cada ${MIN_DAYS_BETWEEN_CHARGES} días.`
+            : `Solo después de que mi equipo envió por correo una ronda de mis cartas. Cada cobro paga ese trabajo, que ya se hizo. Nunca se cobra por adelantado, nunca más de un cobro por ronda y nunca más de una vez cada ${MIN_DAYS_BETWEEN_CHARGES} días. El cobro se hace a partir del día siguiente al envío.`,
         },
         {
           heading: "Mi recibo",
@@ -102,13 +120,15 @@ export function paymentAuthorization(locale: L, terms: AuthorizationTerms): Paym
     points: [
       {
         heading: "What is charged",
-        text: fee
+        text: planCharged(terms, locale) ?? (fee
           ? `The fee in my signed agreement: ${fee} each time. There is no enrollment fee, no late fee, no charge for cancelling and no charge for mailing the letters.`
-          : "The service fee stated in my signed agreement, and nothing else. There is no enrollment fee, no late fee, no charge for cancelling and no charge for mailing the letters.",
+          : "The service fee stated in my signed agreement, and nothing else. There is no enrollment fee, no late fee, no charge for cancelling and no charge for mailing the letters."),
       },
       {
         heading: "When it is charged",
-        text: `Only after my team has mailed a round of my letters. Each charge pays for that work, which is already done. Never in advance, never more than one charge per round, and never more than once every ${MIN_DAYS_BETWEEN_CHARGES} days. The charge is made from the day after the mailing.`,
+        text: terms.plan
+          ? `Only after the work each charge pays for has been performed, as described above. Never in advance, never twice for the same work, and never more than once every ${MIN_DAYS_BETWEEN_CHARGES} days.`
+          : `Only after my team has mailed a round of my letters. Each charge pays for that work, which is already done. Never in advance, never more than one charge per round, and never more than once every ${MIN_DAYS_BETWEEN_CHARGES} days. The charge is made from the day after the mailing.`,
       },
       {
         heading: "My receipt",

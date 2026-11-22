@@ -38,8 +38,8 @@ Legend: ✅ have it · 🟡 partly · ❌ missing · — not planned here
 | Tasks, calendar, daily agenda email | Replaced by one prioritized work queue: only what needs a person, each with what the system already tried, estimated minutes, waiting time, a due time and a «Cómo se resuelve» card (steps and «Hecho cuando…»), and a "Siguiente" mode with keyboard shortcuts. Routine follow-ups are sent by the system (3 reminders, then a person). A morning summary per teammate by WhatsApp or email ("Hoy: N cosas · ~M minutos", the first three, what the system did overnight), opt-in, once a day. No calendar or appointments (`docs/STAFF.md`) | ✅ different |
 | Secure messages | Client chat with the assistant; staff reply in the same thread, and promises of results are blocked before sending. A waiting question opens with a matching saved answer and an AI-drafted reply (checked against the same rules before it is shown, sent with one tap through the same checks). A library of approved answers, which the assistant also uses to answer a close match by itself; anything else still goes to a person. WhatsApp, with automatic reminders and status messages under quiet hours, a daily cap and opt-out (BAJA / STOP). Drafts not yet tried with a live key | ✅ |
 | Client email and notification settings | Automatic messages by WhatsApp, then email (with unsubscribe link and postal address); never SMS. The client opts out with BAJA/STOP or the email link; staff can record it too. Email adapter not yet tried live; no settings screen for the client | 🟡 |
-| Invoices, plans, refunds, pay-per-delete | Charges per mailed round at the signed price, receipts (sent to the client automatically), refunds, pause. One plan only, no invoice list, no pay-per-delete | 🟡 |
-| Payment gateway and transaction log | Adapter, the charge and refund records, and the client's "Mis pagos"; no processor connected (one that accepts credit repair is the owner's to find); no CSV export | ❌ |
+| Invoices, plans, refunds, pay-per-delete | CRC's plan types and words: Subscription (monthly), Per round, Flat fee (installments, or one charge after the last round), Pay per delete; first work fee, due date, duration, household discount, and a most-you'll-pay cap; versioned plans (draft → attorney-approved → offered → retired) in `/equipo/planes` with a payment timeline preview; the signed agreement keeps the exact version. Every charge waits for the work it pays for (CRC's "days after the plan is saved" and "when letters are saved" are shown disabled). Invoice numbers, invoice list with statuses and filters, client invoices and monthly statements, refunds and voids, pause. Pay per delete is built but off until the attorney approves it | ✅ |
+| Payment gateway and transaction log | NMI and Authorize.Net adapters (hosted fields only, card and ACH, refunds and voids, signed webhooks for returns and chargebacks), selected by `BILLING_GATEWAY`; transaction CSV and a QuickBooks CSV; chargeback evidence pack in one click and the chargeback rate on the dashboard. Not yet run against either processor's sandbox: details marked UNVERIFIED in `docs/BILLING.md` | 🟡 |
 | Failed-payment follow-up | Retries on day 3 and 7, each with a plain message and a one-tap «Actualizar mi tarjeta» link (saving the card retries the charge at once, under every billing rule), then the case pauses and resumes on payment. A missing payment method gets the same link and three automatic reminders before a person; the person's card shows the exact words the client got | ✅ |
 | Affiliate portal, commissions, payouts | Referral partners (realtors, loan officers, tax preparers): signup, admin approval, link and QR code, send-a-referral form. With the client's consent, a partner follows that client's progress (none / progress / progress + two counts), every view logged and shown to the client; never credit data. Commissions are recorded by hand like CRC and switched off until the attorney clears referral fees | ✅ |
 | Team members, roles, permissions | Admin, specialist and sales limit what each person sees and does, in the console, in every staff route and in the database's read policies. Team screen: add by email or phone, change role, deactivate (never delete). A new teammate gets a first-day checklist, a welcome page with the rules and a 5-minute guided tour, and «¿Qué hago aquí?» on every screen | ✅ |
@@ -48,7 +48,7 @@ Legend: ✅ have it · 🟡 partly · ❌ missing · — not planned here
 | Zapier / API | n8n webhooks, scheduled runs (rounds, billing, autopilot, HighLevel sync, partner notices, morning summary), the HighLevel webhook in and stage sync out, and a health endpoint; no public API | 🟡 |
 | Monitoring partner and commissions | IdentityIQ link with disclosure; no commission tracking | 🟡 |
 
-**Count:** 18 ✅ · 7 🟡 · 1 ❌ · 1 not planned, out of 27 (counted again row by row on Nov 22, after the letter editor, partners, lessons and HighLevel).
+**Count:** 19 ✅ · 7 🟡 · 0 ❌ · 1 not planned, out of 27 (counted again row by row on Nov 22, after billing plans, ACH, the NMI and Authorize.Net adapters and chargebacks).
 
 ## Where Credalti is built to be better
 
@@ -59,10 +59,13 @@ Legend: ✅ have it · 🟡 partly · ❌ missing · — not planned here
   its gates after a review window (once the owner turns that on). One queue
   lists only what needs a person, with an estimate of the minutes it takes.
 - **Billing cannot charge before the work.** CRC charges on a date rule (days
-  after the plan is saved, or when letters are saved). Credalti charges only
-  after a round is mailed, enforced down to the database. That is the federal
-  rule that cost the largest company in the industry a multibillion-dollar
-  judgment.
+  after the plan is saved, or when letters are saved), and its first work fee
+  can be taken at signup. Credalti offers the same plan types and options in
+  the same words, but every charge waits for the work it pays for (a mailed
+  round, a 30-day period with a round, a later report), the first work fee
+  comes after the first round, and every plan prints the most the client can
+  ever pay. Enforced down to the database. That is the federal rule that cost
+  the largest company in the industry a multibillion-dollar judgment.
 - **The client says what is inaccurate.** In CRC negatives come pre-checked for
   staff. In Credalti each item carries the client's own reason and
   confirmation, which is what every letter rests on.
@@ -92,17 +95,17 @@ None of this is proven until real clients use it.
 | Test mail through Lob with a live key (certified mail and tracking are built) | Owner's Lob account |
 | WhatsApp Business: approve the 34 message templates; an email account for automatic email (`docs/AUTOPILOT.md`) | Owner |
 | Attorney answers on consent for automated messages (`docs/AUTOPILOT.md`) | Owner |
-| A payment processor that accepts credit repair | Owner |
-| Attorney review: agreement, payment authorization, letter library | Owner |
+| A merchant account that accepts credit repair (NMI or Authorize.Net, adapters built), tested in its sandbox | Owner |
+| Attorney review: agreement, each plan version, card and ACH authorizations, letter library | Owner |
 | Texas registration and bond; company details in the contract | Owner |
 
 ## Gaps worth building next, in order
 
 1. Tuning the report reader on a real IdentityIQ report (the AI reader is built).
 2. Importing her clients from a CRC export (needs one export file).
-3. A payment processor adapter for the one the owner finds.
+3. Running the NMI or Authorize.Net adapter against the processor's sandbox and settling every UNVERIFIED detail.
 4. Syncing opt-outs with HighLevel.
-5. A client settings screen for notifications; multiple plans if the owner wants them.
+5. A client settings screen for notifications.
 
 Done since this list was written: the one-person console (AI-drafted replies,
 saved answers, playbook cards, morning summary, new-hire mode, phone layout;

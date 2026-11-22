@@ -68,6 +68,8 @@ const MORE: NavItem[] = [
   { href: "/equipo/socios", label: "partners", icon: "link", needs: "partners.view" },
   { href: "/equipo/equipo", label: "team", icon: "team", needs: "team.manage" },
   { href: "/equipo/cartas", label: "letters", icon: "clipboard", needs: "letters.edit" },
+  { href: "/equipo/planes", label: "plans", icon: "calc", needs: "billing.plans" },
+  { href: "/equipo/cobros", label: "invoices", icon: "doc", needs: "billing.plans" },
   { href: "/equipo/perfil", label: "profile", icon: "person" },
   { href: "/equipo/bienvenida", label: "welcome", icon: "book" },
 ];

@@ -437,3 +437,16 @@ export interface StaffLetterSelfHealingFields {
 }
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StaffLetter extends StaffLetterSelfHealingFields {}
+
+// ── Billing plans, the agreement record and the authorization (migration 0026) ──
+
+export interface StaffClientBillingRecordFields {
+  /** The plan snapshot kept with the signature. Null: signed before plans existed (per round at agreementMonthlyFee). */
+  agreementPlan?: import("../billing/plans").PlanSnapshot | null;
+  /** What the signature recorded, for the chargeback evidence pack. */
+  agreementRecord?: { documentHash: string | null; signerName: string | null; signerIp: string | null; signerUserAgent: string | null; locale: "es" | "en" } | null;
+  /** The authorization accepted with the payment method on file. */
+  methodAuthorization?: { hash: string; locale: "es" | "en"; ip: string | null; userAgent: string | null; gateway: string } | null;
+}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientBillingRecordFields {}

@@ -1,6 +1,7 @@
 import { currentOptOut } from "../autopilot/optout";
 import { roundPlanKey } from "../autopilot/planKey";
 import type { OptOutRecord, OutboundMessage } from "../autopilot/types";
+import { readPlanSnapshot } from "../billing/plans";
 import { chargeFromRow, paymentMethodFromRow } from "../billing/server";
 import type { BillingAccount, BillingPause } from "../billing/types";
 import type { ChatRole, ChatSource } from "../chat/history";
@@ -60,6 +61,8 @@ import type {
 type Row = Record<string, unknown>;
 
 export interface StaffRows {
+  /** chargebacks (migration 0026). Administrators only; absent or empty otherwise. */
+  chargebacks?: Row[];
   profiles: Row[];
   prospects: Row[];
   staffMembers: Row[];
@@ -299,6 +302,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
   const methodsBy = groupBy(rows.paymentMethods, "user_id");
   const chargesBy = groupBy(rows.charges, "user_id");
   const refundsByCharge = new Map(rows.refunds.map((r) => [text(r.charge_id), r]));
+  const chargebackByCharge = new Map((rows.chargebacks ?? []).map((r) => [text(r.charge_id), r]));
   const pausesBy = groupBy(rows.pauses, "user_id");
   const chatBy = groupBy(rows.chat, "user_id");
   const eventsBy = groupBy(rows.events, "user_id");
@@ -538,7 +542,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       : null;
     const billing: BillingAccount = {
       paymentMethod: method ? paymentMethodFromRow(method) : null,
-      charges: [...(chargesBy.get(id) ?? [])].sort(byTime("work_date")).map((c) => chargeFromRow(c, refundsByCharge.get(text(c.id)) ?? null)),
+      charges: [...(chargesBy.get(id) ?? [])].sort(byTime("work_date")).map((c) => chargeFromRow(c, refundsByCharge.get(text(c.id)) ?? null, chargebackByCharge.get(text(c.id)) ?? null)),
       pause,
     };
 
@@ -653,6 +657,25 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       answers,
       rounds,
       agreementMonthlyFee: agreement?.signed_at && terms ? textOrNull(terms.monthlyFee) : null,
+      agreementPlan: agreement?.signed_at && terms ? readPlanSnapshot((terms as Row).plan) : null,
+      agreementRecord: agreement?.signed_at
+        ? {
+            documentHash: textOrNull(agreement.document_hash),
+            signerName: textOrNull(agreement.signer_name),
+            signerIp: textOrNull(agreement.signer_ip),
+            signerUserAgent: textOrNull(agreement.signer_user_agent),
+            locale: agreement.locale === "es" ? "es" : "en",
+          }
+        : null,
+      methodAuthorization: method
+        ? {
+            hash: text(method.authorization_hash),
+            locale: method.authorization_locale === "es" ? "es" : "en",
+            ip: textOrNull(method.authorized_ip),
+            userAgent: textOrNull(method.authorized_user_agent),
+            gateway: text(method.gateway),
+          }
+        : null,
       billing,
       lastActivityAt,
       notes,

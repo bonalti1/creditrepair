@@ -47,6 +47,10 @@ export interface AgreementReadiness {
   approvedVersion: string | null;
   /** Whether the signing screen may accept a signature at all (ready, or the demo). */
   canSign: boolean;
+  /** The plan offered (billing/plans.ts): its key and version, or null when none. */
+  plan: { key: string; version: number } | null;
+  /** True when no plan is offered, or the offered plan version carries the attorney's approval. */
+  planApproved: boolean;
 }
 
 export interface ReadinessInput {
@@ -79,7 +83,10 @@ export function agreementReadiness(input: ReadinessInput = {}): AgreementReadine
   const termsComplete = missing.length === 0;
   const approved = approvedVersion === AGREEMENT_VERSION;
   const unverifiedStatutes = input.unverifiedStatutes ?? unverifiedStatuteCitations();
-  const ready = termsComplete && approved && unverifiedStatutes.length === 0;
+  // A plan's payment terms are part of the contract: its version needs the attorney's approval too.
+  const plan = terms.plan ?? null;
+  const planApproved = plan === null || plan.attorneyApproved;
+  const ready = termsComplete && approved && unverifiedStatutes.length === 0 && planApproved;
   const mode: AgreementMode = ready ? "ready" : demo ? "demo_draft" : "blocked";
 
   return {
@@ -93,6 +100,8 @@ export function agreementReadiness(input: ReadinessInput = {}): AgreementReadine
     approved,
     approvedVersion,
     canSign: mode !== "blocked",
+    plan: plan ? { key: plan.key, version: plan.version } : null,
+    planApproved,
   };
 }
 

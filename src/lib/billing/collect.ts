@@ -1,7 +1,8 @@
 import { afterAttempt, chargeStanding, retryEligibility, type RetryBlock } from "./dunning";
 import { attemptKey, type PaymentGateway } from "./gateway";
 import { chargeEligibility, isUnpaid, type ChargeEligibility } from "./rules";
-import type { BillingCharge, BillingContext } from "./types";
+import { unitWork } from "./schedule";
+import type { BillingCharge, BillingContext, ChargeUnit } from "./types";
 
 // Collecting: the one path by which money is ever asked for.
 //
@@ -25,13 +26,36 @@ import type { BillingCharge, BillingContext } from "./types";
 export interface PaymentHandle {
   customerRef: string;
   paymentMethodRef: string;
+  /** Card or bank account: the processor files a bank debit differently. */
+  methodKind?: "card" | "ach";
 }
 
 export type CreateChargeResult = { created: true; charge: BillingCharge } | { created: false; reason: string };
 
+/** What the rule said may be charged, as the store inserts it. Under a plan it names the unit of work. */
+export interface CreateChargeInput {
+  roundNumber: number;
+  amountCents: number;
+  workDate: string;
+  unit?: ChargeUnit;
+  firstWorkCents?: number;
+  creditCents?: number;
+  periodStart?: string;
+  periodEnd?: string;
+  installmentNumber?: number;
+  resultItemIds?: string[];
+  /** The run's clock, for a store that keeps time itself (memory). The database uses its own. */
+  now?: string;
+}
+
+/** The amount the processor is asked for: the charge less any referral credit applied to it. */
+export function collectibleCents(charge: Pick<BillingCharge, "amountCents" | "creditCents">): number {
+  return Math.max(0, charge.amountCents - (charge.creditCents ?? 0));
+}
+
 export interface ChargeStore {
-  /** Insert the charge row for a round. The database may refuse; that is its job. */
-  createCharge(input: { roundNumber: number; amountCents: number; workDate: string }): Promise<CreateChargeResult>;
+  /** Insert the charge row for a unit of work. The database may refuse; that is its job. */
+  createCharge(input: CreateChargeInput): Promise<CreateChargeResult>;
   /** Save what one attempt changed. `gatewayReference` is set when the attempt was paid. */
   saveAttempt(charge: BillingCharge, gatewayReference: string | null): Promise<void>;
 }
@@ -59,16 +83,24 @@ export async function attemptCharge(
   handle: PaymentHandle,
   now: Date,
 ): Promise<AttemptReport> {
+  // A referral credit that covers the whole charge: settled without asking the processor.
+  if (collectibleCents(charge) === 0) {
+    const reference = `credit:${charge.id}`;
+    const updated = afterAttempt(charge, { ok: true, reference }, now);
+    await deps.store.saveAttempt(updated, reference);
+    return { outcome: "paid", charge: updated };
+  }
   let result;
   try {
     result = await deps.gateway.charge({
-      amountCents: charge.amountCents,
+      amountCents: collectibleCents(charge),
       currency: "usd",
       customerRef: handle.customerRef,
       paymentMethodRef: handle.paymentMethodRef,
       // The same attempt asked twice is one request to the processor.
       idempotencyKey: attemptKey(charge.id, charge.attempts + 1),
-      description: `Round ${charge.roundNumber} of letters, mailed ${charge.workDate.slice(0, 10)}`,
+      methodKind: handle.methodKind ?? "card",
+      description: charge.unit && charge.unit !== "round" ? unitWork(charge, "en").slice(0, 120) : `Round ${charge.roundNumber} of letters, mailed ${charge.workDate.slice(0, 10)}`,
     });
   } catch (error) {
     return { outcome: "error", charge, message: error instanceof Error ? error.message : String(error) };
@@ -136,8 +168,8 @@ export async function runClientBilling(
   report.eligibility = chargeEligibility(current(), now);
   if (!report.eligibility.eligible || !handle) return report;
 
-  const { roundNumber, amountCents, workDate } = report.eligibility;
-  const created = await deps.store.createCharge({ roundNumber, amountCents, workDate });
+  const { eligible: _eligible, ...unit } = report.eligibility;
+  const created = await deps.store.createCharge({ ...unit, now: now.toISOString() });
   if (!created.created) {
     report.refused = created.reason;
     return report;
@@ -157,9 +189,13 @@ export function createMemoryChargeStore(
   let rows = [...initial];
   const references: Record<string, string> = {};
   return {
-    async createCharge({ roundNumber, amountCents, workDate }) {
-      // unique (round_id) and amount > 0, as in migration 0011.
-      if (rows.some((row) => row.roundNumber === roundNumber)) return { created: false, reason: "a charge for this round already exists" };
+    async createCharge({ roundNumber, amountCents, workDate, now, ...unit }) {
+      // One charge per unit of work and amount > 0, as in migrations 0011 and 0026.
+      const kind = unit.unit ?? "round";
+      const same = (row: BillingCharge) =>
+        (row.unit ?? "round") === kind &&
+        (kind === "results" ? row.resultItemIds?.some((id) => unit.resultItemIds?.includes(id)) : kind === "period" ? row.periodStart === unit.periodStart : row.roundNumber === roundNumber);
+      if (rows.some(same)) return { created: false, reason: kind === "round" ? "a charge for this round already exists" : "a charge for this work already exists" };
       if (!Number.isInteger(amountCents) || amountCents <= 0) return { created: false, reason: "the amount must be positive" };
       const charge: BillingCharge = {
         id: ids(roundNumber),
@@ -167,13 +203,24 @@ export function createMemoryChargeStore(
         amountCents,
         status: "pending",
         workDate,
-        createdAt: new Date().toISOString(),
+        createdAt: now ?? new Date().toISOString(),
         attempts: 0,
         lastAttemptAt: null,
         nextAttemptAt: null,
         chargedAt: null,
         failureCode: null,
         refund: null,
+        ...(unit.unit
+          ? {
+              unit: unit.unit,
+              firstWorkCents: unit.firstWorkCents ?? 0,
+              creditCents: unit.creditCents ?? 0,
+              periodStart: unit.periodStart ?? null,
+              periodEnd: unit.periodEnd ?? null,
+              installmentNumber: unit.installmentNumber ?? null,
+              resultItemIds: unit.resultItemIds ?? [],
+            }
+          : {}),
       };
       rows = [...rows, charge];
       return { created: true, charge };

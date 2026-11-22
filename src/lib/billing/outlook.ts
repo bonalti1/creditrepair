@@ -1,6 +1,7 @@
 import { workMayStart } from "../agreement/gate";
 import { chargeStanding, MAX_AUTOMATIC_ATTEMPTS } from "./dunning";
 import { billingDay, chargeEligibility, feeToCents, formatCents, isUnpaid, performedRounds } from "./rules";
+import { upcomingCharges } from "./schedule";
 import type { Bilingual, BillingContext, L } from "./types";
 
 // "What happens next with the money", in one honest sentence. The staff
@@ -71,7 +72,9 @@ export function billingOutlook(
     at,
     roundNumber,
   });
-  const fee = feeToCents(context.signedMonthlyFee);
+  // Under a plan the amount is the next charge the rule would make (a first work fee, an installment…).
+  const next = context.plan ? (upcomingCharges(context, now, 1)[0] ?? null) : null;
+  const fee = context.plan ? (next?.amountCents ?? null) : feeToCents(context.signedMonthlyFee);
   const amount = fee === null || options.amounts === false ? "" : formatCents(fee);
   const ofAmount = { es: amount ? ` de ${amount}` : "", en: amount ? ` of ${amount}` : "" };
 
@@ -172,6 +175,24 @@ export function billingOutlook(
   }
 
   const eligibility = chargeEligibility(context, now);
+  // Under a plan, the work a charge pays for is not always "a round": say exactly which work it is.
+  if (context.plan && next && (eligibility.eligible || eligibility.code === "too_soon_after_mailing" || eligibility.code === "too_soon_after_last_charge" || eligibility.code === "before_due_date" || eligibility.code === "waiting_for_work")) {
+    const at = new Date(next.at);
+    const noMethod = !account.paymentMethod;
+    return make(
+      "charge_scheduled",
+      [
+        `El sistema cobra ${formatCents(next.amountCents)} ${when(at, now, "es")}: ${next.work.es}.${noMethod ? " Todavía no hay método de pago en archivo." : ""}`,
+        `The system charges ${formatCents(next.amountCents)} ${when(at, now, "en")}: ${next.work.en}.${noMethod ? " There's no payment method on file yet." : ""}`,
+      ],
+      {
+        es: `El cobro${ofAmount.es} se hace ${when(at, now, "es")}, por trabajo ya hecho: ${next.work.es}.`,
+        en: `The charge${ofAmount.en} is made ${when(at, now, "en")}, for work already done: ${next.work.en}.`,
+      },
+      next.at,
+      eligibility.eligible ? eligibility.roundNumber : (eligibility.roundNumber ?? null),
+    );
+  }
   if (eligibility.eligible) {
     const n = eligibility.roundNumber;
     return make(
@@ -315,6 +336,32 @@ export function billingOutlook(
         null,
         n,
       );
+    case "plan_complete":
+      return make("nothing_to_charge", ["No hay nada más que cobrar: el plan llegó a su total máximo o a su duración.", "Nothing more to charge: the plan reached its maximum total or its length."], {
+        es: "Ya se cobró todo lo que tu plan permite. No se hace ningún cobro más.",
+        en: "Everything your plan allows has been charged. No further charge is made.",
+      });
+    case "waiting_for_work":
+      return make(
+        "nothing_to_charge",
+        [eligibility.reason.es, eligibility.reason.en],
+        {
+          es: "No hay nada pendiente. Tu siguiente cobro llega solo después del trabajo que paga.",
+          en: "Nothing is pending. Your next charge comes only after the work it pays for.",
+        },
+        eligibility.availableAt ?? null,
+        n,
+      );
+    case "before_due_date":
+      return make("charge_scheduled", [eligibility.reason.es, eligibility.reason.en], {
+        es: "Tu primer cobro llega en la fecha que dice tu plan, después de tu primera ronda.",
+        en: "Your first charge comes on the date your plan says, after your first round.",
+      }, eligibility.availableAt ?? null, n);
+    case "pay_per_delete_off":
+      return make("needs_person", [eligibility.reason.es, eligibility.reason.en], {
+        es: "No se cobra nada por ahora.",
+        en: "Nothing is charged for now.",
+      });
     case "earlier_charge_unpaid":
       // Unreachable: an unpaid charge was handled above. Kept so the switch is complete.
       return make("processing", ["Hay un cobro anterior sin resolver.", "An earlier charge is unsettled."], {

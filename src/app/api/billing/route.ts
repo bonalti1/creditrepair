@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { ClientBillingPayload } from "@/lib/billing/api";
 import { getPaymentGateway } from "@/lib/billing/gateway";
-import { paymentAuthorizationApproved } from "@/lib/billing/readiness";
+import { achAuthorizationApproved, paymentAuthorizationApproved } from "@/lib/billing/readiness";
 import { loadBilling } from "@/lib/billing/server";
 import { reportError } from "@/lib/observability/errors";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -45,9 +45,15 @@ export async function GET() {
         : null,
       signedMonthlyFee: loaded.context.signedMonthlyFee,
       authorizationTerms: loaded.authorizationTerms,
+      plan: loaded.context.plan ?? null,
+      ...(loaded.context.results ? { results: loaded.context.results } : {}),
+      ...(loaded.context.switches ? { switches: loaded.context.switches } : {}),
+      creditBalanceCents: loaded.context.creditBalanceCents ?? 0,
       rounds: loaded.context.rounds,
       account: { ...loaded.context.account, pause: paused ? { at: new Date(paused).toISOString(), by: "", reason: "" } : null },
       processor: {
+        hostedFields: resolution.configured ? resolution.gateway.hostedFields() : null,
+        canAddBank: resolution.configured && Boolean(resolution.gateway.attachBankAccount) && (!live || achAuthorizationApproved()),
         configured: resolution.configured,
         live,
         // Real money needs an approved authorization text; the demo processor does not.
