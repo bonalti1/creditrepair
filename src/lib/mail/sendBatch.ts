@@ -38,30 +38,34 @@ export function buildSendBatch(
   now: Date,
   furnishers: readonly FurnisherEntry[],
   choices?: MailClassChoices,
+  /** The language of the reasons a round is held (the staff console's). Spanish when left out. */
+  locale: "es" | "en" = "es",
 ): SendBatch {
+  const L = (es: string, en: string) => (locale === "es" ? es : en);
   const byId = new Map(clients.map((c) => [c.id, c]));
   const ready: RoundMailPlan[] = [];
   const held: HeldRound[] = [];
   for (const ref of refs) {
     const client = byId.get(ref.clientId);
     if (!client) {
-      held.push({ ref, clientName: null, reason: "No encontramos a este cliente.", plan: null });
+      held.push({ ref, clientName: null, reason: L("No encontramos a este cliente.", "We couldn't find this client."), plan: null });
       continue;
     }
     const round = client.rounds.find((r) => r.number === ref.roundNumber);
     if (!round || round.status !== "ready") {
       const reason = !round
-        ? `No tiene una ronda ${ref.roundNumber}.`
+        ? L(`No tiene una ronda ${ref.roundNumber}.`, `There's no round ${ref.roundNumber}.`)
         : round.status === "draft"
-          ? "La ronda todavía está en preparación."
-          : "Esta ronda ya se envió.";
+          ? L("La ronda todavía está en preparación.", "The round is still being prepared.")
+          : L("Esta ronda ya se envió.", "This round already went out.");
       held.push({ ref, clientName: fullName(client), reason, plan: null, alreadySent: Boolean(round && round.status !== "draft") });
       continue;
     }
     const plan = roundMailPlan(client, round, furnishers, now, choices);
     if (sendableRound(client, now, { furnishers })?.number !== round.number || plan.blockers.length > 0) {
-      const reason = sendBlockReason(client, now, { furnishers }) ?? plan.blockers.join(" ") ?? "La ronda todavía no se puede enviar.";
-      held.push({ ref, clientName: fullName(client), reason: reason || "La ronda todavía no se puede enviar.", plan });
+      const notYet = L("La ronda todavía no se puede enviar.", "The round can't be sent yet.");
+      const reason = sendBlockReason(client, now, { furnishers, locale }) ?? plan.blockers.join(" ") ?? notYet;
+      held.push({ ref, clientName: fullName(client), reason: reason || notYet, plan });
       continue;
     }
     ready.push(plan);

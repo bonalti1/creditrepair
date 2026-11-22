@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { BRAND } from "@/lib/brand";
-import { MAX_QUESTION_CHARS, mayChange, type SavedAnswer } from "@/lib/staff/answers";
+import { answerLanguage, MAX_QUESTION_CHARS, mayChange, type SavedAnswer } from "@/lib/staff/answers";
+import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
+import { LANGUAGE_NAME, STAFF_LOCALES, type StaffLocale } from "@/lib/staff/i18n/locale";
 import type { ReplyProblem } from "@/lib/staff/conversation";
 import { shortDay } from "@/lib/staff/format";
 import { deniedReason, type Viewer } from "@/lib/staff/permissions";
@@ -20,6 +22,9 @@ import { Chip, NoAccess, PRIMARY_BUTTON_COMPACT, QUIET_BUTTON, SectionTitle } fr
 // pass again). Only an administrator approves, edits or deletes; a specialist
 // proposes (from «Guardar como respuesta» after a reply) and may edit or
 // withdraw their own proposal until it is approved.
+//
+// Each answer is written in one language and goes only to clients who read
+// it: the console suggests the one in the client's language.
 
 const FIELD = "w-full rounded-2xl bg-white px-3.5 text-[15px] text-slate-900 outline-none ring-1 ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-300";
 
@@ -47,11 +52,14 @@ function Editor({
   onSubmit,
   onCancel,
 }: {
-  initial: { question: string; answer: string };
+  initial: { question: string; answer: string; language: StaffLocale };
   submitLabel: string;
-  onSubmit: (input: { question: string; answer: string }) => Promise<AnswerResult>;
+  onSubmit: (input: { question: string; answer: string; language: StaffLocale }) => Promise<AnswerResult>;
   onCancel: () => void;
 }) {
+  const { locale } = useStaffLocale();
+  const t = useTx();
+  const [language, setLanguage] = useState<StaffLocale>(initial.language);
   const [question, setQuestion] = useState(initial.question);
   const [answer, setAnswer] = useState(initial.answer);
   const [error, setError] = useState<{ message: string; problems?: ReplyProblem[] } | null>(null);
@@ -59,12 +67,22 @@ function Editor({
   return (
     <div className="space-y-2" data-testid="answer-editor">
       <label className="block text-[13px] font-medium text-slate-700">
-        La pregunta, como la escribiría un cliente
+        {t("La pregunta, como la escribiría un cliente", "The question, as a client would write it")}
         <input value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={MAX_QUESTION_CHARS} className={`${FIELD} mt-1 h-11`} />
       </label>
       <label className="block text-[13px] font-medium text-slate-700">
-        La respuesta
+        {t("La respuesta", "The answer")}
         <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={4} className={`${FIELD} mt-1 resize-y py-2.5`} />
+      </label>
+      <label className="block text-[13px] font-medium text-slate-700">
+        {t("Idioma de la respuesta (se sugiere solo a clientes que lo leen)", "Language of the answer (only suggested to clients who read it)")}
+        <select value={language} onChange={(e) => setLanguage(e.target.value === "en" ? "en" : "es")} className={`${FIELD} mt-1 h-11 max-w-xs`}>
+          {STAFF_LOCALES.map((option) => (
+            <option key={option} value={option}>
+              {LANGUAGE_NAME[locale][option]}
+            </option>
+          ))}
+        </select>
       </label>
       <Problems result={error} />
       <div className="flex flex-wrap gap-2 pt-1">
@@ -73,7 +91,7 @@ function Editor({
           disabled={busy}
           onClick={async () => {
             setBusy(true);
-            const result = await onSubmit({ question, answer });
+            const result = await onSubmit({ question, answer, language });
             setBusy(false);
             if (result.ok) onCancel();
             else setError(result);
@@ -83,7 +101,7 @@ function Editor({
           {submitLabel}
         </button>
         <button type="button" onClick={onCancel} className={QUIET_BUTTON}>
-          Cancelar
+          {t("Cancelar", "Cancel")}
         </button>
       </div>
     </div>
@@ -99,8 +117,11 @@ function AnswerRow({
   answer: SavedAnswer;
   viewer: Viewer;
   memberLabel: (handle: string) => string;
-  onChange: (id: string, action: "edit" | "approve" | "delete", input?: { question: string; answer: string }) => Promise<AnswerResult>;
+  onChange: (id: string, action: "edit" | "approve" | "delete", input?: { question: string; answer: string; language?: StaffLocale }) => Promise<AnswerResult>;
 }) {
+  const { locale } = useStaffLocale();
+  const t = useTx();
+  const language = answerLanguage(answer);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<{ message: string; problems?: ReplyProblem[] } | null>(null);
@@ -113,43 +134,63 @@ function AnswerRow({
   return (
     <li className="border-t hairline px-5 py-4 first:border-t-0" data-testid="saved-answer">
       {editing ? (
-        <Editor initial={answer} submitLabel="Guardar cambios" onSubmit={(input) => onChange(answer.id, "edit", input)} onCancel={() => setEditing(false)} />
+        <Editor
+          initial={{ question: answer.question, answer: answer.answer, language }}
+          submitLabel={t("Guardar cambios", "Save changes")}
+          onSubmit={(input) => onChange(answer.id, "edit", input)}
+          onCancel={() => setEditing(false)}
+        />
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
             <p className="min-w-0 text-[15px] font-semibold text-slate-900">«{answer.question}»</p>
-            {answer.status === "proposed" ? <Chip tone="bg-amber-100 text-blue-900">Por aprobar</Chip> : <Chip tone="bg-green-50 text-green-700">Aprobada</Chip>}
+            {answer.status === "proposed" ? (
+              <Chip tone="bg-amber-100 text-blue-900">{t("Por aprobar", "To approve")}</Chip>
+            ) : (
+              <Chip tone="bg-green-50 text-green-700">{t("Aprobada", "Approved")}</Chip>
+            )}
+            <span data-testid="answer-language">
+              <Chip tone="bg-slate-100 text-slate-600">{LANGUAGE_NAME[locale][language]}</Chip>
+            </span>
           </div>
           <p className="mt-1.5 whitespace-pre-line text-[14.5px] leading-snug text-slate-700">{answer.answer}</p>
           <p className="mt-1.5 text-[12.5px] text-slate-500">
-            Propuesta por {memberLabel(answer.createdBy)} el {shortDay(answer.createdAt)}
-            {answer.approvedBy && answer.approvedAt ? ` · aprobada por ${memberLabel(answer.approvedBy)} el ${shortDay(answer.approvedAt)}` : ""}
+            {t(
+              `Propuesta por ${memberLabel(answer.createdBy)} el ${shortDay(answer.createdAt, "es")}`,
+              `Proposed by ${memberLabel(answer.createdBy)} on ${shortDay(answer.createdAt, "en")}`,
+            )}
+            {answer.approvedBy && answer.approvedAt
+              ? t(
+                  ` · aprobada por ${memberLabel(answer.approvedBy)} el ${shortDay(answer.approvedAt, "es")}`,
+                  ` · approved by ${memberLabel(answer.approvedBy)} on ${shortDay(answer.approvedAt, "en")}`,
+                )
+              : ""}
           </p>
           <Problems result={error} />
           <div className="mt-2 flex flex-wrap items-center gap-1">
             {answer.status === "proposed" && may("approve") && (
               <button type="button" onClick={() => act("approve")} className={`${PRIMARY_BUTTON_COMPACT} px-4`}>
-                Aprobar
+                {t("Aprobar", "Approve")}
               </button>
             )}
             {may("edit") && (
               <button type="button" onClick={() => setEditing(true)} className={QUIET_BUTTON}>
-                Editar
+                {t("Editar", "Edit")}
               </button>
             )}
             {may("delete") &&
               (confirmDelete ? (
                 <>
                   <button type="button" onClick={() => act("delete")} className={`${QUIET_BUTTON} text-red-700`}>
-                    Sí, {answer.status === "proposed" ? "retirarla" : "borrarla"}
+                    {answer.status === "proposed" ? t("Sí, retirarla", "Yes, withdraw it") : t("Sí, borrarla", "Yes, delete it")}
                   </button>
                   <button type="button" onClick={() => setConfirmDelete(false)} className={QUIET_BUTTON}>
-                    No
+                    {t("No", "No")}
                   </button>
                 </>
               ) : (
                 <button type="button" onClick={() => setConfirmDelete(true)} className={QUIET_BUTTON}>
-                  {answer.status === "proposed" && viewer.role !== "admin" ? "Retirar" : "Borrar"}
+                  {answer.status === "proposed" && viewer.role !== "admin" ? t("Retirar", "Withdraw") : t("Borrar", "Delete")}
                 </button>
               ))}
           </div>
@@ -160,41 +201,44 @@ function AnswerRow({
 }
 
 export default function SavedAnswers() {
-  const { ready, viewer, members, can } = useStaff();
-  const library = useSavedAnswers(viewer);
+  const { ready, viewer, members, can, locale } = useStaff();
+  const t = useTx();
+  const library = useSavedAnswers(viewer, locale);
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
 
   if (!ready || !library.ready || !viewer) return null;
-  if (!can("clients.reply")) return <NoAccess title="Respuestas guardadas" reason={deniedReason("clients.reply")} />;
+  if (!can("clients.reply")) return <NoAccess title={t("Respuestas guardadas", "Saved answers")} reason={deniedReason("clients.reply", locale)} />;
 
   const words = query.trim().toLowerCase();
   const shown = library.answers.filter((a) => !words || `${a.question} ${a.answer}`.toLowerCase().includes(words));
   const proposed = shown.filter((a) => a.status === "proposed");
   const approved = shown.filter((a) => a.status === "approved");
-  const label = (handle: string) => memberName(members, handle);
+  const label = (handle: string) => memberName(members, handle, locale);
   const admin = viewer.role === "admin";
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">Respuestas guardadas</h1>
+      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Respuestas guardadas", "Saved answers")}</h1>
       <p className="mt-1 max-w-3xl text-[15px] leading-relaxed text-slate-500">
-        Respuestas a preguntas que se repiten. Una aprobada aparece primero cuando un cliente pregunta algo parecido, y {BRAND.assistant} puede usarla
-        para responderle sin pasar la pregunta al equipo, siempre que vuelva a pasar las reglas. Solo un administrador aprueba.
+        {t(
+          `Respuestas a preguntas que se repiten. Una aprobada aparece primero cuando un cliente pregunta algo parecido, y ${BRAND.assistant} puede usarla para responderle sin pasar la pregunta al equipo, siempre que vuelva a pasar las reglas. Solo un administrador aprueba. Cada respuesta va solo a clientes que leen su idioma.`,
+          `Answers to questions that keep coming up. An approved one shows first when a client asks something similar, and ${BRAND.assistant} can use it to answer without passing the question to the team, as long as it passes the rules again. Only an administrator approves. Each answer only goes to clients who read its language.`,
+        )}
       </p>
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
         <label className="relative min-w-0 flex-1">
-          <span className="sr-only">Buscar</span>
+          <span className="sr-only">{t("Buscar", "Search")}</span>
           <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
             <Icon name="search" size={18} />
           </span>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por palabra" className={`${FIELD} h-11 pl-10`} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("Buscar por palabra", "Search by word")} className={`${FIELD} h-11 pl-10`} />
         </label>
         {!adding && (
           <button type="button" onClick={() => setAdding(true)} className={`${PRIMARY_BUTTON_COMPACT} gap-1.5 px-5`} data-testid="new-answer">
             <Icon name="plus" size={16} />
-            {admin ? "Nueva respuesta" : "Proponer una respuesta"}
+            {admin ? t("Nueva respuesta", "New answer") : t("Proponer una respuesta", "Propose an answer")}
           </button>
         )}
       </div>
@@ -202,8 +246,8 @@ export default function SavedAnswers() {
       {adding && (
         <div className="card mt-4 px-5 py-4">
           <Editor
-            initial={{ question: "", answer: "" }}
-            submitLabel={admin ? "Guardar y aprobar" : "Proponer"}
+            initial={{ question: "", answer: "", language: "en" }}
+            submitLabel={admin ? t("Guardar y aprobar", "Save and approve") : t("Proponer", "Propose")}
             onSubmit={(input) => library.save(input)}
             onCancel={() => setAdding(false)}
           />
@@ -213,10 +257,10 @@ export default function SavedAnswers() {
       {(proposed.length > 0 || admin) && (
         <section className="mt-7" aria-labelledby="por-aprobar">
           <SectionTitle aside={<span className="text-[13px] tabular-nums text-slate-500">{proposed.length}</span>}>
-            <span id="por-aprobar">{admin ? "Por aprobar" : "Tus propuestas"}</span>
+            <span id="por-aprobar">{admin ? t("Por aprobar", "To approve") : t("Tus propuestas", "Your proposals")}</span>
           </SectionTitle>
           {proposed.length === 0 ? (
-            <p className="card px-5 py-4 text-[14px] text-slate-500">Nada por aprobar.</p>
+            <p className="card px-5 py-4 text-[14px] text-slate-500">{t("Nada por aprobar.", "Nothing to approve.")}</p>
           ) : (
             <ul className="card overflow-hidden">
               {proposed.map((a) => (
@@ -229,10 +273,12 @@ export default function SavedAnswers() {
 
       <section className="mt-7" aria-labelledby="aprobadas">
         <SectionTitle aside={<span className="text-[13px] tabular-nums text-slate-500">{approved.length}</span>}>
-          <span id="aprobadas">Aprobadas</span>
+          <span id="aprobadas">{t("Aprobadas", "Approved")}</span>
         </SectionTitle>
         {approved.length === 0 ? (
-          <p className="card px-5 py-4 text-[14px] text-slate-500">{words ? "Ninguna coincide con esa búsqueda." : "Todavía no hay respuestas aprobadas."}</p>
+          <p className="card px-5 py-4 text-[14px] text-slate-500">
+            {words ? t("Ninguna coincide con esa búsqueda.", "None match that search.") : t("Todavía no hay respuestas aprobadas.", "No approved answers yet.")}
+          </p>
         ) : (
           <ul className="card overflow-hidden" data-testid="approved-answers">
             {approved.map((a) => (
@@ -243,9 +289,11 @@ export default function SavedAnswers() {
       </section>
 
       <p className="mt-4 px-1 text-xs leading-relaxed text-slate-500">
-        Una respuesta guardada no lleva el nombre de un cliente, montos, números de cuenta, teléfonos ni correos, y pasa las mismas reglas que cualquier
-        respuesta del equipo. Cada cambio queda registrado.
-        {library.demo && " En la demo se guardan solo en este navegador."}
+        {t(
+          "Una respuesta guardada no lleva el nombre de un cliente, montos, números de cuenta, teléfonos ni correos, y pasa las mismas reglas que cualquier respuesta del equipo. Cada cambio queda registrado.",
+          "A saved answer has no client's name, amounts, account numbers, phones or emails, and passes the same rules as any reply from the team. Every change is recorded.",
+        )}
+        {library.demo && t(" En la demo se guardan solo en este navegador.", " In the demo they're saved only in this browser.")}
       </p>
     </main>
   );

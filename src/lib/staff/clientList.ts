@@ -11,7 +11,8 @@ import {
   nextBillingStep,
   nextStep,
   pausedForPayment,
-  STAGES,
+  ACTOR_LABELS,
+  STAGE_TEXT,
   type NextStep,
   type Stage,
   type StaffException,
@@ -19,6 +20,7 @@ import {
 import type { TimelineEntry } from "./timeline";
 import { memberName, type TeamMember } from "./team";
 import { fullName, type StaffClient } from "./types";
+import { type StaffLocale, staffLocaleFallback } from "./i18n/locale";
 
 // The clients list: what each row says, how the filters read it, and the CSV
 // a teammate can take away. Pure, so the rules are tested without a browser.
@@ -28,13 +30,23 @@ import { fullName, type StaffClient } from "./types";
 export const BILLING_STATES = ["none", "current", "retrying", "past_due", "method_missing", "paused_by_team"] as const;
 export type BillingState = (typeof BILLING_STATES)[number];
 
-export const BILLING_STATE_LABEL: Record<BillingState, string> = {
-  none: "Sin cobros todavía",
-  current: "Al día",
-  retrying: "Cobro en reintento",
-  past_due: "Cobro sin resolver",
-  method_missing: "Falta método de pago",
-  paused_by_team: "Cobros en pausa",
+export const BILLING_STATE_LABELS: Record<StaffLocale, Record<BillingState, string>> = {
+  en: {
+    none: "No charges yet",
+    current: "Up to date",
+    retrying: "Charge being retried",
+    past_due: "Unpaid charge",
+    method_missing: "No payment method",
+    paused_by_team: "Billing paused",
+  },
+  es: {
+    none: "Sin cobros todavía",
+    current: "Al día",
+    retrying: "Cobro en reintento",
+    past_due: "Cobro sin resolver",
+    method_missing: "Falta método de pago",
+    paused_by_team: "Cobros en pausa",
+  },
 };
 
 /** One word about the client's money, from the billing records and the system's own outlook. */
@@ -53,21 +65,21 @@ export function billingState(client: StaffClient, now: Date): BillingState {
 // next step and a history without the money lines.
 
 /** The next step as this viewer may read it. */
-export function nextStepFor(client: StaffClient, now: Date, viewer: Viewer | null): NextStep {
-  const step = nextStep(client, now);
+export function nextStepFor(client: StaffClient, now: Date, viewer: Viewer | null, locale: StaffLocale = staffLocaleFallback()): NextStep {
+  const step = nextStep(client, now, locale);
   if (can(viewer?.role, "billing.view")) return step;
-  if (pausedForPayment(client)) return { actor: "staff", text: "El equipo lo está atendiendo", at: null };
-  const money = nextBillingStep(client, now);
+  if (pausedForPayment(client)) return { actor: "staff", text: locale === "es" ? "El equipo lo está atendiendo" : "The team is handling it", at: null };
+  const money = nextBillingStep(client, now, locale);
   if (!money || money.text !== step.text) return step;
   // The work's own next step: the same record without its billing.
-  return nextStep({ ...client, billing: NO_BILLING }, now);
+  return nextStep({ ...client, billing: NO_BILLING }, now, locale);
 }
 
-const MONEY_LINE = /cobr|reembols|devolvi[óo] el cobro|m[ée]todo de pago|autorizaci[óo]n de pagos|\$\d/i;
+const MONEY_LINE = /cobr|reembols|devolvi[óo] el cobro|m[ée]todo de pago|autorizaci[óo]n de pagos|\$\d|charge|refund|payment method|payment authorization|billing/i;
 
 /** The client's history without the money lines, for a role without billing. */
 export function historyFor(entries: TimelineEntry[], viewer: Viewer | null): TimelineEntry[] {
-  return can(viewer?.role, "billing.view") ? entries : entries.filter((entry) => !MONEY_LINE.test(entry.text));
+  return can(viewer?.role, "billing.view") ? entries : entries.filter((entry) => !entry.money && !MONEY_LINE.test(entry.text));
 }
 
 // ── Rows and filters ────────────────────────────────────────────────────
@@ -85,14 +97,14 @@ export interface ClientRow {
  * With `autopilot`, a notice the automatic follow-ups are still working on is
  * not listed (autopilot/queue.ts: personExceptions); without it, every notice.
  */
-export function clientRows(clients: StaffClient[], viewer: Viewer | null, now: Date, autopilot?: AutopilotEnv): ClientRow[] {
+export function clientRows(clients: StaffClient[], viewer: Viewer | null, now: Date, autopilot?: AutopilotEnv, locale: StaffLocale = staffLocaleFallback()): ClientRow[] {
   return clients.map((client) => ({
     client,
     stage: clientStage(client, now),
-    exceptions: (autopilot ? personExceptions(client, now, { autopilot }).map((p) => p.exception) : clientExceptions(client, now)).filter((e) =>
+    exceptions: (autopilot ? personExceptions(client, now, { autopilot, locale }).map((p) => p.exception) : clientExceptions(client, now, { locale })).filter((e) =>
       exceptionVisibleTo(viewer?.role, e.kind),
     ),
-    step: nextStepFor(client, now, viewer),
+    step: nextStepFor(client, now, viewer, locale),
     billing: billingState(client, now),
   }));
 }
@@ -141,7 +153,13 @@ export function filterRows(rows: ClientRow[], filters: ClientFilters, viewer: Vi
  * No phone, email or address, nothing from the report or the client's answers,
  * no money, no identity data. Enough to plan the week from a spreadsheet.
  */
-export const CSV_COLUMNS = ["Cliente", "Estado", "Etapa", "Qué sigue", "Quién lo hace", "Avisos", "Trabaja el caso", "Ventas", "Última actividad"] as const;
+export const CSV_COLUMN_NAMES: Record<StaffLocale, readonly string[]> = {
+  en: ["Client", "State", "Stage", "What's next", "Who does it", "Notices", "Working the case", "Sales", "Last activity"],
+  es: ["Cliente", "Estado", "Etapa", "Qué sigue", "Quién lo hace", "Avisos", "Trabaja el caso", "Ventas", "Última actividad"],
+};
+
+/** The Spanish columns, as the CSV has always had them. */
+export const CSV_COLUMNS = CSV_COLUMN_NAMES.es;
 
 /** One CSV cell: quoted, and never read as a formula by a spreadsheet. */
 export function csvCell(value: string): string {
@@ -149,24 +167,24 @@ export function csvCell(value: string): string {
   return `"${safe.replace(/"/g, '""')}"`;
 }
 
-const ACTOR: Record<string, string> = { system: "El sistema", client: "El cliente", staff: "El equipo", sales: "Ventas" };
-
-export function clientsCsv(rows: ClientRow[], members: TeamMember[]): string {
+/** The CSV in the member's language (Spanish when left out, as it always was). */
+export function clientsCsv(rows: ClientRow[], members: TeamMember[], locale: StaffLocale = "es"): string {
+  const ACTOR: Record<string, string> = ACTOR_LABELS[locale];
   const lines = rows.map(({ client, stage, exceptions, step }) =>
     [
       fullName(client),
       stateName(client.state),
-      STAGES[stage].label,
+      STAGE_TEXT[locale][stage].label,
       step.text,
       ACTOR[step.actor] ?? "",
       exceptions.map((e) => e.kind).length > 0 ? String(exceptions.length) : "0",
-      client.assignedTo ? memberName(members, client.assignedTo) : "Sin asignar",
-      memberName(members, client.salesperson),
+      client.assignedTo ? memberName(members, client.assignedTo, locale) : locale === "es" ? "Sin asignar" : "Unassigned",
+      memberName(members, client.salesperson, locale),
       client.lastActivityAt.slice(0, 10),
     ]
       .map(csvCell)
       .join(","),
   );
   // A byte-order mark so a spreadsheet opens the accents correctly.
-  return `﻿${[CSV_COLUMNS.map(csvCell).join(","), ...lines].join("\r\n")}\r\n`;
+  return `﻿${[CSV_COLUMN_NAMES[locale].map(csvCell).join(","), ...lines].join("\r\n")}\r\n`;
 }

@@ -160,6 +160,41 @@ export const FOLLOWUP_SCHEDULES: Record<FollowupKind, FollowupSchedule> = {
   },
 };
 
+/** Each follow-up's name and description for the staff console in English (the Spanish ones are in FOLLOWUP_SCHEDULES). */
+export const FOLLOWUP_TEXT_EN: Record<FollowupKind, { label: string; description: string }> = {
+  agreement_unsigned: { label: "Agreement not signed", description: "Created their account and hasn't signed the agreement. Counts from the day they created their account." },
+  documents_missing: { label: "Documents missing", description: "Their ID or proof of address is missing. Counts from the end of their cancellation period." },
+  review_unfinished: { label: "Review not finished", description: "Hasn't finished reviewing their report. Counts from their last answer: if they make progress, it starts over." },
+  monitoring_inactive: {
+    label: "Monitoring with no new report",
+    description: `Their report is more than ${FRESH_REPORT_DAYS} days old, or the bureaus' ${RESPONSE_WINDOW_DAYS} days to answer passed with no new report.`,
+  },
+  payment_method_missing: {
+    label: "No payment method",
+    description: "A round went out and there's no payment method. Billing already tells them on the day of the charge; this follows after. Counts from the mailing.",
+  },
+  identity_theft_report_missing: {
+    label: "Identity theft report",
+    description:
+      "Reported identity theft and their FTC report is missing. They get the IdentityTheft.gov steps, but a person handles it from day one: the app told them someone on the team would write.",
+  },
+  address_unconfirmed: {
+    label: "Address to confirm",
+    description:
+      "The post office couldn't confirm the client's address (before mailing, or because a letter came back). They're asked to confirm or correct it with one tap. Counts from the request; if the one they confirm doesn't pass either, it goes to a person.",
+  },
+  document_reupload: {
+    label: "Document to upload again",
+    description:
+      "The automatic check didn't accept their ID or proof of address for something the client can fix (a blurry photo, an old bill). They're told the reason and asked for another. A second rejection, or a reason another photo won't fix, goes to a person.",
+  },
+};
+
+/** A follow-up's name and description in the console's language. */
+export function followupText(kind: FollowupKind, locale: "es" | "en"): { label: string; description: string } {
+  return locale === "en" ? FOLLOWUP_TEXT_EN[kind] : { label: FOLLOWUP_SCHEDULES[kind].label, description: FOLLOWUP_SCHEDULES[kind].description };
+}
+
 /** The follow-up situation that stands for a console notice, if any. */
 export function followupKindOf(exception: ExceptionKind): FollowupKind | null {
   return FOLLOWUP_KINDS.find((kind) => FOLLOWUP_SCHEDULES[kind].covers.includes(exception)) ?? null;
@@ -298,6 +333,15 @@ export const BLOCK_TEXT: Record<FollowupBlock, string> = {
   template_not_approved: "Falta aprobar en Meta la plantilla de WhatsApp de este mensaje, y no tiene correo.",
 };
 
+/** The same, for the staff console in English. */
+export const BLOCK_TEXT_EN: Record<FollowupBlock, string> = {
+  disabled: "Automatic reminders for this are turned off.",
+  opted_out: "Asked not to get automatic messages.",
+  held: "The autopilot is on hold for this client.",
+  no_channel: "There's no channel to message them automatically (WhatsApp or email).",
+  template_not_approved: "This message's WhatsApp template still needs Meta's approval, and they have no email.",
+};
+
 export interface FollowupState {
   situation: Situation;
   schedule: FollowupSchedule;
@@ -385,7 +429,7 @@ export interface PlannedMessage {
 }
 
 export function clientLocale(client: StaffClient): MessageLocale {
-  return client.locale === "en" ? "en" : "es";
+  return client.locale === "es" ? "es" : "en";
 }
 
 /** The follow-up messages due now, before quiet hours and the daily cap (plan.ts applies those). */

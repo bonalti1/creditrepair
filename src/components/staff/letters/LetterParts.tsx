@@ -1,6 +1,7 @@
 import { DEFAULT_LETTER_FONT } from "@/lib/letters/fonts";
 import type { DiffPart } from "@/lib/letters/versions/diff";
-import { CHIPS, isChipKey, TOKEN } from "@/lib/letters/versions/source";
+import { CHIPS, chipText, isChipKey, TOKEN } from "@/lib/letters/versions/source";
+import { useStaffLocale } from "@/lib/staff/i18n/StaffLocale";
 
 // Small pieces of the letter editor and the attorney's packet.
 
@@ -25,8 +26,9 @@ export function LetterPaper({ text, testId }: { text: string; testId?: string })
   );
 }
 
-/** Text with its {chips} drawn as chips (labels in Spanish, or as written for the attorney). */
+/** Text with its {chips} drawn as chips (labels in the member's language, or as written for the attorney). */
 export function ChipText({ text, english = false }: { text: string; english?: boolean }) {
+  const { locale } = useStaffLocale();
   const out: React.ReactNode[] = [];
   let last = 0;
   let i = 0;
@@ -40,7 +42,7 @@ export function ChipText({ text, english = false }: { text: string; english?: bo
           isChipKey(key) ? "border-blue-200 bg-blue-50 text-blue-800" : "border-red-300 bg-red-50 text-red-700"
         }`}
       >
-        {isChipKey(key) ? (english ? CHIPS[key].attorneyLabel : CHIPS[key].label) : `{${key}}`}
+        {isChipKey(key) ? (english ? CHIPS[key].attorneyLabel : chipText(key, locale).label) : `{${key}}`}
       </span>,
     );
     last = match.index! + match[0].length;

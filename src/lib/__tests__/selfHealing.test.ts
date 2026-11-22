@@ -19,6 +19,10 @@ import { demoVerify, interpretLobVerification, lobVerificationRequest, unchecked
 import { parseUsAddress } from "../mail/address";
 import { buildDemoClients } from "../staff/demoClients";
 import { clientExceptions, latestRound, sendBlockReason } from "../staff/stage";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // What fixes itself (docs/AUTOPILOT.md, "Lo que se arregla solo"): the pure
 // rules. The database side is in db/selfHealing.test.ts.

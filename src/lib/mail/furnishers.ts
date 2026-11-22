@@ -57,6 +57,17 @@ export const FURNISHER_FIELD_LABEL: Record<FurnisherField, string> = {
   verifiedOn: "Verificada el",
 };
 
+/** The same, for a member whose console is in English. */
+export const FURNISHER_FIELD_LABEL_EN: Record<FurnisherField, string> = {
+  name: "Name",
+  aliases: "Other names",
+  addressLines: "Dispute address",
+  phone: "Phone",
+  notes: "Notes",
+  source: "Source",
+  verifiedOn: "Verified on",
+};
+
 // ── Names ───────────────────────────────────────────────────────────────
 
 const ABBREVIATIONS: Record<string, string> = {

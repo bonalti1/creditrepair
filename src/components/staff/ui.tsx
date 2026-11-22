@@ -1,4 +1,6 @@
-import { ACTOR_LABEL, STAGES, type Actor, type Severity, type Stage } from "@/lib/staff/stage";
+import { ACTOR_LABELS, STAGE_TEXT, type Actor, type Severity, type Stage } from "@/lib/staff/stage";
+import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
+import { clientLanguage, LANGUAGE_NAME } from "@/lib/staff/i18n/locale";
 
 // Small pieces the staff screens share. Colour says whose move it is:
 // gold = the client, navy = the team or sales, green = the system, grey = on
@@ -24,25 +26,46 @@ export function Chip({ tone, children }: { tone: string; children: React.ReactNo
 }
 
 export function StageChip({ stage }: { stage: Stage }) {
-  const tone = stage === "paused" || stage === "cancelled" ? "bg-slate-100 text-slate-600" : ACTOR_TONE[STAGES[stage].actor];
-  return <Chip tone={tone}>{STAGES[stage].label}</Chip>;
+  const { locale } = useStaffLocale();
+  const info = STAGE_TEXT[locale][stage];
+  const tone = stage === "paused" || stage === "cancelled" ? "bg-slate-100 text-slate-600" : ACTOR_TONE[info.actor];
+  return <Chip tone={tone}>{info.label}</Chip>;
 }
 
-/** "El cliente", "El equipo", "Ventas" or "El sistema": who makes the next move. */
+/** "The client", "The team", "Sales" or "The system": who makes the next move. */
 export function ActorTag({ actor }: { actor: Actor }) {
-  return <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{ACTOR_LABEL[actor]}</span>;
+  const { locale } = useStaffLocale();
+  return <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{ACTOR_LABELS[locale][actor]}</span>;
 }
 
-const SEVERITY: Record<Severity, { dot: string; label: string }> = {
-  high: { dot: "bg-red-500", label: "Urgente" },
-  medium: { dot: "bg-amber-500", label: "Importante" },
-  low: { dot: "bg-slate-400", label: "Menor" },
+const SEVERITY: Record<Severity, { dot: string; label: { es: string; en: string } }> = {
+  high: { dot: "bg-red-500", label: { es: "Urgente", en: "Urgent" } },
+  medium: { dot: "bg-amber-500", label: { es: "Importante", en: "Important" } },
+  low: { dot: "bg-slate-400", label: { es: "Menor", en: "Minor" } },
 };
 
 export function SeverityDot({ severity }: { severity: Severity }) {
+  const { locale } = useStaffLocale();
+  const label = SEVERITY[severity].label[locale];
   return (
-    <span className={`mt-[7px] h-2.5 w-2.5 shrink-0 rounded-full ${SEVERITY[severity].dot}`} title={SEVERITY[severity].label}>
-      <span className="sr-only">{SEVERITY[severity].label}</span>
+    <span className={`mt-[7px] h-2.5 w-2.5 shrink-0 rounded-full ${SEVERITY[severity].dot}`} title={label}>
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
+/**
+ * Where a teammate writes to a client: which language the words go out in.
+ * The client's, never the console's: "Client's language: Spanish".
+ */
+export function ClientLanguageTag({ client, className = "" }: { client: { locale?: string | null }; className?: string }) {
+  const { locale } = useStaffLocale();
+  const t = useTx();
+  const language = clientLanguage(client);
+  return (
+    <span className={`inline-flex items-center gap-1 text-[12px] font-medium text-slate-500 ${className}`} data-testid="client-language" data-language={language}>
+      <span aria-hidden="true">🌐</span>
+      {t("Idioma del cliente:", "Client's language:")} <span className="font-semibold text-slate-700">{LANGUAGE_NAME[locale][language]}</span>
     </span>
   );
 }
@@ -84,13 +107,14 @@ export const QUIET_BUTTON =
 
 /** A whole screen the viewer's role may not open, with the reason. */
 export function NoAccess({ title, reason }: { title: string; reason: string }) {
+  const t = useTx();
   return (
     <main className="animate-rise">
       <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{title}</h1>
       <div className="card mt-5 max-w-xl px-5 py-5">
         <p className="text-[15px] leading-relaxed text-slate-700">{reason}</p>
         <p className="mt-2 text-[14px] leading-relaxed text-slate-500">
-          Si lo necesitas para tu trabajo, pídeselo a una persona administradora.
+          {t("Si lo necesitas para tu trabajo, pídeselo a una persona administradora.", "If you need it for your work, ask an administrator.")}
         </p>
       </div>
     </main>

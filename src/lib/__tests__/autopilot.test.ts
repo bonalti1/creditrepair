@@ -23,10 +23,14 @@ import { seededBook } from "../mail/data";
 import { demoClientsWithMail } from "../mail/demo";
 import { activityFeed, clientActivity } from "../staff/activity";
 import { buildDemoClients } from "../staff/demoClients";
-import { businessMetrics, METRIC_INFO } from "../staff/metrics";
+import { businessMetrics, METRIC_INFOS } from "../staff/metrics";
 import { clientExceptions, EXCEPTION_KINDS } from "../staff/stage";
 import { buildDemoTeam } from "../staff/team";
 import type { ItemAnswer, StaffClient, StaffRound } from "../staff/types";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // Piloto automático: the follow-up engine, the status messages, quiet hours,
 // the daily cap, opt-out, the WhatsApp window, automatic sending and the work
@@ -127,8 +131,13 @@ describe("autopilot: the follow-up schedules", () => {
     const due = dueFollowups(base, day1, ON);
     expect(due).toHaveLength(1);
     expect(due[0]).toMatchObject({ step: 1, topic: "agreement_unsigned", dedupeKey: expect.stringMatching(/^followup:.+:agreement_unsigned:\d{4}-\d{2}-\d{2}:1$/) });
-    expect(due[0]!.body).toContain("Hola Rosa");
+    // No saved language: English (the default since migration 0024); a client who chose Spanish gets Spanish.
+    expect(due[0]).toMatchObject({ locale: "en" });
+    expect(due[0]!.body).toContain("Hi Rosa");
     expect(due[0]!.body).toContain("/acuerdo");
+    const dueEs = dueFollowups({ ...base, locale: "es" }, day1, ON);
+    expect(dueEs[0]).toMatchObject({ locale: "es", step: 1 });
+    expect(dueEs[0]!.body).toContain("Hola Rosa");
 
     // Days later, all three went; the raw notice exists (> 3 days) but is still the system's until day 6.
     const day5 = new Date(NOW.getTime() + 5 * DAY);
@@ -527,8 +536,8 @@ describe("autopilot: the one-person work queue", () => {
   });
 
   it("the business dashboard: minutes of a person's work per active client, defined plainly", () => {
-    expect(METRIC_INFO.humanMinutesPerActive.label).toBe("Minutos de trabajo humano por cliente activo");
-    expect(METRIC_INFO.humanMinutesPerActive.definition).toMatch(/minutos estimados/);
+    expect(METRIC_INFOS.es.humanMinutesPerActive.label).toBe("Minutos de trabajo humano por cliente activo");
+    expect(METRIC_INFOS.es.humanMinutesPerActive.definition).toMatch(/minutos estimados/);
     const members = buildDemoTeam(NOW).members;
     const withAutopilot = businessMetrics(demo, members, "month", later, env);
     const without = businessMetrics(demo, members, "month", later);

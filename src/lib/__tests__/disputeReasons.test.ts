@@ -32,6 +32,10 @@ import { flagPutSchema, storedReasonCode } from "@/lib/ux/flagsApi";
 import { normalizeFlags } from "@/lib/ux/flagsStore";
 import { letterCoverageRows } from "@/lib/ux/roundCopy";
 import { sessionPlan } from "@/lib/ux/sessionPlan";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // A stated reason for every disputed item: the customer picks a standard
 // reason, the letter prints its sentence after the item, and an answer
@@ -506,7 +510,8 @@ describe("the reason follows the item through the plan, the previews and the sta
   it("staff see the reason and cannot set it", () => {
     const page = readFileSync("src/app/equipo/clientes/[id]/page.tsx", "utf8");
     expect(page).toContain("sin motivo");
-    expect(page).toContain('reasonLabel(answer.reasonCode, "es")');
+    // In the console's language: the same label the client chose from, in English or Spanish.
+    expect(page).toContain("reasonLabel(answer.reasonCode, locale)");
     expect(page).not.toMatch(/<select|type="radio"|DisputeFields|reasonCode:\s|setReason/);
     // The staff data layer still has no operation that writes an answer or a reason.
     const data = readFileSync("src/lib/staff/data.ts", "utf8");

@@ -4,6 +4,7 @@ import { getAdminClient } from "../supabase/admin";
 import { getServerSupabase } from "../supabase/server";
 import { can, deniedReason, isStaffRole, type Capability } from "./permissions";
 import type { StaffRole } from "./types";
+import { normalizeStaffLocale, type StaffLocale } from "./i18n/locale";
 
 // Who may open the staff console.
 //
@@ -64,6 +65,23 @@ export async function getStaffMember(): Promise<StaffMember | null> {
     const row = data ?? (await claimInvitation(auth.user));
     if (!row || !row.active || !isStaffRole(row.role)) return null;
     return { userId: row.user_id, handle: row.handle ?? row.user_id.slice(0, 8), name: row.display_name || row.handle || "Equipo", role: row.role };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The language this member chose for the console (staff_preferences.locale,
+ * migration 0025), read through their own connection; null when they have not
+ * chosen, in the demo, or on any error (the layout then uses the browser's).
+ */
+export async function getStaffLocaleChoice(member: StaffMember | null): Promise<StaffLocale | null> {
+  if (!member) return null;
+  const supabase = await getServerSupabase();
+  if (!supabase) return null;
+  try {
+    const { data } = await supabase.from("staff_preferences").select("locale").eq("user_id", member.userId).maybeSingle();
+    return normalizeStaffLocale((data as { locale?: unknown } | null)?.locale);
   } catch {
     return null;
   }

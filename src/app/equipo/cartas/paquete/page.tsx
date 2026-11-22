@@ -8,6 +8,7 @@ import { pendingCoverNote, pendingPacketEntries, PENDING_COVER_TITLE } from "@/l
 import { useLetterVersions } from "@/lib/letters/versions/useLetterVersions";
 import { deniedReason } from "@/lib/staff/permissions";
 import { useStaff } from "@/lib/staff/useStaff";
+import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import Icon from "@/components/Icon";
 import { DiffView, LetterPaper } from "@/components/staff/letters/LetterParts";
 import { NoAccess, PRIMARY_BUTTON } from "@/components/staff/ui";
@@ -16,6 +17,7 @@ import { NoAccess, PRIMARY_BUTTON } from "@/components/staff/ui";
 // with its details, its changes against the text in use, and the full letter
 // for a fictional consumer. In English, for the attorney. Printed from the
 // browser ("Imprimir o guardar PDF"), so it is a PDF without a PDF library.
+// Only the toolbar above it speaks the member's language.
 //
 //   /equipo/cartas/paquete              every version with the attorney
 //   /equipo/cartas/paquete?ids=a,b      only those versions
@@ -23,39 +25,48 @@ import { NoAccess, PRIMARY_BUTTON } from "@/components/staff/ui";
 function Packet() {
   const params = useSearchParams();
   const { ready, can } = useStaff();
+  const t = useTx();
+  const { locale } = useStaffLocale();
   const { demo, ready: loaded, versions } = useLetterVersions();
   const idsParam = params.get("ids");
   const ids = useMemo(() => (idsParam ? idsParam.split(",").filter(Boolean) : undefined), [idsParam]);
   const entries = useMemo(() => pendingPacketEntries(versions, ids), [versions, ids]);
 
   if (!ready) return null;
-  if (!can("letters.edit")) return <NoAccess title="Paquete para el abogado" reason={deniedReason("letters.edit")} />;
+  if (!can("letters.edit")) return <NoAccess title={t("Paquete para el abogado", "Attorney's packet")} reason={deniedReason("letters.edit", locale)} />;
   if (!loaded) return null;
 
   return (
     <main className="animate-rise print:animate-none">
       <div className="print:hidden">
         <Link href="/equipo/cartas" className="inline-flex items-center gap-1 text-[14px] font-medium text-blue-700">
-          <Icon name="chevron" size={14} className="rotate-180" /> Cartas
+          <Icon name="chevron" size={14} className="rotate-180" /> {t("Cartas", "Letters")}
         </Link>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">Paquete para el abogado</h1>
+            <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Paquete para el abogado", "Attorney's packet")}</h1>
             <p className="mt-1 max-w-2xl text-[15px] leading-relaxed text-slate-500">
               {entries.length === 0
-                ? "No hay versiones esperando al abogado."
-                : `${entries.length} ${entries.length === 1 ? "versión" : "versiones"} con el abogado. El paquete va en inglés. Imprímelo o guárdalo como PDF y envíaselo; cuando responda, registra su decisión en cada carta.`}
+                ? t("No hay versiones esperando al abogado.", "No versions are waiting on the attorney.")
+                : t(
+                    `${entries.length} ${entries.length === 1 ? "versión" : "versiones"} con el abogado. El paquete va en inglés. Imprímelo o guárdalo como PDF y envíaselo; cuando responda, registra su decisión en cada carta.`,
+                    `${entries.length} ${entries.length === 1 ? "version" : "versions"} with the attorney. The packet is in English. Print it or save it as a PDF and send it; when they answer, record their decision on each letter.`,
+                  )}
             </p>
           </div>
           {entries.length > 0 && (
             <button type="button" className={PRIMARY_BUTTON} onClick={() => window.print()} data-testid="print-packet">
-              Imprimir o guardar PDF
+              {t("Imprimir o guardar PDF", "Print or save as PDF")}
             </button>
           )}
         </div>
         {demo && (
           <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900">
-            <strong>Demo:</strong> este paquete se arma con lo guardado en este navegador. No se envió nada a ningún abogado.
+            <strong>Demo:</strong>{" "}
+            {t(
+              "este paquete se arma con lo guardado en este navegador. No se envió nada a ningún abogado.",
+              "this packet is built from what's saved in this browser. Nothing was sent to any attorney.",
+            )}
           </p>
         )}
       </div>

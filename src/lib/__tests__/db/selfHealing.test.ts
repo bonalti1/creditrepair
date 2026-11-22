@@ -22,6 +22,10 @@ import { loadStaffRows } from "../../staff/load";
 import { clientExceptions, sendBlockReason } from "../../staff/stage";
 import { startHarness, type Harness } from "./pg";
 import { addClient, addDocuments, addStaff, approveBuiltinLetters, DAY, sampleReport, signAgreement } from "./seed";
+import { setStaffLocaleFallback } from "../../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // What fixes itself (migration 0022), against the real migrations:
 //

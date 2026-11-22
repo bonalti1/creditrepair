@@ -17,6 +17,10 @@ import {
 } from "@/lib/staff/printBatch";
 import { sendableRound } from "@/lib/staff/stage";
 import { fullName } from "@/lib/staff/types";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // Printing a batch of letters locally (/equipo/imprimir): which rounds a link
 // names, which are printed, the order of the pages and the counts on screen.
@@ -56,7 +60,8 @@ describe("print view: which rounds a link names", () => {
     expect(parseRoundRefs(new URL(href, "https://example.test").searchParams.get("rondas"))).toEqual(ready);
     const home = readFileSync("src/app/equipo/page.tsx", "utf8");
     expect(home).toContain("roundRefsHref(chosen.map(");
-    expect(home).toMatch(/Imprimir \{count\(chosen\.length, "ronda", "rondas"\)\}/);
+    expect(home).toMatch(/Imprimir \$\{count\(chosen\.length, "ronda", "rondas"\)\}/);
+    expect(home).toMatch(/Print \$\{count\(chosen\.length, "round", "rounds"\)\}/);
     const client = readFileSync("src/app/equipo/clientes/[id]/page.tsx", "utf8");
     expect(client).toContain("roundRefsHref([{ clientId: client.id, roundNumber: r.number }])");
     expect(client).toContain("Imprimir esta ronda");
@@ -259,10 +264,14 @@ describe("print view: the page", () => {
   });
 
   it("asks before marking, naming how many rounds and clients; its copy promises nothing", () => {
-    expect(page).toContain("¿Marcar {markSummary} como enviadas por correo?");
+    // In the member's language: the Spanish and the English side by side.
+    expect(page).toContain("`¿Marcar ${markSummary} como enviadas por correo?`, `Mark ${markSummary} as mailed?`");
     expect(page).toContain('`${count(toMark.length, "ronda", "rondas")} de ${count(markClients, "cliente", "clientes")}`');
-    expect(page).toContain("Marcar como enviadas por correo");
-    const copy = [...page.matchAll(/>\s*([^<>{}]{25,})\s*</g)].map((m) => m[1]!.replace(/\s+/g, " ").trim());
+    expect(page).toContain('`${count(toMark.length, "round", "rounds")} for ${count(markClients, "client", "clients")}`');
+    expect(page).toContain('t("Marcar como enviadas por correo", "Mark as mailed")');
+    const copy = [...page.matchAll(/>\s*([^<>{}]{25,})\s*<|"([^"\n]{25,})"/g)]
+      .map((m) => (m[1] ?? m[2]!).replace(/\s+/g, " ").trim())
+      .filter((line) => !/^[\w-]+(\s[\w-:[\]./%#()]+)*$/.test(line));
     expect(copy.length).toBeGreaterThan(5);
     for (const line of copy) expect(checkClaimGuardrails(line), line).toEqual([]);
   });

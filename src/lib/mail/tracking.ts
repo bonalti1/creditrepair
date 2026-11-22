@@ -277,9 +277,36 @@ const RETURN_REASON_ES: Record<string, string> = {
   reschedule_delivery: "hay que reprogramar la entrega",
 };
 
+const RETURN_REASON_EN: Record<string, string> = {
+  "Returned to Sender": "returned to sender",
+  returned_to_sender: "returned to sender",
+  package_undeliverable: "could not be delivered",
+  package_lost: "the post office lost it",
+  package_disposed: "the post office threw it away",
+  package_unclaimed: "nobody picked it up",
+  package_damaged: "arrived damaged",
+  failed: "the mail service could not produce it",
+  rendering_failed: "the mail service could not produce it",
+  address_issue: "a problem with the address",
+  contact_carrier: "the post office asks to be contacted",
+  delayed: "delivery delayed",
+  delivery_attempted: "delivery attempted",
+  delivery_rescheduled: "delivery rescheduled",
+  location_inaccessible: "the carrier could not reach the address",
+  notice_left: "a notice was left",
+  package_held: "held at the post office",
+  reschedule_delivery: "delivery needs to be rescheduled",
+};
+
 /** Why a letter came back, in staff's words; the provider's own text when it is not one we know. */
 export function returnReasonEs(reason: string): string {
   return RETURN_REASON_ES[reason] ?? RETURN_REASON_ES[reason.replace(/^letter\.(certified\.)?/, "")] ?? reason;
+}
+
+/** The same in the staff console's language. */
+export function returnReason(reason: string, locale: "es" | "en"): string {
+  if (locale === "es") return returnReasonEs(reason);
+  return RETURN_REASON_EN[reason] ?? RETURN_REASON_EN[reason.replace(/^letter\.(certified\.)?/, "")] ?? reason;
 }
 
 const EVENT_ES: Record<MailEventKind, string> = {
@@ -298,10 +325,33 @@ const EVENT_ES: Record<MailEventKind, string> = {
   other: "Aviso del servicio de correo",
 };
 
+const EVENT_EN: Record<MailEventKind, string> = {
+  created: "The mail service received the letter",
+  mailed: "Entered the mail (USPS)",
+  in_transit: "In transit",
+  in_local_area: "In the recipient's area",
+  processed_for_delivery: "Out for delivery",
+  pickup_available: "Ready for pickup at the post office",
+  re_routed: "Rerouted to another address",
+  delivered: "Delivered",
+  returned_to_sender: "Returned to sender",
+  issue: "Post office notice",
+  failed: "Could not be produced",
+  cancelled: "Cancelled before printing",
+  other: "Mail service notice",
+};
+
 /** One event as a line for the staff timeline. */
 export function mailEventLabelEs(event: MailEventRecord): string {
   if (event.kind === "issue" && event.detail) return `${EVENT_ES.issue}: ${returnReasonEs(event.detail)}`;
   return EVENT_ES[event.kind];
+}
+
+/** The same in the staff console's language. */
+export function mailEventLabel(event: MailEventRecord, locale: "es" | "en"): string {
+  if (locale === "es") return mailEventLabelEs(event);
+  if (event.kind === "issue" && event.detail) return `${EVENT_EN.issue}: ${returnReason(event.detail, "en")}`;
+  return EVENT_EN[event.kind];
 }
 
 // ── Tracking links ──────────────────────────────────────────────────────

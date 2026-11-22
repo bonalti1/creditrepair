@@ -6,6 +6,7 @@ import { getLetterMeta } from "../letters/library";
 import { reasonLabel } from "../ux/disputeReason";
 import { RESPONSE_WINDOW_DAYS } from "../ux/journey";
 import type { StaffClient, StaffRound } from "./types";
+import type { StaffLocale } from "./i18n/locale";
 
 // "Qué está funcionando": an internal learning loop on dispute outcomes.
 //
@@ -177,38 +178,62 @@ export const DIMENSION_LABEL: Record<Dimension, string> = {
   check: "Lo que mostraban los datos",
 };
 
+/** The same names in each language (the console's). */
+export const DIMENSION_LABELS: Record<StaffLocale, Record<Dimension, string>> = {
+  es: DIMENSION_LABEL,
+  en: {
+    bureau: "Bureau",
+    furnisher: "Creditor or collector",
+    reason: "Client's reason",
+    template: "Letter and stage",
+    check: "What the data showed",
+  },
+};
+
 const BUREAU_LABEL: Record<Bureau, string> = { equifax: "Equifax", experian: "Experian", transunion: "TransUnion" };
 
-const STAGE_LABEL: Record<DisputeAttempt["stage"], string> = {
-  dispute: "1.ª disputa",
-  mov: "método de verificación",
-  furnisher_direct: "directo al acreedor",
-  personal_info_cleanup: "datos personales",
+const STAGE_LABEL: Record<StaffLocale, Record<DisputeAttempt["stage"], string>> = {
+  es: {
+    dispute: "1.ª disputa",
+    mov: "método de verificación",
+    furnisher_direct: "directo al acreedor",
+    personal_info_cleanup: "datos personales",
+  },
+  en: {
+    dispute: "1st dispute",
+    mov: "method of verification",
+    furnisher_direct: "direct to the creditor",
+    personal_info_cleanup: "personal info",
+  },
+};
+
+const ROW_WORDS: Record<StaffLocale, { personalInfo: string; noReason: string; noCheck: string }> = {
+  es: { personalInfo: "Datos personales (los guarda el buró)", noReason: "Sin motivo (confirmado antes de los motivos)", noCheck: "Sin hallazgos en los datos" },
+  en: { personalInfo: "Personal info (kept by the bureau)", noReason: "No reason (confirmed before reasons existed)", noCheck: "No findings in the data" },
 };
 
 /** No check on the item: the baseline the check rows are read against. */
 export const NO_CHECK_KEY = "none";
 
 /** The row(s) one dispute counts in, for a dimension: [key, label]. A dispute with several checks counts once under each. */
-function keysOf(attempt: DisputeAttempt, dimension: Dimension): Array<[string, string]> {
+function keysOf(attempt: DisputeAttempt, dimension: Dimension, locale: StaffLocale): Array<[string, string]> {
+  const words = ROW_WORDS[locale];
   switch (dimension) {
     case "bureau":
       return [[attempt.bureau, BUREAU_LABEL[attempt.bureau]]];
     case "furnisher":
       // Personal information is the bureau's own record: no company reports it.
-      return attempt.category === "personal_info"
-        ? [["personal_info", "Datos personales (los guarda el buró)"]]
-        : [[attempt.furnisher.toLowerCase(), attempt.furnisher || "—"]];
+      return attempt.category === "personal_info" ? [["personal_info", words.personalInfo]] : [[attempt.furnisher.toLowerCase(), attempt.furnisher || "—"]];
     case "reason":
-      return attempt.reasonCode ? [[attempt.reasonCode, reasonLabel(attempt.reasonCode, "es") ?? attempt.reasonCode]] : [["none", "Sin motivo (confirmado antes de los motivos)"]];
+      return attempt.reasonCode ? [[attempt.reasonCode, reasonLabel(attempt.reasonCode, locale) ?? attempt.reasonCode]] : [["none", words.noReason]];
     case "template": {
-      const title = getLetterMeta(attempt.templateKey)?.title.es ?? attempt.templateKey;
-      return [[`${attempt.templateKey}|${attempt.stage}`, `${title} · ${STAGE_LABEL[attempt.stage]}`]];
+      const title = getLetterMeta(attempt.templateKey)?.title[locale] ?? attempt.templateKey;
+      return [[`${attempt.templateKey}|${attempt.stage}`, `${title} · ${STAGE_LABEL[locale][attempt.stage]}`]];
     }
     case "check":
       return attempt.checkKinds.length > 0
-        ? attempt.checkKinds.map((kind) => [kind, CHECK_KIND_LABEL[kind].es] as [string, string])
-        : [[NO_CHECK_KEY, "Sin hallazgos en los datos"]];
+        ? attempt.checkKinds.map((kind) => [kind, CHECK_KIND_LABEL[kind][locale]] as [string, string])
+        : [[NO_CHECK_KEY, words.noCheck]];
   }
 }
 
@@ -242,10 +267,10 @@ export function median(values: readonly number[]): number | null {
 }
 
 /** One row per value of the dimension, the most disputes first. */
-export function outcomeTable(attempts: readonly DisputeAttempt[], dimension: Dimension, minSample = MIN_SAMPLE): OutcomeRow[] {
+export function outcomeTable(attempts: readonly DisputeAttempt[], dimension: Dimension, minSample = MIN_SAMPLE, locale: StaffLocale = "es"): OutcomeRow[] {
   const groups = new Map<string, { label: string; attempts: DisputeAttempt[] }>();
   for (const attempt of attempts) {
-    for (const [key, label] of keysOf(attempt, dimension)) {
+    for (const [key, label] of keysOf(attempt, dimension, locale)) {
       const group = groups.get(key) ?? { label, attempts: [] };
       group.attempts.push(attempt);
       groups.set(key, group);
@@ -289,6 +314,23 @@ export const OUTCOME_DEFINITIONS: Array<{ term: string; definition: string }> = 
   { term: `Menos de ${MIN_SAMPLE}`, definition: `Con menos de ${MIN_SAMPLE} disputas en una fila no se muestran sus resultados: son muy pocas para sacar conclusiones.` },
   { term: "Lo que mostraban los datos", definition: "Los hallazgos de los datos que tenía el punto al enviarse. Un punto con dos hallazgos cuenta en las dos filas; «Sin hallazgos» es la base para comparar." },
 ];
+
+/** The same definitions in each language. */
+export const OUTCOME_DEFINITION_TEXT: Record<StaffLocale, Array<{ term: string; definition: string }>> = {
+  es: OUTCOME_DEFINITIONS,
+  en: [
+    { term: "Disputes", definition: "Each item in a mailed letter counts once: the same item in two rounds counts twice. Only items the client confirmed as inaccurate count." },
+    { term: "Deleted", definition: "A report imported after mailing no longer shows the item. It doesn't say why, or whether it'll show up again." },
+    { term: "Updated", definition: "The item is still on the report, with some detail different from the letter." },
+    { term: "Verified", definition: "The item is unchanged on a report from after the 30-day answer window, or in the next round's letter." },
+    { term: "Other answer", definition: "A bureau letter, read by automatic intake, said “frivolous”, asked for more information or is still investigating." },
+    { term: "No answer", definition: `More than ${NO_ANSWER_AFTER_DAYS} days since mailing, and no report or letter says anything about the item.` },
+    { term: "Waiting", definition: `Still within those ${NO_ANSWER_AFTER_DAYS} days.` },
+    { term: "Median days", definition: "Days from mailing to the report or letter that showed the result; half took less and half took more." },
+    { term: `Fewer than ${MIN_SAMPLE}`, definition: `With fewer than ${MIN_SAMPLE} disputes in a row, its results aren't shown: too few to draw conclusions.` },
+    { term: "What the data showed", definition: "The findings in the item's data when it was mailed. An item with two findings counts in both rows; “No findings” is the baseline to compare against." },
+  ],
+};
 
 // ── For the round engine, later ─────────────────────────────────────────
 

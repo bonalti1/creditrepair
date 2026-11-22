@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { FOLLOWUP_SCHEDULES, followupStates, openHold } from "@/lib/autopilot/followups";
+import { followupStates, followupText, openHold } from "@/lib/autopilot/followups";
+import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
+import { staffMessage } from "@/lib/staff/i18n/messages";
+import type { StaffLocale } from "@/lib/staff/i18n/locale";
 import { outboundLine } from "@/lib/autopilot/queue";
 import type { AutopilotData } from "@/lib/autopilot/data";
 import type { AutopilotEnv } from "@/lib/autopilot/types";
@@ -34,6 +37,9 @@ export default function AutopilotCard({
   holdDenied: string;
   onChanged: () => void | Promise<void>;
 }) {
+  const { locale } = useStaffLocale();
+  const t = useTx();
+  const day = (iso: string) => formatDay(new Date(iso), locale);
   const [holding, setHolding] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +50,7 @@ export default function AutopilotCard({
   const act = async (fn: () => Promise<{ ok: true } | { ok: false; message: string }>) => {
     const result = await fn();
     if (!result.ok) {
-      setError(result.message);
+      setError(staffMessage(result.message, locale));
       return;
     }
     setError(null);
@@ -56,19 +62,23 @@ export default function AutopilotCard({
   return (
     <section aria-labelledby="piloto">
       <SectionTitle>
-        <span id="piloto">Piloto automático</span>
+        <span id="piloto">{t("Piloto automático", "Autopilot")}</span>
       </SectionTitle>
       <div className="card divide-y divide-slate-900/[0.06]" data-testid="autopilot-card">
         <div className="px-5 py-4">
           {hold ? (
             <div className="flex flex-wrap items-start justify-between gap-3">
               <p className="min-w-0 text-[14px] leading-snug text-slate-700">
-                <span className="font-semibold text-amber-700">Detenido</span> por {hold.by} el {formatDay(new Date(hold.at))}: «{hold.reason}». El
-                sistema no envía rondas ni recordatorios por su cuenta; los avisos de estado sí llegan.
+                <span className="font-semibold text-amber-700">{t("Detenido", "On hold")}</span>{" "}
+                {t(`por ${hold.by} el ${day(hold.at)}`, `by ${hold.by} on ${day(hold.at)}`)}: «{hold.reason}».{" "}
+                {t(
+                  "El sistema no envía rondas ni recordatorios por su cuenta; los avisos de estado sí llegan.",
+                  "The system doesn't send rounds or reminders on its own; status notices still go out.",
+                )}
               </p>
               {canHold && (
                 <button type="button" onClick={() => act(() => autopilot.release(client.id, by))} className={SECONDARY_BUTTON_COMPACT}>
-                  Soltar
+                  {t("Soltar", "Release")}
                 </button>
               )}
             </div>
@@ -76,12 +86,12 @@ export default function AutopilotCard({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <p className="min-w-0 text-[14px] leading-snug text-slate-600">
                 {env.settings.roundsEnabled || env.settings.followupsEnabled
-                  ? "El sistema trabaja este caso por su cuenta."
-                  : "El piloto automático está apagado para todo el equipo."}
+                  ? t("El sistema trabaja este caso por su cuenta.", "The system works this case on its own.")
+                  : t("El piloto automático está apagado para todo el equipo.", "The autopilot is off for the whole team.")}
               </p>
               {canHold ? (
                 <button type="button" onClick={() => setHolding(!holding)} className={QUIET_BUTTON} data-testid="client-hold">
-                  Detener para este cliente
+                  {t("Detener para este cliente", "Hold for this client")}
                 </button>
               ) : (
                 <DeniedNote>{holdDenied}</DeniedNote>
@@ -91,7 +101,7 @@ export default function AutopilotCard({
           {holding && (
             <div className="mt-3">
               <label htmlFor="hold-reason" className="block text-[13px] font-medium text-slate-700">
-                ¿Por qué se detiene? Queda en el registro.
+                {t("¿Por qué se detiene? Queda en el registro.", "Why is it on hold? This goes on the record.")}
               </label>
               <textarea
                 id="hold-reason"
@@ -102,10 +112,10 @@ export default function AutopilotCard({
               />
               <div className="mt-2 flex gap-2">
                 <button type="button" onClick={() => act(() => autopilot.hold(client.id, reason, by))} className={SECONDARY_BUTTON_COMPACT}>
-                  Detener
+                  {t("Detener", "Hold")}
                 </button>
                 <button type="button" onClick={() => setHolding(false)} className={QUIET_BUTTON}>
-                  Cancelar
+                  {t("Cancelar", "Cancel")}
                 </button>
               </div>
             </div>
@@ -117,11 +127,14 @@ export default function AutopilotCard({
           <p className="min-w-0 text-[14px] leading-snug text-slate-600">
             {client.optOut ? (
               <>
-                <span className="font-semibold text-slate-800">No recibe mensajes automáticos.</span> Lo pidió ({client.optOut.keyword}) el{" "}
-                {formatDay(new Date(client.optOut.at))}. Sus avisos llegan a una persona.
+                <span className="font-semibold text-slate-800">{t("No recibe mensajes automáticos.", "Doesn't get automatic messages.")}</span>{" "}
+                {t(
+                  `Lo pidió (${client.optOut.keyword}) el ${day(client.optOut.at)}. Sus avisos llegan a una persona.`,
+                  `They asked (${client.optOut.keyword}) on ${day(client.optOut.at)}. Their notices go to a person.`,
+                )}
               </>
             ) : (
-              "Recibe mensajes automáticos. Si te dice que no los quiere, anótalo aquí."
+              t("Recibe mensajes automáticos. Si te dice que no los quiere, anótalo aquí.", "Gets automatic messages. If they tell you they don't want them, note it here.")
             )}
           </p>
           {canOptOut && (
@@ -130,19 +143,23 @@ export default function AutopilotCard({
               onClick={() => act(() => autopilot.setOptOut(client.id, !client.optOut, by))}
               className={QUIET_BUTTON}
             >
-              {client.optOut ? "Pidió volver a recibirlos" : "No quiere mensajes"}
+              {client.optOut ? t("Pidió volver a recibirlos", "Wants them again") : t("No quiere mensajes", "Doesn't want messages")}
             </button>
           )}
         </div>
 
         {states.length > 0 && (
           <div className="px-5 py-4">
-            <p className="text-[13px] font-semibold text-slate-700">Recordatorios en curso</p>
+            <p className="text-[13px] font-semibold text-slate-700">{t("Recordatorios en curso", "Reminders in progress")}</p>
             <ul className="mt-1.5 space-y-1 text-[14px] leading-snug text-slate-600">
               {states.map((s) => (
                 <li key={s.situation.key}>
-                  {FOLLOWUP_SCHEDULES[s.situation.kind].label}: {s.sent.length} de 3 enviados
-                  {s.block ? ` · ${blockLine(s.block)}` : s.next ? ` · el siguiente, el ${formatDay(new Date(s.next.dueAt))}` : " · esperando al cliente"}
+                  {followupText(s.situation.kind, locale).label}: {t(`${s.sent.length} de 3 enviados`, `${s.sent.length} of 3 sent`)}
+                  {s.block
+                    ? ` · ${blockLine(s.block, locale)}`
+                    : s.next
+                      ? t(` · el siguiente, el ${day(s.next.dueAt)}`, ` · the next one on ${day(s.next.dueAt)}`)
+                      : t(" · esperando al cliente", " · waiting on the client")}
                 </li>
               ))}
             </ul>
@@ -150,16 +167,16 @@ export default function AutopilotCard({
         )}
 
         <div className="px-5 py-4">
-          <p className="text-[13px] font-semibold text-slate-700">Mensajes automáticos</p>
+          <p className="text-[13px] font-semibold text-slate-700">{t("Mensajes automáticos", "Automatic messages")}</p>
           {messages.length === 0 ? (
-            <p className="mt-1 text-[14px] text-slate-500">Todavía ninguno.</p>
+            <p className="mt-1 text-[14px] text-slate-500">{t("Todavía ninguno.", "None yet.")}</p>
           ) : (
             <ul className="mt-1.5 space-y-1.5" data-testid="outbound-log">
               {messages.slice(0, 12).map((m) => (
                 <li key={m.id} className="text-[13px] leading-snug">
                   <details>
                     <summary className="cursor-pointer text-slate-700">
-                      <span className="tabular-nums text-slate-500">{shortDateTime(m.sentAt ?? m.queuedAt)}</span> · {outboundLine(m)}
+                      <span className="tabular-nums text-slate-500">{shortDateTime(m.sentAt ?? m.queuedAt, locale)}</span> · {outboundLine(m, locale)}
                     </summary>
                     <p className="mt-1 whitespace-pre-line rounded-xl bg-slate-50 px-3 py-2 text-slate-600">{m.body}</p>
                   </details>
@@ -173,17 +190,18 @@ export default function AutopilotCard({
   );
 }
 
-function blockLine(block: string): string {
+function blockLine(block: string, locale: StaffLocale): string {
+  const es = locale === "es";
   switch (block) {
     case "disabled":
-      return "apagados";
+      return es ? "apagados" : "turned off";
     case "opted_out":
-      return "no quiere mensajes";
+      return es ? "no quiere mensajes" : "doesn't want messages";
     case "held":
-      return "detenido";
+      return es ? "detenido" : "on hold";
     case "template_not_approved":
-      return "falta aprobar la plantilla";
+      return es ? "falta aprobar la plantilla" : "template not approved yet";
     default:
-      return "sin canal para escribirle";
+      return es ? "sin canal para escribirle" : "no channel to reach them";
   }
 }

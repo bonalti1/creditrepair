@@ -4,12 +4,14 @@ import { sensitiveIn, redactSensitive } from "../intake/redact";
 import { bestMatch, type AnswerMatch, type SavedAnswer } from "./answers";
 import { checkStaffReply, MAX_REPLY_CHARS, openQuestions, threadAuthor, type ReplyProblem } from "./conversation";
 import { can } from "./permissions";
-import { agreementLine, clientStage, documentNames, formatDay, latestRound, missingDocuments, nextStep, reviewProgress, STAGES, workStartsAt } from "./stage";
+import { agreementLine, clientStage, documentNames, formatDay, latestRound, missingDocuments, nextStep, reviewProgress, STAGE_TEXT, workStartsAt } from "./stage";
 import type { StaffClient, StaffRole } from "./types";
+import { clientLanguage, type StaffLocale } from "./i18n/locale";
 
 // AltiBot's drafted replies for the team: when a client's question is
-// waiting, the teammate sees an answer already written, in the client's
-// language, that they read, edit and send with one tap. The send itself is
+// waiting, the teammate sees an answer already written, in the CLIENT's
+// language (i18n/locale.ts: clientLanguage, never the teammate's console
+// language), that they read, edit and send with one tap. The send itself is
 // the one send path (data.sendReply → /api/staff/case), with its checks.
 //
 // What the model is given is assembled here, and only here, so a test can
@@ -33,6 +35,11 @@ import type { StaffClient, StaffRole } from "./types";
 // what to mark, the draft explains what to check and that the decision is
 // theirs (the instructions say so, and draftProblems refuses a draft that
 // tells them what to mark).
+//
+// The instructions and the case facts given to the model stay in Spanish (the
+// model reads them; nobody else does) and say which language to write in.
+// What the teammate reads about a draft (why there is none, why it failed)
+// is in the console's language: DraftInput.locale.
 
 export interface DraftLetterFact {
   to: string;
@@ -120,11 +127,11 @@ export function draftFacts(client: StaffClient, role: StaffRole | null | undefin
   if (!seesBilling) withheld.push("cobros y pagos");
   return {
     firstName: client.firstName,
-    language: client.locale === "en" ? "en" : "es",
-    stage: STAGES[stage].label,
-    stageMeaning: STAGES[stage].description,
-    nextStep: nextStep(client, now).text,
-    agreement: agreementLine(client, now),
+    language: client.locale === "es" ? "es" : "en",
+    stage: STAGE_TEXT.es[stage].label,
+    stageMeaning: STAGE_TEXT.es[stage].description,
+    nextStep: nextStep(client, now, "es").text,
+    agreement: agreementLine(client, now, "es"),
     workStarts: starts ? formatDay(starts) : null,
     documentsOnFile: client.documents.map((d) => DOC_LABEL[d] ?? d),
     documentsMissing: missingDocuments(client).length > 0 ? [documentNames(missingDocuments(client))] : [],
@@ -157,7 +164,7 @@ const MAX_LINE_CHARS = 1000;
 /** The recent conversation as lines, labelled by who wrote them, sensitive numbers redacted. */
 export function conversationLines(client: StaffClient): string[] {
   return (client.conversation ?? []).slice(-MAX_THREAD_LINES).map((message) => {
-    const author = threadAuthor(message);
+    const author = threadAuthor(message, "es");
     const who = author.voice === "client" ? "Cliente" : author.voice === "assistant" ? `${BRAND.assistant} (IA)` : `Equipo (${author.label})`;
     const text = redactSensitive(message.text.replace(/\s+/g, " ").trim()).slice(0, MAX_LINE_CHARS);
     return `${who}: ${text}`;
@@ -170,7 +177,7 @@ export function conversationLines(client: StaffClient): string[] {
 export const DRAFT_SYSTEM_PROMPT = `Escribes BORRADORES de respuesta para una persona del equipo de ${BRAND.name}. Esa persona lee el borrador, lo corrige si hace falta y lo envía en la conversación del cliente en la app, firmado con su propio nombre. Tú no envías nada.
 
 Sobre ${BRAND.name} (lo que es cierto y se puede decir):
-- Es una empresa de servicios de crédito con servicio completo, en español primero, en Texas.
+- Es una empresa de servicios de crédito con servicio completo, en inglés y en español, en Texas.
 - El cliente firma su acuerdo de servicio; tiene 3 días hábiles para cancelar sin costo y antes de eso la ley no permite empezar ningún trabajo.
 - Sube su identificación y un comprobante de domicilio en la app, y conecta su monitoreo de crédito (una suscripción aparte que le paga al servicio de monitoreo).
 - Revisa cada punto de su reporte con ${BRAND.assistant} (el asistente con IA) y dice cuáles cree que son inexactos y por qué. Esas respuestas son SOLO del cliente.
@@ -209,6 +216,7 @@ export function draftUserMessage(input: DraftPromptInput): string {
   lines.push("DATOS DEL CASO (solo estos; no inventes otros):");
   lines.push(`- Nombre: ${facts.firstName}`);
   lines.push(`- Idioma del cliente: ${facts.language === "en" ? "inglés" : "español"}`);
+  lines.push(`- Escribe el borrador en ${facts.language === "en" ? "INGLÉS" : "ESPAÑOL"}, el idioma del cliente.`);
   lines.push(`- Etapa: ${facts.stage}. ${facts.stageMeaning}`);
   lines.push(`- Qué sigue: ${facts.nextStep}`);
   lines.push(`- Acuerdo: ${facts.agreement}${facts.workStarts ? ` (se puede empezar el ${facts.workStarts})` : ""}`);
@@ -260,19 +268,35 @@ const MARKING_ADVICE: RegExp[] = [
 
 const MONEY = /\$\s?\d|\b\d+(?:[.,]\d+)?\s?(d[oó]lares|dollars|usd)\b/i;
 
-/** Why a draft may not be shown, or an empty list. */
-export function draftProblems(text: string): ReplyProblem[] {
-  const problems = [...checkStaffReply(text)];
+const DRAFT_WHY: Record<StaffLocale, { marking: string; money: string; ssnPhrase: string; ssn: string }> = {
+  es: {
+    marking: "Le dice al cliente qué marcar. Sus respuestas son solo suyas: se le explica qué revisar y que la decisión es suya.",
+    money: "Menciona un monto. Los precios los explica el equipo, no un borrador.",
+    ssnPhrase: "número de Seguro Social",
+    ssn: "Parece un número de Seguro Social o una fecha de nacimiento.",
+  },
+  en: {
+    marking: "It tells the client what to mark. Their answers are theirs alone: we explain what to check and that the decision is theirs.",
+    money: "It mentions an amount. Prices are explained by the team, not by a draft.",
+    ssnPhrase: "Social Security number",
+    ssn: "It looks like a Social Security number or a date of birth.",
+  },
+};
+
+/** Why a draft may not be shown, or an empty list. The reasons are in `locale` (the model's retry gets the Spanish ones). */
+export function draftProblems(text: string, locale: StaffLocale = "es"): ReplyProblem[] {
+  const why = DRAFT_WHY[locale];
+  const problems = [...checkStaffReply(text, locale)];
   for (const pattern of MARKING_ADVICE) {
     const match = text.match(pattern);
     if (match) {
-      problems.push({ phrase: match[0], why: "Le dice al cliente qué marcar. Sus respuestas son solo suyas: se le explica qué revisar y que la decisión es suya." });
+      problems.push({ phrase: match[0], why: why.marking });
       break;
     }
   }
   const money = text.match(MONEY);
-  if (money) problems.push({ phrase: money[0], why: "Menciona un monto. Los precios los explica el equipo, no un borrador." });
-  if (sensitiveIn(text).length > 0) problems.push({ phrase: "número de Seguro Social", why: "Parece un número de Seguro Social o una fecha de nacimiento." });
+  if (money) problems.push({ phrase: money[0], why: why.money });
+  if (sensitiveIn(text).length > 0) problems.push({ phrase: why.ssnPhrase, why: why.ssn });
   return problems;
 }
 
@@ -306,12 +330,35 @@ export type DraftOutcome =
 export const NO_KEY_MESSAGE =
   "No hay borrador: el servidor no tiene la clave de Claude (ANTHROPIC_API_KEY). Escribe tu respuesta o usa una respuesta guardada.";
 
+/** What the teammate reads when there is no draft, in the console's language. */
+export const DRAFT_MESSAGES: Record<
+  StaffLocale,
+  { noKey: string; notAllowed: string; nothing: string; modelError: (assistant: string) => string; failedRules: (assistant: string) => string }
+> = {
+  es: {
+    noKey: NO_KEY_MESSAGE,
+    notAllowed: "Tu rol no responde a clientes, así que no hay borrador.",
+    nothing: "No hay una pregunta del cliente esperando respuesta.",
+    modelError: (assistant) => `${assistant} no pudo preparar un borrador ahora. Escribe tu respuesta o intenta de nuevo.`,
+    failedRules: (assistant) => `${assistant} escribió dos borradores y ninguno pasó las reglas, así que no se muestra ninguno. Escribe tu respuesta.`,
+  },
+  en: {
+    noKey: "No draft: the server doesn't have the Claude key (ANTHROPIC_API_KEY). Write your reply or use a saved answer.",
+    notAllowed: "Your role doesn't reply to clients, so there's no draft.",
+    nothing: "There's no client question waiting for an answer.",
+    modelError: (assistant) => `${assistant} couldn't prepare a draft right now. Write your reply or try again.`,
+    failedRules: (assistant) => `${assistant} wrote two drafts and neither passed the rules, so none is shown. Write your reply.`,
+  },
+};
+
 export interface DraftInput {
   client: StaffClient;
   role: StaffRole | null | undefined;
   now: Date;
-  /** Approved saved answers; the closest one is offered first and given to the model as a base. */
+  /** Approved saved answers; the closest one IN THE CLIENT'S LANGUAGE is offered first and given to the model as a base. */
   savedAnswers?: readonly SavedAnswer[];
+  /** The console's language, for what the teammate reads about the draft. Spanish when left out. */
+  locale?: StaffLocale;
 }
 
 /**
@@ -320,32 +367,54 @@ export interface DraftInput {
  * once, with the reasons; a second failure gives no draft.
  */
 export async function draftReply(input: DraftInput, caller: DraftCaller | null): Promise<DraftOutcome> {
+  const words = DRAFT_MESSAGES[input.locale ?? "es"];
   const facts = draftFacts(input.client, input.role, input.now);
   const question = questionToAnswer(input.client);
-  const savedAnswer = question ? bestMatch(question, input.savedAnswers ?? []) : null;
-  if (!facts) return { ok: false, code: "not_allowed", message: "Tu rol no responde a clientes, así que no hay borrador.", savedAnswer: null };
-  if (!question) return { ok: false, code: "nothing_to_answer", message: "No hay una pregunta del cliente esperando respuesta.", savedAnswer };
-  if (!caller) return { ok: false, code: "not_configured", message: NO_KEY_MESSAGE, savedAnswer };
+  // Only an answer in the client's language: it goes to the client.
+  const savedAnswer = question ? bestMatch(question, input.savedAnswers ?? [], undefined, clientLanguage(input.client)) : null;
+  if (!facts) return { ok: false, code: "not_allowed", message: words.notAllowed, savedAnswer: null };
+  if (!question) return { ok: false, code: "nothing_to_answer", message: words.nothing, savedAnswer };
+  if (!caller) return { ok: false, code: "not_configured", message: words.noKey, savedAnswer };
 
   const base = { facts, question, conversation: conversationLines(input.client), savedAnswer: savedAnswer?.answer ?? null };
   let reasons: string[] = [];
   let lastProblems: ReplyProblem[] = [];
+  let lastDraft = "";
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const answer = await caller({ system: DRAFT_SYSTEM_PROMPT, user: draftUserMessage({ ...base, retryReasons: attempt > 0 ? reasons : undefined }) });
-    if (answer.problem === "not_configured") return { ok: false, code: "not_configured", message: NO_KEY_MESSAGE, savedAnswer };
+    if (answer.problem === "not_configured") return { ok: false, code: "not_configured", message: words.noKey, savedAnswer };
     const text = answer.reply?.trim().slice(0, MAX_REPLY_CHARS) ?? "";
+    lastDraft = text;
     if (!text) {
-      return { ok: false, code: "model_error", message: `${BRAND.assistant} no pudo preparar un borrador ahora. Escribe tu respuesta o intenta de nuevo.`, savedAnswer };
+      return { ok: false, code: "model_error", message: words.modelError(BRAND.assistant), savedAnswer };
     }
-    lastProblems = draftProblems(text);
+    // The model's retry is told why in Spanish, like the rest of its instructions.
+    lastProblems = draftProblems(text, "es");
     if (lastProblems.length === 0) return { ok: true, draft: text, retried: attempt > 0, savedAnswer };
     reasons = lastProblems.map((p) => `«${p.phrase}»: ${p.why}`);
   }
   return {
     ok: false,
     code: "failed_rules",
-    message: `${BRAND.assistant} escribió dos borradores y ninguno pasó las reglas, así que no se muestra ninguno. Escribe tu respuesta.`,
-    problems: lastProblems,
+    message: words.failedRules(BRAND.assistant),
+    problems: input.locale && input.locale !== "es" ? draftProblems(lastDraft, input.locale) : lastProblems,
     savedAnswer,
   };
 }
+
+/**
+ * The demo's stand-in for the model when the server has no key: a short,
+ * plain reply in the CLIENT's language that only acknowledges the question,
+ * so the demo shows a draft in the right language going through the same
+ * checks. Never used with a database.
+ */
+export const demoDraftCaller: DraftCaller = async ({ user }) => {
+  const name = user.match(/^- Nombre: (.+)$/m)?.[1]?.trim() ?? "";
+  const english = /^- Idioma del cliente: inglés$/m.test(user);
+  return {
+    problem: null,
+    reply: english
+      ? `Hi ${name}, thanks for your question. I'm checking your case and I'll write back here today with the details.`
+      : `Hola ${name}, gracias por tu pregunta. Estoy revisando tu caso y hoy mismo te escribo por aquí con los detalles.`,
+  };
+};
