@@ -13,6 +13,7 @@ import { withDemoLeadSources } from "../partners/demo";
 import { withDemoPulses } from "../pulse/demo";
 import { sampleMethod } from "./billing";
 import { applyDemoSends, demoFurnisherBook, loadDemoSends, recordDemoSend, resetDemoMail } from "../mail/data";
+import { resetDemoLetterVersions } from "../letters/versions/data";
 import { demoClientsWithMail } from "../mail/demo";
 import { roundMailPlan } from "../mail/sendPlan";
 import type { MailClass } from "../mail/types";
@@ -505,6 +506,7 @@ export function resetDemo(): void {
   resetAutopilotDemo();
   resetTeamActions();
   resetDemoMail();
+  resetDemoLetterVersions();
 }
 
 /**

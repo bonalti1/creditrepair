@@ -1,4 +1,6 @@
 import { DEMO_RAW_REPORT } from "../../demo";
+import { ORIGINAL_TEMPLATE_KEYS } from "../../letters/templates";
+import { recordDecision, sendToAttorney } from "../../letters/versions/server";
 import type { RawReport } from "../../domain/parser";
 import type { StaffMember } from "../../staff/access";
 import type { StaffRole } from "../../staff/types";
@@ -91,4 +93,25 @@ export function sampleReport(daysAgo = 2, edit?: (raw: RawReport) => void): RawR
   raw.pulledAt = ago(daysAgo);
   edit?.(raw);
   return raw;
+}
+
+/**
+ * The attorney's approval of letters as they are in code (version 1), recorded
+ * the way /equipo/cartas records it: sent to the attorney, then the decision
+ * with the attorney's name and date (src/lib/letters/versions/server.ts). A
+ * round is mailed only with approved letters (rounds/send.ts, step 6).
+ */
+export async function approveBuiltinLetters(h: Harness, keys: readonly string[] = ORIGINAL_TEMPLATE_KEYS): Promise<void> {
+  const actor = { userId: null, name: "Carmen Ruiz" };
+  const sent = await sendToAttorney(h.service, keys, actor);
+  if (!sent.ok) throw new Error(sent.problems.map((p) => p.message).join(" "));
+  for (const version of sent.value) {
+    const decided = await recordDecision(
+      h.service,
+      version.id,
+      { decision: "approved", attorneyName: "Lic. Prueba Abogada", decidedOn: new Date().toISOString().slice(0, 10), note: "", confirmed: true },
+      actor,
+    );
+    if (!decided.ok) throw new Error(decided.problems.map((p) => p.message).join(" "));
+  }
 }

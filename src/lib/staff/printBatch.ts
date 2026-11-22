@@ -189,7 +189,7 @@ function printLetter(client: StaffClient, round: StaffRound, letter: StaffLetter
     const destination = letterDestination(letter, context.furnishers);
     if (destination.to) letter = { ...letter, recipient: { ...letter.recipient, name: destination.to.name, addressLines: destination.to.addressLines } };
   }
-  const text = staffLetterText(client, round, letter, now);
+  const text = staffLetterText(client, round, letter, now, context.letterVersions);
   return {
     id: letter.id,
     clientId: client.id,

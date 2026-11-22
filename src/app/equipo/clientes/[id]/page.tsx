@@ -8,6 +8,8 @@ import { readerLabel } from "@/lib/reports/readers";
 import { demoClientUploads } from "@/lib/staff/data";
 import { count, formatBytes, formatPhone, longDay, relativeDay, shortDateTime, shortDay } from "@/lib/staff/format";
 import { staffLetterText } from "@/lib/staff/letters";
+import type { LetterVersion } from "@/lib/letters/versions/versions";
+import { useLetterVersions } from "@/lib/letters/versions/useLetterVersions";
 import { exceptionMessage, STAFF_MESSAGE_RULES, whatsappHref } from "@/lib/staff/messages";
 import { roundRefsHref, sendRefsHref } from "@/lib/staff/printBatch";
 import type { FurnisherEntry } from "@/lib/mail/furnishers";
@@ -208,18 +210,21 @@ function Letter({
   letter: recorded,
   now,
   furnishers,
+  letterVersions,
 }: {
   client: StaffClient;
   round: StaffRound;
   letter: StaffLetter;
   now: Date;
   furnishers: readonly FurnisherEntry[];
+  letterVersions: readonly LetterVersion[];
 }) {
   // A creditor's or collector's letter shows the address it will go to (the address book's), never the report's.
   const letter = useMemo(() => letterAsItWillGo(recorded, round, furnishers), [recorded, round, furnishers]);
   // The text as it is mailed, with the reason the client gave after each item.
   // Letters are in English: that is the language the bureaus work in.
-  const body = useMemo(() => staffLetterText(client, round, letter, now), [client, round, letter, now]);
+  // With the attorney-approved text of the letter (letters/versions), the one the server mails.
+  const body = useMemo(() => staffLetterText(client, round, letter, now, letterVersions), [client, round, letter, now, letterVersions]);
   const current = new Set(client.report?.items.map((i) => i.fingerprint));
   const answered = round.status === "responded";
   // What an imported report already showed for this round's items, even while the round is still open.
@@ -283,6 +288,8 @@ export default function ClientePage() {
   const { data, team, ready: clientsReady, clients, now, reload, viewer, members, can } = useStaff();
   // The furnisher address book: letters to creditors and collectors go only to a checked address in it.
   const { furnishers, ready: bookReady } = useMail();
+  // The approved letter texts: the letters below read as they are mailed.
+  const { versions: letterVersions } = useLetterVersions({ approvedOnly: true });
   // The autopilot: a notice its follow-ups are still working on is not a person's yet.
   const { autopilot, env, ready: autopilotReady, reload: reloadAutopilot } = useAutopilot();
   const ready = clientsReady && bookReady && autopilotReady;
@@ -693,7 +700,7 @@ export default function ClientePage() {
                     </div>
                     <ul>
                       {r.letters.map((letter) => (
-                        <Letter key={letter.id} client={client} round={r} letter={letter} now={now} furnishers={furnishers} />
+                        <Letter key={letter.id} client={client} round={r} letter={letter} now={now} furnishers={furnishers} letterVersions={letterVersions} />
                       ))}
                     </ul>
                   </div>

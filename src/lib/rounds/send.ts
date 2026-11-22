@@ -7,8 +7,9 @@ import { MailAddressError, mailLetter } from "../integrations/lob";
 import { sendWhatsApp } from "../integrations/whatsapp";
 import { ENCLOSURE_LABELS, isAttachableImage, letterHtml, type EnclosurePage } from "../letters/enclosures";
 import { pickFont } from "../letters/fonts";
-import { renderLetter } from "../letters/templates";
 import { varyLetterWording } from "../letters/variation";
+import { listLetterVersions } from "../letters/versions/server";
+import { lettersMayBeMailed, renderResolved, resolveLetter, type LetterVersion } from "../letters/versions/versions";
 import { parseUsAddress } from "../mail/address";
 import { defaultMailClass } from "../mail/classes";
 import { resolveFurnisherAddress } from "../mail/furnishers";
@@ -38,7 +39,11 @@ import { attestedFlagsFromRows, historyFromRows, itemFromRow, letterKey, nextRou
 //      checked again against its contents;
 //   5. the client's return address can be read, and every letter to a
 //      creditor or collector has an address a person checked in the furnisher
-//      address book (never the address the report printed).
+//      address book (never the address the report printed);
+//   6. every letter in the round has a text an attorney approved
+//      (letter_template_versions, migration 0019; docs/LETTERS-EDITOR.md),
+//      unless LETTERS_ALLOW_UNAPPROVED=1 is set for testing. Each letter is
+//      rendered from that approved version and records its number and hash.
 //
 // Retry-safe: a send that stopped part way (a mail service error) leaves the
 // round as a draft. Asking again reuses the letters of that attempt: one that
@@ -71,6 +76,8 @@ export interface SendRoundOptions {
     mailLetter?: typeof mailLetter;
     varyLetterWording?: typeof varyLetterWording;
     sendWhatsApp?: typeof sendWhatsApp;
+    /** The approved letter texts for these templates. Default: read from letter_template_versions. */
+    loadLetterVersions?: (db: SupabaseClient, templateKeys: string[]) => Promise<LetterVersion[]>;
   };
 }
 
@@ -132,6 +139,11 @@ export async function workGate(db: SupabaseClient, userId: string, now: Date): P
     );
   }
   return null;
+}
+
+/** The approved versions of these letters, read with the service role. */
+async function approvedLetterVersions(db: SupabaseClient, templateKeys: string[]): Promise<LetterVersion[]> {
+  return listLetterVersions(db, { templateKeys, approvedOnly: true });
 }
 
 /** Mails one round. `db` is the service-role client: the caller has already checked who may ask. */
@@ -238,6 +250,18 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
   }
   if (missing.length > 0) return refuse(409, missing.join(" "), "furnisher_address_missing");
 
+  // 6. Only attorney-approved letter text is mailed or printed for a client.
+  const templateKeys = [...new Set(plan.letters.map((l) => l.templateKey))];
+  let letterVersions: LetterVersion[];
+  try {
+    letterVersions = await (options.deps?.loadLetterVersions ?? approvedLetterVersions)(db, templateKeys);
+  } catch (error) {
+    await reportError(error, { where: "rounds/send:letter_versions", userId });
+    return refuse(500, "Could not read the approved letter texts. Nothing was sent.");
+  }
+  const approval = lettersMayBeMailed(templateKeys, letterVersions);
+  if (!approval.ok) return refuse(409, approval.message, "letters_not_approved");
+
   // The round row: the client's draft, or the team's, made now.
   if (!round) {
     const { data: created, error } = await db
@@ -302,7 +326,9 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
       .map((fp) => items.find((i) => i.fingerprint === fp))
       .filter((i): i is ReportItem => Boolean(i));
 
-    const baseBody = renderLetter(planned.templateKey, {
+    // The approved version of this letter (or version 1, only when LETTERS_ALLOW_UNAPPROVED=1).
+    const version = resolveLetter(planned.templateKey, letterVersions);
+    const baseBody = renderResolved(version, {
       user,
       target,
       items: letterItems,
@@ -322,6 +348,9 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
       target_name: target.name,
       target_address_lines: target.addressLines,
       template_key: planned.templateKey,
+      // Which version and which exact text it was rendered from (migration 0019).
+      template_version: version.version,
+      template_hash: version.contentHash,
       escalation_stage: planned.stage,
       body,
       status: "draft",

@@ -47,7 +47,7 @@ export const CAPABILITIES = [
   // Referral partners (src/lib/partners, migration 0017): see the list, and approve them and set commissions.
   "partners.view",
   "partners.manage",
-  // The letter templates (/equipo/cartas): editing what every letter says is the owner's.
+  // The letter editor (src/lib/letters/versions, migration 0019): change a letter and record the attorney's approval.
   "letters.edit",
 ] as const;
 
@@ -80,7 +80,7 @@ export const CAPABILITY_LABEL: Record<Capability, string> = {
   "autopilot.manage": "Configurar el piloto automático",
   "partners.view": "Ver los socios que refieren clientes",
   "partners.manage": "Aprobar socios y fijar sus comisiones",
-  "letters.edit": "Editar las plantillas de las cartas",
+  "letters.edit": "Editar las cartas y registrar la aprobación del abogado",
 };
 
 export interface RolePermissions {

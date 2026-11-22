@@ -642,7 +642,10 @@ describe("team: what the staff routes accept", () => {
     // Saved answers and AltiBot's drafts (migration 0020): whoever answers clients.
     expect(read("src/app/api/staff/answers/route.ts")).toMatch(/requireCapability\("clients\.reply"\)/);
     expect(read("src/app/api/staff/drafts/route.ts")).toMatch(/requireCapability\("clients\.reply"\)/);
-    expect(staffRoutes.length).toBe(16);
+    // The letter editor (letters.edit) and the approved letter texts (case.view).
+    expect(read("src/app/api/staff/letters/route.ts")).toMatch(/requireCapability\("letters\.edit"\)/);
+    expect(read("src/app/api/staff/letters/approved/route.ts")).toMatch(/requireCapability\("case\.view"\)/);
+    expect(staffRoutes.length).toBe(18);
   });
 });
 

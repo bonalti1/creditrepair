@@ -6,7 +6,7 @@ import { loadAutopilotSettings, placeHold, recordOptChange, releaseHold, saveAut
 import { importReportForUser } from "../../domain/importReport";
 import { reasonsFor } from "../../letters/reasons";
 import { startHarness, type Harness } from "./pg";
-import { addClient, addDocuments, addStaff, assign, sampleReport, signAgreement } from "./seed";
+import { addClient, addDocuments, addStaff, approveBuiltinLetters, assign, sampleReport, signAgreement } from "./seed";
 
 // The autopilot against the real migrations (0015 and everything before it),
 // with the real run (autopilot/server.ts: runAutopilot) and the real mailing
@@ -86,6 +86,8 @@ const LATER = new Date(NOON.getTime() + 25 * HOUR);
 beforeAll(async () => {
   h = await startHarness();
   session.admin = h.service;
+  // The attorney approved the letters the rounds use: the autopilot mails nothing else (rounds/send.ts, step 6).
+  await approveBuiltinLetters(h);
   admin = await addStaff(h, "admin", "carmen", "Carmen Ruiz");
   marta = await addStaff(h, "specialist", "marta", "Marta Leal");
   A = await readyClient("Rosa Martínez");

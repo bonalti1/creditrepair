@@ -7,7 +7,7 @@ import { importStaffReport } from "../../staff/actions";
 import { loadStaffClients } from "../../staff/load";
 import type { StaffClient } from "../../staff/types";
 import { startHarness, type Harness } from "./pg";
-import { addClient, addDocuments, addStaff, assign, DAY, sampleReport, signAgreement } from "./seed";
+import { addClient, addDocuments, addStaff, approveBuiltinLetters, assign, DAY, sampleReport, signAgreement } from "./seed";
 
 // Each new staff route against the real migrations: what it accepts, who may
 // call it (the role from the caller's own staff row; the client through the
@@ -65,6 +65,8 @@ beforeAll(async () => {
     await addDocuments(h, c);
     await importReportForUser(h.service, c, sampleReport(3));
   }
+  // The attorney approved the letters the rounds use (migration 0019): without it no round is mailed.
+  await approveBuiltinLetters(h);
 }, 60_000);
 
 describe("GET /api/staff/clients", () => {

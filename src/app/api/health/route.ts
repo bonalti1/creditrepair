@@ -3,6 +3,9 @@ import { BRAND } from "@/lib/brand";
 import { agreementReadiness } from "@/lib/agreement/readiness";
 import { billingReadiness } from "@/lib/billing/readiness";
 import { MONITORING_OFFER } from "@/lib/monitoring/offer";
+import { ORIGINAL_TEMPLATE_KEYS } from "@/lib/letters/templates";
+import { listLetterVersions } from "@/lib/letters/versions/server";
+import { lettersMayBeMailed, unapprovedLettersAllowed, type LetterVersion } from "@/lib/letters/versions/versions";
 import { hasSharedSecret } from "@/lib/security/signatures";
 import { getAdminClient } from "@/lib/supabase/admin";
 
@@ -22,6 +25,8 @@ const TABLES = [
   // The team (0007, 0012) and the console's own records (0014).
   "staff_members", "staff_invitations", "client_assignments", "team_settings", "prospects", "team_audit",
   "staff_notes", "exception_marks", "report_samples",
+  // Letter versions and the attorney's approvals (0019).
+  "letter_template_versions",
 ];
 
 export async function GET(req: Request) {
@@ -66,6 +71,25 @@ export async function GET(req: Request) {
     );
     const { data: bucket } = await db.storage.getBucket("identity-docs");
     add("ID photo storage", Boolean(bucket) && bucket?.public === false, "required", bucket ? (bucket.public ? "Bucket identity-docs must be private." : "Private bucket present.") : "Bucket identity-docs is missing (migration 0003).");
+    // Only attorney-approved letter text is mailed (docs/LETTERS-EDITOR.md): the letters the rounds use must be approved in /equipo/cartas.
+    let approvedLetters: LetterVersion[] = [];
+    try {
+      approvedLetters = await listLetterVersions(db, { approvedOnly: true });
+    } catch {
+      // The table is missing: reported under "Database tables"; nothing counts as approved.
+    }
+    const letters = lettersMayBeMailed(ORIGINAL_TEMPLATE_KEYS, approvedLetters, {});
+    const allowUnapproved = unapprovedLettersAllowed();
+    add(
+      "Letters approved by the attorney",
+      letters.ok && !allowUnapproved,
+      "required",
+      allowUnapproved
+        ? "LETTERS_ALLOW_UNAPPROVED=1 is set: unapproved letters are mailed. Remove it before serving clients."
+        : letters.ok
+          ? `All ${ORIGINAL_TEMPLATE_KEYS.length} letters the rounds use have an approved version.`
+          : `Not yet approved in /equipo/cartas: ${letters.unapproved.join(", ")}. A round that uses one is not mailed.`,
+    );
   }
 
   add(`${BRAND.assistant} (Anthropic)`, set("ANTHROPIC_API_KEY"), "required", set("ANTHROPIC_API_KEY") ? "Key is set." : `Without it ${BRAND.assistant} answers with a fixed fallback and letters are not reworded.`);
