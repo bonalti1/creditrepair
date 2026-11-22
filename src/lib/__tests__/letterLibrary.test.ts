@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { ASSISTANT_NAME, BRAND } from "@/lib/brand";
 import { DEMO_RAW_REPORT } from "@/lib/demo";
 import { PRIMARY_BUREAUS } from "@/lib/domain/bureaus";
 import { parseReport } from "@/lib/domain/parser";
@@ -20,6 +21,10 @@ import { buildLetterPacket, DECISION_LINE, PACKET_PATH, packetEntries } from "@/
 import { DISPUTE_REASONS, getDisputeReason, reasonsFor, suggestedTemplateFor } from "@/lib/letters/reasons";
 import { TEMPLATES as TEMPLATES_FROM_TEMPLATES, renderLetter as renderFromTemplates } from "@/lib/letters/templates";
 import { variationProblems } from "@/lib/letters/variation";
+
+// Names that never appear in a consumer's letter: the old company name, the
+// assistant, the internal project name and this company.
+const NOT_IN_A_LETTER = new RegExp(`\\bCreditCapi\\b|\\b${ASSISTANT_NAME}\\b|${BRAND.internalName}|\\b${BRAND.name}\\b|on behalf of`, "i");
 
 // The same sample context the original letter tests use.
 const report = parseReport(DEMO_RAW_REPORT);
@@ -89,7 +94,7 @@ describe("every template renders a complete first-person letter", () => {
     expect(letter).toContain("- Copy of government-issued photo ID");
     // No unfilled merge fields and no company speaking for the consumer.
     expect(letter).not.toMatch(/\{\{|\}\}|undefined|\[object/);
-    expect(letter).not.toMatch(/\bCreditCapi\b|\bBonalti\b|\bCredalti\b|on behalf of/i);
+    expect(letter).not.toMatch(NOT_IN_A_LETTER);
 
     // The shape the wording checks rely on: header, "Re:" line, salutation, signature.
     const lines = letter.split("\n");

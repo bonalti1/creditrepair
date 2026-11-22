@@ -5,7 +5,7 @@ import { useLocale } from "@/lib/i18n";
 
 // The brand's two characters, drawn from the art in src/lib/brand.ts:
 //
-//   "assistant"  BONALTI, the AI assistant. Use him where the assistant
+//   "assistant"  The robot, the AI assistant (name in brand.ts). Use him where the assistant
 //                speaks or explains.
 //   "team"       Alti, the face of the human team. Use him where the app
 //                talks about the team as a whole ("your team is importing

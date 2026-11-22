@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { BRAND } from "@/lib/brand";
 import {
   businessDayAfter,
   calendarDayIn,
@@ -661,7 +662,7 @@ describe("the documents", () => {
       for (const d of docs) {
         const body = documentText(d);
         expect(checkClaimGuardrails(body), `${d.key}: ${body.slice(0, 60)}`).toEqual([]);
-        expect(body).not.toMatch(/ataque|CreditCapi|Bonalti/i);
+        expect(body).not.toMatch(new RegExp(`ataque|CreditCapi|${BRAND.internalName}`, "i"));
         expect(body).not.toMatch(/\b(eliminamos|reparamos|arreglamos|borramos)\b/i);
       }
     }

@@ -24,7 +24,7 @@ import { readStoredAgreement } from "@/lib/ux/agreementLocal";
 // to do your review (with the AI assistant, or with a teammate on WhatsApp;
 // either way the answers are the client's and the team mails the letters).
 // Characters: the invited welcome is from the team, so Alti (the face of the
-// team, never a specific person) greets; on the review choice BONALTI marks the
+// team, never a specific person) greets; on the review choice the robot marks the
 // AI assistant and Alti marks "a person by my side".
 // One question per screen, one obvious button.
 //
@@ -180,7 +180,7 @@ function Onboarding() {
     <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-10 pt-6">
       <div className="flex items-center justify-between gap-3">
         <Link href="/" aria-label={BRAND.name} className="flex h-11 items-center">
-          <Logo size={19} />
+          <Logo size={24} priority />
         </Link>
         <div className="flex items-center gap-3">
           {step !== "waitlist-done" && (

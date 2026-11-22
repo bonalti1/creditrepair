@@ -211,7 +211,7 @@ export default function Login() {
   return (
     <main className="mx-auto max-w-md px-6 py-14">
       <Link href="/" aria-label={BRAND.name}>
-        <Logo size={24} />
+        <Logo size={32} priority />
       </Link>
       <h1 className="mt-10 font-display text-[34px] font-black leading-tight text-blue-700">Entrar</h1>
       <p className="mt-2 text-[17px] text-slate-500">{BRAND.assistant} y tu reporte te esperan.</p>

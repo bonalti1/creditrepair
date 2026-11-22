@@ -31,17 +31,18 @@
   },
   "characters": {
     "lockedOn": "2026-11-21",
-    "source": "Owner's brand kit, part 3 of 3 (web-ready): transparent PNG and WebP at @1x and @2x. Parts 1 and 2 not received yet.",
+    "source": "Owner's brand kit (2026-11-21), web-ready folder: transparent WebP at @1x and @2x.",
     "rule": "Locked art: never edit, redraw, recolour, re-crop or regenerate the characters. Place them on navy or ivory/white; on very dark or saturated backgrounds a light 1-2 px rim may show.",
     "assistant": {
-      "name": "BONALTI",
+      "name": "AltiBot",
+      "formerName": "The brand kit's files still use the robot's earlier name; the owner renamed it AltiBot on 2026-11-22. Same art.",
       "role": "Credalti's AI assistant, always identified as AI",
       "look": "A friendly robot: gold and cream shell, navy body, glowing amber face, a checkmark on his chest.",
       "files": {
-        "front": ["public/brand/characters/bonalti_front@1x.webp", "public/brand/characters/bonalti_front@2x.webp"],
-        "threeQuarter": ["public/brand/characters/bonalti_three_quarter@1x.webp", "public/brand/characters/bonalti_three_quarter@2x.webp"],
-        "headFront": ["public/brand/characters/bonalti_head_front@1x.webp", "public/brand/characters/bonalti_head_front@2x.webp"],
-        "headThreeQuarter": ["public/brand/characters/bonalti_head_three_quarter@1x.webp", "public/brand/characters/bonalti_head_three_quarter@2x.webp"]
+        "front": ["public/brand/characters/altibot_front@1x.webp", "public/brand/characters/altibot_front@2x.webp"],
+        "threeQuarter": ["public/brand/characters/altibot_three_quarter@1x.webp", "public/brand/characters/altibot_three_quarter@2x.webp"],
+        "headFront": ["public/brand/characters/altibot_head_front@1x.webp", "public/brand/characters/altibot_head_front@2x.webp"],
+        "headThreeQuarter": ["public/brand/characters/altibot_head_three_quarter@1x.webp", "public/brand/characters/altibot_head_three_quarter@2x.webp"]
       }
     },
     "team": {
@@ -81,8 +82,8 @@
     "font": "Nunito 900",
     "sizePx": 76,
     "color": "#ffffff",
-    "highlight": "#ffc21a",
-    "stroke": "14px #06173b",
+    "highlight": "#EFB537",
+    "stroke": "14px #12213A",
     "centerY": {
       "9:16": 1400,
       "16:9": 900
@@ -90,6 +91,7 @@
   },
   "endCard": {
     "seconds": 3,
+    "logo": "public/brand/logo/credalti-logo-white.svg, the kit's file as is, on brand navy #12213A with the gold #EFB537 swoosh. Never a typeset wordmark, never a score gauge.",
     "tagline": "Tu crédito, explicado <b>paso a paso.</b>",
     "legal": "Tú decides qué es inexacto en tu reporte. Nuestro equipo prepara y envía las cartas. Los resultados varían."
   },

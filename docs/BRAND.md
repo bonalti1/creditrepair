@@ -1,53 +1,263 @@
 # Credalti brand in the product
 
-The company is **Credalti**. Two characters appear in the product: **BONALTI**,
+The company is **Credalti**. Two characters appear in the product: **AltiBot**,
 the robot, is the AI assistant, and **Alti** is the face of the human team.
-Internal and spec name remains Bonalti Credit.
+Internal and spec name remains Bonalti Credit (storage keys such as
+`bonalti.locale` come from it; they are not the robot's name).
 
 The product was called CreditCapi until November 2026. The name changed with
 the move to full service: Credalti is now a company that does the work for its
 clients. The assistant was a capybara mascot until the brand kit of November
-2026 replaced it with BONALTI. The names, the characters' roles and their image
-files live in `src/lib/brand.ts`; a test fails if the old company name or the
-old mascot's name appears anywhere in `src/`, or the old mascot in a file name
-under `public/`.
+2026 replaced it with the robot. The names, the characters' roles, the logo
+files and the app icons live in `src/lib/brand.ts`; a test fails if the old
+company name, the old mascot's name or the robot's old name appears anywhere in
+`src/`, or in a file name under `public/`.
+
+## The brand kit
+
+The owner's brand kit (`Credalti_Everything_2026-11-21/1_Brand_Kit/`) is **not
+in the repository**: it is a large download kept by the owner. What the app
+uses from it was copied in unchanged (the tests hold each file's SHA-256):
+
+| From the kit | In the repository |
+| --- | --- |
+| `brand/logo/vector/credalti-logo-white.svg`, `credalti-logo-navy.svg`, `credalti-check.svg` | `public/brand/logo/` |
+| `brand/logo/favicon/favicon.ico`, `favicon.svg`, `apple-touch-icon.png` | `src/app/favicon.ico`, `src/app/icon.svg`, `src/app/apple-icon.png` (Next's file conventions) |
+| `brand/logo/favicon/icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | `public/brand/icons/` |
+| `brand/logo/favicon/site.webmanifest` | rewritten as `src/app/manifest.ts` (same values, paths that match the repository) |
+| `web-ready/bonalti/*`, `web-ready/alti/*` (the four views used, WebP @1x/@2x) | `public/brand/characters/` (the robot's files renamed `altibot_*`, contents unchanged) |
+| `brand/palette/` (brand colors v2) | the tokens in `src/app/globals.css` (below) |
+
+Read in the kit, not copied: `brand/logo/LOGO_README.md`, `brand/palette/PALETTE.md`,
+`brand/typography/TYPOGRAPHY.md`, `brand/COMPLIANCE.md`, `brand/voice/BRAND_VOICE.md`.
+
+**The robot's name.** The kit's files still call the robot **BONALTI**
+(`characters/bonalti/BONALTI_IDENTITY_LOCK.txt`, `web-ready/bonalti/`, the
+kit's `CLAUDE.md` and its other notes). The owner renamed him **AltiBot** on
+2026-11-22; the art is the same. Where the kit says BONALTI, read AltiBot.
+The name is one value, `assistant` in `src/lib/brand.ts`; every page, message,
+WhatsApp template and the assistant's instructions interpolate it.
+
+## Logo
+
+The official logo is the **✓Credalti mark**: a gold check and the "Credalti"
+wordmark, approved by the owner on 2026-11-21. Only the kit's vector files are
+the logo:
+
+| File | Use |
+| --- | --- |
+| `credalti-logo-navy.svg` | On white and light backgrounds: navy `#12213A` wordmark, gold check. |
+| `credalti-logo-white.svg` | On navy and other dark backgrounds: white wordmark, gold check. |
+| `credalti-check.svg` | The check alone (square). Not used on a screen yet. |
+
+`src/components/Logo.tsx` shows them as `<img>` with `alt="Credalti"`, the
+width from the file's own viewBox (254.93 × 70.04), so it is never stretched.
+`size` is the logo's height in px; `tone="dark"` picks the white version;
+`variant="check"` shows the check alone. There is no wordmark without the check.
+
+Where it appears:
+
+| Where | Version | Height |
+| --- | --- | --- |
+| Landing (`/`) and `/empezar`, on the navy hero | white | 30 px |
+| Client app header (`AppNav`), onboarding | navy | 24 px |
+| Staff console header (`StaffShell`) | navy | 24 px |
+| Staff "no access" page (`equipo/layout.tsx`) | navy | 28 px |
+| Login | navy | 32 px |
+| Ad end card (`content/pipeline/assemble.ts`) | white | 190–200 px |
+| `public/screens/*.png` (the `/empezar` screenshots) | navy, in the app header | |
+
+Not shown on paper: the printed agreement copy (`/acuerdo/copia`) and the
+staff print batch hide the app header, and the attorney letter packet
+(`scripts/letters-packet.ts`) is Markdown with no logo. There is no Open Graph
+or social image yet.
+
+Rules (from the kit):
+
+- Never recolour, outline, stretch, rearrange or redraw the logo, and never
+  set "Credalti" in a font to imitate it (the wordmark's font is unidentified;
+  it was traced, not typeset). No colour-changing CSS (`filter`, blend modes)
+  on it.
+- Clear space of at least the height of the "C" (about 47% of the logo's
+  height, `LOGO_CLEAR_SPACE` in `brand.ts`) on every side. The headers' padding
+  leaves it; `<Logo clearSpace />` adds it as margin where nothing else does.
+- Never on the gold accent: the check disappears.
+- The old gauge mark and the two-colour typeset "Cred"/"alti" wordmark are
+  gone; the gauge was also a credit-score visual.
+
+## Colours (brand colors v2)
+
+The owner's brand colors v2 (2026-11-21), matched to the AP Fence logo:
+
+| Token | Hex | Use |
+| --- | --- | --- |
+| navy | `#12213A` | Dark backgrounds, headings and links, text on gold, the logo's wordmark on light |
+| navy-light | `#2E3C52` | Panels and cards on dark, the top of the hero gradient |
+| gold | `#EFB537` | The check, accents, primary buttons |
+| white | `#FFFFFF` | Text on dark, the logo's wordmark on dark |
+| light | `#F5F6F8` | The page background |
+
+The other colours in the kit's palette files are sampled from the character
+art (Alti's shirt, the robot's shell): they describe the art and are **not UI
+colours**. Never recolour the art to match the brand.
+
+In the app the brand colours are the tokens of the `@theme` block in
+`src/app/globals.css`. Components keep their class names; the scales were
+rebuilt on the brand colours:
+
+| Step | blue-* (navy) | amber-* (gold) |
+| --- | --- | --- |
+| 50 | `#EEF1F6` | `#FDF7E9` |
+| 100 | `#DFE5EE` | `#FBEDCB` |
+| 200 | `#C3CDDB` | `#F7DD9B` |
+| 300 | `#9AA9BE` | `#F4C862` |
+| 400 | `#6C7E98` | **`#EFB537`** brand gold: buttons, accents, gold on navy |
+| 500 | `#4D5F7A` | `#E3A62A` gold button hovered |
+| 600 | `#3A4A63` | `#B07A10` gold icons and dots on light (3:1) |
+| 700 | **`#12213A`** brand navy: headings, links, active states | `#8A5C08` gold-toned **text** on light |
+| 800 | **`#2E3C52`** navy-light: hero top, navy avatar circles, navy button hover | — |
+| 900 | **`#12213A`** brand navy: the hero, text on gold and on tints | — |
+
+`slate-50` is the brand light `#F5F6F8` (it was `#F5F5F7`); the other grays
+are unchanged. The navy scale is named by role, not strictly by lightness
+(700 and 900 are both the brand navy, 800 is navy-light), so that every
+existing `text-blue-700` heading and `bg-blue-900` surface became the brand
+navy without touching the components. The tints are the same desaturated navy
+(hue about 217°), not the old purple-blue.
+
+Contrast of every pair the UI uses (WCAG 2.x; checked by
+`src/lib/__tests__/tokens.test.ts`):
+
+| Pair | Ratio | Needs |
+| --- | --- | --- |
+| navy text on white / on light `#F5F6F8` | 16.1 / 14.9 | 4.5 |
+| navy text on blue-50 / blue-100 tints | 14.2 / 12.7 | 4.5 |
+| navy on gold button / hovered / hovered on the hero | 8.7 / 7.5 / 10.2 | 4.5 |
+| navy on gold tints amber-50 / amber-100 (pills, banners) | 15.1 / 13.9 | 4.5 |
+| white on navy / on navy-light | 16.1 / 11.1 | 4.5 |
+| white icon on blue-500 | 6.5 | 3 |
+| blue-100 text on navy / navy-light (hero lead) | 12.7 / 8.8 | 4.5 |
+| blue-200 text on navy / navy-light (hero small print) | 10.0 / 6.9 | 4.5 |
+| gold on navy / navy-light (headline accent) | 8.7 / 6.0 | 4.5 |
+| amber-300 on navy (label on the navy card in `/acuerdo`) | 10.2 | 4.5 |
+| amber-700 text on white / amber-50 / light | 5.8 / 5.4 / 5.4 | 4.5 |
+| amber-600 icons and dots on white | 3.7 | 3 |
+| blue-600 selected ring on white | 9.0 | 3 |
+| **gold on white** | **1.85** | never as text |
+
+Rules:
+
+- **Primary actions are gold with navy text** (`bg-amber-400 text-blue-900`).
+  Never white text on gold.
+- **Never gold text on white or light backgrounds** (1.85:1). Gold-toned text
+  on light (status words such as "En preparación", warnings) uses `amber-700`;
+  gold text (`amber-300`/`400`) appears only on navy. A test scans the
+  components for it.
+- Navy is for headings, links and active states on light backgrounds, and for
+  the hero field on landing pages.
+- The browser's theme colour and the manifest use the brand navy `#12213A`.
+
+## Favicon and app icons
+
+The kit's favicon set (the gold check on a navy rounded square), unchanged,
+through Next's metadata file conventions in `src/app/` (one mechanism, no
+copies in `public/` and nothing in `metadata.icons`):
+
+| File | Served at | Tag Next writes |
+| --- | --- | --- |
+| `src/app/favicon.ico` (16–256 px) | `/favicon.ico` | `<link rel="icon">` |
+| `src/app/icon.svg` | `/icon.svg` | `<link rel="icon" type="image/svg+xml">` |
+| `src/app/apple-icon.png` (180 px) | `/apple-icon.png` | `<link rel="apple-touch-icon">` |
+| `src/app/manifest.ts` | `/manifest.webmanifest` | `<link rel="manifest">` |
+
+The manifest: name and short name "Credalti", `display: standalone`, theme
+and background `#12213A`, the 192, 512 and maskable 512 icons from
+`public/brand/icons/`, `lang: es`. **`start_url` is `/dashboard`**: an icon on
+a phone's home screen is for a client opening their app, not for the landing
+page; signed out, the auth gate sends them to `/login` and back. The viewport's
+`theme-color` is `#12213A` (it was the light gray).
+
+## Typography (pending the owner)
+
+The kit *recommends* Poppins 600/700 for headings and Inter 400–600 for body
+text, and marks it "recommendation only, owner to confirm". **Nothing was
+changed**: the app keeps the system font (San Francisco on Apple devices,
+Inter elsewhere) for interface text and Nunito 800/900 (`font-display`) for
+large headlines, set in `src/app/layout.tsx`. If the owner confirms the
+recommendation, it is a change to `layout.tsx` and the `--font-*` tokens in
+`globals.css`. Either way, no font is ever used to imitate the logo.
+
+## Compliance rules from the kit
+
+`brand/COMPLIANCE.md` (not legal advice; counsel reviews claims). As they apply
+to the app:
+
+- **No guaranteed outcomes**, and no wording or visuals of "deleted",
+  "removed", "fixed", "+100 points", "guaranteed" or "approved" as a result.
+  `src/lib/compliance/guardrails.ts` enforces the wording on marketing lines,
+  in Spanish and English.
+- **No credit-score visuals in marketing**: no score dials, gauges, numbers,
+  before/after scores or green up-arrows, unless the owner approves a specific
+  asset. The landing page, `/empezar`, the `/empezar` screenshots and the ad
+  end card have none. (The `/empezar` step 1 screenshot used to be the home
+  screen with its score ring; it is now the invited welcome. The logo's gauge,
+  itself a dial, is gone.)
+- **Disputes are about potential inaccuracies, with the consumer's consent**:
+  the client decides what is inaccurate; nothing is sent without their say.
+- **No false credentials**: AltiBot is AI and never presented as a licensed
+  attorney or a human expert; Alti is never presented as AI.
+- **Respect**: no humour about debt, mistakes, income, language, immigrant
+  background or literacy.
+- **Taglines**: the kit approves none (`{TAGLINE — pending}`).
+
+**Not changed, pending the owner:** the signed-in client app shows the
+client's own scores from their report. Where:
+
+- Home (`/dashboard`): the ring with the average of the three bureaus (a
+  270° gauge in gold), the change since the first report as a green or red
+  pill ("+12 desde tu primer reporte"), and each bureau's score with its change
+  (+/− in green or red).
+- Audit (`/audit`): "Tus puntajes hoy", each bureau's score and its change
+  since the first report, in green or red.
+- The staff console shows the imported scores (`ReportImport`).
+
+These are the client's own data, not marketing, but they use the visual
+language the kit forbids in marketing (a gauge, numbers, green for up). Ask
+the owner whether to keep them as they are.
 
 ## Characters
 
-The owner's brand kit (part 3 of 3, "web-ready") brought two characters. Parts
-1 and 2 (probably the logo, colours and guidelines) have **not arrived yet**:
-until they do, the logo stays the one drawn in `src/components/Logo.tsx` and the
-palette stays as it is (navy `blue-*`, gold `amber-*`), which already matches
-the characters.
+The brand kit's "web-ready" folder brought two characters.
 
 | Character | What he is | Role in the product |
 | --- | --- | --- |
-| **BONALTI** | A friendly robot: gold and cream shell, navy body, glowing amber face, a checkmark on his chest. | **The AI assistant.** He speaks in the chat, greets on WhatsApp and explains the report. A robot makes "this is AI" obvious, and every place he speaks still says so in words ("tu asistente con IA"). The kit writes his name in capitals; the owner may prefer "Bonalti". It is one value in `brand.ts`, and no copy, style or check depends on its casing. |
+| **AltiBot** | A friendly robot: gold and cream shell, navy body, glowing amber face, a checkmark on his chest. | **The AI assistant.** He speaks in the chat, greets on WhatsApp and explains the report. A robot makes "this is AI" obvious, and every place he speaks still says so in words ("tu asistente con IA"). The kit calls him BONALTI; the owner renamed him AltiBot on 2026-11-22 (see "The brand kit"). It is one value in `brand.ts`. |
 | **Alti** | A young man in a navy overshirt with the Credalti logo, a lanyard badge reading "ALTI" and a gold shoulder strap. | **The face of the human team.** He appears where the app talks about the team as a whole: the landing page and `/empezar`, the invited client's welcome ("Tu equipo Credalti"), "talk to a person", the "what happens next" screen after signing, and "your team is working" states. |
 
 Where each one appears today:
 
-- **Landing page:** both, side by side in the hero (Alti and BONALTI turned
+- **Landing page:** both, side by side in the hero (Alti and AltiBot turned
   toward each other, with name tags). Below the buttons on a phone, beside the
-  headline on a wide screen. BONALTI's head is also in the "Hola, soy…" pill.
-- **`/empezar`:** both heads at the top; BONALTI beside step 2 (the assistant
+  headline on a wide screen. AltiBot's head is also in the "Hola, soy…" pill.
+- **`/empezar`:** both heads at the top; AltiBot beside step 2 (the assistant
   explains the report), Alti beside step 3 (the team prepares and mails).
 - **Onboarding:** Alti on the invited welcome; on "how do you want to do your
-  review", BONALTI on the assistant option and Alti on the person option.
-- **Chat (`/asistente`):** BONALTI in the header and beside the assistant's
+  review", AltiBot on the assistant option and Alti on the person option.
+- **Chat (`/asistente`):** AltiBot in the header and beside the assistant's
   messages; Alti on the "Persona" button.
 - **Más → Hablar con una persona,** the agreement's "talk to a person" button,
   step 3 of "Qué sigue" after signing, "Tu equipo está importando tu reporte"
   and the empty "rounds" screen: Alti. The empty "letters" screens, which send
-  the client back to the review: BONALTI.
-- **Staff console:** BONALTI's head beside each "BONALTI (IA)" message. Alti
+  the client back to the review: AltiBot.
+- **Staff console:** AltiBot's head beside each "AltiBot (IA)" message. Alti
   does not appear in the console.
 
 Rules for the characters:
 
 - **The art is locked.** Never edit, redraw, recolour, re-crop or regenerate
   either character. The files in `public/brand/characters/` are the kit's own
-  WebP files, copied unchanged: four views per character (`front`,
+  WebP files, copied unchanged (the robot's renamed from `bonalti_*` to
+  `altibot_*`, contents identical): four views per character (`front`,
   `three_quarter`, `head_front`, `head_three_quarter`), each at @1x and @2x,
   served with `srcSet` so retina screens get @2x. The round avatars show the
   kit's head crops inside a circle; nothing is cropped into new files. The
@@ -59,7 +269,7 @@ Rules for the characters:
   signed with that teammate's own name and "del equipo" (`TeamMessage`), and in
   the console with their name. Alti is never shown as the author of a message,
   never stands in for a particular teammate, and is never presented as AI.
-- **BONALTI is always identified as artificial intelligence** wherever he
+- **AltiBot is always identified as artificial intelligence** wherever he
   speaks (chat header, first message, WhatsApp prefix, the coach's
   instructions).
 
@@ -68,7 +278,7 @@ Rules for the characters:
 Full service, in one sentence: **"Tú nos dices qué está mal en tu reporte;
 nuestro equipo prepara y envía las cartas por ti y te mantiene al tanto."**
 Everything a client or a prospect reads is written around it: the landing
-page, `/empezar`, onboarding, the app, BONALTI and the WhatsApp messages.
+page, `/empezar`, onboarding, the app, AltiBot and the WhatsApp messages.
 
 Three things hold in every line of copy:
 
@@ -91,27 +301,17 @@ do-it-yourself wording and its approve button, kept for later.
 
 | What | Where | How to change it |
 | --- | --- | --- |
-| Colours | `@theme` block in `src/app/globals.css` | `blue-*` is navy (accent, links, active states), `amber-*` is gold (primary actions, gauge), `slate-*` is neutral. Edit the values; no component changes needed. |
-| Names and characters | `src/lib/brand.ts` | Company name, the two halves of the wordmark, the page titles, and the two characters: `assistant` / `assistantImages` (BONALTI) and `teamMascot` / `teamMascotImages` (Alti), with their image descriptions. Swapping the roles, or renaming either, is a change to this file only. |
-| Logo and gauge mark | `src/components/Logo.tsx` (`Logo`, `GaugeMark`) | Drawn in code: "Cred" + "alti" beside the gauge from the brand board. Replace with the final SVG when it exists; every screen imports from here. |
-| Characters | `public/brand/characters/*.webp`, drawn by `CharacterAvatar` (round head) and `CharacterFigure` (standing) in `src/components/Character.tsx` | Locked art from the brand kit; see "Characters" above. A test checks every path in `brand.ts` exists. |
-| App icon | `src/app/icon.svg` | Navy tile with the gold gauge. |
-| Typefaces | `src/app/layout.tsx` | System font (San Francisco on Apple devices, Inter elsewhere) for interface text; Nunito 800/900 via `font-display` for the wordmark and large headlines. |
-
-## Rules
-
-- **Primary actions are gold with navy text** (`bg-amber-400 text-blue-900`).
-  Never white text on gold: it fails contrast.
-- **Navy is for text, links and active states** on light backgrounds, and for
-  the hero field on landing pages. On navy, "Cred" is white and "alti" stays gold.
-- **The score ring is the logo's gauge**: yellow at the low end, orange at the high end.
-- **The assistant is always identified as artificial intelligence** wherever
-  he speaks (chat header, first message, WhatsApp prefix).
+| Colours | `@theme` block in `src/app/globals.css` | `blue-*` is navy, `amber-*` is gold, `slate-*` is neutral (see "Colours"). Edit the values; `tokens.test.ts` checks the brand values and the contrast. |
+| Names, logo paths, icons | `src/lib/brand.ts` | Company name, the page titles, the logo files (`logo`), the app icons and theme colour (`APP_ICONS`), and the two characters: `assistant` / `assistantImages` (AltiBot) and `teamMascot` / `teamMascotImages` (Alti), with their image descriptions. A rename is a change to this file only. |
+| Logo | `public/brand/logo/*.svg`, shown by `src/components/Logo.tsx` | The kit's files, byte for byte (see "Logo"). |
+| Characters | `public/brand/characters/*.webp`, drawn by `CharacterAvatar` (round head) and `CharacterFigure` (standing) in `src/components/Character.tsx` | Locked art from the brand kit; see "Characters". A test checks every path in `brand.ts` exists. |
+| Favicon, app icons, manifest | `src/app/favicon.ico`, `icon.svg`, `apple-icon.png`, `manifest.ts`; `public/brand/icons/` | See "Favicon and app icons". |
+| Typefaces | `src/app/layout.tsx` | See "Typography". |
 
 ## Copy from the brand board that must NOT ship
 
 The board's mock website contains lines that break the product's legal
-position. Visual identity is approved for use; these phrases are not:
+position. These phrases must not ship:
 
 - "Reparamos, disputamos y mejoramos tu perfil de crédito" — "reparamos" and
   "mejoramos" promise an outcome. (Disputing is now what the team does, but
@@ -135,12 +335,16 @@ locked in `content/brand/lock.json`, and every ad script must pass the claim
 gate before anything is generated. See `content/README.md`.
 
 **The existing ad videos show the old mascot (the capybara) and must be
-remade** with BONALTI and Alti before they run again. `lock.json` marks the old
+remade** with AltiBot and Alti before they run again. `lock.json` marks the old
 character and its reference stills as retired and records the new characters'
 files; the ad pipeline itself, the spot scripts and the hooks still describe
 the old mascot and were left as they are (nothing was regenerated). New spots
 need a new character block, written from the locked art, before any
 generation.
+
+The end card shows the official logo file (`credalti-logo-white.svg`) on
+brand navy with the gold swoosh; the captions use the brand gold and navy.
+It no longer draws the old gauge or sets the name in a font.
 
 The end card's legal line and the ad text around the video were reworded for
 full service ("Tú decides qué es inexacto. Nuestro equipo prepara y envía las
@@ -151,16 +355,13 @@ card and has to be assembled again before it runs.
 
 - **Trademark:** a quick web search found no existing "Credalti". That is not
   a clearance: counsel should run a proper trademark search before spend on
-  signage or ads. (The earlier concern, two registered US marks for CREDITAPI,
-  was about the old name.)
-- **Brand kit parts 1 and 2:** not received. Expected to hold the logo,
-  colours and guidelines. Until then the wordmark is drawn in code and the
-  palette is unchanged. If they define a different name casing for the robot,
-  change `assistant` in `src/lib/brand.ts`.
-- **Brand board:** the board still shows the old wordmark. The gauge and
-  colours are unchanged; the wordmark in the product is drawn in code.
-- **BONALTI's voice:** not chosen yet, for video.
+  signage or ads.
+- **Typeface:** the kit's Poppins/Inter is a recommendation awaiting the
+  owner (see "Typography").
+- **Scores in the client app:** keep the score ring and the green/red changes,
+  or not (see "Compliance rules from the kit").
+- **AltiBot's voice:** not chosen yet, for video.
 - **Ads:** every existing video shows the old mascot and must be remade.
 - **More poses:** the kit has four views per character (front, three-quarter,
-  side, back). Poses such as waving or celebrating, for celebrations, would
-  have to come from the owner as new locked art.
+  side, back). Poses such as waving or celebrating would have to come from the
+  owner as new locked art.

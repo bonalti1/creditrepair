@@ -2,6 +2,7 @@
 
 // Last-resort boundary: replaces the whole document when the root layout
 // itself fails, so it cannot rely on the app's stylesheet or fonts.
+// Colours are brand colors v2 (light background, gold button, navy text).
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <html lang="es">
@@ -12,7 +13,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#f5f5f7",
+          background: "#F5F6F8",
           fontFamily: "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif",
           color: "#1d1d1f",
           padding: 24,
@@ -34,8 +35,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               width: "100%",
               border: 0,
               borderRadius: 999,
-              background: "#ffc21a",
-              color: "#06173b",
+              background: "#EFB537",
+              color: "#12213A",
               fontSize: 17,
               fontWeight: 600,
               cursor: "pointer",

@@ -154,7 +154,7 @@ const es: MarketingCopy = {
       {
         title: "Habla con nuestro equipo",
         body: "Escríbenos por WhatsApp. Una persona te explica cómo trabajamos y el plan, y responde tus dudas. Si decides empezar, te manda tu enlace para entrar a la app y firmas tu acuerdo de servicio.",
-        alt: `Pantalla de inicio de ${brand} con el siguiente paso`,
+        alt: `La bienvenida de ${brand} cuando el equipo te manda tu enlace`,
       },
       {
         title: "Revisa tu reporte y dinos qué está mal",
@@ -164,7 +164,7 @@ const es: MarketingCopy = {
       {
         title: "Nuestro equipo prepara y envía las cartas",
         body: "Con lo que tú nos dijiste, el equipo prepara las cartas de disputa y las envía por correo. En la app ves cada carta, explicada, y cómo va. Más o menos cada 40 días revisamos tu reporte de nuevo y te mostramos qué cambió.",
-        alt: "Una carta de disputa con su explicación y su estado",
+        alt: "Las cartas de tu ronda y su estado",
       },
     ],
     communityTitle: "Hecho para nuestra comunidad",
@@ -321,7 +321,7 @@ const en: MarketingCopy = {
       {
         title: "Talk to our team",
         body: "Message us on WhatsApp. A person explains how we work and the plan, and answers your questions. If you decide to start, they send you your link into the app and you sign your service agreement.",
-        alt: `${brand} home screen showing the next step`,
+        alt: `The ${brand} welcome when the team sends you your link`,
       },
       {
         title: "Review your report and tell us what is wrong",
@@ -331,7 +331,7 @@ const en: MarketingCopy = {
       {
         title: "Our team prepares and mails the letters",
         body: "From what you told us, the team prepares the dispute letters and mails them. In the app you see each letter, explained, and how it is going. About every 40 days we look at your report again and show you what changed.",
-        alt: "A dispute letter with its explanation and its status",
+        alt: "The letters in your round and their status",
       },
     ],
     communityTitle: "Made for our community",

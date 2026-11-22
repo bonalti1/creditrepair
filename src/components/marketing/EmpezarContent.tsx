@@ -16,9 +16,12 @@ import { CharacterAvatar, CharacterFigure, type Character } from "@/components/C
 // number is configured, else it leads to onboarding. The words live in
 // src/lib/i18n/marketing.ts (ES and EN).
 
-const STEP_IMAGES = ["/screens/journey.png", "/screens/revisar.png", "/screens/carta.png"];
+// Real screens of the app (the demo), retaken with the brand kit's logo and colours.
+// Marketing shows no credit-score visuals (docs/BRAND.md, "Compliance"), so
+// step 1 is the invited welcome, not the home screen with its score ring.
+const STEP_IMAGES = ["/screens/bienvenida.png", "/screens/revisar.png", "/screens/carta.png"];
 
-// Who stands beside each step: BONALTI where the assistant explains the
+// Who stands beside each step: the robot (the AI assistant) where it explains the
 // report (step 2), Alti where the team prepares and mails the letters (step 3).
 const STEP_CHARACTERS: Array<{ character: Character; height: number } | null> = [
   null,
@@ -38,10 +41,10 @@ export default function EmpezarContent() {
       <section className="relative overflow-hidden bg-gradient-to-b from-blue-800 to-blue-900 px-6 pb-32 pt-5 text-center text-white">
         <div className="mx-auto max-w-3xl">
           <div className="flex items-center justify-between gap-3">
-            <Logo size={24} tone="dark" />
+            <Logo size={30} tone="dark" priority />
             <LocaleToggle tone="dark" />
           </div>
-          {/* The team and the assistant: Alti (people) and BONALTI (AI). */}
+          {/* The team and the assistant: Alti (people) and the robot (AI). */}
           <div className="mt-7 flex justify-center -space-x-3">
             <CharacterAvatar character="team" size={76} className="ring-4 ring-blue-800" />
             <CharacterAvatar character="assistant" size={76} tone="ivory" className="ring-4 ring-blue-800" />

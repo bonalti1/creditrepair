@@ -1,73 +1,50 @@
-import { BRAND } from "@/lib/brand";
+import { BRAND, LOGO_CLEAR_SPACE } from "@/lib/brand";
 
-// Credalti brand marks, drawn in code so they stay crisp at any size.
-// The wordmark is "Cred" in navy (white on dark) and "alti" in the gold
-// gradient, beside a yellow-to-orange gauge with a needle. The text comes from
-// src/lib/brand.ts. When the final logo files arrive (SVG with transparent
-// background), swap them in here — every screen uses these two components.
-
-const GAUGE = ["#fde539", "#fdcb1f", "#fdb203", "#fb9d07", "#f9890b"];
-const NAVY = "#0e2b6b";
-
-function point(cx: number, cy: number, r: number, deg: number): string {
-  const rad = (deg * Math.PI) / 180;
-  return `${(cx + r * Math.cos(rad)).toFixed(2)} ${(cy - r * Math.sin(rad)).toFixed(2)}`;
-}
-
-function sector(cx: number, cy: number, outer: number, inner: number, a0: number, a1: number): string {
-  return `M${point(cx, cy, outer, a0)}A${outer} ${outer} 0 0 1 ${point(cx, cy, outer, a1)}L${point(cx, cy, inner, a1)}A${inner} ${inner} 0 0 0 ${point(cx, cy, inner, a0)}Z`;
-}
-
-export function GaugeMark({ height = 24, needle = NAVY }: { height?: number; needle?: string }) {
-  const cx = 32;
-  const cy = 34;
-  const gap = 3;
-  const span = (180 - gap * (GAUGE.length - 1)) / GAUGE.length;
-
-  return (
-    <svg
-      height={height}
-      width={(height * 64) / 40}
-      viewBox="0 0 64 40"
-      aria-hidden="true"
-      className="shrink-0"
-    >
-      {GAUGE.map((color, i) => {
-        const start = 180 - i * (span + gap);
-        return <path key={color} d={sector(cx, cy, 30, 18.5, start, start - span)} fill={color} />;
-      })}
-      <path d={`M${cx} ${cy} 51 10`} stroke={needle} strokeWidth="3.6" strokeLinecap="round" />
-      <circle cx={cx} cy={cy} r="5" fill={needle} />
-    </svg>
-  );
-}
+// The official ✓Credalti logo: the brand kit's vector files, shown as they
+// are (public/brand/logo/, byte for byte; paths in src/lib/brand.ts). An SVG
+// in an <img> stays sharp at any size and on any screen. Never recolour,
+// outline, stretch or rearrange it, never put it on the gold accent, and
+// never set "Credalti" in a font to imitate it: there is no wordmark without
+// the check.
+//
+// Clear space: the kit asks for at least the height of the "C" around the
+// logo. `clearSpace` adds it as margin, for places where the surroundings do
+// not already leave it (headers usually do, with their padding).
 
 export default function Logo({
-  size = 22,
+  size = 28,
   tone = "light",
-  withMark = true,
+  variant = "full",
+  clearSpace = false,
+  className = "",
+  priority = false,
 }: {
-  /** Wordmark font size in px; the gauge scales with it. */
+  /** Height of the logo in px; the width follows the file's aspect ratio. */
   size?: number;
-  /** "dark" for navy backgrounds: white "Cred" and a white needle. */
+  /** "light" backgrounds get the navy wordmark; "dark" (navy) backgrounds the white one. */
   tone?: "light" | "dark";
-  withMark?: boolean;
+  /** "full" is the check and the wordmark; "check" is the gold check alone, the same on any tone. */
+  variant?: "full" | "check";
+  /** Add the kit's minimum clear space around the logo as margin. */
+  clearSpace?: boolean;
+  className?: string;
+  /** Load it eagerly: for a logo at the top of the first screen. */
+  priority?: boolean;
 }) {
-  const dark = tone === "dark";
+  const file = variant === "check" ? BRAND.logo.check : tone === "dark" ? BRAND.logo.onDark : BRAND.logo.onLight;
+  const width = Math.round((size * file.width) / file.height);
   return (
-    <span
-      className="inline-flex items-center gap-[0.28em] font-display font-black italic leading-none tracking-tight"
-      style={{ fontSize: size }}
-      role="img"
-      aria-label={BRAND.name}
-    >
-      {withMark && <GaugeMark height={size * 1.05} needle={dark ? "#ffffff" : NAVY} />}
-      <span aria-hidden="true">
-        <span className={dark ? "text-white" : "text-blue-700"}>{BRAND.wordmark[0]}</span>
-        <span className="bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text pr-[0.08em] text-transparent">
-          {BRAND.wordmark[1]}
-        </span>
-      </span>
-    </span>
+    // eslint-disable-next-line @next/next/no-img-element -- an SVG file shown as is; next/image adds nothing here.
+    <img
+      src={file.src}
+      alt={BRAND.name}
+      width={width}
+      height={size}
+      decoding="async"
+      fetchPriority={priority ? "high" : undefined}
+      className={`block shrink-0 select-none ${className}`}
+      style={{ width, height: size, margin: clearSpace ? Math.ceil(size * LOGO_CLEAR_SPACE) : undefined }}
+      draggable={false}
+    />
   );
 }

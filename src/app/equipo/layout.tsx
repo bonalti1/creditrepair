@@ -23,7 +23,7 @@ export default async function EquipoLayout({ children }: { children: React.React
   if (access === "denied") {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-12">
-        <Logo size={19} />
+        <Logo size={28} />
         <h1 className="mt-8 text-[28px] font-semibold tracking-tight text-slate-900">No tienes acceso</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-slate-500">
           Esta sección es solo para el equipo de {BRAND.name}. Si eres parte del equipo, pide a un administrador que

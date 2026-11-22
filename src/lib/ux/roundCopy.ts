@@ -32,7 +32,7 @@ function capitalise(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-/** What one letter covers, one label per item ("Nombre: R. BONALTI JR"). A file request names itself. */
+/** What one letter covers, one label per item ("Nombre: R. MARTINEZ JR"). A file request names itself. */
 export function letterCoverage(letter: PlannedLetter, items: ReportItem[], locale: Locale): string[] {
   const covered = letterItems(letter, items).map((i) => itemLabel(i, locale));
   return covered.length > 0 ? covered : [FILE_REQUEST[locale]];
@@ -41,7 +41,7 @@ export function letterCoverage(letter: PlannedLetter, items: ReportItem[], local
 export interface CoverageRow {
   /** Stable key for lists: the item's fingerprint, or "file-request". */
   key: string;
-  /** The item's label ("Nombre: R. BONALTI JR"), or the file request's name. */
+  /** The item's label ("Nombre: R. MARTINEZ JR"), or the file request's name. */
   label: string;
   /** The reason the customer gave, in their language. Null when none was given. */
   reasonLabel: string | null;

@@ -43,7 +43,7 @@ export const DEMO_RAW_REPORT: RawReport = {
       publicRecords: [],
       personalInfo: [
         { field: "address", value: "123 Old Street Apt 2, Houston, TX 77001" },
-        { field: "name", value: "R. BONALTI JR" },
+        { field: "name", value: "R. MARTINEZ JR" },
       ],
     },
     experian: {

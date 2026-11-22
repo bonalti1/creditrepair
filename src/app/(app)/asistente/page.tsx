@@ -40,7 +40,7 @@ import TeamMessage from "@/components/TeamMessage";
 // When a teammate answers in the thread, their message is signed with their
 // first name and "del equipo" and looks different from the assistant's (TeamMessage).
 //
-// Faces: the assistant's messages and the header carry BONALTI, the AI
+// Faces: the assistant's messages and the header carry the robot, the AI
 // assistant. A teammate's message never gets a character: it is signed with
 // the real person's name, so nobody's words are put in a mascot's mouth. Alti,
 // the face of the team as a whole, appears only on the "Persona" button, which
@@ -399,7 +399,7 @@ export default function Asistente() {
         {messages.map((m, i) => {
           const shown = messageText(m, locale);
           const voice = messageVoice(m, locale);
-          // BONALTI's face on the assistant's lines only, once per run of them (on the last).
+          // The robot's face on the assistant's lines only, once per run of them (on the last).
           const next = messages[i + 1];
           const lastOfRun = !next || messageVoice(next, locale).kind !== "assistant";
           return (

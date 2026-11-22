@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -15,18 +15,19 @@ import { checkSpot, HOOK_DEFAULTS, loadLock, loadSpot, SIZES, timelineSeconds, t
 //
 // Needs ffmpeg on the PATH and Playwright (`npm i -D playwright`, or a global install).
 
-const GAUGE = ["#fde539", "#fdcb1f", "#fdb203", "#fb9d07", "#f9890b"];
+// The official logo for dark backgrounds, the brand kit's file as it is
+// (public/brand/logo/, see src/lib/brand.ts), placed on the navy end card as
+// an image. It is never redrawn or set in a font.
+const LOGO_ON_DARK = resolve(fileURLToPath(new URL("../../public/brand/logo/credalti-logo-white.svg", import.meta.url)));
+// Brand colors v2 (docs/BRAND.md): navy and gold.
+const NAVY = "#12213A";
+const GOLD = "#EFB537";
 
-function gaugeSvg(height: number): string {
-  const pt = (r: number, deg: number) =>
-    `${(32 + r * Math.cos((deg * Math.PI) / 180)).toFixed(2)} ${(34 - r * Math.sin((deg * Math.PI) / 180)).toFixed(2)}`;
-  const span = (180 - 3 * 4) / 5;
-  const paths = GAUGE.map((fill, i) => {
-    const a0 = 180 - i * (span + 3);
-    const a1 = a0 - span;
-    return `<path d="M${pt(30, a0)}A30 30 0 0 1 ${pt(30, a1)}L${pt(18.5, a1)}A18.5 18.5 0 0 0 ${pt(18.5, a0)}Z" fill="${fill}"/>`;
-  }).join("");
-  return `<svg height="${height}" width="${height * 1.6}" viewBox="0 0 64 40">${paths}<path d="M32 34 51 10" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/><circle cx="32" cy="34" r="5" fill="#fff"/></svg>`;
+function logoImg(height: number): string {
+  const svg = readFileSync(LOGO_ON_DARK);
+  // The file's viewBox is 254.93 x 70.04.
+  const width = Math.round((height * 254.93) / 70.04);
+  return `<img alt="Credalti" width="${width}" height="${height}" src="data:image/svg+xml;base64,${svg.toString("base64")}">`;
 }
 
 const FONTS =
@@ -39,7 +40,7 @@ function captionHtml(html: string, spot: Spot, lock: Lock): string {
 html,body{margin:0;width:${w}px;height:${h}px;background:transparent;overflow:hidden}
 .c{position:absolute;left:70px;right:70px;top:${c.centerY[spot.format]}px;transform:translateY(-50%);text-align:center;
 font-family:Nunito,sans-serif;font-weight:900;font-size:${c.sizePx}px;line-height:1.08;letter-spacing:-0.5px;color:${c.color};
--webkit-text-stroke:${c.stroke};paint-order:stroke fill;text-shadow:0 6px 18px rgba(6,23,59,.55)}
+-webkit-text-stroke:${c.stroke};paint-order:stroke fill;text-shadow:0 6px 18px rgba(18,33,58,.55)}
 .c b{color:${c.highlight};font-weight:900}</style></head><body><div class="c">${html}</div></body></html>`;
 }
 
@@ -49,30 +50,27 @@ function hookHtml(html: string, spot: Spot, lock: Lock): string {
 html,body{margin:0;width:${w}px;height:${h}px;background:transparent;overflow:hidden}
 .h{position:absolute;left:80px;right:80px;top:${lock.hook.centerY[spot.format]}px;transform:translateY(-50%);text-align:center;
 font-family:Nunito,sans-serif;font-weight:900;font-size:${lock.hook.sizePx}px;line-height:1.1;letter-spacing:-1px;color:#fff;
--webkit-text-stroke:16px #06173b;paint-order:stroke fill;text-shadow:0 8px 22px rgba(6,23,59,.6)}
+-webkit-text-stroke:16px ${NAVY};paint-order:stroke fill;text-shadow:0 8px 22px rgba(18,33,58,.6)}
 .h b{color:${lock.captions.highlight};font-weight:900}</style></head><body><div class="h">${html}</div></body></html>`;
 }
 
 function endCardHtml(spot: Spot, lock: Lock): string {
   const [w, h] = SIZES[spot.format];
   const vertical = spot.format === "9:16";
-  const logo = vertical
-    ? `<div class="mark">${gaugeSvg(210)}</div><div class="word">Cred<span class="alti">alti</span></div>`
-    : `<div class="row">${gaugeSvg(190)}<div class="word">Cred<span class="alti">alti</span></div></div>`;
+  // Clear space of at least the height of the "C" (about half the logo's height) is kept by the margins below.
+  const logo = `<div class="logo">${logoImg(vertical ? 190 : 200)}</div>`;
   return `<!doctype html><html><head><meta charset="utf-8">${FONTS}<style>
 html,body{margin:0;width:${w}px;height:${h}px;overflow:hidden}
-body{background:linear-gradient(180deg,#0a2152,#06173b);font-family:Nunito,sans-serif;color:#fff;position:relative}
+body{background:${NAVY};font-family:Nunito,sans-serif;color:#fff;position:relative}
 .stack{position:absolute;left:0;right:0;top:${vertical ? 500 : 250}px;display:flex;flex-direction:column;align-items:center;text-align:center}
-.row{display:flex;align-items:center;gap:36px}
-.word{margin-top:${vertical ? 26 : 0}px;font-weight:900;font-style:italic;font-size:${vertical ? 164 : 176}px;letter-spacing:-3px;line-height:1}
-.alti{background:linear-gradient(90deg,#ffc21a,#f9890b);-webkit-background-clip:text;color:transparent;padding-right:14px}
-.tag{margin-top:${vertical ? 64 : 44}px;font-weight:800;font-size:${vertical ? 78 : 64}px;line-height:1.12;letter-spacing:-0.5px}
-.tag b{color:#ffc21a;font-weight:800;${vertical ? "display:block" : ""}}
-.legal{margin-top:${vertical ? 72 : 60}px;max-width:${vertical ? 820 : 1500}px;font-family:Inter,sans-serif;font-weight:500;font-size:${vertical ? 31 : 27}px;line-height:1.42;color:#c8d3f2}
+.logo img{display:block}
+.tag{margin-top:${vertical ? 110 : 100}px;font-weight:800;font-size:${vertical ? 78 : 64}px;line-height:1.12;letter-spacing:-0.5px}
+.tag b{color:${GOLD};font-weight:800;${vertical ? "display:block" : ""}}
+.legal{margin-top:${vertical ? 72 : 60}px;max-width:${vertical ? 820 : 1500}px;font-family:Inter,sans-serif;font-weight:500;font-size:${vertical ? 31 : 27}px;line-height:1.42;color:#d3d9e3}
 svg.swoosh{position:absolute;left:0;right:0;bottom:0;width:100%;height:${vertical ? 150 : 120}px}
 </style></head><body><div class="stack">${logo}
 <div class="tag">${lock.endCard.tagline}</div><div class="legal">${lock.endCard.legal}</div></div>
-<svg class="swoosh" viewBox="0 0 1440 120" preserveAspectRatio="none"><path d="M0 62C380 132 1060 -8 1440 54V120H0Z" fill="#ffc21a"/></svg>
+<svg class="swoosh" viewBox="0 0 1440 120" preserveAspectRatio="none"><path d="M0 62C380 132 1060 -8 1440 54V120H0Z" fill="${GOLD}"/></svg>
 </body></html>`;
 }
 

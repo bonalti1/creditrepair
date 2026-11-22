@@ -1,6 +1,6 @@
 # Credalti — credit dispute software
 
-*(Company: Credalti, with the AI assistant BONALTI (a robot) and Alti as the face of the human team. Called CreditCapi until November 2026; the assistant was a capybara until the brand kit of November 2026. Internal/spec name: Bonalti Credit.)*
+*(Company: Credalti, with the AI assistant AltiBot (a robot, renamed by the owner on 2026-11-22; see docs/BRAND.md) and Alti as the face of the human team. Called CreditCapi until November 2026; the assistant was a capybara until the brand kit of November 2026. Internal/spec name: Bonalti Credit.)*
 
 **What it is:** Credalti is a full-service credit services company,
 Spanish-first, launching in Texas. A sales team talks to the lead first and
@@ -58,7 +58,7 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/letters/templates.ts` | Merge-field letter templates (§611, MOV, §623 furnisher-direct, §609, personal-info) |
 | `src/lib/letters/variation.ts` | Claude-powered per-letter wording variation (e-OSCAR countermeasure) |
 | `src/lib/letters/fonts.ts` | Print/handwritten font rotation, deterministic per letter |
-| `src/lib/coach/systemPrompt.ts` | BONALTI's instructions (the AI assistant), Spanish-first, per service mode: explains the service, never promises a result, never picks items, never quotes a price, hands over to the team |
+| `src/lib/coach/systemPrompt.ts` | AltiBot's instructions (the AI assistant), Spanish-first, per service mode: explains the service, never promises a result, never picks items, never quotes a price, hands over to the team |
 | `src/lib/integrations/lob.ts` | Lob mail client: first class or certified (with electronic return receipt), parsed addresses, idempotency key; simulated without an API key. Which request details are verified is listed at the top |
 | `src/lib/integrations/whatsapp.ts` | WhatsApp Cloud API sender; message copy runs through guardrails |
 | `src/app/api/reports/import` | Import + parse + diff a monitoring pull; deletion celebration |
@@ -68,8 +68,8 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/app/api/webhooks/n8n` | Round triggers / day-40 re-engagement (shared-secret auth) |
 | `supabase/migrations/0001_init.sql` | Full schema with owner-only RLS on every table |
 | `src/app/*` | Landing, onboarding (goal selector), dashboard, item finder + attestation, letters page (read-only under full service), rounds — demo-data backed until Phase 1 auth wiring |
-| `src/lib/ux/teamRound.ts`, `src/lib/ux/reviewChatCopy.ts` | Full service in the client app: where the team's round stands (being prepared, mailed), and what BONALTI says once the review is finished |
-| `src/app/api/chat`, `src/lib/chat/` | The thread with BONALTI, stored per user (`chat_messages`); AI replies are recorded by the server, never accepted from the browser |
+| `src/lib/ux/teamRound.ts`, `src/lib/ux/reviewChatCopy.ts` | Full service in the client app: where the team's round stands (being prepared, mailed), and what AltiBot says once the review is finished |
+| `src/app/api/chat`, `src/lib/chat/` | The thread with AltiBot, stored per user (`chat_messages`); AI replies are recorded by the server, never accepted from the browser |
 | `src/lib/security/` | Rate limiter, constant-time secret checks, WhatsApp webhook signature verification |
 | `src/lib/observability/errors.ts`, `src/instrumentation.ts` | Error log lines + optional alert webhook (`ERROR_WEBHOOK_URL`) |
 | `src/lib/__tests__/`, `content/spots.test.ts` | Test suite (`npm test`), run in CI |
@@ -77,7 +77,7 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/letters/enclosures.ts` | ID and proof-of-address photos attached as pages behind each mailed letter |
 | `supabase/setup.sql` | Every migration in order, for pasting into the Supabase SQL editor (a test keeps it in sync) |
 | `src/lib/sales/`, `src/app/equipo/invitar` | Sales-first handoff: the salesperson's invite link and the page that builds it — see `docs/SALES-FLOW.md` |
-| `src/lib/brand.ts` | Company name (Credalti), wordmark halves, the two characters (BONALTI, the AI assistant; Alti, the face of the team), their names and image paths; pages and messages read from here. `src/components/Character.tsx` draws them |
+| `src/lib/brand.ts` | Company name (Credalti), the official logo files and app icons, the two characters (AltiBot, the AI assistant; Alti, the face of the team), their names and image paths; pages and messages read from here. `src/components/Logo.tsx` shows the logo and `src/components/Character.tsx` draws the characters (see `docs/BRAND.md`) |
 | `src/lib/staff/stage.ts` | Staff console logic: a client's stage, what needs a person (exceptions), and the system's next step with its date |
 | `src/lib/staff/data.ts`, `src/lib/staff/demoClients.ts` | Where the console gets clients: the interface, the demo implementation (invented clients), and the database one (staff routes) |
 | `src/app/equipo/` | Staff console: home (exceptions, batch send, pipeline), client list, client page, invite. Open in the demo; staff-only when Supabase is configured |

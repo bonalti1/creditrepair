@@ -33,7 +33,7 @@ export default function AppNav() {
         <div className="mx-auto flex h-12 max-w-2xl items-center justify-between px-4 sm:h-14 sm:px-6">
           {/* Full header height, so the logo is an easy tap. */}
           <Link href="/" aria-label={BRAND.name} className="flex h-11 items-center">
-            <Logo size={19} />
+            <Logo size={24} priority />
           </Link>
 
           <nav className="hidden items-center gap-1 sm:flex">

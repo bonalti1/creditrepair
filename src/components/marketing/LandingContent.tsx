@@ -8,7 +8,7 @@ import Logo from "@/components/Logo";
 import { CharacterAvatar, CharacterFigure } from "@/components/Character";
 
 // Landing. The brand board in product form: navy field, gold action, and the
-// two characters together: BONALTI, the AI assistant, and Alti, the face of
+// two characters together: the robot, the AI assistant, and Alti, the face of
 // the human team. On a phone they stand below the buttons, so the headline and
 // the main action stay on the first screen; on a wide screen they stand beside
 // the headline. Copy discipline: it describes the service (the client says what is
@@ -31,7 +31,7 @@ export default function LandingContent() {
     <main className="min-h-dvh bg-slate-50">
       <section className="relative overflow-hidden bg-gradient-to-b from-blue-800 to-blue-900 pb-28 text-white">
         <header className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-2 px-5">
-          <Logo size={22} tone="dark" />
+          <Logo size={30} tone="dark" priority />
           <div className="flex shrink-0 items-center gap-2">
             <LocaleToggle tone="dark" />
             <Link
@@ -71,7 +71,7 @@ export default function LandingContent() {
             </div>
           </div>
 
-          {/* Alti turns toward BONALTI and BONALTI toward Alti: the team and the assistant, side by side. */}
+          {/* Alti turns toward the robot and the robot toward Alti: the team and the assistant, side by side. */}
           <div className="relative mt-12 flex items-end justify-center gap-2 sm:gap-4 lg:mt-0">
             <figure className="flex flex-col items-center">
               <CharacterFigure

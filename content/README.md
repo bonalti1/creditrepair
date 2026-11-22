@@ -7,7 +7,7 @@ scripts, no dependency on the web app except the claim rules.
 ## Characters changed: the existing ads must be remade
 
 The capybara mascot ("Capi") was retired on 2026-11-21. The brand kit replaced
-it with two characters: **BONALTI**, the robot AI assistant, and **Alti**, the
+it with two characters: **AltiBot**, the robot AI assistant (renamed by the owner on 2026-11-22; the kit's files use its earlier name), and **Alti**, the
 face of the human team (see `docs/BRAND.md`). Their locked art is recorded in
 `brand/lock.json` → `characters`; the old `character` block and its reference
 stills are marked `"status": "retired"` and kept only as the record of what
@@ -24,7 +24,7 @@ a new spot is written.
 | Capi's reference stills | `brand/capi-reference-closeup.jpg`, `brand/capi-reference-wide.jpg` | Every new shot starts from one of these. The Higgsfield job ids are in `lock.json`. |
 | Film look | `brand/lock.json` → `look` | Photoreal, 35mm, golden light, locked-off camera. |
 | Models and cost | `brand/lock.json` → `models` | Stills: GPT Image 2.6, 2.75 credits each. Video: Gemini Omni Flash 1.2 at 1080p, 3.25 credits per second. |
-| Captions and end card | `brand/lock.json` → `captions`, `endCard` | Drawn by code in the brand font. Free. |
+| Captions and end card | `brand/lock.json` → `captions`, `endCard` | Captions drawn by code in the brand font; the end card places the official logo file (`public/brand/logo/credalti-logo-white.svg`) on brand navy. Free. |
 | Capi's voice | `brand/lock.json` → `voice` | **Not locked yet.** The video model invents the voice on each render, and the approved take is too short (about 4.5 s) to clone from; 10 s or more is needed. Steps to lock it are in `lock.json`. |
 
 ## A spot is a data file
