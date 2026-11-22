@@ -13,7 +13,7 @@ import Logo from "@/components/Logo";
 
 // The frame around every staff screen: logo, the destinations this member's
 // role may open, who is signed in (a round initial that opens a menu, so the
-// header stays on one line at 1280 pixels with all seven tabs), and a "Demo"
+// header stays on one line at 1280 pixels with all eight tabs), and a "Demo"
 // pill while the clients are invented. From 1280 pixels the tabs share the
 // header's line; narrower (a laptop at 1024, a phone) they drop to their own
 // row and scroll sideways inside it.
@@ -29,6 +29,7 @@ const NAV: Array<{ href: string; label: string; icon: IconName; needs?: Capabili
   { href: "/equipo/acreedores", label: "Acreedores", icon: "doc", needs: "rounds.send" },
   { href: "/equipo/actividad", label: "Actividad", icon: "clock" },
   { href: "/equipo/negocio", label: "Negocio", icon: "chart", needs: "business.view" },
+  { href: "/equipo/socios", label: "Socios", icon: "link", needs: "partners.view" },
   { href: "/equipo/equipo", label: "Equipo", icon: "team", needs: "team.manage" },
 ];
 
@@ -125,7 +126,7 @@ function Frame({ children }: { children: React.ReactNode }) {
               </span>
             )}
             {/* Who is signed in, as a round initial that opens a small menu: the name and role, and
-                with a database the way out. It keeps the header to one line beside seven tabs. */}
+                with a database the way out. It keeps the header to one line beside eight tabs. */}
             {viewer && <MemberMenu viewer={viewer} demo={demo} />}
           </div>
 
@@ -139,7 +140,8 @@ function Frame({ children }: { children: React.ReactNode }) {
                   key={n.href}
                   href={n.href}
                   aria-current={isActive(n.href) ? "page" : undefined}
-                  className={`pressable flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium ${
+                  // xl:px-2.5 keeps eight tabs, the logo and the member's initial on one line at 1280 pixels.
+                  className={`pressable flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium xl:px-2.5 ${
                     isActive(n.href) ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >

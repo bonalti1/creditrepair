@@ -3,6 +3,7 @@ import type { ChatRole, ChatSource } from "../chat/history";
 import type { EscalationStage, ItemCategory, LetterTarget, NormalizedReport, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
 import type { LetterMail, MailClass } from "../mail/types";
+import type { LeadSource } from "../leads/source";
 
 // The staff-side view of one client: everything the console needs to say where
 // a person is and why, in one object. It mirrors what the database already
@@ -300,3 +301,14 @@ export interface StaffRoundTeamFields {
 export interface StaffClient extends StaffClientTeamFields {}
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StaffRound extends StaffRoundTeamFields {}
+
+// ── Where the person came from (migration 0017) ─────────────────────────
+
+/** Fields lead sources add to a client: HighLevel, a referral partner, or added by hand. */
+export interface StaffClientSourceFields {
+  /** Absent: nothing on record (an older record, or someone who came straight to the app). */
+  leadSource?: LeadSource | null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientSourceFields {}

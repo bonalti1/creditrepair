@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getStaffMember } from "@/lib/staff/access";
+import { getPartnerMember, hasPartnerApplication } from "@/lib/partners/server";
 import { getServerSupabase } from "@/lib/supabase/server";
 
 // Magic-link landing: exchange the auth code for a session cookie, then go on.
@@ -20,6 +21,9 @@ export async function GET(req: Request) {
     if (!error && data.user) {
       if (await getStaffMember()) {
         if (!next.startsWith("/equipo")) next = "/equipo";
+      } else if ((await getPartnerMember()) || (await hasPartnerApplication(data.user))) {
+        // A referral partner: their portal, and no client profile.
+        next = "/socios/portal";
       } else {
         await supabase.from("profiles").upsert({ id: data.user.id }, { onConflict: "id", ignoreDuplicates: true });
       }

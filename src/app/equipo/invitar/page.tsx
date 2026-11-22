@@ -11,6 +11,7 @@ import {
   type GoalKey,
 } from "@/lib/sales/invite";
 import { formatPhone } from "@/lib/staff/format";
+import { partnerCodeOf } from "@/lib/leads/source";
 import { deniedReason } from "@/lib/staff/permissions";
 import { useStaff } from "@/lib/staff/useStaff";
 import { NoAccess } from "@/components/staff/ui";
@@ -42,6 +43,8 @@ export default function Invitar() {
   const [phone, setPhone] = useState("");
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState<"link" | "message" | null>(null);
+  const [partner, setPartner] = useState<string | null>(null);
+  const [clientId, setClientId] = useState<string | null>(null);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -65,6 +68,10 @@ export default function Invitar() {
         setName(client.firstName);
         if ((ALL_STATES as readonly string[]).includes(client.state)) setState(client.state);
         setPhone(formatPhone(client.phone));
+        // A lead from HighLevel or a partner arrives with a goal, and a partner's code the link carries on.
+        if (GOALS.some((g) => g.key === client.goal)) setGoal(client.goal as GoalKey);
+        setPartner(partnerCodeOf(client.leadSource));
+        setClientId(client.id);
       });
   }, [loaded, viewer, data]);
 
@@ -72,9 +79,14 @@ export default function Invitar() {
   // client's profiles.referred_by, which is what lets a salesperson see the people they brought in (migration 0012).
   const handle = !data.demo && viewer ? viewer.handle : undefined;
   const url = useMemo(
-    () => origin + buildInvitePath({ name, goal, state, refName: me, ref: handle }),
-    [origin, name, goal, state, me, handle],
+    () => origin + buildInvitePath({ name, goal, state, refName: me, ref: handle, partner }),
+    [origin, name, goal, state, me, handle, partner],
   );
+  // Sending or copying the message for a prospect records when the invitation went out (HighLevel's "Invitado").
+  const markInvited = () => {
+    if (!clientId || data.demo) return;
+    void fetch("/api/staff/prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "invited", id: clientId }) }).catch(() => undefined);
+  };
   const message = useMemo(() => inviteMessageEs({ name }, url), [name, url]);
   const open = stateStatus(state) === "open";
   const ready = me.trim().length >= 2 && name.trim().length >= 2;
@@ -84,6 +96,7 @@ export default function Invitar() {
   const copy = async (what: "link" | "message") => {
     try {
       await navigator.clipboard.writeText(what === "link" ? url : message);
+      markInvited();
       setCopied(what);
       setTimeout(() => setCopied(null), 1800);
     } catch {
@@ -155,6 +168,11 @@ export default function Invitar() {
             inputMode="tel"
           />
           <p className="mt-1.5 text-[13px] text-slate-500">Solo abre el chat; no se guarda ni va en el enlace.</p>
+          {partner && (
+            <p className="mt-2 rounded-2xl bg-blue-50 px-4 py-3 text-[14px] leading-snug text-blue-700" data-testid="invite-partner">
+              Lo refirió un socio: el enlace lleva su código ({partner}) para que quede registrado.
+            </p>
+          )}
         </div>
       </div>
 
@@ -177,6 +195,7 @@ export default function Invitar() {
             target="_blank"
             rel="noopener noreferrer"
             aria-disabled={!ready}
+            onClick={markInvited}
             className={`pressable flex h-14 w-full items-center justify-center rounded-full text-[17px] font-semibold ${
               ready ? "bg-amber-400 text-blue-900 hover:bg-amber-500" : "pointer-events-none bg-slate-200 text-slate-500"
             }`}

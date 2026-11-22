@@ -87,6 +87,9 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     ),
   ]);
 
+  // Referral partners' names and codes, for a lead's source (migration 0017). A role that may not read them gets none.
+  const partners = await rows(db.from("partners").select("id, name, referral_code"), "partners");
+
   // letter_items has no user_id: read those of the letters this member can see.
   const letterIds = letters.map((l) => String(l.id));
   const letterItems = letterIds.length > 0 ? await rows(db.from("letter_items").select("*").in("letter_id", letterIds), "letter_items") : [];
@@ -128,6 +131,7 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     samples,
     assignments,
     audit,
+    partners,
   };
 }
 

@@ -43,6 +43,9 @@ export const CAPABILITIES = [
   "billing.refund",
   "business.view",
   "team.manage",
+  // Referral partners (src/lib/partners, migration 0017): see the list, and approve them and set commissions.
+  "partners.view",
+  "partners.manage",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -71,6 +74,8 @@ export const CAPABILITY_LABEL: Record<Capability, string> = {
   "billing.refund": "Devolver cobros",
   "business.view": "Ver los números del negocio",
   "team.manage": "Administrar el equipo",
+  "partners.view": "Ver los socios que refieren clientes",
+  "partners.manage": "Aprobar socios y fijar sus comisiones",
 };
 
 export interface RolePermissions {
@@ -101,6 +106,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "billing.refund": false,
       "business.view": false,
       "team.manage": false,
+      "partners.view": false,
+      "partners.manage": false,
     },
   },
   sales: {
@@ -120,6 +127,9 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "billing.refund": false,
       "business.view": false,
       "team.manage": false,
+      // Sales follows up the people partners refer, so they see who the partners are. Only an administrator approves.
+      "partners.view": true,
+      "partners.manage": false,
     },
   },
 };

@@ -25,6 +25,7 @@ import {
 import { fullName, type StaffClient, type StaffRound } from "@/lib/staff/types";
 import { useStaff } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
+import NewLeadsCard from "@/components/staff/NewLeadsCard";
 import {
   PRIMARY_BUTTON_COMPACT,
   QUIET_BUTTON,
@@ -210,6 +211,7 @@ export default function EquipoHome() {
         </section>
 
         <div className="space-y-6">
+          <NewLeadsCard clients={clients} now={now} canInvite={can("clients.invite")} />
           {!sends && (
             <section aria-labelledby="prospectos">
               <SectionTitle aside={<span className="text-[13px] tabular-nums text-slate-500">{leads.length}</span>}>

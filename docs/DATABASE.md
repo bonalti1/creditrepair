@@ -25,8 +25,9 @@ or into Supabase's own settings. Never paste a key into a chat or an email.
 
 1. In Supabase: **SQL Editor → New query**.
 2. Open `supabase/setup.sql` from this repository, copy **all** of it, paste,
-   and press **Run**. It is every migration (`supabase/migrations/0001` to
-   `0014`) in order. It should finish with "Success. No rows returned".
+   and press **Run**. It is every migration (`supabase/migrations/0001`
+   onwards; `0017` adds referral partners and the HighLevel handoff, see
+   `docs/PARTNERS.md` and `docs/HIGHLEVEL.md`) in order. It should finish with "Success. No rows returned".
 3. Run it **once**. If you run it a second time it stops at the first table
    that already exists; that is harmless, nothing is changed.
 

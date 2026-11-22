@@ -7,6 +7,7 @@ import type { DisputeReasonCode } from "../letters/reasons";
 import type { LetterMail, MailClass, MailEventKind, MailEventRecord, MailProvider } from "../mail/types";
 import { itemFromRow, letterKey, planNextRound } from "../rounds/plan";
 import { isDisputeReasonCode } from "../ux/disputeReason";
+import { leadSourceFromRows } from "../leads/fromRows";
 import type {
   ClientAssignment,
   DocumentKind,
@@ -78,6 +79,8 @@ export interface StaffRows {
   samples: Row[];
   assignments: Row[];
   audit: Row[];
+  /** Referral partners this member may read (admin, sales), for the partner's name on a lead source (migration 0017). */
+  partners?: Row[];
 }
 
 export const EMPTY_STAFF_ROWS: StaffRows = {
@@ -249,6 +252,8 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
   const auditByClient = groupBy(rows.audit.filter((a) => a.kind === "client_assigned" && a.client_id), "client_id");
   const auditByProspect = groupBy(rows.audit.filter((a) => a.kind === "client_assigned" && a.prospect_id), "prospect_id");
 
+  const partnersById = new Map((rows.partners ?? []).map((p) => [text(p.id), p]));
+  const sourceOf = (prospect: Row | undefined, profile: Row | null) => leadSourceFromRows(prospect, profile, partnersById);
   const profiles = rows.profiles.filter((p) => !staffIds.has(text(p.id)));
   const profilePhones = new Set(profiles.map((p) => phoneKey(p.phone_e164)).filter(Boolean));
   const prospectFor = (profile: Row): Row | undefined =>
@@ -525,13 +530,15 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       email: textOrNull(prospect?.email),
       goal: textOrNull(profile.goal) ?? textOrNull(prospect?.goal),
       ...(prospect ? { addedBy: handle(context, prospect.created_by) } : {}),
+      ...(sourceOf(prospect, profile) ? { leadSource: sourceOf(prospect, profile) } : {}),
     };
     return client;
   });
 
   // People sales added by hand who have no account yet (and whose phone no account has).
   for (const prospect of rows.prospects) {
-    if (prospect.converted_user_id || profilePhones.has(phoneKey(prospect.phone_e164))) continue;
+    // A prospect sales closed (lost_at, migration 0017) is kept on record but leaves the list.
+    if (prospect.converted_user_id || prospect.lost_at || profilePhones.has(phoneKey(prospect.phone_e164))) continue;
     const id = text(prospect.id);
     const at = iso(prospect.created_at) ?? "";
     const assignments = assignmentsFrom(auditByProspect.get(id));
@@ -560,6 +567,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       email: textOrNull(prospect.email),
       goal: textOrNull(prospect.goal),
       addedBy: handle(context, prospect.created_by),
+      ...(sourceOf(prospect, null) ? { leadSource: sourceOf(prospect, null) } : {}),
     });
   }
 

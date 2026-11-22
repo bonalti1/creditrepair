@@ -17,6 +17,7 @@ import {
 import { ROLE_LABEL, deniedReason } from "@/lib/staff/permissions";
 import { useStaff } from "@/lib/staff/useStaff";
 import Definition from "@/components/staff/Definition";
+import PartnerStats from "@/components/partners/PartnerStats";
 import { NoAccess, SectionTitle } from "@/components/staff/ui";
 
 // The numbers an owner checks, from the same records the console shows.
@@ -235,6 +236,8 @@ function Dashboard() {
           Se cobra solo por rondas ya enviadas, a la cuota del acuerdo firmado. Lo programado no incluye rondas que todavía no salen.
         </p>
       </section>
+
+      <PartnerStats clients={clients} period={period} now={now} />
 
       <section className="mt-7 grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2" aria-label="Por mes">
         <Bars title="Rondas enviadas por mes" points={series} value={(p) => p.roundsMailed} format={(n) => String(n)} definition={`${METRIC_INFO.roundsMailed.definition} El mes actual va hasta hoy.`} />

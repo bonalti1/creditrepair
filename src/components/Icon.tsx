@@ -24,6 +24,7 @@ const PATHS = {
   team: "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.3a3.5 3.5 0 0 1 0 6.4M18.5 14a6.5 6.5 0 0 1 3 6",
   plus: "M12 5v14M5 12h14",
   download: "M12 4v11M7 10l5 5 5-5M5 20h14",
+  link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1",
 } as const;
 
 export type IconName = keyof typeof PATHS;
