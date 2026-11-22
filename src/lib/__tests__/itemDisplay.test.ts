@@ -194,7 +194,7 @@ describe("itemTitle", () => {
       title: "123 Old Street Apt 2, Houston, TX 77001",
     });
     expect(itemTitle(personal("address"), "en").kicker).toBe("Address");
-    expect(itemTitle(personal("name"), "es")).toEqual({ kicker: "Nombre", title: "R. BONALTI JR" });
+    expect(itemTitle(personal("name"), "es")).toEqual({ kicker: "Nombre", title: "R. MARTINEZ JR" });
     expect(itemTitle(personal("employer"), "es")).toEqual({ kicker: "Empleador", title: "ACME LLC" });
     expect(itemTitle(personal("employer"), "en").kicker).toBe("Employer");
   });
@@ -230,7 +230,7 @@ describe("itemTitle", () => {
     expect(itemTitle(midland, "es")).toEqual({ kicker: null, title: "Midland Credit Management" });
     expect(itemTitle(inquiry, "en")).toEqual({ kicker: null, title: "Auto Finance Corp" });
     expect(itemLabel(midland, "es")).toBe("Midland Credit Management");
-    expect(itemLabel(personal("name"), "es")).toBe("Nombre: R. BONALTI JR");
+    expect(itemLabel(personal("name"), "es")).toBe("Nombre: R. MARTINEZ JR");
   });
 });
 
@@ -270,7 +270,7 @@ describe("personal-info names for the letter", () => {
   it("reads as English in a letter", () => {
     expect(DEMO_REPORT.items.filter((i) => i.category === "personal_info").map((i) => i.name)).toEqual([
       "Address: 123 Old Street Apt 2, Houston, TX 77001",
-      "Name: R. BONALTI JR",
+      "Name: R. MARTINEZ JR",
       "Employer: ACME LLC",
     ]);
   });

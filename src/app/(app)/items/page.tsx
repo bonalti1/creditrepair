@@ -308,7 +308,7 @@ function WizardCard({
         <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{explainer.whyItMatters}</p>
         {glossary.map((g, i) => (
           <p key={i} className="mt-3 flex gap-2.5 rounded-2xl bg-slate-50 px-4 py-3 text-[14px] leading-snug text-slate-600">
-            <Icon name="sparkle" size={18} className="mt-px shrink-0 text-amber-600" />
+            <Icon name="sparkle" size={18} className="mt-px shrink-0 text-amber-700" />
             <span>{g}</span>
           </p>
         ))}

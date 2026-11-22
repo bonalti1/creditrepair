@@ -110,8 +110,8 @@ function Frame({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh print:min-h-0">
       <header className="sticky top-0 z-30 border-b hairline bg-white/80 backdrop-blur-xl print:hidden">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 px-4 sm:px-6">
-          <Link href="/equipo" aria-label="Inicio del equipo" className="flex h-14 items-center gap-2.5">
-            <Logo size={19} />
+          <Link href="/equipo" aria-label="Inicio del equipo" className="flex h-14 items-center gap-3">
+            <Logo size={24} priority />
             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">Equipo</span>
           </Link>
 

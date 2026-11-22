@@ -16,9 +16,12 @@ import { CharacterAvatar, CharacterFigure, type Character } from "@/components/C
 // number is configured, else it leads to onboarding. The words live in
 // src/lib/i18n/marketing.ts (ES and EN).
 
-const STEP_IMAGES = ["/screens/journey.png", "/screens/revisar.png", "/screens/carta.png"];
+// Real screens of the app (the demo), retaken with the brand kit's logo and colours.
+// Marketing shows no credit-score visuals (docs/BRAND.md, "Compliance"), so
+// step 1 is the invited welcome, not the home screen with its score ring.
+const STEP_IMAGES = ["/screens/bienvenida.png", "/screens/revisar.png", "/screens/carta.png"];
 
-// Who stands beside each step: BONALTI where the assistant explains the
+// Who stands beside each step: the robot (the AI assistant) where it explains the
 // report (step 2), Alti where the team prepares and mails the letters (step 3).
 const STEP_CHARACTERS: Array<{ character: Character; height: number } | null> = [
   null,
@@ -38,15 +41,15 @@ export default function EmpezarContent() {
       <section className="relative overflow-hidden bg-gradient-to-b from-blue-800 to-blue-900 px-6 pb-32 pt-5 text-center text-white">
         <div className="mx-auto max-w-3xl">
           <div className="flex items-center justify-between gap-3">
-            <Logo size={24} tone="dark" />
+            <Logo size={30} tone="dark" priority />
             <LocaleToggle tone="dark" />
           </div>
-          {/* The team and the assistant: Alti (people) and BONALTI (AI). */}
+          {/* The team and the assistant: Alti (people) and the robot (AI). */}
           <div className="mt-7 flex justify-center -space-x-3">
             <CharacterAvatar character="team" size={76} className="ring-4 ring-blue-800" />
             <CharacterAvatar character="assistant" size={76} tone="ivory" className="ring-4 ring-blue-800" />
           </div>
-          <h1 className="mt-5 font-display text-[40px] font-black leading-[1.05] sm:text-[60px]">
+          <h1 className="mt-5 font-display text-[35px] font-bold leading-[1.08] sm:text-[56px]">
             {c.headline} <span className="text-amber-400">{c.headlineAccent}</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-[19px] leading-relaxed text-blue-100">
@@ -54,7 +57,7 @@ export default function EmpezarContent() {
           </p>
           <a
             href={ctaHref}
-            className="pressable mt-8 inline-flex h-14 items-center rounded-full bg-amber-400 px-9 text-[17px] font-bold text-blue-900 hover:bg-amber-300"
+            className="pressable mt-8 inline-flex h-14 items-center rounded-full bg-amber-400 px-9 text-[17px] font-semibold text-blue-900 hover:bg-amber-300"
           >
             {ctaLabel}
           </a>
@@ -74,7 +77,7 @@ export default function EmpezarContent() {
             return (
               <div key={n} className="grid items-center gap-8 sm:grid-cols-2">
                 <div className={n % 2 === 0 ? "sm:order-2" : ""}>
-                  <span className="inline-block rounded-full bg-blue-100 px-3 py-1 text-sm font-bold text-blue-700">
+                  <span className="inline-block rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
                     {c.step(n)}
                   </span>
                   {beside && (
@@ -82,7 +85,7 @@ export default function EmpezarContent() {
                       {beside.character === "assistant" ? c.assistantTag : c.teamTag}
                     </span>
                   )}
-                  <h2 className="mt-3 font-display text-[26px] font-extrabold leading-tight text-blue-700">{s.title}</h2>
+                  <h2 className="mt-3 font-display text-[26px] font-bold leading-tight text-blue-700">{s.title}</h2>
                   <p className="mt-2 text-slate-600">{s.body}</p>
                 </div>
                 <div className={`flex items-end justify-center gap-3 ${n % 2 === 0 ? "sm:order-1" : ""}`}>
@@ -104,7 +107,7 @@ export default function EmpezarContent() {
       </section>
 
       <section className="mx-auto max-w-3xl px-6 py-14 text-center">
-        <h2 className="font-display text-[28px] font-black text-blue-700">{c.communityTitle}</h2>
+        <h2 className="font-display text-[28px] font-bold text-blue-700">{c.communityTitle}</h2>
         <div className="mt-6 grid gap-4 text-left sm:grid-cols-2">
           {c.community.map(([t, b]) => (
             <div key={t} className="card p-6">
@@ -123,7 +126,7 @@ export default function EmpezarContent() {
 
       <section className="border-t border-slate-100 bg-slate-50 py-14">
         <div className="mx-auto max-w-2xl px-6">
-          <h2 className="text-center font-display text-[28px] font-black text-blue-700">{c.faqTitle}</h2>
+          <h2 className="text-center font-display text-[28px] font-bold text-blue-700">{c.faqTitle}</h2>
           <div className="mt-6 space-y-3">
             {c.faq.map(([q, a]) => (
               <details key={q} className="card p-6">

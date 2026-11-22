@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { demoImportedAt, firstScoresForTrend } from "@/lib/demo";
+import { demoImportedAt } from "@/lib/demo";
 import { useLocale } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/dictionaries";
 import type { ReportItem } from "@/lib/domain/types";
@@ -61,8 +61,6 @@ export default function Audit() {
     byName.get(i.name)!.add(i.bureau);
   }
 
-  // A change is shown only between two real pulls; one pull is a starting point.
-  const first = firstScoresForTrend(view.scoreHistory);
   // The demo report reads as imported today; the client's own report carries its date. The date is
   // worked out in the browser after mount, so the server's day never disagrees with the visitor's.
   const [importedAt, setImportedAt] = useState<Date | null>(null);
@@ -100,19 +98,13 @@ export default function Audit() {
       <section>
         <h2 className="px-1 pb-2 text-[13px] font-semibold uppercase tracking-wide text-slate-500">{d.audit.scores}</h2>
         <div className="card overflow-hidden">
+          {/* Today's numbers from the report, as plain facts: no change since an earlier report, no
+              green or red (docs/BRAND.md, "Scores in the client app"). */}
           {BUREAUS.map((b, index) => {
             const score = report.scores[b];
-            const delta = score && first?.[b] ? score - first[b] : null;
             return (
               <div key={b} className={`flex items-center gap-3 px-5 py-4 ${index > 0 ? "border-t hairline" : ""}`}>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[17px] font-medium text-slate-900">{BUREAU_LABEL[b]}</p>
-                  {delta !== null && (
-                    <p className={`text-[13px] font-medium tabular-nums ${delta >= 0 ? "text-green-700" : "text-red-700"}`}>
-                      {d.scores.trend(delta)}
-                    </p>
-                  )}
-                </div>
+                <p className="min-w-0 flex-1 text-[17px] font-medium text-slate-900">{BUREAU_LABEL[b]}</p>
                 <p className="text-[22px] font-semibold tabular-nums text-slate-900">{score ?? "—"}</p>
               </div>
             );

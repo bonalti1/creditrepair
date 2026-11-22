@@ -24,7 +24,7 @@ import { readStoredAgreement } from "@/lib/ux/agreementLocal";
 // to do your review (with the AI assistant, or with a teammate on WhatsApp;
 // either way the answers are the client's and the team mails the letters).
 // Characters: the invited welcome is from the team, so Alti (the face of the
-// team, never a specific person) greets; on the review choice BONALTI marks the
+// team, never a specific person) greets; on the review choice the robot marks the
 // AI assistant and Alti marks "a person by my side".
 // One question per screen, one obvious button.
 //
@@ -180,7 +180,7 @@ function Onboarding() {
     <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-10 pt-6">
       <div className="flex items-center justify-between gap-3">
         <Link href="/" aria-label={BRAND.name} className="flex h-11 items-center">
-          <Logo size={19} />
+          <Logo size={24} priority />
         </Link>
         <div className="flex items-center gap-3">
           {step !== "waitlist-done" && (
@@ -199,9 +199,9 @@ function Onboarding() {
           {/* Alti stands on a white card, feet on its lower edge, with the team's name beside him. */}
           <div className="card flex items-end gap-5 overflow-hidden px-6 pt-5">
             <CharacterFigure character="team" height={150} />
-            <p className="self-center font-display text-[22px] font-black leading-tight text-blue-700">{c.teamTag}</p>
+            <p className="self-center font-display text-[22px] font-bold leading-tight text-blue-700">{c.teamTag}</p>
           </div>
-          <h1 className="mt-5 font-display text-[34px] font-black leading-tight text-blue-700">
+          <h1 className="mt-5 font-display text-[34px] font-bold leading-tight text-blue-700">
             {c.hello(invite.name)}
           </h1>
           <p className="mt-3 text-[17px] leading-relaxed text-slate-500">
@@ -250,7 +250,7 @@ function Onboarding() {
 
       {step === "goal" && (
         <div className="animate-rise flex flex-1 flex-col pt-12">
-          <h1 className="font-display text-[34px] font-black leading-tight text-blue-700">{c.goalTitle}</h1>
+          <h1 className="font-display text-[34px] font-bold leading-tight text-blue-700">{c.goalTitle}</h1>
           <p className="mt-3 text-[17px] text-slate-500">{c.goalSub}</p>
           <div className="card mt-8 overflow-hidden">
             {GOALS.map((g, index) => (
@@ -294,7 +294,7 @@ function Onboarding() {
 
       {step === "state" && (
         <div className="animate-rise flex flex-1 flex-col pt-12">
-          <h1 className="font-display text-[34px] font-black leading-tight text-blue-700">{c.stateTitle}</h1>
+          <h1 className="font-display text-[34px] font-bold leading-tight text-blue-700">{c.stateTitle}</h1>
           <p className="mt-3 text-[17px] text-slate-500">{c.stateSub}</p>
           <select
             value={state}
@@ -344,7 +344,7 @@ function Onboarding() {
 
       {step === "monitoring" && (
         <div className="animate-rise flex flex-1 flex-col pt-12">
-          <h1 className="font-display text-[34px] font-black leading-tight text-blue-700">{c.monitoringTitle}</h1>
+          <h1 className="font-display text-[34px] font-bold leading-tight text-blue-700">{c.monitoringTitle}</h1>
           <p className="mt-3 text-[17px] text-slate-500">{c.monitoringSub}</p>
           <div className="card mt-8 overflow-hidden">
             {c.monitoringRows(providerName).map(([label, value], index) => (
@@ -405,7 +405,7 @@ function Onboarding() {
 
       {step === "assist" && (
         <div className="animate-rise flex flex-1 flex-col pt-12">
-          <h1 className="font-display text-[34px] font-black leading-tight text-blue-700">{c.assistTitle}</h1>
+          <h1 className="font-display text-[34px] font-bold leading-tight text-blue-700">{c.assistTitle}</h1>
           <p className="mt-3 text-[17px] text-slate-500">{c.assistSub}</p>
           <div className="mt-8 space-y-3">
             <button onClick={() => finish(false)} className="card pressable flex w-full items-center gap-4 p-5 text-left">
@@ -440,7 +440,7 @@ function Onboarding() {
           <span className="flex h-16 w-16 items-center justify-center rounded-full bg-green-50 text-green-700">
             <Icon name="check" size={32} strokeWidth={2.5} />
           </span>
-          <h1 className="mt-5 text-[28px] font-bold text-slate-900">{c.waitlistDone}</h1>
+          <h1 className="mt-5 font-display text-[28px] font-bold text-slate-900">{c.waitlistDone}</h1>
           <p className="mt-2 max-w-xs text-[16px] text-slate-500">
             {c.waitlistDoneSub}
           </p>

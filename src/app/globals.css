@@ -5,33 +5,52 @@
  * accent, amber-* as the gold action colour, and slate-* as neutrals, so the
  * brand is adjusted here and nowhere else.
  *
+ * Brand colors v2 (owner, 2026-11-21; docs/BRAND.md): navy #12213A,
+ * navy-light #2E3C52, gold #EFB537, white, light #F5F6F8. The scales are
+ * built on them, and src/lib/__tests__/tokens.test.ts holds the key values
+ * and the contrast of every pair the UI uses.
+ *
  * Neutrals follow Apple's system grays; every text tone used in the UI
  * (slate-400 and darker) passes 4.5:1 on white.
  */
 @theme {
-  /* Credalti navy — accent, links, active states. */
-  --color-blue-50: #f1f4fc;
-  --color-blue-100: #e2e8f9;
-  --color-blue-200: #c8d3f2;
-  --color-blue-300: #9fb3e6;
-  --color-blue-400: #6a87d3;
-  --color-blue-500: #3559b8;
-  --color-blue-600: #1b3f94;
-  --color-blue-700: #0e2b6b;
-  --color-blue-800: #0a2152;
-  --color-blue-900: #06173b;
+  /*
+   * Credalti navy. The scale is named by role, not strictly by lightness:
+   *   700  brand navy: headings, links, active states, progress, navy buttons
+   *   800  navy-light: the top of the hero gradient, navy avatar circles,
+   *        the hover of navy buttons (panels on dark)
+   *   900  brand navy: dark surfaces (the hero), text on gold and on tints
+   * 50–600 are tints of the same desaturated navy (hue about 217°), so they
+   * read as one family with the logo, not as a purple-blue.
+   */
+  --color-blue-50: #eef1f6;
+  --color-blue-100: #dfe5ee;
+  --color-blue-200: #c3cddb;
+  --color-blue-300: #9aa9be;
+  --color-blue-400: #6c7e98;
+  --color-blue-500: #4d5f7a;
+  --color-blue-600: #3a4a63;
+  --color-blue-700: #12213a;
+  --color-blue-800: #2e3c52;
+  --color-blue-900: #12213a;
 
-  /* Credalti gold — primary actions (always with navy text) and the gauge. */
-  --color-amber-50: #fff8e1;
-  --color-amber-100: #ffefc2;
-  --color-amber-200: #ffe38a;
-  --color-amber-300: #ffd84d;
-  --color-amber-400: #ffc21a;
-  --color-amber-500: #fdb203;
-  --color-amber-600: #f9890b;
-  --color-amber-700: #d96d00;
+  /*
+   * Credalti gold. 400 is the brand gold: primary buttons (always with navy
+   * text, 8.7:1), accents and text on navy. Never gold text on white (1.85:1):
+   * gold-toned text on light backgrounds uses 700, a dark gold that passes
+   * 4.5:1 on white and on the 50/100 tints. 600 is for icons and dots (3:1).
+   */
+  --color-amber-50: #fdf7e9;
+  --color-amber-100: #fbedcb;
+  --color-amber-200: #f7dd9b;
+  --color-amber-300: #f4c862;
+  --color-amber-400: #efb537;
+  --color-amber-500: #e3a62a;
+  --color-amber-600: #b07a10;
+  --color-amber-700: #8a5c08;
 
-  --color-slate-50: #f5f5f7;
+  /* 50 is the brand's light background. */
+  --color-slate-50: #f5f6f8;
   --color-slate-100: #ededf0;
   --color-slate-200: #e2e2e7;
   --color-slate-300: #d2d2d7;
@@ -42,12 +61,11 @@
   --color-slate-800: #2c2c2e;
   --color-slate-900: #1d1d1f;
 
-  /* San Francisco on Apple devices, Inter everywhere else. */
+  /* The brand kit's body face, Inter (400/500/600, loaded in layout.tsx), then the system's own. */
   --font-sans:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", var(--font-inter), "Helvetica Neue",
-    Arial, sans-serif;
-  /* Rounded, friendly display face for the wordmark and big headlines. */
-  --font-display: var(--font-nunito), var(--font-inter), system-ui, sans-serif;
+    var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* The kit's display face, Poppins (600/700), for headlines. Never for the logo, which is a file. */
+  --font-display: var(--font-poppins), var(--font-inter), system-ui, sans-serif;
 }
 
 html {
@@ -65,6 +83,26 @@ h1,
 h2,
 h3 {
   letter-spacing: -0.022em;
+}
+
+/* Inter is loaded at 400, 500 and 600 only: bold body text is 600, so the
+   browser never fakes a heavier weight. Figures in tables line up. In the base
+   layer, so a utility class on the element still wins. */
+@layer base {
+  b,
+  strong,
+  th {
+    font-weight: 600;
+  }
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Poppins sets wider than the old display face: balance headings so a
+     headline never ends on one short word. */
+  h1,
+  h2 {
+    text-wrap: balance;
+  }
 }
 
 /* Hairline used for separators inside grouped lists. */

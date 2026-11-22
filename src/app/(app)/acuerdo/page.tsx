@@ -49,7 +49,7 @@ function PageTitle({ kicker, title, lead }: { kicker?: string; title: string; le
   return (
     <header className="px-1">
       {kicker && <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{kicker}</p>}
-      <h1 className="mt-1 font-display text-[30px] font-black leading-tight text-blue-700">{title}</h1>
+      <h1 className="mt-1 font-display text-[30px] font-bold leading-tight text-blue-700">{title}</h1>
       {lead && <p className="mt-2 text-[16px] leading-relaxed text-slate-600">{lead}</p>}
     </header>
   );
@@ -576,7 +576,7 @@ function Signed({
         <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-50 text-green-700">
           <Icon name="check" size={32} strokeWidth={2.5} />
         </span>
-        <h1 className="mt-4 font-display text-[30px] font-black leading-tight text-blue-700">
+        <h1 className="mt-4 font-display text-[30px] font-bold leading-tight text-blue-700">
           {es ? "Tu acuerdo está firmado" : "Your agreement is signed"}
         </h1>
         <p className="mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-slate-600">

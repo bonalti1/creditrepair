@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ASSISTANT_NAME, BRAND } from "@/lib/brand";
 import { DEMO_RAW_REPORT } from "@/lib/demo";
 import { PRIMARY_BUREAUS } from "@/lib/domain/bureaus";
 import { parseReport } from "@/lib/domain/parser";
@@ -6,6 +7,10 @@ import type { UserProfile } from "@/lib/domain/types";
 import { escapeHtml } from "@/lib/letters/html";
 import { renderLetter, TEMPLATES, type LetterContext } from "@/lib/letters/templates";
 import { variationProblems } from "@/lib/letters/variation";
+
+// Names that never appear in a consumer's letter: the old company name, the
+// assistant, the internal project name and this company.
+const NOT_IN_A_LETTER = new RegExp(`\\bCreditCapi\\b|\\b${ASSISTANT_NAME}\\b|${BRAND.internalName}|\\b${BRAND.name}\\b|on behalf of`, "i");
 
 const report = parseReport(DEMO_RAW_REPORT);
 const user: UserProfile = {
@@ -34,7 +39,7 @@ describe("letter templates", () => {
     expect(letter).toContain("- Copy of government-issued photo ID");
     // No unfilled merge fields and no company speaking for the consumer.
     expect(letter).not.toMatch(/\{\{|\}\}|undefined|\[object/);
-    expect(letter).not.toMatch(/\bCredalti\b|\bCreditCapi\b|\bBonalti\b|on behalf of/i);
+    expect(letter).not.toMatch(NOT_IN_A_LETTER);
   });
 
   it("lists exactly the items it was given", () => {

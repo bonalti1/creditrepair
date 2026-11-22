@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { POST as coachPost } from "@/app/api/coach/route";
 import { ATTESTATION_TEXT } from "@/lib/compliance/attestation";
 import { checkMarketingCopy } from "@/lib/compliance/guardrails";
-import { DEMO_RAW_REPORT, DEMO_REPORT, DEMO_SCORE_HISTORY, firstScoresForTrend } from "@/lib/demo";
+import { DEMO_RAW_REPORT, DEMO_REPORT, DEMO_SCORE_HISTORY } from "@/lib/demo";
 import { ROUND_CYCLE_DAYS } from "@/lib/domain/attack";
 import { parseReport } from "@/lib/domain/parser";
 import type { ReportItem } from "@/lib/domain/types";
@@ -210,7 +210,7 @@ describe("B. what this round mails and what waits", () => {
     const session = sessionPlan(items, four);
     expect(session.roundNumber).toBe(1);
     expect(session.attestedFlags).toHaveLength(4);
-    expect(session.inRound.map((i) => i.name)).toEqual(["Name: R. BONALTI JR", "Employer: ACME LLC"]);
+    expect(session.inRound.map((i) => i.name)).toEqual(["Name: R. MARTINEZ JR", "Employer: ACME LLC"]);
     expect(session.waiting.map((i) => i.name)).toEqual(["Midland Credit Management", "Auto Finance Corp"]);
     // The letters hold exactly the in-round items, and none of the waiting ones.
     const mailed = session.plan.letters.flatMap((l) => l.itemFingerprints);
@@ -246,10 +246,10 @@ describe("B. what this round mails and what waits", () => {
   it("names what each letter covers, not just who receives it", () => {
     const { plan } = sessionPlan(items, four);
     expect(plan.letters.map((l) => [l.target.key, letterCoverage(l, items, "es")])).toEqual([
-      ["equifax", ["Nombre: R. BONALTI JR"]],
+      ["equifax", ["Nombre: R. MARTINEZ JR"]],
       ["experian", ["Empleador: ACME LLC"]],
     ]);
-    expect(letterCoverage(plan.letters[0]!, items, "en")).toEqual(["Name: R. BONALTI JR"]);
+    expect(letterCoverage(plan.letters[0]!, items, "en")).toEqual(["Name: R. MARTINEZ JR"]);
     expect(letterItems(plan.letters[1]!, items)).toEqual([personal("employer")]);
     // A file request to a secondary bureau covers no item and says what it is.
     const round2 = sessionPlan(items, attested(midlandEq)).plan;
@@ -294,7 +294,7 @@ describe("B. what this round mails and what waits", () => {
     const session = sessionPlan(items, four);
     const es = approvedMessage(session, items, "es");
     expect(es).toContain("Estas 2 cartas se imprimen y van por correo:");
-    expect(es).toContain("• Equifax Information Services LLC — Nombre: R. BONALTI JR");
+    expect(es).toContain("• Equifax Information Services LLC — Nombre: R. MARTINEZ JR");
     expect(es).toContain("• Experian — Empleador: ACME LLC");
     expect(es).toContain(
       "No van en estas cartas y esperan a tu siguiente ronda, unos 40 días después: tu cobranza de Midland Credit Management y tu consulta de Auto Finance Corp.",
@@ -504,15 +504,6 @@ describe("E. reviewing again after the letters went out", () => {
 });
 
 describe("F. scores with a single pull", () => {
-  it("shows no change until there are two pulls", () => {
-    expect(DEMO_SCORE_HISTORY).toHaveLength(1);
-    expect(firstScoresForTrend(DEMO_SCORE_HISTORY)).toBeNull();
-    expect(firstScoresForTrend([])).toBeNull();
-    expect(
-      firstScoresForTrend([{ scores: { equifax: 538 } }, { scores: { equifax: 561 } }]),
-    ).toEqual({ equifax: 538 });
-  });
-
   it("keeps the demo's one history entry equal to today's scores", () => {
     expect(DEMO_SCORE_HISTORY[0]!.scores).toEqual(DEMO_REPORT.scores);
   });

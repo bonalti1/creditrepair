@@ -81,7 +81,7 @@ export default function AcuerdoCopiaPage() {
           {es ? "Mi acuerdo" : "My agreement"}
         </Link>
         <header className="px-1">
-          <h1 className="font-display text-[30px] font-black leading-tight text-blue-700">{es ? "Mi copia" : "My copy"}</h1>
+          <h1 className="font-display text-[30px] font-bold leading-tight text-blue-700">{es ? "Mi copia" : "My copy"}</h1>
           <p className="mt-2 text-[16px] leading-relaxed text-slate-600">
             {es
               ? "Todos tus documentos, el registro de tu firma y el aviso de cancelación. Puedes imprimirlo o guardarlo como PDF cuando quieras."

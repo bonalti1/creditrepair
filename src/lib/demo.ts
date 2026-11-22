@@ -43,7 +43,7 @@ export const DEMO_RAW_REPORT: RawReport = {
       publicRecords: [],
       personalInfo: [
         { field: "address", value: "123 Old Street Apt 2, Houston, TX 77001" },
-        { field: "name", value: "R. BONALTI JR" },
+        { field: "name", value: "R. MARTINEZ JR" },
       ],
     },
     experian: {
@@ -82,24 +82,15 @@ export const DEMO_REPORT: NormalizedReport = parseReport(DEMO_RAW_REPORT);
 export const DEMO_FLAGS: ItemFlag[] = [];
 
 /**
- * Score history across pulls, for the dashboard trend. The demo has a single
- * pull: today's scores are the starting point, so no gain or loss is shown.
- * A trend appears only once there are at least two real pulls.
+ * Score history across pulls, in the shape the client's own history arrives in
+ * (/api/report). The demo has a single pull, equal to today's scores. The
+ * client app shows only the current scores, never a change between pulls
+ * (docs/BRAND.md, "Scores in the client app").
  */
 export const DEMO_SCORE_HISTORY: Array<{
   date: string;
   scores: Partial<Record<"equifax" | "experian" | "transunion", number>>;
 }> = [{ date: "2026-07-01", scores: { equifax: 561, experian: 574, transunion: 558 } }];
-
-/**
- * The first pull's scores to compare today's against, or null when there are
- * not yet two pulls (a single pull is a baseline, not a change).
- */
-export function firstScoresForTrend(
-  history: ReadonlyArray<{ scores: Partial<Record<"equifax" | "experian" | "transunion", number>> }>,
-): Partial<Record<"equifax" | "experian" | "transunion", number>> | null {
-  return history.length >= 2 ? history[0]!.scores : null;
-}
 
 /**
  * The demo report reads as imported today, whenever the demo is opened. Call
