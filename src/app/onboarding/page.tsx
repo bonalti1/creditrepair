@@ -18,6 +18,12 @@ import { readStoredAgreement } from "@/lib/ux/agreementLocal";
 import { isFullName } from "@/lib/agreement/signature";
 import { markMilestone, readMilestones, resumeStep, type FirstWeekStep } from "@/lib/ux/firstWeek";
 import FirstWeekProgress from "@/components/FirstWeekProgress";
+import ShareChoice, { PartnerBadge, type SharePartnerFace } from "@/components/partners/ShareChoice";
+import { EMPTY_CASE_FACTS } from "@/lib/case/timeline";
+import { partnerDisplay, progressFromCaseFacts, SHARING_CONSENT_VERSION } from "@/lib/partners/sharing";
+import { CLIENT_SHARING_COPY } from "@/lib/partners/sharingCopy";
+import { demoPartnerByCode, writeDemoClientSharing } from "@/lib/partners/sharingDemo";
+import { isDemoMode } from "@/lib/supabase/config";
 
 // Onboarding: goal (feeds the mortgage track) → state gate (v1 is TX-only;
 // other states join the waitlist, since expansion is a legal project, not a
@@ -42,11 +48,23 @@ import FirstWeekProgress from "@/components/FirstWeekProgress";
 // after signing picks up where they left off, without the welcome again. The
 // time each step took is kept on the device only, to find friction.
 //
+// Referred by a partner (the link carries their code): the welcome says who
+// ("Te recomendó María López, ABC Realty", with their logo once an
+// administrator approved it), and one more screen asks whether that partner
+// may follow the client's progress: No compartir (the default) / Solo el
+// avance / Avance y resumen, with exactly what they would and would never see.
+// Before sign-in the choice waits on the device (PENDING_SHARE_KEY);
+// OnboardingSync records it once the client is signed in, through
+// /api/sharing, which checks the text's hash like any other choice.
+//
 // Language: Spanish first, with the same ES/EN switch as the app. The choice is
 // kept on the device, so it carries into the app. The words live in
 // src/lib/i18n/marketing.ts.
 
 const STATES = ["TX", ...ALL_STATES.filter((s) => s !== "TX")];
+
+/** A sharing choice made before sign-in, recorded by OnboardingSync. */
+const PENDING_SHARE_KEY = "bonalti.partnerShare";
 
 /** Where the link's answers wait while the client is away signing the agreement. */
 const RETURN_KEY = "bonalti.onboardingReturn";
@@ -75,7 +93,9 @@ function Onboarding() {
   const { locale } = useLocale();
   const c = MARKETING[locale].onboarding;
   const goalLabel = (g: (typeof GOALS)[number]) => (locale === "en" ? g.labelEn : g.label);
-  const [step, setStep] = useState<"welcome" | "goal" | "state" | "monitoring" | "assist" | "waitlist-done">("goal");
+  const [step, setStep] = useState<"welcome" | "share" | "goal" | "state" | "monitoring" | "assist" | "waitlist-done">("goal");
+  const [partner, setPartner] = useState<(SharePartnerFace & { id: string | null }) | null>(null);
+  const [shareDone, setShareDone] = useState(false);
   const [invite, setInvite] = useState<Invite | null>(null);
   const [ready, setReady] = useState(false);
   const [goal, setGoal] = useState<string | null>(null);
@@ -160,8 +180,29 @@ function Onboarding() {
     setStep("monitoring");
   };
 
-  /** After the welcome screen: only ask for what the link did not carry. */
+  // The partner on the link: their public face (approved partners only).
+  useEffect(() => {
+    const code = invite?.partner;
+    if (!code) return;
+    if (isDemoMode()) {
+      const p = demoPartnerByCode(code);
+      if (p) setPartner({ id: p.id, name: p.name, company: p.company, logo: null });
+      return;
+    }
+    fetch(`/api/partners/public?code=${encodeURIComponent(code)}`)
+      .then((r) => (r.ok ? (r.json() as Promise<{ partner?: SharePartnerFace }>) : null))
+      .then((body) => body?.partner && setPartner({ ...body.partner, id: null }))
+      .catch(() => undefined);
+  }, [invite?.partner]);
+
+  /** After the welcome screen: the partner question, once, then the rest. */
   const afterWelcome = () => {
+    if (partner && !shareDone) return setStep("share");
+    continueAfterWelcome();
+  };
+
+  /** Only ask for what the link did not carry. */
+  const continueAfterWelcome = () => {
     if (!goal) return setStep("goal");
     if (!invite?.state) return setStep("state");
     save("bonalti.state", state);
@@ -232,6 +273,12 @@ function Onboarding() {
           <p className="mt-3 text-[17px] leading-relaxed text-slate-500">
             {c.sentBy(invite.refName)}
           </p>
+          {partner && (
+            <div className="card mt-5 p-4" data-testid="welcome-partner">
+              <PartnerBadge partner={partner} line={locale === "es" ? "Te recomendó" : "Referred by"} />
+              <p className="sr-only">{CLIENT_SHARING_COPY[locale].referredBy(partnerDisplay(partner))}</p>
+            </div>
+          )}
           {(goal || invite.state) && (
             <div className="card mt-7 overflow-hidden">
               {goal && (
@@ -270,6 +317,44 @@ function Onboarding() {
               {c.changeAnswers}
             </button>
           </div>
+        </div>
+      )}
+
+      {step === "share" && partner && (
+        <div className="animate-rise flex flex-1 flex-col pt-8" data-testid="onboarding-share">
+          <div className="card p-4">
+            <PartnerBadge partner={partner} line={locale === "es" ? "Te recomendó" : "Referred by"} />
+          </div>
+          <h1 className="mt-5 font-display text-[28px] font-bold leading-tight text-blue-700">{CLIENT_SHARING_COPY[locale].shareTitle(partner.name)}</h1>
+          <p className="mt-2 text-[16px] leading-relaxed text-slate-500">{CLIENT_SHARING_COPY[locale].shareLead(partner.name)}</p>
+          <div className="mt-5">
+            <ShareChoice
+              partner={partner}
+              current="none"
+              locale={locale}
+              now={new Date()}
+              saveLabel={CLIENT_SHARING_COPY[locale].continue}
+              preview={(level) => progressFromCaseFacts(EMPTY_CASE_FACTS, { name: invite?.name ?? (locale === "es" ? "Tu nombre" : "Your name"), goal, level })}
+              onSave={async (level, textHash) => {
+                if (isDemoMode() && partner.id) writeDemoClientSharing(partner.id, level);
+                else if (level !== "none" && invite?.partner) save(PENDING_SHARE_KEY, JSON.stringify({ code: invite.partner, level, locale, version: SHARING_CONSENT_VERSION, textHash }));
+                setShareDone(true);
+                continueAfterWelcome();
+                return { ok: true };
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShareDone(true);
+              continueAfterWelcome();
+            }}
+            className="pressable mt-2 flex h-12 w-full items-center justify-center text-[15px] font-medium text-blue-700"
+          >
+            {CLIENT_SHARING_COPY[locale].later}
+          </button>
+          <p className="text-center text-[13px] text-slate-500">{CLIENT_SHARING_COPY[locale].laterNote}</p>
         </div>
       )}
 

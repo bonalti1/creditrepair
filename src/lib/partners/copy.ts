@@ -253,6 +253,21 @@ export const PARTNER_COPY: Record<"es" | "en", PartnerCopy> = {
   },
 };
 
+/**
+ * The rules, as they read while "Comisiones a socios" is on or off
+ * (program.ts). Off: the two rules about commissions become one line saying
+ * the program pays no referral fees.
+ */
+export function partnerRules(locale: "es" | "en", commissionsEnabled: boolean): string[] {
+  const rules = PARTNER_COPY[locale].rules;
+  if (commissionsEnabled) return rules;
+  const noFees =
+    locale === "es"
+      ? "Por ahora, el programa de socios no paga comisiones por referir. No aceptes nada de valor de nadie por referirlo."
+      : "For now, the partner program pays no referral fees. Do not accept anything of value from anyone for referring them.";
+  return [...rules.slice(0, 3), noFees, ...rules.slice(5)];
+}
+
 /** Every string in the partner copy, for the claim-rule test. */
 export function allPartnerStrings(): string[] {
   const out: string[] = [];

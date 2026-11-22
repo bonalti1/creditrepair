@@ -38,6 +38,8 @@ export function partnerFromRow(row: Row): Partner {
     commissionNote: str(row.commission_note),
     appliedAt: String(row.applied_at ?? ""),
     decidedAt: str(row.decided_at),
+    logoStatus: (["pending", "approved", "rejected"].includes(String(row.logo_status)) ? row.logo_status : "none") as Partner["logoStatus"],
+    logo: str(row.logo_data),
   };
 }
 
