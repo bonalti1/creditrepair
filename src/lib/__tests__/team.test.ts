@@ -631,8 +631,10 @@ describe("team: what the staff routes accept", () => {
     const staffRoutes = sourceFiles("src/app/api").filter((f) => /getStaffAccess|requireCapability/.test(read(f)));
     for (const route of staffRoutes) expect(read(route), route).toMatch(/requireCapability\(/);
     expect(read("src/app/api/furnishers/route.ts")).toMatch(/requireCapability\("rounds\.send"\)/);
-    // team, clients, case, reports, rounds, mail, refund, pause, furnishers.
-    expect(staffRoutes.length).toBe(9);
+    // team, clients, case, reports, rounds, mail, refund, pause, furnishers, and AI intake's report and letter uploads.
+    expect(read("src/app/api/staff/intake/report/route.ts")).toMatch(/requireCapability\("reports\.import"\)/);
+    expect(read("src/app/api/staff/intake/letter/route.ts")).toMatch(/requireCapability\("reports\.import"\)/);
+    expect(staffRoutes.length).toBe(11);
   });
 });
 

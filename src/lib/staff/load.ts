@@ -57,6 +57,7 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     samples,
     assignments,
     audit,
+    intake,
   ] = await Promise.all([
     rows(sel("profiles", "*", "id"), "profiles"),
     rows(one ? db.from("prospects").select("*").or(`id.eq.${one},converted_user_id.eq.${one}`) : db.from("prospects").select("*"), "prospects"),
@@ -85,6 +86,8 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
         : db.from("team_audit").select("*").eq("kind", "client_assigned"),
       "team_audit",
     ),
+    // AI intake records (migration 0016): status and reasons, not the report readings.
+    rows(sel("intake_documents", "id, user_id, kind, status, simulated, reasons, created_at, cost_usd, result").neq("kind", "credit_report"), "intake_documents"),
   ]);
 
   // letter_items has no user_id: read those of the letters this member can see.
@@ -128,6 +131,7 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     samples,
     assignments,
     audit,
+    intake,
   };
 }
 

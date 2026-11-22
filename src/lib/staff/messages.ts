@@ -69,6 +69,11 @@ const BODY: Record<ExceptionKind, (client: StaffClient, exception: StaffExceptio
   // The team's own task (an address to look up), but if the client has a letter from that company, its address helps.
   furnisher_address_missing: () =>
     "Estamos preparando tus cartas. ¿Tienes alguna carta o estado de cuenta reciente de la empresa a la que le escribimos? Si nos mandas una foto, nos ayuda a confirmar su dirección.",
+  // AI intake: what the automatic check could not confirm, said plainly. The client re-uploads from the app.
+  document_check_needs_person: () =>
+    "Revisamos el documento que subiste y necesitamos confirmar algo contigo. ¿Nos puedes mandar una foto nueva, completa y bien iluminada? Si es tu comprobante de domicilio, que sea un recibo o estado de cuenta reciente con tu dirección.",
+  bureau_letter_needs_person: () =>
+    "Gracias por subir la carta del buró. La estamos revisando: piden algo más y te escribimos para ver juntos qué hace falta.",
 };
 
 /** The drafted message for one exception. */

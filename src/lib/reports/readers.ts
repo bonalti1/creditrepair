@@ -1,4 +1,5 @@
 import { parseReport, rawReportSchema, type RawReport } from "../domain/parser";
+import { AiReadProblems, looksLikeAiEnvelope, readAiEnvelope } from "../intake/report/envelope";
 
 // Report readers: turn what staff paste or upload into the app's own report
 // format (RawReport, domain/parser.ts). The rest of the pipeline — preview,
@@ -14,14 +15,25 @@ import { parseReport, rawReportSchema, type RawReport } from "../domain/parser";
 // samples, its pages can only be kept as samples (see ReportSample in
 // staff/types.ts), never read.
 
-export type ReaderStatus = "ready" | "needs_sample";
+export type ReaderStatus = "ready" | "needs_sample" | "simulated";
 
 export interface ReportReader {
   key: string;
   /** The name staff see in the provider list. */
   label: string;
-  /** "ready": it reads. "needs_sample": no reader exists yet; `read` always throws. */
+  /**
+   * "ready": it reads. "needs_sample": no reader exists yet; `read` always
+   * throws. "simulated": the AI reader without an API key on this server (or
+   * in a browser, which never sees the key): it returns canned, labelled
+   * readings that can never be saved to a real client.
+   */
   status: ReaderStatus;
+  /**
+   * "ai": staff upload a PDF or a saved page instead of pasting text; the
+   * server sends it to the AI (src/lib/intake) and `read` takes the reading
+   * it returns (an envelope), validated again every time.
+   */
+  upload?: "ai";
   /** A cheap look at the text: does it seem to come from this source? Used only to suggest a provider. */
   detect(source: string): boolean;
   /** The report in the app's own format. Throws ReportReadError, in plain Spanish, when it cannot. */
@@ -206,6 +218,31 @@ function looksLikeCredaltiJson(source: string): boolean {
   return text.startsWith("{") && /"bureaus"\s*:/.test(text) && /"pulledAt"\s*:/.test(text);
 }
 
+// ── Any provider's PDF or saved page, read by the AI ────────────────────
+
+/**
+ * The AI reader (src/lib/intake, docs/INTAKE.md). It does not guess a
+ * provider's layout in code: Claude transcribes the report with a citation
+ * per item, and deterministic checks decide what a person must look at.
+ */
+const aiDocumentReader: ReportReader = {
+  key: "ai_document",
+  label: "PDF o página guardada (lectura con IA)",
+  get status(): ReaderStatus {
+    return typeof window === "undefined" && process.env.ANTHROPIC_API_KEY ? "ready" : "simulated";
+  },
+  upload: "ai",
+  detect: looksLikeAiEnvelope,
+  read(source) {
+    try {
+      return readAiEnvelope(source, new Date());
+    } catch (error) {
+      if (error instanceof AiReadProblems) throw new ReportReadError(error.problems);
+      throw error;
+    }
+  },
+};
+
 // ── Providers without a reader ──────────────────────────────────────────
 
 /**
@@ -236,6 +273,7 @@ export const REPORT_READERS: readonly ReportReader[] = [
     detect: looksLikeCredaltiJson,
     read: readCredaltiJson,
   },
+  aiDocumentReader,
   needsSample("identityiq", "IdentityIQ", "identityiq.com"),
   needsSample("smartcredit", "SmartCredit", "smartcredit.com"),
   needsSample("myfreescorenow", "MyFreeScoreNow", "myfreescorenow.com"),

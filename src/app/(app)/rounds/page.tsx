@@ -20,6 +20,7 @@ import { useLocale } from "@/lib/i18n";
 import Icon from "@/components/Icon";
 import { CharacterAvatar } from "@/components/Character";
 import { InfoNote } from "@/components/RoundNotes";
+import BureauLetterUpload from "@/components/BureauLetterUpload";
 
 // Rounds, with a real timeline: when letters mailed, when the FCRA ~30-day
 // response window closes, when the next round unlocks (~day 40). The waiting
@@ -255,6 +256,9 @@ export default function Rounds() {
           </Link>
         </section>
       )}
+
+      {/* Optional: results come from the next report; a letter is never asked for (components/BureauLetterUpload.tsx). */}
+      {isFullService && <BureauLetterUpload />}
     </main>
   );
 }
