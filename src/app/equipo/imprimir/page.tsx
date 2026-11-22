@@ -17,6 +17,7 @@ import {
 import { RESPONSE_WINDOW_DAYS } from "@/lib/staff/stage";
 import { useStaff } from "@/lib/staff/useStaff";
 import { useMail } from "@/lib/mail/useMail";
+import { useLetterVersions } from "@/lib/letters/versions/useLetterVersions";
 import Icon from "@/components/Icon";
 import { PRIMARY_BUTTON, PRIMARY_BUTTON_COMPACT, SECONDARY_BUTTON, SECONDARY_BUTTON_COMPACT } from "@/components/staff/ui";
 
@@ -239,10 +240,12 @@ function PrintView() {
   const { data, ready: clientsReady, clients, now, reload } = useStaff();
   // Letters to creditors and collectors print with the address book's address, and wait without one.
   const { furnishers, ready: bookReady } = useMail();
-  const ready = clientsReady && bookReady;
+  // Letters print with the attorney-approved text, the one the server records as mailed.
+  const { versions: letterVersions, ready: lettersReady } = useLetterVersions({ approvedOnly: true });
+  const ready = clientsReady && bookReady && lettersReady;
   const requested = params.get(ROUND_REFS_PARAM);
   const refs = useMemo(() => parseRoundRefs(requested), [requested]);
-  const batch = useMemo(() => buildPrintBatch(clients, refs, now, { furnishers }), [clients, refs, now, furnishers]);
+  const batch = useMemo(() => buildPrintBatch(clients, refs, now, { furnishers, letterVersions }), [clients, refs, now, furnishers, letterVersions]);
 
   const stackRef = useRef<HTMLDivElement>(null);
   /** Pages on paper, measured from the sheets on screen (they are the same size as the paper). */

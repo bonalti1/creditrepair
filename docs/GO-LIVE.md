@@ -163,7 +163,9 @@ Then run one full pass yourself (the database part in detail: `docs/DATABASE.md`
 - [ ] In the console, import the test client's report ("Importar reporte")
 - [ ] Review the items and confirm one. The letters page should show the
       letters as being prepared by the team, with no approve button
-- [ ] In the console, "Enviar" the round (it waits until the client has signed and the 3-day window is over)
+- [ ] In the console, "Enviar" the round (it waits until the client has signed and the 3-day window is over,
+      and until its letters are approved in `/equipo/cartas`; for this test pass only, you may set
+      `LETTERS_ALLOW_UNAPPROVED=1` instead, and remove it afterwards)
 - [ ] With Lob's **test** key, confirm the letter appears in Lob's dashboard with
       the ID pages behind it; check how the address sits on the first page
 - [ ] Send a WhatsApp message from a number that is not a customer: AltiBot should
@@ -172,6 +174,17 @@ Then run one full pass yourself (the database part in detail: `docs/DATABASE.md`
 
 ## Step 5 — Before the first real letter
 
+- [ ] **The attorney approves the letters, in the editor.** With the database
+      on, no round is mailed or printed for a client until every letter it uses
+      has an attorney-approved version (`docs/LETTERS-EDITOR.md`). In
+      `/equipo/cartas`, press "Enviar al abogado las 42 sin revisar" (or change
+      a letter first), print the packet to PDF and send it; when the attorney
+      answers, open each letter and "Registrar la decisión del abogado" with
+      their name and date. At least the ten letters marked "se usa en las
+      rondas" must be approved: `/api/health` lists any that are not under
+      "Letters approved by the attorney"
+- [ ] `LETTERS_ALLOW_UNAPPROVED` is **not** set in the hosting settings (it is
+      only for testing with Lob's test key; `/api/health` fails while it is set)
 - [ ] Open each `source` link in `src/lib/domain/bureaus.ts` and confirm the address
 - [ ] Mail one letter to yourself
 - [ ] In `/equipo/acreedores`, add the dispute address of each creditor and
@@ -191,5 +204,5 @@ Then run one full pass yourself (the database part in detail: `docs/DATABASE.md`
 | IdentityIQ: a sample report or partner documentation | Reading real reports. Until then the app shows the sample report. |
 | IdentityIQ: partner link and price | The subscribe button and naming IdentityIQ in the app |
 | IdentityIQ: paid-ads permission | Any ad spend |
-| Attorney | Launch itself; Texas registration and bond; the service agreement text (`docs/AGREEMENT.md`) |
+| Attorney | Launch itself; Texas registration and bond; the service agreement text (`docs/AGREEMENT.md`); approval of the letters in `/equipo/cartas` (`docs/LETTERS-EDITOR.md`), without which no round is mailed |
 | You: AltiBot's voice, new ads with AltiBot and Alti | Brand polish on ads |

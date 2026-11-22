@@ -639,7 +639,10 @@ describe("team: what the staff routes accept", () => {
     expect(read("src/app/api/staff/intake/letter/route.ts")).toMatch(/requireCapability\("reports\.import"\)/);
     expect(read("src/app/api/staff/partners/route.ts")).toMatch(/requireCapability\("partners\.manage"\)/);
     expect(read("src/app/api/staff/prospects/route.ts")).toMatch(/requireCapability\("clients\.invite"\)/);
-    expect(staffRoutes.length).toBe(14);
+    // The letter editor (letters.edit) and the approved letter texts (case.view).
+    expect(read("src/app/api/staff/letters/route.ts")).toMatch(/requireCapability\("letters\.edit"\)/);
+    expect(read("src/app/api/staff/letters/approved/route.ts")).toMatch(/requireCapability\("case\.view"\)/);
+    expect(staffRoutes.length).toBe(16);
   });
 });
 

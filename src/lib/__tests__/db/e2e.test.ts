@@ -10,7 +10,7 @@ import { signLobPayload } from "../../security/signatures";
 import { sendableRound, clientStage } from "../../staff/stage";
 import type { StaffClient } from "../../staff/types";
 import { startHarness, type Harness } from "./pg";
-import { addStaff, DAY, signAgreement } from "./seed";
+import { addStaff, approveBuiltinLetters, DAY, signAgreement } from "./seed";
 
 // The whole path against the real migrations, through the real routes:
 //
@@ -69,6 +69,8 @@ const json = async (res: Response) => ({ status: res.status, body: (await res.js
 
 beforeAll(async () => {
   h = await startHarness();
+  // The attorney approved the letters as they are in code (/equipo/cartas): a round is mailed only then.
+  await approveBuiltinLetters(h);
 }, 60_000);
 
 describe("invite → sign → import → answers → round → send → tracking → charge", () => {

@@ -91,8 +91,11 @@ export function detailsParagraph(ctx: LetterContext, lead: string): string {
  * It does not say what the documents show, because the template cannot know.
  */
 export function enclosedSentence(ctx: LetterContext): string {
-  return ctx.enclosures && ctx.enclosures.length > 0 ? "I have enclosed the documents listed at the end of this letter." : "";
+  return ctx.enclosures && ctx.enclosures.length > 0 ? ENCLOSED_SENTENCE : "";
 }
+
+/** The sentence enclosedSentence prints. The letter editor shows it as the {frase_adjuntos} chip. */
+export const ENCLOSED_SENTENCE = "I have enclosed the documents listed at the end of this letter.";
 
 /** Joins paragraphs with a blank line, dropping any that are empty. */
 export function paragraphs(...parts: string[]): string {

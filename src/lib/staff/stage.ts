@@ -9,6 +9,7 @@ import { FRESH_REPORT_DAYS } from "../monitoring/subscription";
 import { RESPONSE_WINDOW_DAYS } from "../ux/journey";
 import { itemLabel } from "../ux/itemDisplay";
 import type { FurnisherEntry } from "../mail/furnishers";
+import type { LetterVersion } from "../letters/versions/versions";
 import { addressBookHref, missingFurnisherAddresses } from "../mail/sendPlan";
 import { responseWindowStart, returnReasonEs } from "../mail/tracking";
 import { billingContextFor } from "./billing";
@@ -404,6 +405,8 @@ export interface StaffException {
  */
 export interface StaffContext {
   furnishers?: readonly FurnisherEntry[];
+  /** The approved letter texts (letters/versions): printed and previewed letters use them. */
+  letterVersions?: readonly LetterVersion[];
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
