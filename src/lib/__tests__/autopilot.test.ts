@@ -347,7 +347,7 @@ describe("autopilot: every automatic message passes the claim rules", () => {
   const filled = (params: readonly string[]) => params.map((p, i) => (p === "enlace" ? "https://app.credalti.test/acuerdo" : i === 0 ? "Rosa" : "3"));
 
   it("each template, in Spanish and English: no promise, no score, no pressure; says it is automatic and how to stop", () => {
-    expect(ALL_TEMPLATES.length).toBe(24);
+    expect(ALL_TEMPLATES.length).toBe(34);
     expect(new Set(ALL_TEMPLATES.map((t) => t.name)).size).toBe(ALL_TEMPLATES.length);
     for (const t of ALL_TEMPLATES) {
       expect(t.name).toMatch(/^credalti_[a-z_0-9]+$/);
@@ -451,19 +451,26 @@ describe("autopilot: the one-person work queue", () => {
   const env: AutopilotEnv = { settings: DEMO_SETTINGS, channels: DEMO_CHANNELS };
   const queue = workQueue(demo, later, { furnishers: seededBook(), autopilot: env });
 
-  it("shrinks the demo's list to what only a person can decide (14 notices → 10)", () => {
+  it("shrinks the demo's list to what only a person can decide (17 notices → 9)", () => {
     const raw = demo.flatMap((c) => clientExceptions(c, later, { furnishers: seededBook() }).map((e) => ({ ...e, id: `${c.id}:${e.key}` })));
-    // 12 from the console's own rules, plus 2 from the AI intake demo (a document
-    // the AI could not accept, a bureau letter that asks for something): both
-    // are a person's by nature, so both stay in the queue.
-    expect(raw).toHaveLength(14);
-    expect(queue).toHaveLength(10);
+    // 12 from the console's own rules, 2 from the AI intake demo (a document the
+    // AI could not accept, a bureau letter that asks for something), 2 more
+    // clients waiting on Midland's address, and an address the post office could
+    // not confirm (autopilot/selfHealingDemo.ts).
+    expect(raw).toHaveLength(17);
+    expect(queue).toHaveLength(9);
     expect(queue.map((i) => i.exception.kind).sort()).toEqual(
-      ["agreement_unsigned", "bureau_letter_needs_person", "document_check_needs_person", "furnisher_address_missing", "identity_theft_report_missing", "letter_returned", "payment_past_due", "question_waiting", "response_overdue", "service_end_requested"].sort(),
+      ["agreement_unsigned", "bureau_letter_needs_person", "furnisher_address_missing", "identity_theft_report_missing", "letter_returned", "payment_past_due", "question_waiting", "response_overdue", "service_end_requested"].sort(),
     );
-    // Left to the system: documents, a review, monitoring, a payment method.
-    const off = raw.filter((e) => !queue.some((i) => i.id === e.id)).map((e) => e.kind).sort();
-    expect(off).toEqual(["documents_missing", "payment_method_missing", "report_stale", "review_stalled"]);
+    // Left to the system: documents, a review, monitoring, a payment method; the document the AI could not
+    // accept (a re-upload request with the reason), the address to confirm (a one-tap request to the client).
+    const off = raw.filter((e) => !queue.some((i) => i.id === e.id) && e.kind !== "furnisher_address_missing").map((e) => e.kind).sort();
+    expect(off).toEqual(["client_address_unconfirmed", "document_check_needs_person", "documents_missing", "payment_method_missing", "report_stale", "review_stalled"]);
+    // The three clients waiting on Midland Credit Management are ONE item: the book is shared.
+    const midland = queue.filter((i) => i.exception.kind === "furnisher_address_missing");
+    expect(midland).toHaveLength(1);
+    expect(midland[0]!.group!.waiting.map((w) => w.client.id).sort()).toEqual(["c50", "c51", "c52"]);
+    expect(midland[0]!.group!.suggestions[0]!.addressLines).toEqual(["350 Camino De La Reina", "San Diego, CA 92108"]);
   });
 
   it("each item says why, what the system tried, minutes, waiting time and a due time; overdue first", () => {
@@ -482,7 +489,7 @@ describe("autopilot: the one-person work queue", () => {
     expect(heriberto.triedSummary).toMatch(/BAJA/);
     const dolores = queue.find((i) => i.client.id === "c16")!;
     expect(dolores.tried.length).toBeGreaterThan(0);
-    expect(workSummary(queue)).toEqual({ count: 10, minutes: queue.reduce((n, i) => n + i.minutes, 0), overdue: queue.filter((i) => i.overdue).length });
+    expect(workSummary(queue)).toEqual({ count: 9, minutes: queue.reduce((n, i) => n + i.minutes, 0), overdue: queue.filter((i) => i.overdue).length });
   });
 
   it("a role sees only its own kinds of notice", () => {

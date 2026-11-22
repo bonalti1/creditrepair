@@ -33,7 +33,12 @@ item: sync opt-outs both ways).
 | Identity theft report missing | The FTC steps (IdentityTheft.gov) the same day, 2 reminders | **A person from day 1**: the app told the client a person would write, and it is a sensitive conversation |
 | Letters mailed, certified letter delivered, new report and what it shows, next round prepared, payment receipt | Factual status message | — |
 | Sending a prepared round | When "Enviar solas las rondas listas" is on: after the review window (default 24 h) in "Listas para enviar", if nobody held the client | Turning it on is the owner's decision. Anyone who sends rounds can hold a client, with a reason |
-| Question the assistant passed on, returned letter, request to end the service, missing creditor address, payment past due after every retry | — | Always a person: an answer, an address, money or a goodbye |
+| Question the assistant passed on, request to end the service | — | Always a person: an answer or a goodbye |
+| Returned letter | Re-checked with the post office's data; re-mailed once to the corrected address (same round, no new charge) when automatic sending is on; or the client is asked to confirm their address; or the creditor's address is marked bad | What none of that settles (a lost or damaged letter, a re-mail that came back, nothing to correct) |
+| Missing creditor address | One item per company for every client waiting, with the report's printed address as an unverified suggestion | Always a person, once per company: an address is mailed to only with a source and a date |
+| Payment past due after every retry | Each decline notice carries the «Actualizar mi tarjeta» link; saving the card retries the charge at once | After the last retry with no fix; the card shows the exact words sent |
+| Client address the post office cannot confirm | Checked before mailing; the client confirms or corrects it with one tap (3 reminders) | No answer after day 6, or the confirmed address fails too |
+| Document the AI could not accept, for a reason a new photo fixes | The plain reason and an upload link (3 reminders) | A second failure, no answer after day 7, or a reason another photo does not fix |
 | Client opted out, on hold, or unreachable (no channel, template not approved) | — | The notice comes to a person exactly as before, with why |
 
 When the reminders are off (the default), the console shows every notice as
@@ -54,6 +59,8 @@ person's.
 | `monitoring_inactive` | report 45+ days old, or the 30-day response window over | day 0 · 3 · 7 | day 9 |
 | `payment_method_missing` | the round's mailing | day 3 · 5 · 8 | day 10 |
 | `identity_theft_report_missing` | the answer that said identity theft | day 0 · 3 · 7 | day 0 |
+| `address_unconfirmed` | the request to confirm the address (first request only) | day 0 · 2 · 4 | day 6 |
+| `document_reupload` | the check that did not accept the document (first failure only) | day 0 · 2 · 5 | day 7 |
 
 The third message of each says it is the last automatic one and that a person
 can call. The queue item then reads "Se le escribió 3 veces sin respuesta" (or
@@ -112,7 +119,9 @@ Existing direct WhatsApp sends now go through the outbound log: "letters
 mailed" (via `send.ts`'s own `deps.sendWhatsApp`, so `send.ts` is untouched),
 the payment receipt, the deletion message and the day-40 message (replaced by
 the factual "report_changes" status message). Billing's decline and
-missing-method notices still go directly but now skip a client who opted out.
+missing-method notices now go through the outbound log too (migration 0022),
+as status messages with the «Actualizar mi tarjeta» link; the in-app line is
+written at once, as before.
 `/api/webhooks/n8n` (manual relays) still sends directly.
 
 ## Channels
@@ -160,12 +169,61 @@ that message never goes on WhatsApp outside the 24-hour window.
 | `credalti_reporte_nuevo` | nombre, enlace | New report, nothing gone |
 | `credalti_ronda_preparada` | nombre, ronda, enlace | Next round prepared |
 | `credalti_recibo` | nombre, recibo, monto, fecha, trabajo, enlace | Payment receipt |
+| `credalti_direccion_1`, `_2`, `_3` | nombre, enlace | Address the post office could not confirm (link to «Confirmar dirección») |
+| `credalti_documento_nuevo_1`, `_2`, `_3` | nombre, documento, motivo, enlace | Document to upload again, with the plain reason |
+| `credalti_pago_rechazado` | nombre, monto, ronda, fecha, enlace | A charge declined; retried on the date; link to «Actualizar mi tarjeta» |
+| `credalti_pago_pausa` | nombre, monto, ronda, enlace | The last retry declined; the case pauses; link to «Actualizar mi tarjeta» |
+| `credalti_pago_falta_metodo` | nombre, ronda, fecha, enlace | A mailed round and no payment method; link to «Actualizar mi tarjeta» |
+| `credalti_carta_reenviada` | nombre, destinatario, ronda, enlace | A returned letter went out again |
 
-24 templates for clients. One more, for the team: `credalti_resumen_equipo`
+34 templates for clients. One more, for the team: `credalti_resumen_equipo`
 (nombre, cosas, minutos, lo primero, lo que hizo el sistema, enlace), the
 morning summary (`docs/STAFF.md`). Meta may reject a template whose variables carry whole
 sentences; `cambio` and `trabajo` are short generated phrases, and if Meta
 objects, split them into fixed-text templates.
+
+## Lo que se arregla solo (migration 0022)
+
+Code: `src/lib/mail/verify*.ts`, `returns*.ts`, `gaps*.ts`,
+`src/lib/intake/reupload.ts`, `src/lib/autopilot/resolutions.ts`. Database:
+`supabase/migrations/0022_self_healing.sql`. Tests:
+`src/lib/__tests__/selfHealing.test.ts` and `src/lib/__tests__/db/selfHealing.test.ts`.
+
+- **Addresses checked before mailing.** `rounds/send.ts` has a step 5b, added
+  after the address book step (nothing before it changed): the client's return
+  address and every recipient's are checked with Lob's US verification
+  (`POST /v1/us_verifications`; what was verified against Lob's own schema and
+  what was assumed is written in `mail/verify.ts`). A correction (ZIP+4, unit)
+  is used as the post office writes it and logged; a client address it cannot
+  confirm stops the round and opens one request (`address_confirmations`) that
+  the follow-up `address_unconfirmed` carries to the client
+  (`/confirmar-direccion`, prefilled with the suggestion, one tap); a creditor
+  address it does not deliver to clears that book entry's verification, so it
+  is a missing address for every client. A bureau address that fails stops
+  the round for a person. Each check is recorded (`address_verifications`)
+  and reused for 30 days. Cost: `VERIFICATION_COST_MILLS` ($0.05, unverified),
+  shown on the send screen. Without `LOB_API_KEY`: "unchecked" (the mail is
+  simulated then too).
+- **Returned letters.** Each autopilot run (step 0) re-checks a returned
+  letter's addresses. When the return is about the address and the post
+  office's data corrects it (or the book now has another verified address),
+  the same letter goes again **once**: a new letters row of the same round
+  with `remail_of` (unique; never a re-mail of a re-mail; only a letter that
+  came back — the database enforces all three). Only with automatic sending
+  on, never for a held client or one the round gate would stop. Billing: one
+  charge per round (`charges.round_id` unique), and a round whose letters all
+  came back is charged only once a re-mail is on its way; the round's work
+  date does not move.
+- **Missing creditor addresses.** One queue item per company (`groupFurnisherGaps`)
+  listing every client waiting; `furnisher_gaps` records when each company
+  was first seen missing (the item's clock) and when it was resolved.
+- **Payments.** Billing's notices carry `/pagos/tarjeta`; saving a card there
+  runs the same billing run as the hourly one.
+- **Documents.** A first failure whose every reason a new photo fixes
+  (`intake/reupload.ts`) starts `document_reupload` with the reason in the
+  message and a one-tap upload screen (`/documentos`).
+- **«Resuelto solo».** Each fix is one row in `autopilot_resolutions`; the
+  staff home counts the last 7 days.
 
 ## The work queue
 
@@ -185,9 +243,10 @@ objects, split them into fixed-text templates.
   minutes of the notices waiting today) ÷ active clients today. What the
   system does by itself is not counted. It is an estimate, not a time sheet.
 
-In the demo: 12 notices on the console's raw list become 8 in the queue
-(documents, an unfinished review, monitoring and a payment method are left to
-the reminders).
+In the demo: 17 notices on the console's raw list become 9 in the queue
+(documents, an unfinished review, monitoring, a payment method, a document to
+upload again and an address to confirm are left to the system; three clients
+waiting on Midland's address are one item).
 
 Each item also carries its «Cómo se resuelve» card, a waiting question shows
 the saved answer that matches it, and each teammate can get the queue as a
@@ -265,7 +324,5 @@ Nothing in the agreement was edited. These are proposals.
   accounts (the request shapes follow the providers' documentation).
 - Delivery receipts from WhatsApp (read/delivered) are not recorded; "sent"
   means the provider accepted it.
-- Billing's decline and missing-method notices still go directly (with the
-  opt-out check), not through the outbound log and templates.
 - The client app does not show the client their own message log yet (they can
   read it; there is no screen).

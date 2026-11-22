@@ -25,7 +25,19 @@ export type StatusEvent =
       amount: string;
       date: Record<MessageLocale, string>;
       work: Record<MessageLocale, string>;
-    };
+    }
+  // Billing's notices (billing/server.ts). `retryOn` null: the retries are used up and the case pauses.
+  | {
+      kind: "payment_declined";
+      chargeId: string;
+      attempts: number;
+      roundNumber: number;
+      amount: string;
+      retryOn: Record<MessageLocale, string> | null;
+    }
+  | { kind: "payment_method_needed"; roundNumber: number; workDate: Record<MessageLocale, string> }
+  // A returned letter that went out again (mail/returnsServer.ts).
+  | { kind: "letter_remailed"; letterId: string; recipient: string; roundNumber: number };
 
 export interface StatusMessage {
   dedupeKey: string;
@@ -43,6 +55,10 @@ const PATH: Record<StatusKind, string> = {
   report_changes: "/rounds",
   next_round_prepared: "/rounds",
   payment_receipt: "/pagos",
+  // The one-tap card page: the processor's hosted fields, and the pending charge tried again at once.
+  payment_declined: "/pagos/tarjeta",
+  payment_method_needed: "/pagos/tarjeta",
+  letter_remailed: "/rounds",
 };
 
 function longDay(iso: string, locale: MessageLocale): string {
@@ -62,6 +78,12 @@ export function statusDedupeKey(userId: string, event: StatusEvent): string {
       return `status:${userId}:next_round:r${event.roundNumber}:${event.planKey}`;
     case "payment_receipt":
       return `status:${userId}:receipt:${event.chargeId}`;
+    case "payment_declined":
+      return `status:${userId}:payment_declined:${event.chargeId}:a${event.attempts}`;
+    case "payment_method_needed":
+      return `status:${userId}:payment_method_needed:r${event.roundNumber}`;
+    case "letter_remailed":
+      return `status:${userId}:letter_remailed:${event.letterId}`;
   }
 }
 
@@ -108,6 +130,23 @@ export function statusMessage(userId: string, firstName: string, locale: Message
     case "payment_receipt":
       template = STATUS_TEMPLATES.payment_receipt;
       params = [name, event.receiptNumber, event.amount, event.date[locale], event.work[locale], link];
+      break;
+    case "payment_declined":
+      if (event.retryOn) {
+        template = STATUS_TEMPLATES.payment_declined;
+        params = [name, event.amount, String(event.roundNumber), event.retryOn[locale], link];
+      } else {
+        template = STATUS_TEMPLATES.payment_paused;
+        params = [name, event.amount, String(event.roundNumber), link];
+      }
+      break;
+    case "payment_method_needed":
+      template = STATUS_TEMPLATES.payment_method_needed;
+      params = [name, String(event.roundNumber), event.workDate[locale], link];
+      break;
+    case "letter_remailed":
+      template = STATUS_TEMPLATES.letter_remailed;
+      params = [name, event.recipient, String(event.roundNumber), link];
       break;
   }
   return { dedupeKey: statusDedupeKey(userId, event), topic: event.kind, locale, template, params, body: renderTemplate(template, locale, params), link };

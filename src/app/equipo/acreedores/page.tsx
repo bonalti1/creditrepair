@@ -121,11 +121,14 @@ const INPUT = "mt-1 block w-full rounded-xl border border-slate-300 bg-white px-
 function EntryForm({
   initial,
   clients,
+  suggested = false,
   onSave,
   onCancel,
 }: {
   initial: Draft;
   clients: StaffClient[];
+  /** The address was filled in from a credit report: a suggestion to check, never verified by itself. */
+  suggested?: boolean;
   onSave: (draft: Draft) => Promise<string[] | null>;
   onCancel: () => void;
 }) {
@@ -181,6 +184,13 @@ function EntryForm({
       {parsed && (
         <p className={`mt-4 rounded-2xl px-4 py-3 text-[14px] leading-snug ${parsed.ok ? "bg-slate-50 text-slate-700" : "bg-red-50 text-red-700"}`} data-testid="address-preview">
           {parsed.ok ? `Las cartas irán a: ${formatUsAddress(parsed.address).join(" · ")}` : `La dirección no se puede leer: ${parsed.message}`}
+        </p>
+      )}
+      {suggested && draft.address === initial.address && (
+        <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900" data-testid="suggested-address">
+          Sugerencia sin verificar: esta dirección la imprimen los reportes de crédito de los clientes que esperan. Suele ser la de pagos,
+          no la de disputas. Ábrela en la página de la empresa o en una carta suya, escribe la fuente y la fecha, y guárdala. Sin fuente y
+          fecha no se envía ninguna carta a ella.
         </p>
       )}
       {fromReport && !draft.address && (
@@ -312,17 +322,26 @@ function AddressBook() {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Draft | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState(false);
 
   // ?nuevo=Name opens the form for a new company with the name filled in; ?editar=id opens an entry.
   useEffect(() => {
     if (!bookReady) return;
     const add = params.get("nuevo");
     const edit = params.get("editar");
+    // ?direccion=…: an address a credit report prints for the company (mail/gaps.ts), filled in as an
+    // UNVERIFIED suggestion. The person still checks it against a source and writes the source and date.
+    const suggested = (params.get("direccion") ?? "").slice(0, 400);
     if (edit) {
       const entry = furnishers.find((f) => f.id === edit);
-      if (entry) setEditing(draftOf(entry));
+      if (entry) {
+        const draft = draftOf(entry);
+        setEditing(suggested && !draft.address ? { ...draft, address: suggested, verifiedOn: "" } : draft);
+        if (suggested && !draft.address) setSuggestion(true);
+      }
     } else if (add) {
-      setEditing({ ...EMPTY, name: add.slice(0, 120) });
+      setEditing({ ...EMPTY, name: add.slice(0, 120), address: suggested });
+      if (suggested) setSuggestion(true);
     }
     // Only on arrival: later edits come from the buttons.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -348,6 +367,7 @@ function AddressBook() {
     await reload();
     setEditing(null);
     setSaved(result.entry.name);
+    setSuggestion(false);
     if (params.get("nuevo") || params.get("editar")) router.replace("/equipo/acreedores");
     return null;
   };
@@ -382,6 +402,7 @@ function AddressBook() {
             key={editing.id ?? editing.name}
             initial={editing}
             clients={clients}
+            suggested={suggestion}
             onSave={save}
             onCancel={() => {
               setEditing(null);

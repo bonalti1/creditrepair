@@ -3,6 +3,9 @@ import { sendEmail } from "../integrations/email";
 import { sendWhatsAppTemplate, sendWhatsAppText } from "../integrations/whatsapp";
 import { furnisherFromRow } from "../mail/server";
 import { roundMailPlan } from "../mail/sendPlan";
+import { furnisherGaps } from "../mail/gaps";
+import { recordFurnisherGaps } from "../mail/gapsServer";
+import { handleReturnedLetters, type ReturnsDeps, type ReturnsSummary } from "../mail/returnsServer";
 import { reportError } from "../observability/errors";
 import { sendRound, type SendRoundOptions, type SendRoundResult } from "../rounds/send";
 import { clientsFromRows } from "../staff/fromRows";
@@ -156,6 +159,8 @@ export interface AutopilotDeps {
   sendDeps?: SendRoundOptions["deps"];
   /** The app's address, for links in messages. */
   base?: string;
+  /** Returned letters: how addresses are checked again and how a re-mail is mailed (tests: fakes). */
+  returnsDeps?: ReturnsDeps;
 }
 
 export interface AutopilotRunSummary {
@@ -172,6 +177,10 @@ export interface AutopilotRunSummary {
   messagesCancelled: number;
   duplicates: number;
   waiting: { quiet_hours: number; daily_cap: number; no_channel: number };
+  /** Returned letters looked at, re-mailed, sent to the client, marked bad, left to a person. */
+  returns?: ReturnsSummary;
+  /** Companies whose dispute address is missing, and how many were seen missing for the first time. */
+  furnisherGaps?: { open: number; fresh: number };
 }
 
 async function loadClients(db: SupabaseClient): Promise<StaffClient[]> {
@@ -207,11 +216,26 @@ export async function runAutopilot(db: SupabaseClient, now: Date = new Date(), d
 
   const { data: bookRows, error: bookError } = await db.from("furnishers").select("*");
   if (bookError) throw new Error(`furnishers: ${bookError.message}`);
-  const furnishers = ((bookRows as Row[] | null) ?? []).map(furnisherFromRow);
+  let furnishers = ((bookRows as Row[] | null) ?? []).map(furnisherFromRow);
 
-  // 1. Rounds: note the ones ready for the first time, and mail the ones whose window is over.
   let clients = await loadClients(db);
   summary.clients = clients.length;
+
+  // 0. Returned letters: re-check the addresses and, when the post office's data corrects one, mail the
+  // same letter again once (same round, no new charge); ask the client about their own address; mark a
+  // creditor's address bad. Only what none of that settles stays a person's (mail/returns.ts).
+  const held = new Set(clients.filter((c) => (c.holds ?? []).some((h) => !h.releasedAt)).map((c) => c.id));
+  summary.returns = await handleReturnedLetters(db, now, { roundsEnabled: settings.roundsEnabled, heldUserIds: held }, deps.returnsDeps);
+  if (summary.returns.remailed.length > 0 || summary.returns.askedClient > 0 || summary.returns.furnisherMarked > 0) clients = await loadClients(db);
+
+  // The companies the prepared rounds wait on, once each for every client: when each was first seen missing.
+  const { data: bookAfter } = await db.from("furnishers").select("*");
+  const bookNow = ((bookAfter as Row[] | null) ?? []).map(furnisherFromRow);
+  furnishers = bookNow;
+  const gaps = furnisherGaps(clients, furnishers);
+  summary.furnisherGaps = { open: gaps.length, fresh: await recordFurnisherGaps(db, gaps, now) };
+
+  // 1. Rounds: note the ones ready for the first time, and mail the ones whose window is over.
   for (const client of clients) {
     const round = sendableRound(client, now, { furnishers });
     if (!round) continue;

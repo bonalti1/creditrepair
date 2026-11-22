@@ -84,6 +84,78 @@ export function TriedBox({ item, compact = false }: { item: QueueItem; compact?:
   );
 }
 
+/** The exact words the client got (billing's notices with the card link, the reminders), so nobody repeats or contradicts them. */
+export function SentWords({ item }: { item: QueueItem }) {
+  if (!item.messages || item.messages.length === 0) return null;
+  const last = item.messages[item.messages.length - 1]!;
+  return (
+    <details className="mt-2 rounded-xl bg-slate-50 px-3 py-2" data-testid="sent-words">
+      <summary className="cursor-pointer text-[13px] font-semibold text-slate-700">
+        Lo que recibió el cliente ({item.messages.length === 1 ? "1 mensaje" : `${item.messages.length} mensajes`})
+      </summary>
+      <ol className="mt-1.5 space-y-2">
+        {item.messages.map((m, i) => (
+          <li key={i} className="text-[12.5px] leading-snug text-slate-700">
+            <span className="block text-[12px] tabular-nums text-slate-500">
+              {shortDateTime(m.at)}
+              {m.channel ? ` · ${m.channel === "whatsapp" ? "WhatsApp" : "correo"}` : ""}
+              {m.status === "failed" ? " · no se pudo entregar" : m.status === "simulated" ? " · demo" : ""}
+            </span>
+            <span className="block whitespace-pre-line">{m === last ? m.body : m.body.split("\n")[0]}</span>
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
+
+/** One company several clients wait on: who, and the addresses the reports print for it (unverified suggestions). */
+export function GroupBox({ item }: { item: QueueItem }) {
+  const group = item.group;
+  if (!group) return null;
+  return (
+    <div className="mt-2 rounded-xl bg-blue-50 px-3 py-2 text-[13px] leading-snug text-blue-900" data-testid="gap-group">
+      <p className="font-semibold">Esperan esta dirección:</p>
+      <ul className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+        {group.waiting.map((w) => (
+          <li key={w.client.id}>
+            <Link href={`/equipo/clientes/${w.client.id}`} className="underline-offset-2 hover:underline">
+              {fullName(w.client)}
+            </Link>{" "}
+            <span className="text-blue-800/80">(ronda {w.roundNumber})</span>
+          </li>
+        ))}
+      </ul>
+      {group.suggestions.length > 0 && (
+        <div className="mt-1.5">
+          <p className="font-semibold">Sugerencias de los reportes, sin verificar (nunca se envía a ellas así):</p>
+          <ul className="mt-0.5 space-y-0.5">
+            {group.suggestions.slice(0, 3).map((s) => (
+              <li key={s.addressLines.join("|")} className="tabular-nums">
+                {s.addressLines.join(", ")} · en {s.clients === 1 ? "1 cliente" : `${s.clients} clientes`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {group.nearMatches.length > 0 && (
+        <p className="mt-1.5">
+          ¿Es la misma empresa que{" "}
+          {group.nearMatches.map((m, i) => (
+            <span key={m.id}>
+              {i > 0 ? " o " : ""}
+              <Link href={`/equipo/acreedores?editar=${encodeURIComponent(m.id)}`} className="font-semibold underline-offset-2 hover:underline">
+                {m.name}
+              </Link>
+            </span>
+          ))}
+          ? Agrega el nombre como «otro nombre» y queda resuelta.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Meta({ item, now }: { item: QueueItem; now: Date }) {
   return (
     <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[13px] tabular-nums text-slate-500">
@@ -103,14 +175,21 @@ export function QueueList({ items, now, onHandled, answerFor }: { items: QueueIt
             <SeverityDot severity={item.exception.severity} />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <Link href={`/equipo/clientes/${item.client.id}`} className="inline-flex min-h-11 items-center text-[16px] font-semibold md:min-h-0 text-slate-900 underline-offset-2 hover:underline">
-                  {fullName(item.client)}
-                </Link>
+                {item.group ? (
+                  <span className="inline-flex min-h-11 items-center text-[16px] font-semibold text-slate-900 md:min-h-0">{item.group.company}</span>
+                ) : (
+                  <Link href={`/equipo/clientes/${item.client.id}`} className="inline-flex min-h-11 items-center text-[16px] font-semibold md:min-h-0 text-slate-900 underline-offset-2 hover:underline">
+                    {fullName(item.client)}
+                  </Link>
+                )}
                 <Chip tone="bg-slate-100 text-slate-700">{EXCEPTION_LABEL[item.exception.kind]}</Chip>
+                {item.group && <Chip tone="bg-blue-50 text-blue-800">{item.group.waiting.length === 1 ? "1 cliente" : `${item.group.waiting.length} clientes`}</Chip>}
               </div>
               <p className="mt-0.5 text-[14px] leading-snug text-slate-600">{item.why}</p>
               <AnswerHint item={item} answerFor={answerFor} />
+              <GroupBox item={item} />
               <TriedBox item={item} compact />
+              <SentWords item={item} />
               <Meta item={item} now={now} />
               <PlaybookToggle kind={item.exception.kind} />
             </div>
@@ -207,13 +286,15 @@ export function FocusMode({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 id="focus-title" className="text-[22px] font-semibold leading-tight text-slate-900">
-                    {fullName(item.client)}
+                    {item.group ? item.group.company : fullName(item.client)}
                   </h2>
                   <Chip tone="bg-slate-100 text-slate-700">{EXCEPTION_LABEL[item.exception.kind]}</Chip>
                 </div>
                 <p className="mt-2 text-[16px] leading-relaxed text-slate-700">{item.why}</p>
                 <AnswerHint item={item} answerFor={answerFor} />
+                <GroupBox item={item} />
                 <TriedBox item={item} />
+                <SentWords item={item} />
                 <Meta item={item} now={now} />
               </div>
             </div>

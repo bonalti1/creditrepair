@@ -92,7 +92,8 @@ export const PLAYBOOK: Record<ExceptionKind, PlaybookCard> = {
     title: EXCEPTION_LABEL.payment_past_due,
     steps: [
       "Un cobro no pasó después de todos los reintentos y su caso está en pausa. Nadie cobra a mano: no hay manera, y no hace falta.",
-      "Escríbele con el botón: dice qué ronda se cobró y que actualice su método de pago en «Mis pagos» de la app.",
+      "Antes de llegar aquí, el sistema le mandó cada aviso con el enlace «Actualizar mi tarjeta» (al actualizarla, el cobro se intenta solo). En «Lo que ya hizo el sistema» ves las palabras exactas que recibió.",
+      "Escríbele o llámale: pregúntale si recibió el enlace y si algo le impide usarlo. No le repitas lo que ya leyó.",
       "No pidas números de tarjeta por teléfono ni por WhatsApp. No negocies montos ni plazos: eso lo decide un administrador.",
       "Marca «Atendido» y deja una nota con lo que te dijo.",
     ],
@@ -101,8 +102,8 @@ export const PLAYBOOK: Record<ExceptionKind, PlaybookCard> = {
   payment_method_missing: {
     title: EXCEPTION_LABEL.payment_method_missing,
     steps: [
-      "Su ronda ya se envió y el sistema no tiene con qué cobrarla. El piloto automático le recuerda hasta 3 veces antes de llegar aquí.",
-      "Escríbele con el botón: el mensaje dice qué trabajo ya se hizo y que agregue su método de pago en «Mis pagos».",
+      "Su ronda ya se envió y el sistema no tiene con qué cobrarla. El sistema le avisó y le recordó hasta 3 veces, cada vez con el enlace «Actualizar mi tarjeta», antes de llegar aquí.",
+      "Llámale o escríbele: pregúntale si le llegó el enlace. Pone su tarjeta él mismo en esa página; al guardarla, el cobro se intenta solo, con todas las reglas de cobro.",
       "El cliente pone su tarjeta él mismo en la app. Nunca la pidas por teléfono ni por mensaje.",
       "Marca «Atendido».",
     ],
@@ -111,10 +112,10 @@ export const PLAYBOOK: Record<ExceptionKind, PlaybookCard> = {
   letter_returned: {
     title: EXCEPTION_LABEL.letter_returned,
     steps: [
-      "Abre la carta con el botón y lee el motivo que dio el correo.",
-      "Si el problema es la dirección de un acreedor o cobrador, búscala y corrígela en «Acreedores» con una fuente; si es la del cliente, confírmala con él.",
-      "Nunca envíes a una dirección adivinada: solo a una verificada.",
-      "Si hay que volver a enviarla, avísale a un administrador. Deja una nota con lo que cambiaste y marca «Atendido».",
+      "Llega aquí solo lo que el sistema no pudo resolver: si la dirección se pudo corregir con los datos del correo, la carta ya salió de nuevo una vez (misma ronda, sin otro cobro); si era la del cliente, se le pidió confirmarla.",
+      "Abre la carta con el botón y lee el motivo que dio el correo. Si ya se reenvió una vez y volvió, no se reenvía sola otra vez.",
+      "Si el problema es la dirección de un acreedor o cobrador, el sistema ya la quitó de verificadas: búscala y guárdala en «Acreedores» con una fuente.",
+      "Nunca envíes a una dirección adivinada: solo a una verificada. Deja una nota con lo que hiciste y marca «Atendido».",
     ],
     doneWhen: "La dirección está corregida y verificada, y hay una nota de qué se hizo con la carta.",
   },
@@ -141,10 +142,10 @@ export const PLAYBOOK: Record<ExceptionKind, PlaybookCard> = {
   furnisher_address_missing: {
     title: EXCEPTION_LABEL.furnisher_address_missing,
     steps: [
-      "La ronda tiene una carta para una empresa sin dirección verificada para disputas. La ronda no sale hasta tenerla.",
-      "Toca «Agregar la dirección»: abre «Acreedores» con la empresa escrita.",
-      "Busca la dirección de disputas en el sitio de la empresa o en una carta del cliente. Escribe de dónde la sacaste.",
-      "Guárdala como verificada. La ronda queda lista sola.",
+      "Es un aviso por empresa, no por cliente: la libreta es una para todos, y el aviso dice cuántos clientes esperan esa dirección.",
+      "Si el aviso trae una dirección «sugerida», salió de los reportes: muchas veces es la de pagos, no la de disputas. Nunca se envía a ella sin verificar.",
+      "Toca el botón: abre «Acreedores» con la empresa (y la sugerencia) escrita. Compruébala en el sitio de la empresa o en una carta, y escribe la fuente.",
+      "Guárdala como verificada. Las rondas de todos los clientes que esperaban quedan listas solas.",
     ],
     doneWhen: "La dirección está guardada y verificada; la ronda aparece en «Listas para enviar».",
   },
@@ -153,6 +154,7 @@ export const PLAYBOOK: Record<ExceptionKind, PlaybookCard> = {
     steps: [
       "La revisión automática no pudo confirmar su identificación o su comprobante de domicilio. El motivo está en el aviso.",
       "Abre el documento con el botón y míralo tú: ¿se lee?, ¿el nombre coincide?, ¿la dirección es la de sus cartas?, ¿es reciente?",
+      "Llega aquí solo si el motivo no se arregla con otra foto, o si el sistema ya le pidió otra (con el motivo) y volvió a fallar o no respondió.",
       "Si está mal, escríbele para que suba una foto nueva, completa y bien iluminada.",
       "Marca «Atendido» cuando lo hayas decidido.",
     ],
@@ -167,6 +169,16 @@ export const PLAYBOOK: Record<ExceptionKind, PlaybookCard> = {
       "Deja una nota con lo que pide la carta y marca «Atendido».",
     ],
     doneWhen: "Hay una nota con lo que pide el buró y quién se encarga.",
+  },
+  client_address_unconfirmed: {
+    title: EXCEPTION_LABEL.client_address_unconfirmed,
+    steps: [
+      "El correo (USPS) no pudo confirmar la dirección del cliente: no entrega ahí, o falta el número de departamento. Sus cartas esperan.",
+      "Antes de llegar aquí el sistema le pidió confirmarla con un toque, con la sugerencia del correo, hasta 3 veces. Llega aquí si no respondió, o si la que confirmó tampoco pasó.",
+      "Llámale y pregúntale su dirección tal como le llega el correo (número de departamento incluido). No la escribas tú: pídele que la confirme o la corrija en la app, en «Confirmar dirección».",
+      "Marca «Atendido» y deja una nota con lo que dijo.",
+    ],
+    doneWhen: "El cliente confirmó una dirección que el correo reconoce; la ronda sale sola.",
   },
 };
 

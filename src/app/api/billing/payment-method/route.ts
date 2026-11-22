@@ -143,7 +143,9 @@ export async function POST(req: Request) {
 
     // A charge declined earlier gets one more try now (the same charge, never a new one).
     await db.from("charges").update({ next_attempt_at: now.toISOString() }).eq("user_id", user.id).eq("status", "failed");
-    const run = await runBillingForUser(db, gateway, user.id, now);
+    // The same run the hourly billing makes, with every rule (no charge before the work, one per round,
+    // never more often than every 30 days): only a charge already owed is tried, never a new one early.
+    const run = await runBillingForUser(db, gateway, user.id, now, { afterCardUpdate: true });
 
     return NextResponse.json({ ok: true, paymentMethod: { brand: attached.brand, last4: attached.last4 }, settled: run.paid, declined: run.declined + run.exhausted });
   } catch (error) {

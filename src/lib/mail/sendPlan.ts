@@ -5,6 +5,7 @@ import { defaultMailClass } from "./classes";
 import { resolveFurnisherAddress, type FurnisherEntry } from "./furnishers";
 import { batchCost, estimatePages, letterCost, type LetterCost } from "./pricing";
 import type { MailClass } from "./types";
+import { VERIFICATION_COST_MILLS } from "./verify";
 
 // What sending a round would do, letter by letter, before anything is sent:
 // where each letter goes, by which class, how many pages, what it costs, and
@@ -47,6 +48,14 @@ export interface RoundMailPlan {
   /** Everything that stops the round, one sentence each. Empty when it can go. */
   blockers: string[];
   totalMills: number;
+  /**
+   * Addresses checked with the post office's data before mailing (mail/verify.ts):
+   * the return address and one per letter, and their estimated cost, apart from
+   * the letters' own. An address checked in the last 30 days is reused and
+   * costs nothing, so this is the most it can cost.
+   */
+  verifications: number;
+  verificationMills: number;
 }
 
 export type MailClassChoices = Readonly<Record<string, MailClass>>;
@@ -131,7 +140,17 @@ export function roundMailPlan(
   if (!from) blockers.push(`La dirección del cliente no se puede leer: ${returnAddress.ok ? "" : returnAddress.message}`.trim());
   for (const blocker of new Set(letters.flatMap((l) => (l.blocker ? [l.blocker] : [])))) blockers.push(blocker);
 
-  return { client, round, letters, from, blockers, totalMills: batchCost(letters.map((l) => l.cost)) };
+  const verifications = 1 + letters.length;
+  return {
+    client,
+    round,
+    letters,
+    from,
+    blockers,
+    totalMills: batchCost(letters.map((l) => l.cost)),
+    verifications,
+    verificationMills: verifications * VERIFICATION_COST_MILLS,
+  };
 }
 
 /**

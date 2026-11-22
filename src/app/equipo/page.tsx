@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { count, shortDay } from "@/lib/staff/format";
 import { followupsInProgress, sentBetween, workQueue, workSummary, type QueueItem } from "@/lib/autopilot/queue";
+import { RESOLUTION_LABEL, resolvedBetween } from "@/lib/autopilot/resolutions";
 import { autoSendState } from "@/lib/autopilot/sending";
 import { useAutopilot } from "@/lib/autopilot/useAutopilot";
 import type { AutopilotSettings } from "@/lib/autopilot/types";
@@ -66,7 +67,7 @@ export default function EquipoHome() {
   // What this member's role takes care of: sales follows people until the work starts; only some roles send.
   const sends = can("rounds.send");
   // The furnisher address book: a round with a letter to a company that has no checked address is held.
-  const { furnishers, ready: bookReady } = useMail();
+  const { furnishers, gaps, ready: bookReady } = useMail();
   const ready = clientsReady && bookReady;
   const [selected, setSelected] = useState<Set<string> | null>(null);
   // The autopilot's switches and channels (src/lib/autopilot).
@@ -89,7 +90,7 @@ export default function EquipoHome() {
   }, []);
 
   const view = useMemo(() => {
-    const queue: QueueItem[] = workQueue(clients, now, { furnishers, autopilot: env }, viewer?.role ?? null);
+    const queue: QueueItem[] = workQueue(clients, now, { furnishers, furnisherGaps: gaps, autopilot: env }, viewer?.role ?? null);
     const sendable: Array<{ client: StaffClient; round: StaffRound }> = [];
     const quiet: StaffClient[] = [];
     const byStage = Object.fromEntries(STAGE_ORDER.map((s) => [s, 0])) as Record<Stage, number>;
@@ -110,8 +111,10 @@ export default function EquipoHome() {
     const working = clients.flatMap((client) => followupsInProgress(client, now, env).map((state) => ({ client, state })));
     working.sort((a, b) => (a.state.next?.dueAt ?? "").localeCompare(b.state.next?.dueAt ?? ""));
     const sentToday = sentBetween(clients, new Date(now.getTime() - 24 * 60 * 60 * 1000), now);
-    return { queue, sendable, quiet, byStage, working, sentToday };
-  }, [clients, now, viewer, sends, furnishers, env]);
+    // "Resuelto solo": what the system settled by itself in the last 7 days (autopilot/resolutions.ts).
+    const resolved = resolvedBetween(clients, new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), now);
+    return { queue, sendable, quiet, byStage, working, sentToday, resolved };
+  }, [clients, now, viewer, sends, furnishers, gaps, env]);
 
   useEffect(() => {
     if (openFocus && ready && autopilotReady) {
@@ -138,7 +141,9 @@ export default function EquipoHome() {
   };
 
   const markHandled = async (item: QueueItem) => {
-    await data.resolveException(item.client.id, item.exception.key);
+    // One item for a company many clients wait on: handled for each of them.
+    const who = item.group ? item.group.waiting.map((w) => w.client.id) : [item.client.id];
+    for (const clientId of who) await data.resolveException(clientId, item.exception.key);
     await reload();
   };
 
@@ -199,6 +204,11 @@ export default function EquipoHome() {
               ? `El sistema sigue ${count(view.working.length, "recordatorio", "recordatorios")} por su cuenta y envió ${count(view.sentToday.length, "mensaje", "mensajes")} en las últimas 24 horas.`
               : "Los recordatorios automáticos están apagados: los avisos llegan aquí como antes."}
           </p>
+          {view.resolved.total > 0 && (
+            <p className="mt-1 text-[14px] font-medium leading-snug text-green-700" data-testid="resolved-line">
+              Esta semana el sistema resolvió {count(view.resolved.total, "cosa", "cosas")} por su cuenta.
+            </p>
+          )}
         </div>
         {work.count > 0 && (
           <button type="button" onClick={() => setFocus(0)} className={`${PRIMARY_BUTTON} shrink-0 gap-2`} data-testid="focus-start">
@@ -440,6 +450,35 @@ export default function EquipoHome() {
             </div>
           </section>
           )}
+
+          <section aria-labelledby="resuelto">
+            <SectionTitle aside={<span className="text-[13px] tabular-nums text-slate-500">7 días</span>}>
+              <span id="resuelto">Resuelto solo</span>
+            </SectionTitle>
+            <div className="card px-5 py-4" data-testid="resolved-solo">
+              {view.resolved.total === 0 ? (
+                <p className="text-[14px] leading-snug text-slate-600">
+                  Esta semana el sistema todavía no resolvió nada por su cuenta. Aquí aparecen las direcciones corregidas, las cartas devueltas que salieron de
+                  nuevo, los pagos y documentos que el cliente arregló con un enlace.
+                </p>
+              ) : (
+                <>
+                  <p className="text-[15px] font-semibold leading-snug text-slate-900">
+                    Esta semana el sistema resolvió {count(view.resolved.total, "cosa", "cosas")} por su cuenta
+                  </p>
+                  <ul className="mt-2.5 space-y-1.5">
+                    {view.resolved.byKind.map(({ kind, count: n }) => (
+                      <li key={kind} className="flex items-baseline justify-between gap-3 text-[13px] leading-snug">
+                        <span className="text-slate-600">{RESOLUTION_LABEL[kind]}</span>
+                        <span className="shrink-0 font-semibold tabular-nums text-green-700">{n}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2.5 text-[12px] leading-relaxed text-slate-500">Antes, cada una de estas llegaba a «Necesita una persona».</p>
+                </>
+              )}
+            </div>
+          </section>
 
           <section aria-labelledby="sistema">
             <SectionTitle

@@ -5,6 +5,7 @@ import { fullName, type StaffClient, type StaffRole } from "../staff/types";
 import { CHANNEL_LABEL } from "./channels";
 import { BLOCK_TEXT, FOLLOWUP_SCHEDULES, followupKindOf, followupStates, type FollowupState } from "./followups";
 import type { AutopilotEnv, OutboundMessage } from "./types";
+import { furnisherGaps, type AddressSuggestion } from "../mail/gaps";
 
 // The one-person work queue: everything that truly needs a human, in the
 // order to do it, each with why, what the system already tried, roughly how
@@ -35,6 +36,8 @@ export const MINUTES_BY_KIND: Record<ExceptionKind, number> = {
   // AI intake (src/lib/intake): look at a document the AI could not accept, or a bureau letter that asks for something.
   document_check_needs_person: 4,
   bureau_letter_needs_person: 10,
+  // Reaches a person only after the client did not confirm (or a second check failed): a call, and the address on the client page.
+  client_address_unconfirmed: 6,
 };
 
 /** The severity each kind of notice carries (as stage.ts writes them), for the settings screen. */
@@ -53,6 +56,7 @@ export const SEVERITY_BY_KIND: Record<ExceptionKind, Severity> = {
   furnisher_address_missing: "high",
   document_check_needs_person: "medium",
   bureau_letter_needs_person: "high",
+  client_address_unconfirmed: "high",
 };
 
 /** How soon a notice should be handled once it is a person's (hours). */
@@ -90,6 +94,23 @@ export interface QueueItem {
   dueBy: string;
   overdue: boolean;
   action: QueueAction;
+  /**
+   * The exact words the client was sent about this, oldest first (money:
+   * billing's notices with the «Actualizar mi tarjeta» link, and the
+   * reminders). Absent when nothing was sent.
+   */
+  messages?: Array<{ at: string; channel: string | null; status: OutboundMessage["status"]; body: string }>;
+  /**
+   * One item for a company several clients wait on (a missing dispute
+   * address): the company, every client waiting, and the addresses the
+   * reports print for it, as unverified suggestions.
+   */
+  group?: {
+    company: string;
+    waiting: Array<{ client: StaffClient; roundNumber: number }>;
+    suggestions: AddressSuggestion[];
+    nearMatches: Array<{ id: string; name: string }>;
+  };
 }
 
 /** What the queue needs besides the clients. */
@@ -136,6 +157,9 @@ export const STATUS_LABEL = {
   report_changes: "Aviso: reporte nuevo",
   next_round_prepared: "Aviso: siguiente ronda preparada",
   payment_receipt: "Recibo de pago",
+  payment_declined: "Aviso: cobro no pasó, con el enlace «Actualizar mi tarjeta»",
+  payment_method_needed: "Aviso: falta su método de pago, con el enlace «Actualizar mi tarjeta»",
+  letter_remailed: "Aviso: carta enviada de nuevo",
 } as const;
 
 /**
@@ -146,7 +170,9 @@ export function personExceptions(client: StaffClient, now: Date, context: QueueC
   const states = followupStates(client, now, context.autopilot);
   return clientExceptions(client, now, context).flatMap((exception): PersonException[] => {
     const kind = followupKindOf(exception.kind);
-    const followup = kind ? (states.find((s) => s.situation.kind === kind) ?? null) : null;
+    const followup = kind
+      ? (states.find((s) => s.situation.kind === kind && (!s.situation.exceptionKey || s.situation.exceptionKey === exception.key)) ?? null)
+      : null;
     if (!followup) return [{ exception, followup: null }];
     // The system cannot write: a person's, as before.
     if (followup.block) return [{ exception, followup }];
@@ -193,8 +219,12 @@ export function queueItems(client: StaffClient, now: Date, context: QueueContext
   return personExceptions(client, now, context)
     .filter(({ exception }) => role === undefined || exceptionVisibleTo(role, exception.kind))
     .map(({ exception, followup }) => {
-      const tried: TriedLine[] = (followup?.sent ?? []).map((m) => ({ at: m.sentAt ?? m.queuedAt, text: outboundLine(m) }));
-      const summary = triedSummary(client, followup);
+      // Billing's own notices about this (sent through the outbound log since migration 0022), besides any reminders.
+      const notices = relatedNotices(client, exception);
+      const sentForIt = [...(followup?.sent ?? []), ...notices].sort((a, b) => (a.sentAt ?? a.queuedAt).localeCompare(b.sentAt ?? b.queuedAt));
+      const tried: TriedLine[] = sentForIt.map((m) => ({ at: m.sentAt ?? m.queuedAt, text: outboundLine(m) }));
+      const summary = triedSummary(client, followup) ?? noticesSummary(notices);
+      const messages = sentForIt.filter((m) => m.status !== "cancelled" && m.status !== "queued").map((m) => ({ at: m.sentAt ?? m.queuedAt, channel: m.channel, status: m.status, body: m.body }));
       // When it became a person's: the end of the schedule, else when the situation began, else now.
       const since =
         followup && followup.exhausted && !followup.block
@@ -213,15 +243,75 @@ export function queueItems(client: StaffClient, now: Date, context: QueueContext
         dueBy,
         overdue: new Date(dueBy).getTime() < now.getTime(),
         action: actionFor(client, exception, followup),
+        ...(messages.length > 0 ? { messages } : {}),
       };
     });
 }
 
+/** Billing's notices about this exact notice: a declined charge's messages, or the missing-method message of that round. */
+function relatedNotices(client: StaffClient, exception: StaffException): OutboundMessage[] {
+  const log = client.outbound ?? [];
+  if (exception.kind === "payment_past_due") {
+    const chargeId = exception.key.split(":")[1] ?? "";
+    return log.filter((m) => m.topic === "payment_declined" && m.dedupeKey.includes(`:${chargeId}:`));
+  }
+  if (exception.kind === "payment_method_missing") {
+    const round = exception.key.split(":")[1] ?? "";
+    return log.filter((m) => m.topic === "payment_method_needed" && m.dedupeKey.endsWith(`:r${round}`));
+  }
+  return [];
+}
+
+function noticesSummary(notices: readonly OutboundMessage[]): string | null {
+  const delivered = notices.filter((m) => m.status === "sent" || m.status === "simulated");
+  if (delivered.length === 0) return null;
+  return `Se le avisó ${times(delivered.length)} con el enlace para actualizar su tarjeta (el cobro se intenta solo al actualizarla) y no lo hizo.`;
+}
+
+/**
+ * The missing-address notices of many clients, as ONE item per company:
+ * the address book is shared, so a person adds the address once and every
+ * waiting round can go. The other items are left as they are.
+ */
+export function groupFurnisherGaps(items: QueueItem[], clients: readonly StaffClient[], now: Date, context: QueueContext): QueueItem[] {
+  const gapItems = items.filter((i) => i.exception.kind === "furnisher_address_missing");
+  if (gapItems.length === 0 || !context.furnishers) return items;
+  const waitingClients = [...new Map(gapItems.map((i) => [i.client.id, i.client])).values()];
+  const gaps = furnisherGaps(waitingClients, context.furnishers, context.furnisherGaps ?? [], clients);
+  const grouped: QueueItem[] = [];
+  for (const gap of gaps) {
+    const mine = gapItems.filter((i) => gap.waiting.some((w) => w.client.id === i.client.id) && i.exception.key === `furnisher_address_missing:${gap.company}`);
+    if (mine.length === 0) continue;
+    const first = mine[0]!;
+    const names = gap.waiting.map((w) => `${w.client.firstName} ${w.client.lastName.charAt(0)}.`);
+    const since = gap.firstSeenAt ?? first.since;
+    const dueBy = new Date(new Date(since).getTime() + SLA_HOURS[first.exception.severity] * HOUR_MS).toISOString();
+    const who = gap.waiting.length === 1 ? "1 cliente espera" : `${gap.waiting.length} clientes esperan`;
+    grouped.push({
+      ...first,
+      id: `furnisher:${gap.normalizedName}`,
+      exception: { ...first.exception, key: `furnisher_address_missing:${gap.company}`, since, href: gap.href },
+      why: `${who} la dirección para disputas de ${gap.company} (${names.join(", ")}). La libreta es una sola para todos: se agrega una vez, con su fuente, y salen todas sus rondas.${
+        gap.suggestions.length > 0 ? ` Los reportes imprimen ${gap.suggestions.length === 1 ? "una dirección" : `${gap.suggestions.length} direcciones`} para ${gap.company}: sugerencia sin verificar.` : ""
+      }`,
+      since,
+      dueBy,
+      overdue: new Date(dueBy).getTime() < now.getTime(),
+      action: { kind: "open", label: gap.suggestions.length > 0 ? "Verificar y agregar" : "Agregar la dirección", href: gap.href },
+      group: { company: gap.company, waiting: gap.waiting.map((w) => ({ client: w.client, roundNumber: w.roundNumber })), suggestions: gap.suggestions, nearMatches: gap.nearMatches },
+    });
+  }
+  return [...items.filter((i) => i.exception.kind !== "furnisher_address_missing"), ...grouped];
+}
+
 /** The whole queue, in the order to work it: overdue first, then by due time, then by severity. */
 export function workQueue(clients: StaffClient[], now: Date, context: QueueContext, role?: StaffRole | null): QueueItem[] {
-  return clients
-    .flatMap((client) => queueItems(client, now, context, role))
-    .sort(
+  return groupFurnisherGaps(
+    clients.flatMap((client) => queueItems(client, now, context, role)),
+    clients,
+    now,
+    context,
+  ).sort(
       (a, b) =>
         Number(b.overdue) - Number(a.overdue) ||
         a.dueBy.localeCompare(b.dueBy) ||
