@@ -192,4 +192,4 @@ Then run one full pass yourself (the database part in detail: `docs/DATABASE.md`
 | IdentityIQ: partner link and price | The subscribe button and naming IdentityIQ in the app |
 | IdentityIQ: paid-ads permission | Any ad spend |
 | Attorney | Launch itself; Texas registration and bond; the service agreement text (`docs/AGREEMENT.md`) |
-| You: AltiBot's voice, a typeface decision (the kit recommends Poppins/Inter), new ads with AltiBot and Alti | Brand polish on ads |
+| You: AltiBot's voice, new ads with AltiBot and Alti | Brand polish on ads |

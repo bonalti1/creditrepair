@@ -213,7 +213,7 @@ export default function Login() {
       <Link href="/" aria-label={BRAND.name}>
         <Logo size={32} priority />
       </Link>
-      <h1 className="mt-10 font-display text-[34px] font-black leading-tight text-blue-700">Entrar</h1>
+      <h1 className="mt-10 font-display text-[34px] font-bold leading-tight text-blue-700">Entrar</h1>
       <p className="mt-2 text-[17px] text-slate-500">{BRAND.assistant} y tu reporte te esperan.</p>
       <div className="mt-6">
         <Suspense fallback={null}>

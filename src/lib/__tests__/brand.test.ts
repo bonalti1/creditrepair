@@ -201,6 +201,39 @@ describe("brand", () => {
     }
   });
 
+  it("uses the kit's typefaces: Poppins 600/700 for display, Inter 400-600 for text, no Nunito", () => {
+    const layout = readFileSync("src/app/layout.tsx", "utf8");
+    expect(layout).toMatch(/import \{ Inter, Poppins \} from "next\/font\/google"/);
+    const call = (name: string) => layout.slice(layout.indexOf(`${name}({`), layout.indexOf("});", layout.indexOf(`${name}({`)));
+    expect(call("Poppins")).toContain('weight: ["600", "700"]');
+    expect(call("Inter")).toContain('weight: ["400", "500", "600"]');
+    for (const font of [call("Poppins"), call("Inter")]) {
+      expect(font).toContain('subsets: ["latin", "latin-ext"]');
+      expect(font).toContain('display: "swap"');
+    }
+    const css = readFileSync("src/app/globals.css", "utf8");
+    expect(css).toMatch(/--font-sans:\s*var\(--font-inter\),/);
+    expect(css).toMatch(/--font-display: var\(--font-poppins\),/);
+    // Nunito is gone, from the app and from the ad pipeline.
+    const files = [...sourceFiles("src"), "content/pipeline/assemble.ts", "content/brand/lock.json"];
+    expect(files.filter((file) => /nunito/i.test(readFileSync(file, "utf8")))).toEqual([]);
+  });
+
+  it("asks only for the weights it loads, so the browser never fakes bold", () => {
+    const tsx = sourceFiles("src").filter((file) => file.endsWith(".tsx"));
+    // Nothing heavier than Poppins 700.
+    expect(tsx.filter((file) => /font-(black|extrabold)\b/.test(readFileSync(file, "utf8")))).toEqual([]);
+    // 700 only on the display face: Inter stops at 600.
+    const boldInter = tsx.flatMap((file) =>
+      readFileSync(file, "utf8")
+        .split("\n")
+        .map((line, i) => ({ line, i }))
+        .filter(({ line }) => /\bfont-bold\b/.test(line) && !/\bfont-display\b/.test(line))
+        .map(({ i }) => `${file}:${i + 1}`),
+    );
+    expect(boldInter).toEqual([]);
+  });
+
   it("customer-facing text reads the name from one place", () => {
     expect(inviteMessageEs({ name: "María" }, "https://x.test/onboarding")).toContain("para entrar a Credalti:");
     expect(COACH_SYSTEM_PROMPT).toContain(`Eres ${ASSISTANT_NAME}, el asistente de crédito con inteligencia artificial de Credalti`);

@@ -61,12 +61,11 @@
   --color-slate-800: #2c2c2e;
   --color-slate-900: #1d1d1f;
 
-  /* San Francisco on Apple devices, Inter everywhere else. */
+  /* The brand kit's body face, Inter (400/500/600, loaded in layout.tsx), then the system's own. */
   --font-sans:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", var(--font-inter), "Helvetica Neue",
-    Arial, sans-serif;
-  /* Rounded, friendly display face for big headlines (never for the logo, which is a file). */
-  --font-display: var(--font-nunito), var(--font-inter), system-ui, sans-serif;
+    var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* The kit's display face, Poppins (600/700), for headlines. Never for the logo, which is a file. */
+  --font-display: var(--font-poppins), var(--font-inter), system-ui, sans-serif;
 }
 
 html {
@@ -84,6 +83,26 @@ h1,
 h2,
 h3 {
   letter-spacing: -0.022em;
+}
+
+/* Inter is loaded at 400, 500 and 600 only: bold body text is 600, so the
+   browser never fakes a heavier weight. Figures in tables line up. In the base
+   layer, so a utility class on the element still wins. */
+@layer base {
+  b,
+  strong,
+  th {
+    font-weight: 600;
+  }
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Poppins sets wider than the old display face: balance headings so a
+     headline never ends on one short word. */
+  h1,
+  h2 {
+    text-wrap: balance;
+  }
 }
 
 /* Hairline used for separators inside grouped lists. */

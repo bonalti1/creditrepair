@@ -79,7 +79,7 @@
     "note": "The video model invents the voice on every render, so it differs between videos. It could not be locked from the approved ad: cloning a voice needs 10 seconds or more of clear speech, the approved take has about 4.5, and the three takes made so far are three different voices. To lock it: pick the take whose voice is right (or a preset voice), record one line of 10+ seconds in it, create the voice, then run every new clip through voice change before assembly."
   },
   "captions": {
-    "font": "Nunito 900",
+    "font": "Poppins 700",
     "sizePx": 76,
     "color": "#ffffff",
     "highlight": "#EFB537",

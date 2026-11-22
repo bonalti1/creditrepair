@@ -41,7 +41,6 @@ const es = {
   },
   scores: {
     title: "Tus puntajes",
-    trend: (delta: number) => (delta >= 0 ? `+${delta} desde tu primer reporte` : `${delta} desde tu primer reporte`),
   },
   responses: {
     title: "¿Recibiste respuesta de los burós?",
@@ -240,7 +239,6 @@ const en: Dict = {
   },
   scores: {
     title: "Your scores",
-    trend: (delta: number) => (delta >= 0 ? `+${delta} since your first report` : `${delta} since your first report`),
   },
   responses: {
     title: "Did the bureaus respond?",

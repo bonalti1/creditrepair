@@ -1,19 +1,27 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Nunito } from "next/font/google";
+import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import { APP_ICONS, BRAND } from "@/lib/brand";
 
-// Inter is the fallback; Apple devices use San Francisco via the system stack
-// declared in globals.css. latin-ext covers Spanish accents and ñ.
-const inter = Inter({ subsets: ["latin", "latin-ext"], display: "swap", variable: "--font-inter" });
-// Rounded display face for big headlines. (The logo is a file, never a font:
-// src/components/Logo.tsx. The kit's Poppins/Inter is a recommendation the
-// owner has not confirmed; see docs/BRAND.md.)
-const nunito = Nunito({
+// The brand kit's typefaces (brand/typography/TYPOGRAPHY.md, confirmed by the
+// owner): Inter for body and interface text, Poppins for headings and display
+// (`font-display`). next/font downloads both at build time and serves them from
+// this site, so no visitor's browser asks Google for anything. latin-ext covers
+// Spanish accents, ñ, ¿ and ¡. Only these weights exist: a heavier class would
+// make the browser fake a bold, so the tests keep 800/900 out of src/. Neither
+// font is ever used to imitate the logo, which is a file
+// (src/components/Logo.tsx). See docs/BRAND.md, "Typography".
+const inter = Inter({
   subsets: ["latin", "latin-ext"],
-  weight: ["800", "900"],
+  weight: ["400", "500", "600"],
   display: "swap",
-  variable: "--font-nunito",
+  variable: "--font-inter",
+});
+const poppins = Poppins({
+  subsets: ["latin", "latin-ext"],
+  weight: ["600", "700"],
+  display: "swap",
+  variable: "--font-poppins",
 });
 
 // Icons come from Next's file conventions in this folder: favicon.ico,
@@ -35,7 +43,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${inter.variable} ${nunito.variable}`}>
+    <html lang="es" className={`${inter.variable} ${poppins.variable}`}>
       <body className="font-sans">{children}</body>
     </html>
   );

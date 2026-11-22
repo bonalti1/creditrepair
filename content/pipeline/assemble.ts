@@ -31,7 +31,7 @@ function logoImg(height: number): string {
 }
 
 const FONTS =
-  '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,800;0,900;1,900&family=Inter:wght@500&display=swap">';
+  '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@500&display=swap">';
 
 function captionHtml(html: string, spot: Spot, lock: Lock): string {
   const [w, h] = SIZES[spot.format];
@@ -39,9 +39,9 @@ function captionHtml(html: string, spot: Spot, lock: Lock): string {
   return `<!doctype html><html><head><meta charset="utf-8">${FONTS}<style>
 html,body{margin:0;width:${w}px;height:${h}px;background:transparent;overflow:hidden}
 .c{position:absolute;left:70px;right:70px;top:${c.centerY[spot.format]}px;transform:translateY(-50%);text-align:center;
-font-family:Nunito,sans-serif;font-weight:900;font-size:${c.sizePx}px;line-height:1.08;letter-spacing:-0.5px;color:${c.color};
+font-family:Poppins,sans-serif;font-weight:700;font-size:${c.sizePx}px;line-height:1.08;letter-spacing:-0.5px;color:${c.color};
 -webkit-text-stroke:${c.stroke};paint-order:stroke fill;text-shadow:0 6px 18px rgba(18,33,58,.55)}
-.c b{color:${c.highlight};font-weight:900}</style></head><body><div class="c">${html}</div></body></html>`;
+.c b{color:${c.highlight};font-weight:700}</style></head><body><div class="c">${html}</div></body></html>`;
 }
 
 function hookHtml(html: string, spot: Spot, lock: Lock): string {
@@ -49,9 +49,9 @@ function hookHtml(html: string, spot: Spot, lock: Lock): string {
   return `<!doctype html><html><head><meta charset="utf-8">${FONTS}<style>
 html,body{margin:0;width:${w}px;height:${h}px;background:transparent;overflow:hidden}
 .h{position:absolute;left:80px;right:80px;top:${lock.hook.centerY[spot.format]}px;transform:translateY(-50%);text-align:center;
-font-family:Nunito,sans-serif;font-weight:900;font-size:${lock.hook.sizePx}px;line-height:1.1;letter-spacing:-1px;color:#fff;
+font-family:Poppins,sans-serif;font-weight:700;font-size:${lock.hook.sizePx}px;line-height:1.1;letter-spacing:-1px;color:#fff;
 -webkit-text-stroke:16px ${NAVY};paint-order:stroke fill;text-shadow:0 8px 22px rgba(18,33,58,.6)}
-.h b{color:${lock.captions.highlight};font-weight:900}</style></head><body><div class="h">${html}</div></body></html>`;
+.h b{color:${lock.captions.highlight};font-weight:700}</style></head><body><div class="h">${html}</div></body></html>`;
 }
 
 function endCardHtml(spot: Spot, lock: Lock): string {
@@ -61,11 +61,11 @@ function endCardHtml(spot: Spot, lock: Lock): string {
   const logo = `<div class="logo">${logoImg(vertical ? 190 : 200)}</div>`;
   return `<!doctype html><html><head><meta charset="utf-8">${FONTS}<style>
 html,body{margin:0;width:${w}px;height:${h}px;overflow:hidden}
-body{background:${NAVY};font-family:Nunito,sans-serif;color:#fff;position:relative}
+body{background:${NAVY};font-family:Poppins,sans-serif;color:#fff;position:relative}
 .stack{position:absolute;left:0;right:0;top:${vertical ? 500 : 250}px;display:flex;flex-direction:column;align-items:center;text-align:center}
 .logo img{display:block}
-.tag{margin-top:${vertical ? 110 : 100}px;font-weight:800;font-size:${vertical ? 78 : 64}px;line-height:1.12;letter-spacing:-0.5px}
-.tag b{color:${GOLD};font-weight:800;${vertical ? "display:block" : ""}}
+.tag{margin-top:${vertical ? 110 : 100}px;font-weight:700;font-size:${vertical ? 78 : 64}px;line-height:1.12;letter-spacing:-0.5px}
+.tag b{color:${GOLD};font-weight:700;${vertical ? "display:block" : ""}}
 .legal{margin-top:${vertical ? 72 : 60}px;max-width:${vertical ? 820 : 1500}px;font-family:Inter,sans-serif;font-weight:500;font-size:${vertical ? 31 : 27}px;line-height:1.42;color:#d3d9e3}
 svg.swoosh{position:absolute;left:0;right:0;bottom:0;width:100%;height:${vertical ? 150 : 120}px}
 </style></head><body><div class="stack">${logo}

@@ -62,7 +62,7 @@ export default function Goal() {
       <main>
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
           <p className="text-3xl">🏡</p>
-          <h1 className="mt-2 text-xl font-bold">{c.pendingTitle}</h1>
+          <h1 className="mt-2 font-display text-xl font-bold">{c.pendingTitle}</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">{c.pendingBody}</p>
         </div>
       </main>
@@ -83,7 +83,7 @@ export default function Goal() {
       <main>
         <div className="rounded-2xl border border-green-200 bg-green-50 p-8 text-center">
           <p className="text-3xl">✅</p>
-          <h1 className="mt-2 text-xl font-bold text-green-900">{c.ackedTitle}</h1>
+          <h1 className="mt-2 font-display text-xl font-bold text-green-900">{c.ackedTitle}</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-green-800">{c.ackedBody}</p>
         </div>
       </main>
@@ -92,7 +92,7 @@ export default function Goal() {
 
   return (
     <main>
-      <h1 className="text-2xl font-bold">{c.title}</h1>
+      <h1 className="font-display text-2xl font-bold">{c.title}</h1>
       <div className="mt-4 whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-6 text-sm leading-relaxed text-slate-700">
         {c.body}
       </div>

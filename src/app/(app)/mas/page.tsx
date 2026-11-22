@@ -67,7 +67,7 @@ export default function Mas() {
 
   return (
     <main className="animate-rise space-y-6">
-      <h1 className="px-1 font-display text-[34px] font-black leading-tight text-blue-700">{d.nav.more}</h1>
+      <h1 className="px-1 font-display text-[34px] font-bold leading-tight text-blue-700">{d.nav.more}</h1>
 
       <section>
         <h2 className="px-1 pb-2 text-[13px] font-semibold uppercase tracking-wide text-slate-500">

@@ -177,15 +177,37 @@ a phone's home screen is for a client opening their app, not for the landing
 page; signed out, the auth gate sends them to `/login` and back. The viewport's
 `theme-color` is `#12213A` (it was the light gray).
 
-## Typography (pending the owner)
+## Typography
 
-The kit *recommends* Poppins 600/700 for headings and Inter 400–600 for body
-text, and marks it "recommendation only, owner to confirm". **Nothing was
-changed**: the app keeps the system font (San Francisco on Apple devices,
-Inter elsewhere) for interface text and Nunito 800/900 (`font-display`) for
-large headlines, set in `src/app/layout.tsx`. If the owner confirms the
-recommendation, it is a change to `layout.tsx` and the `--font-*` tokens in
-`globals.css`. Either way, no font is ever used to imitate the logo.
+The owner adopted the kit's typefaces (`brand/typography/TYPOGRAPHY.md`) on
+2026-11-22. Both come from `next/font/google` in `src/app/layout.tsx`: the
+files are downloaded at build time and served from the site itself (no
+request to Google from a visitor's browser), with `display: "swap"` and the
+`latin` and `latin-ext` subsets (Spanish accents, ñ, ¿ and ¡).
+
+| Role | Face and weights | Token | Used by |
+| --- | --- | --- | --- |
+| Headings and display | **Poppins** 600, 700 | `--font-display` (`font-display`) | The big headlines: landing, `/empezar`, onboarding, login, the agreement, payments, "Más", Home's next step |
+| Body and interface | **Inter** 400, 500, 600 | `--font-sans` (the default) | Everything else, with the system font as fallback |
+
+Rules:
+
+- **Only the loaded weights.** Display headlines are `font-bold` (Poppins
+  700); nothing is `font-extrabold` or `font-black`, which would make the
+  browser fake a heavier weight. Body text stops at `font-semibold` (Inter
+  600); `<b>`, `<strong>` and `<th>` are 600 too (`globals.css`, base layer).
+  No italic headings (the only italics are the serif signatures on the
+  agreement). `brand.test.ts` checks the weights, the subsets and that
+  Nunito, the earlier display face, is gone.
+- **Numbers line up**: `tabular-nums` on figures in lists, and on every table.
+- Headings are balanced (`text-wrap: balance`), so a headline does not end on
+  one short word; Poppins sets wider than Nunito did, and the landing and
+  `/empezar` headlines were made slightly smaller for a 390 px phone.
+- The ad pipeline's captions and end card use Poppins 700 and Inter 500 too
+  (`content/pipeline/assemble.ts`, `content/brand/lock.json`).
+- **Never use either font to imitate the logo.** The logo is the SVG files.
+  `public/screens/*.png` (the `/empezar` screenshots) were taken before the
+  change and still show the earlier fonts.
 
 ## Compliance rules from the kit
 
@@ -210,20 +232,31 @@ to the app:
   background or literacy.
 - **Taglines**: the kit approves none (`{TAGLINE — pending}`).
 
-**Not changed, pending the owner:** the signed-in client app shows the
-client's own scores from their report. Where:
+### Scores in the client app
 
-- Home (`/dashboard`): the ring with the average of the three bureaus (a
-  270° gauge in gold), the change since the first report as a green or red
-  pill ("+12 desde tu primer reporte"), and each bureau's score with its change
-  (+/− in green or red).
-- Audit (`/audit`): "Tus puntajes hoy", each bureau's score and its change
-  since the first report, in green or red.
-- The staff console shows the imported scores (`ReportImport`).
+**Decided by the owner on 2026-11-22:** the signed-in client app shows the
+client their own scores only as **plain current numbers** from their report:
+no dials or gauges, no change since an earlier report, no green or red, no
+arrows, and no average in large type.
 
-These are the client's own data, not marketing, but they use the visual
-language the kit forbids in marketing (a gauge, numbers, green for up). Ask
-the owner whether to keep them as they are.
+- Home (`/dashboard`): the journey's next step is the top of the screen
+  ("Tu siguiente paso", its title, one button). Below the shortcuts, "Tus
+  puntajes" lists each bureau with its current score in neutral colours, the
+  source note ("VantageScore 3.0 según tu servicio de monitoreo. Los
+  resultados varían.") and the report's date. The 270° gold ring, the
+  average and the "+N desde tu primer reporte" pill are gone.
+- Audit (`/audit`): "Tus puntajes hoy", each bureau's current score, the
+  same note; the report's date is in the subtitle. No change since the first
+  report.
+- Factual lines about the report stay ("ya no aparece en tu reporte"), as do
+  the WhatsApp messages, which never mention scores.
+- The staff console keeps its numbers (`ReportImport`, the client page):
+  staff need them.
+
+`compliance.test.ts` ("scores in the client app") scans the client app for
+the removed patterns: change-since-first-report copy, the ring, SVG/CSS
+gauges, score arithmetic between pulls, arrows or green/red on a line with a
+score, and any screen reading the score history.
 
 ## Characters
 
@@ -356,10 +389,6 @@ card and has to be assembled again before it runs.
 - **Trademark:** a quick web search found no existing "Credalti". That is not
   a clearance: counsel should run a proper trademark search before spend on
   signage or ads.
-- **Typeface:** the kit's Poppins/Inter is a recommendation awaiting the
-  owner (see "Typography").
-- **Scores in the client app:** keep the score ring and the green/red changes,
-  or not (see "Compliance rules from the kit").
 - **AltiBot's voice:** not chosen yet, for video.
 - **Ads:** every existing video shows the old mascot and must be remade.
 - **More poses:** the kit has four views per character (front, three-quarter,

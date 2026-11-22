@@ -244,7 +244,7 @@ export default function PagosPage() {
         </Link>
 
         <header className="px-1">
-          <h1 className="font-display text-[30px] font-black leading-tight text-blue-700">{c.title}</h1>
+          <h1 className="font-display text-[30px] font-bold leading-tight text-blue-700">{c.title}</h1>
           <p className="mt-2 text-[16px] leading-relaxed text-slate-600">{c.lead}</p>
         </header>
 

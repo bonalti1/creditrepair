@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { POST as coachPost } from "@/app/api/coach/route";
 import { ATTESTATION_TEXT } from "@/lib/compliance/attestation";
 import { checkMarketingCopy } from "@/lib/compliance/guardrails";
-import { DEMO_RAW_REPORT, DEMO_REPORT, DEMO_SCORE_HISTORY, firstScoresForTrend } from "@/lib/demo";
+import { DEMO_RAW_REPORT, DEMO_REPORT, DEMO_SCORE_HISTORY } from "@/lib/demo";
 import { ROUND_CYCLE_DAYS } from "@/lib/domain/attack";
 import { parseReport } from "@/lib/domain/parser";
 import type { ReportItem } from "@/lib/domain/types";
@@ -504,15 +504,6 @@ describe("E. reviewing again after the letters went out", () => {
 });
 
 describe("F. scores with a single pull", () => {
-  it("shows no change until there are two pulls", () => {
-    expect(DEMO_SCORE_HISTORY).toHaveLength(1);
-    expect(firstScoresForTrend(DEMO_SCORE_HISTORY)).toBeNull();
-    expect(firstScoresForTrend([])).toBeNull();
-    expect(
-      firstScoresForTrend([{ scores: { equifax: 538 } }, { scores: { equifax: 561 } }]),
-    ).toEqual({ equifax: 538 });
-  });
-
   it("keeps the demo's one history entry equal to today's scores", () => {
     expect(DEMO_SCORE_HISTORY[0]!.scores).toEqual(DEMO_REPORT.scores);
   });

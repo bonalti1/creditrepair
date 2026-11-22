@@ -4,6 +4,7 @@ import { assertClaimGuardrails, checkClaimGuardrails, checkMarketingCopy } from 
 import { ALL_STATES, openStates, stateStatus } from "@/lib/compliance/states";
 import { renderMessage, type WhatsAppEvent } from "@/lib/integrations/whatsapp";
 import { AFFILIATE_DISCLOSURE, MONITORING_OFFER, monitoringNameEs } from "@/lib/monitoring/offer";
+import { DICTS } from "@/lib/i18n/dictionaries";
 
 const rules = (text: string) => checkClaimGuardrails(text).map((v) => v.rule);
 const adRules = (text: string) => checkMarketingCopy(text).map((v) => v.rule);
@@ -144,5 +145,83 @@ describe("wording", () => {
       // English copy: the word may appear in code (paths, identifiers), never inside a sentence.
       expect(/\b(your|my|next|the) attack\b|Attack #|Attack \d/i.test(text), file).toBe(false);
     }
+  });
+});
+
+// The brand kit forbids credit-score visuals that read as a progress claim:
+// dials and gauges, before/after scores, green up-arrows. The owner decided on
+// 2026-11-22 that the signed-in client app still shows the client's own scores,
+// but only as plain current numbers from the report (docs/BRAND.md, "Scores in
+// the client app"). The staff console keeps its numbers and is not scanned.
+describe("scores in the client app", () => {
+  const CLIENT_DIRS = ["src/app/(app)", "src/app/onboarding", "src/components", "src/lib/ux"];
+  const CLIENT_FILES = ["src/lib/i18n/dictionaries.ts", "src/lib/demo.ts", "src/lib/integrations/whatsapp.ts"];
+
+  async function clientSources(): Promise<Array<{ file: string; text: string }>> {
+    const { readdirSync, readFileSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) return name === "__tests__" || name === "staff" ? [] : walk(path);
+        return /\.tsx?$/.test(name) ? [path] : [];
+      });
+    return [...CLIENT_DIRS.flatMap(walk), ...CLIENT_FILES].map((file) => ({ file, text: readFileSync(file, "utf8") }));
+  }
+
+  it("shows no change since an earlier report, no dial and no average in large type", async () => {
+    const sources = await clientSources();
+    expect(sources.length).toBeGreaterThan(40);
+    const banned: Array<[string, RegExp]> = [
+      ["change since the first report", /desde tu primer reporte|since your first report/i],
+      ["a trend helper or trend copy", /firstScoresForTrend|scores\.trend|\btrend\s*:/],
+      ["the score ring", /ScoreRing|SCORE_MIN|SCORE_MAX|Promedio de tus|Average of your/],
+      ["a gauge drawn in SVG or CSS", /strokeDasharray|stroke-dasharray|conic-gradient|<Gauge|Gauge\(/],
+      ["a score compared between pulls", /scores\[[^\]]+\]\s*-\s*\w|Score\s*-\s*first/],
+      ["score movement copy", /\b(subi[oó]|baj[oó]|aument[oó]|mejor[oó])\s+(tu|el|su)\s+puntaje|\bpuntos?\s+m[aá]s\b|score (went|is) (up|down)|points? (up|higher)/i],
+    ];
+    const offenders = sources.flatMap(({ file, text }) =>
+      banned.filter(([, pattern]) => pattern.test(text)).map(([what]) => `${file}: ${what}`),
+    );
+    expect(offenders).toEqual([]);
+    // The score history (/api/report) is data only: no screen reads it, so no screen can compare pulls.
+    const screens = sources.filter(({ file }) => !file.startsWith("src/lib/"));
+    expect(screens.filter(({ text }) => /scoreHistory/.test(text)).map(({ file }) => file)).toEqual([]);
+  });
+
+  it("never puts an arrow, green or red beside a score", async () => {
+    const sources = await clientSources();
+    const scoreLine = /\bscores?\b|bureauScore|puntaje/i;
+    const progressMark = /arrowUp|arrowDown|arrow-up|arrow-down|↑|↓|▲|▼|📈|📉|text-green|bg-green|text-red|bg-red|\+\$\{/;
+    const offenders = sources.flatMap(({ file, text }) =>
+      text
+        .split("\n")
+        .map((line, i) => ({ line, i }))
+        .filter(({ line }) => scoreLine.test(line) && progressMark.test(line))
+        .map(({ i }) => `${file}:${i + 1}`),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("lists each bureau's current score in neutral colours, with its source", async () => {
+    const { readFileSync } = await import("node:fs");
+    const home = readFileSync("src/app/(app)/dashboard/page.tsx", "utf8");
+    const audit = readFileSync("src/app/(app)/audit/page.tsx", "utf8");
+    // Home has no colour or arrow that could read as up or down anywhere on it.
+    expect(home).not.toMatch(/green-|red-|arrowUp|arrowDown|<svg/);
+    // The journey's next step is the top of Home; the scores follow it.
+    expect(home.indexOf('data-testid="next-step"')).toBeGreaterThan(-1);
+    expect(home.indexOf('data-testid="next-step"')).toBeLessThan(home.indexOf('data-testid="scores"'));
+    expect(home).toContain("d.scores.title");
+    expect(home).toContain("d.audit.scoreNote");
+    expect(home).toContain("d.dashboard.imported(");
+    // The audit's score block, from its heading to its source note.
+    const block = audit.slice(audit.indexOf("{d.audit.scores}"), audit.indexOf("{d.audit.scoreNote}"));
+    expect(block.length).toBeGreaterThan(0);
+    expect(block).toContain("report.scores[b]");
+    expect(block).not.toMatch(/green-|red-|delta|first|arrow/i);
+    // The source note keeps its wording.
+    expect(DICTS.es.audit.scoreNote).toBe("VantageScore 3.0 según tu servicio de monitoreo. Los resultados varían.");
+    expect(DICTS.en.audit.scoreNote).toBe("VantageScore 3.0 per your monitoring service. Results vary.");
   });
 });
