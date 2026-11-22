@@ -131,14 +131,14 @@ const STAGES_ES: Record<string, { name: string; plain: string }> = {
       "Esta carta exige al cobrador que PRUEBE que la deuda es tuya, que el monto es correcto y que tiene derecho a cobrarla. Si no puede validarla, debe dejar de reportarla. Es la herramienta más fuerte contra cuentas en cobranza.",
   },
   identity_theft_block: {
-    name: "Bloqueo por robo de identidad (FCRA §605B)",
+    name: "Bloqueo por robo de identidad (ley de reportes de crédito, §605B)",
     plain:
       "Si un elemento resultó de robo de identidad, esta carta obliga al buró a bloquearlo en 4 días hábiles. Requiere adjuntar tu reporte de robo de identidad (identitytheft.gov) y prueba de identidad.",
   },
   goodwill_adjustment: {
     name: "Carta de buena voluntad",
     plain:
-      "Para pagos tardíos REALES en cuentas que sí son tuyas: esta carta no disputa nada — pide amablemente al acreedor que retire la marca como gesto de buena voluntad, apoyándose en tu historial. No hay garantía, pero no cuesta nada intentarlo.",
+      "Es para pagos tardíos REALES en cuentas que sí son tuyas. Esta carta no disputa nada. Le pide con amabilidad al acreedor que retire la marca, como un favor, por tu buen historial. No hay garantía, pero no cuesta nada intentarlo.",
   },
   personal_info_cleanup: {
     name: "Limpieza de datos personales",
@@ -146,9 +146,9 @@ const STAGES_ES: Record<string, { name: string; plain: string }> = {
       "Esta carta pide a los burós quitar direcciones, nombres o empleos viejos o incorrectos de tu expediente. Es el primer paso porque un expediente limpio evita mezclas con datos de otras personas.",
   },
   dispute: {
-    name: "Disputa FCRA §611",
+    name: "Disputa al buró (ley de reportes de crédito, §611)",
     plain:
-      "Esta carta ejerce tu derecho legal (ley FCRA, sección 611) a que el buró investigue los elementos que tú crees inexactos. Tienen ~30 días para verificar cada uno o eliminarlo.",
+      "Con esta carta usas tu derecho a que el buró investigue lo que tú crees inexacto. Lo da la ley de reportes de crédito (FCRA, sección 611). Tienen ~30 días para verificar cada uno o eliminarlo.",
   },
   mov: {
     name: "Método de verificación",
@@ -158,7 +158,7 @@ const STAGES_ES: Record<string, { name: string; plain: string }> = {
   furnisher_direct: {
     name: "Directo al informante",
     plain:
-      "Esta carta va directo a la empresa que reporta el dato (no al buró). La ley (FCRA §623) la obliga a investigar tu disputa y corregir o dejar de reportar lo que no pueda verificar.",
+      "Esta carta va directo a la empresa que reporta el dato (no al buró). La ley de reportes de crédito (FCRA §623) la obliga a investigar tu disputa y corregir o dejar de reportar lo que no pueda verificar.",
   },
   secondary_bureau_request: {
     name: "Expediente de buró secundario",
@@ -181,7 +181,7 @@ const STAGES_EN: Record<string, { name: string; plain: string }> = {
   goodwill_adjustment: {
     name: "Goodwill letter",
     plain:
-      "For REAL late payments on accounts that are yours: this letter disputes nothing — it politely asks the creditor to remove the mark as a goodwill gesture, leaning on your history. No guarantee, but it costs nothing to ask.",
+      "It is for REAL late payments on accounts that are yours. This letter disputes nothing. It politely asks the creditor to remove the mark as a favor, because of your good history. No guarantee, but it costs nothing to ask.",
   },
   personal_info_cleanup: {
     name: "Personal info cleanup",

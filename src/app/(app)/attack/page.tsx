@@ -8,6 +8,7 @@ import ReportPending from "@/components/ReportPending";
 import { renderLetter } from "@/lib/letters/templates";
 import type { PlannedLetter } from "@/lib/domain/types";
 import type { ItemReasons } from "@/lib/letters/parts";
+import SpeakButton from "@/components/SpeakButton";
 import { getStageExplainers } from "@/lib/ux/explainers";
 import { countByState, useFlags } from "@/lib/ux/flagsStore";
 import { letterCoverage, waitingNote } from "@/lib/ux/roundCopy";
@@ -377,7 +378,11 @@ function LetterCard({
         <div className="px-5 pb-5 pt-1">
           {explainer && (
             <div className="mb-4">
-              <p className="text-[15px] font-semibold text-slate-900">{d.attack.inPlainWords}</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[15px] font-semibold text-slate-900">{d.attack.inPlainWords}</p>
+                {/* "Escuchar": the letter's summary in plain words. */}
+                <SpeakButton compact text={`${explainer.name}. ${explainer.plain}`} label={d.attack.inPlainWords} />
+              </div>
               <p className="mt-1 text-[15px] leading-relaxed text-slate-600">{explainer.plain}</p>
             </div>
           )}

@@ -8,6 +8,7 @@ import Icon, { type IconName } from "@/components/Icon";
 import { CharacterAvatar } from "@/components/Character";
 import { isFullService } from "@/lib/service/mode";
 import MailingAddress from "@/components/MailingAddress";
+import { useTextSize } from "@/lib/ux/textSize";
 
 // "Más": everything beyond Home and the conversation, as grouped rows that say
 // what each thing is for. Familiar from every phone's Settings screen.
@@ -64,6 +65,7 @@ export default function Mas() {
   // A WhatsApp chat with the team, or null in the demo, where nobody is online.
   const humanHref = humanHelpHref(locale);
   const humanTitle = es ? "Hablar con una persona" : "Talk to a person";
+  const { large, setSize } = useTextSize();
 
   return (
     <main className="animate-rise space-y-6">
@@ -76,6 +78,20 @@ export default function Mas() {
         <div className="card overflow-hidden">
           <Row
             first
+            href="/caso"
+            icon="clock"
+            tint="bg-blue-900"
+            title={es ? "Mi caso" : "My case"}
+            desc={es ? "Todo lo que ha pasado y lo que sigue, con fechas." : "Everything that happened and what comes next, with dates."}
+          />
+          <Row
+            href="/aprende"
+            icon="book"
+            tint="bg-amber-600"
+            title={es ? "Aprende" : "Learn"}
+            desc={es ? "Lecciones cortas sobre el crédito, y dos calculadoras." : "Short lessons about credit, and two calculators."}
+          />
+          <Row
             href="/audit"
             icon="clipboard"
             tint="bg-blue-700"
@@ -167,6 +183,27 @@ export default function Mas() {
               </span>
             </div>
           )}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={large}
+            onClick={() => setSize(large ? "normal" : "large")}
+            data-testid="text-size"
+            className="pressable flex w-full items-center gap-3.5 border-t hairline px-4 py-3.5 text-left hover:bg-slate-50"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-700 text-white">
+              <Icon name="textSize" size={22} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[17px] font-medium text-slate-900">{es ? "Letra grande" : "Large text"}</span>
+              <span className="block text-[13px] leading-snug text-slate-500">
+                {es ? "Letras y botones más grandes en este teléfono." : "Bigger text and buttons on this phone."}
+              </span>
+            </span>
+            <span aria-hidden="true" className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${large ? "bg-blue-700" : "bg-slate-300"}`}>
+              <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${large ? "left-[22px]" : "left-0.5"}`} />
+            </span>
+          </button>
           <button
             type="button"
             onClick={() => setLocale(es ? "en" : "es")}

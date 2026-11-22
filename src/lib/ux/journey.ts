@@ -132,7 +132,7 @@ const COPY = {
       }),
       teamStartsOn: (n: number, day: string) => ({
         title: "Listo: tu equipo prepara y envía tus cartas",
-        description: `${n === 1 ? "Confirmaste 1 elemento" : `Confirmaste ${n} elementos`}. Tú ya terminaste. Tu equipo empieza el ${day}, cuando termina tu plazo de 3 días hábiles para cancelar sin costo; la ley no permite empezar antes.`,
+        description: `${n === 1 ? "Confirmaste 1 elemento" : `Confirmaste ${n} elementos`}. Tú ya terminaste. Tu equipo empieza el ${day}, cuando termina tu plazo de 3 días hábiles para cancelar sin costo. La ley no permite empezar antes.`,
         cta: "Ver mi acuerdo",
       }),
       waiting: (daysLeft: number) => ({
@@ -152,7 +152,7 @@ const COPY = {
       nextRound: {
         title: "Tu equipo prepara la siguiente ronda",
         description:
-          "Volvemos a importar tu reporte, lo comparamos con el anterior y tu equipo prepara y envía la siguiente ronda de cartas sobre los puntos que confirmaste. No tienes que hacer nada.",
+          "Volvemos a importar tu reporte y lo comparamos con el anterior. Tu equipo prepara y envía la siguiente ronda de cartas sobre los puntos que confirmaste. No tienes que hacer nada.",
         cta: "Ver mis rondas",
       },
     },
@@ -232,7 +232,7 @@ const COPY = {
       }),
       teamStartsOn: (n: number, day: string) => ({
         title: "Done: your team prepares and mails your letters",
-        description: `${n === 1 ? "You confirmed 1 item" : `You confirmed ${n} items`}. Your part is finished. Your team starts on ${day}, when your 3 business days to cancel at no cost are over; the law does not allow starting sooner.`,
+        description: `${n === 1 ? "You confirmed 1 item" : `You confirmed ${n} items`}. Your part is finished. Your team starts on ${day}, when your 3 business days to cancel at no cost are over. The law does not allow starting sooner.`,
         cta: "See my agreement",
       }),
       waiting: (daysLeft: number) => ({
@@ -252,7 +252,7 @@ const COPY = {
       nextRound: {
         title: "Your team is preparing the next round",
         description:
-          "Your report is imported again and compared with the last one, and your team prepares and mails the next round of letters on the items you confirmed. Nothing to do.",
+          "Your report is imported again and compared with the last one. Your team prepares and mails the next round of letters on the items you confirmed. Nothing to do.",
         cta: "See my rounds",
       },
     },

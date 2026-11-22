@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import { APP_ICONS, BRAND } from "@/lib/brand";
+import { TEXT_SIZE_SCRIPT } from "@/lib/ux/textSizeCore";
 
 // The brand kit's typefaces (brand/typography/TYPOGRAPHY.md, confirmed by the
 // owner): Inter for body and interface text, Poppins for headings and display
@@ -43,7 +44,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${inter.variable} ${poppins.variable}`}>
+    // suppressHydrationWarning: the "Letra grande" script below may set data-text-size before React loads.
+    <html lang="es" className={`${inter.variable} ${poppins.variable}`} suppressHydrationWarning>
+      <head>
+        {/* "Letra grande" (src/lib/ux/textSize.ts): applied before the first paint, so nothing jumps. */}
+        <script dangerouslySetInnerHTML={{ __html: TEXT_SIZE_SCRIPT }} />
+      </head>
       <body className="font-sans">{children}</body>
     </html>
   );

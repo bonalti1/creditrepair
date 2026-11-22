@@ -49,6 +49,9 @@ export const config = {
     "/attack/:path*",
     "/rounds/:path*",
     "/goal/:path*",
+    // "Mi caso" and "Aprende" (the client app's timeline and lessons).
+    "/caso/:path*",
+    "/aprende/:path*",
     // The service agreement: read, signed and cancelled only by the signed-in client.
     "/acuerdo/:path*",
     // "Mis pagos": the client's charges, receipts and payment method.

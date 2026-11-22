@@ -219,7 +219,7 @@ const es: MarketingCopy = {
         `Sí. Es un chat, como WhatsApp: ${assistant} te va diciendo qué sigue. Puedes escuchar las explicaciones en vez de leerlas, y una persona del equipo te ayuda por WhatsApp si te atoras.`,
       ],
     ],
-    footer: `${brand} es una empresa de servicios de crédito. Tú decides qué es inexacto en tu reporte; nuestro equipo prepara y envía las cartas por ti. No garantizamos resultados: los burós de crédito deciden, y los resultados varían según cada caso. Nadie puede quitar de un reporte información que es correcta y actual. El servicio requiere una suscripción activa de monitoreo de crédito, que se contrata y se paga aparte con un servicio de monitoreo independiente; ${brand} recibe una comisión por esa suscripción. Disponible en Texas. Esto no es asesoría legal.`,
+    footer: `${brand} es una empresa de servicios de crédito. Tú decides qué es inexacto en tu reporte; nuestro equipo prepara y envía las cartas por ti. No garantizamos resultados: los burós de crédito deciden, y los resultados varían según cada caso. Nadie puede quitar de un reporte información que es correcta y actual. El servicio requiere una suscripción activa de monitoreo de crédito. Se contrata y se paga aparte, con un servicio de monitoreo independiente. ${brand} recibe una comisión por esa suscripción. Disponible en Texas. Esto no es asesoría legal.`,
     more: "Más información",
   },
   onboarding: {

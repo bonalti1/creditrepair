@@ -189,7 +189,7 @@ const es = {
     readLetters: (n: number): string => (n === 1 ? "Leer la carta completa" : "Leer cada carta completa"),
     trackRound: "Ver cómo va mi ronda →",
     roundsSubtitle: (resp: number, next: number) =>
-      `Cada ronda: tu equipo envía las cartas → los burós responden (~${resp} días) → revisamos tu reporte de nuevo y te mostramos qué cambió (~día ${next}) → tu equipo prepara la siguiente.`,
+      `Cada ronda: tu equipo envía las cartas. Los burós tienen unos ${resp} días para responder. Luego revisamos tu reporte de nuevo y te mostramos qué cambió. Cerca del día ${next}, tu equipo prepara la siguiente.`,
     roundPreparingBody:
       "Tu equipo está preparando las cartas de esta ronda. Cuando salgan por correo, aquí verás la fecha, cuándo se espera la respuesta de los burós y cuándo toca la siguiente ronda.",
     lettersInRound: (n: number) => (n === 1 ? "La carta de esta ronda" : `Las ${n} cartas de esta ronda`),
@@ -349,7 +349,7 @@ const en: Dict = {
     waitingTitle: "Waiting for your next round",
     emptyTitle: "You haven't sent any letters yet",
     emptyBody:
-      "Once you approve your letters, this is where you'll see when they went out, when the bureaus' response is expected, and when the next round is due.",
+      "Once you approve your letters, you will see here when they went out. You will also see when the bureaus should answer, and when the next round is due.",
   },
   team: {
     lettersLead: "This is what your team mails for you.",
@@ -375,7 +375,7 @@ const en: Dict = {
     readLetters: (n: number) => (n === 1 ? "Read the full letter" : "Read each full letter"),
     trackRound: "See how my round is going →",
     roundsSubtitle: (resp: number, next: number) =>
-      `Each round: your team mails the letters → bureaus respond (~${resp} days) → we look at your report again and show you what changed (~day ${next}) → your team prepares the next one.`,
+      `Each round: your team mails the letters. The bureaus have about ${resp} days to answer. Then we look at your report again and show you what changed. Around day ${next}, your team prepares the next one.`,
     roundPreparingBody:
       "Your team is preparing this round's letters. Once they are mailed, this is where you will see the date, when the bureaus' response is expected, and when the next round is due.",
     lettersInRound: (n: number) => (n === 1 ? "This round's letter" : `This round's ${n} letters`),
@@ -385,7 +385,7 @@ const en: Dict = {
       "The bureaus respond by mail to your address. If a letter arrives, keep it and let your team know.",
     roundsEmptyTitle: "No letters have been mailed yet",
     roundsEmptyBody:
-      "Once your team mails your letters, this is where you'll see when they went out, when the bureaus' response is expected, and when the next round is due.",
+      "Once your team mails your letters, you will see here when they went out. You will also see when the bureaus should answer, and when the next round is due.",
   },
 };
 

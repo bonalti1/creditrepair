@@ -81,8 +81,11 @@ export function useClientReport(): ClientReportView {
   return live ? reportView(answer) : DEMO_VIEW;
 }
 
-/** The journey with the report's real state: no report on file yet is the "import" step. Unchanged in the demo. */
+/**
+ * The journey with the report's real state: no report on file yet is the "import" step.
+ * In the demo only the mailing date changes: the one this device saved, when there is one.
+ */
 export function withReport(state: JourneyState, view: Pick<ClientReportView, "live" | "waiting">, mailedAt?: string | null): JourneyState {
-  if (!view.live) return state;
+  if (!view.live) return mailedAt && state.roundApproved ? { ...state, mailedAt } : state;
   return { ...state, reportImported: !view.waiting, ...(mailedAt !== undefined ? { mailedAt: state.roundApproved ? mailedAt : null } : {}) };
 }
