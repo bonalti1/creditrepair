@@ -6,10 +6,11 @@ import Link from "next/link";
 import { dueText, waitedText, type QueueItem } from "@/lib/autopilot/queue";
 import { shortDateTime } from "@/lib/staff/format";
 import type { AnswerMatch } from "@/lib/staff/answers";
-import { EXCEPTION_LABEL } from "@/lib/staff/stage";
+import { EXCEPTION_LABELS } from "@/lib/staff/stage";
 import { fullName } from "@/lib/staff/types";
+import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import Icon from "@/components/Icon";
-import { Chip, PRIMARY_BUTTON, QUIET_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SeverityDot } from "@/components/staff/ui";
+import { Chip, ClientLanguageTag, PRIMARY_BUTTON, QUIET_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SeverityDot } from "@/components/staff/ui";
 import { PlaybookCard, PlaybookToggle } from "@/components/staff/PlaybookCard";
 
 // The one-person work queue: each thing that needs a human, why, what the
@@ -18,25 +19,29 @@ import { PlaybookCard, PlaybookToggle } from "@/components/staff/PlaybookCard";
 // Every item carries its «Cómo se resuelve» card (src/lib/staff/playbook.ts):
 // folded in the list, open in focus mode. A waiting question shows the saved
 // answer that matches it, when there is one, and a way to answer in the app.
+//
+// The queue speaks the member's language; a WhatsApp button opens a draft in
+// the CLIENT's language, and says which (ClientLanguageTag).
 
 /** The approved saved answer that matches a waiting question, if any. */
 export type AnswerFor = (item: QueueItem) => AnswerMatch | null;
 
 /** For a client's question: answer it in the app, where the saved answer or AltiBot's draft is waiting. */
 function AnswerHint({ item, answerFor }: { item: QueueItem; answerFor?: AnswerFor }) {
+  const t = useTx();
   if (item.exception.kind !== "question_waiting") return null;
   const match = answerFor?.(item) ?? null;
   return (
     <div className="mt-2 rounded-xl bg-blue-50 px-3 py-2 text-[13.5px] leading-snug text-blue-900" data-testid="answer-hint">
       {match ? (
         <p>
-          <span className="font-semibold">Hay una respuesta guardada que coincide:</span> «{match.answer.question}»
+          <span className="font-semibold">{t("Hay una respuesta guardada que coincide:", "A saved answer matches:")}</span> «{match.answer.question}»
         </p>
       ) : (
-        <p>Al abrir su conversación hay un borrador para revisar.</p>
+        <p>{t("Al abrir su conversación hay un borrador para revisar.", "Open their conversation for a draft to review.")}</p>
       )}
       <Link href={`/equipo/clientes/${item.client.id}#conversacion`} className="mt-1 inline-flex min-h-11 items-center gap-1 font-semibold text-blue-700 underline-offset-2 hover:underline">
-        Responder en la app
+        {t("Responder en la app", "Reply in the app")}
         <Icon name="chevron" size={14} />
       </Link>
     </div>
@@ -61,6 +66,8 @@ function ActionLink({ item, className, id }: { item: QueueItem; className: strin
 
 /** What the system already did, as a short list with dates. */
 export function TriedBox({ item, compact = false }: { item: QueueItem; compact?: boolean }) {
+  const t = useTx();
+  const { locale } = useStaffLocale();
   if (!item.triedSummary && item.tried.length === 0) return null;
   return (
     <div className={`rounded-xl bg-green-50 px-3 py-2 ${compact ? "mt-2" : "mt-3"}`} data-testid="tried">
@@ -68,14 +75,14 @@ export function TriedBox({ item, compact = false }: { item: QueueItem; compact?:
         <span className="mr-1.5 inline-flex align-[-2px]">
           <Icon name="sparkle" size={14} />
         </span>
-        Lo que ya hizo el sistema
+        {t("Lo que ya hizo el sistema", "What the system already did")}
       </p>
       {item.triedSummary && <p className="mt-0.5 text-[13px] leading-snug text-slate-700">{item.triedSummary}</p>}
       {item.tried.length > 0 && (
         <ul className="mt-1 space-y-0.5">
           {item.tried.map((line, i) => (
             <li key={i} className="text-[12px] leading-snug text-slate-600 tabular-nums">
-              {shortDateTime(line.at)} · {line.text}
+              {shortDateTime(line.at, locale)} · {line.text}
             </li>
           ))}
         </ul>
@@ -84,17 +91,100 @@ export function TriedBox({ item, compact = false }: { item: QueueItem; compact?:
   );
 }
 
+/** The exact words the client got (billing's notices with the card link, the reminders), so nobody repeats or contradicts them. */
+export function SentWords({ item }: { item: QueueItem }) {
+  const t = useTx();
+  const { locale } = useStaffLocale();
+  if (!item.messages || item.messages.length === 0) return null;
+  const last = item.messages[item.messages.length - 1]!;
+  return (
+    <details className="mt-2 rounded-xl bg-slate-50 px-3 py-2" data-testid="sent-words">
+      <summary className="cursor-pointer text-[13px] font-semibold text-slate-700">
+        {t("Lo que recibió el cliente", "What the client got")} (
+        {item.messages.length === 1 ? t("1 mensaje", "1 message") : t(`${item.messages.length} mensajes`, `${item.messages.length} messages`)})
+      </summary>
+      <ol className="mt-1.5 space-y-2">
+        {item.messages.map((m, i) => (
+          <li key={i} className="text-[12.5px] leading-snug text-slate-700">
+            <span className="block text-[12px] tabular-nums text-slate-500">
+              {shortDateTime(m.at, locale)}
+              {m.channel ? ` · ${m.channel === "whatsapp" ? "WhatsApp" : t("correo", "email")}` : ""}
+              {m.status === "failed" ? t(" · no se pudo entregar", " · couldn't be delivered") : m.status === "simulated" ? " · demo" : ""}
+            </span>
+            <span className="block whitespace-pre-line">{m === last ? m.body : m.body.split("\n")[0]}</span>
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
+
+/** One company several clients wait on: who, and the addresses the reports print for it (unverified suggestions). */
+export function GroupBox({ item }: { item: QueueItem }) {
+  const t = useTx();
+  const group = item.group;
+  if (!group) return null;
+  return (
+    <div className="mt-2 rounded-xl bg-blue-50 px-3 py-2 text-[13px] leading-snug text-blue-900" data-testid="gap-group">
+      <p className="font-semibold">{t("Esperan esta dirección:", "Waiting on this address:")}</p>
+      <ul className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+        {group.waiting.map((w) => (
+          <li key={w.client.id}>
+            <Link href={`/equipo/clientes/${w.client.id}`} className="underline-offset-2 hover:underline">
+              {fullName(w.client)}
+            </Link>{" "}
+            <span className="text-blue-800/80">({t("ronda", "round")} {w.roundNumber})</span>
+          </li>
+        ))}
+      </ul>
+      {group.suggestions.length > 0 && (
+        <div className="mt-1.5">
+          <p className="font-semibold">{t("Sugerencias de los reportes, sin verificar (nunca se envía a ellas así):", "Suggestions from the reports, unverified (nothing is ever sent to them as is):")}</p>
+          <ul className="mt-0.5 space-y-0.5">
+            {group.suggestions.slice(0, 3).map((s) => (
+              <li key={s.addressLines.join("|")} className="tabular-nums">
+                {s.addressLines.join(", ")} · {s.clients === 1 ? t("en 1 cliente", "for 1 client") : t(`en ${s.clients} clientes`, `for ${s.clients} clients`)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {group.nearMatches.length > 0 && (
+        <p className="mt-1.5">
+          {t("¿Es la misma empresa que", "Is it the same company as")}{" "}
+          {group.nearMatches.map((m, i) => (
+            <span key={m.id}>
+              {i > 0 ? t(" o ", " or ") : ""}
+              <Link href={`/equipo/acreedores?editar=${encodeURIComponent(m.id)}`} className="font-semibold underline-offset-2 hover:underline">
+                {m.name}
+              </Link>
+            </span>
+          ))}
+          {t("? Agrega el nombre como «otro nombre» y queda resuelta.", "? Add the name as an “other name” and it's settled.")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Meta({ item, now }: { item: QueueItem; now: Date }) {
+  const t = useTx();
+  const { locale } = useStaffLocale();
+  const due = dueText(item.dueBy, now, locale);
   return (
     <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[13px] tabular-nums text-slate-500">
       <span>~{item.minutes} min</span>
-      <span>Espera {waitedText(item.since, now)}</span>
-      <span className={item.overdue ? "font-semibold text-red-700" : ""}>{dueText(item.dueBy, now).replace(/^v/, "V")}</span>
+      <span>
+        {t("Espera", "Waiting")} {waitedText(item.since, now, locale)}
+      </span>
+      <span className={item.overdue ? "font-semibold text-red-700" : ""}>{due.charAt(0).toUpperCase() + due.slice(1)}</span>
     </p>
   );
 }
 
 export function QueueList({ items, now, onHandled, answerFor }: { items: QueueItem[]; now: Date; onHandled: (item: QueueItem) => void; answerFor?: AnswerFor }) {
+  const t = useTx();
+  const { locale } = useStaffLocale();
   return (
     <ul className="card overflow-hidden" data-testid="work-queue">
       {items.map((item, index) => (
@@ -103,24 +193,41 @@ export function QueueList({ items, now, onHandled, answerFor }: { items: QueueIt
             <SeverityDot severity={item.exception.severity} />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <Link href={`/equipo/clientes/${item.client.id}`} className="inline-flex min-h-11 items-center text-[16px] font-semibold md:min-h-0 text-slate-900 underline-offset-2 hover:underline">
-                  {fullName(item.client)}
-                </Link>
-                <Chip tone="bg-slate-100 text-slate-700">{EXCEPTION_LABEL[item.exception.kind]}</Chip>
+                {item.group ? (
+                  <span className="inline-flex min-h-11 items-center text-[16px] font-semibold text-slate-900 md:min-h-0">{item.group.company}</span>
+                ) : (
+                  <Link href={`/equipo/clientes/${item.client.id}`} className="inline-flex min-h-11 items-center text-[16px] font-semibold md:min-h-0 text-slate-900 underline-offset-2 hover:underline">
+                    {fullName(item.client)}
+                  </Link>
+                )}
+                <Chip tone="bg-slate-100 text-slate-700">{EXCEPTION_LABELS[locale][item.exception.kind]}</Chip>
+                {item.group && (
+                  <Chip tone="bg-blue-50 text-blue-800">
+                    {item.group.waiting.length === 1 ? t("1 cliente", "1 client") : t(`${item.group.waiting.length} clientes`, `${item.group.waiting.length} clients`)}
+                  </Chip>
+                )}
               </div>
               <p className="mt-0.5 text-[14px] leading-snug text-slate-600">{item.why}</p>
               <AnswerHint item={item} answerFor={answerFor} />
+              <GroupBox item={item} />
               <TriedBox item={item} compact />
+              <SentWords item={item} />
               <Meta item={item} now={now} />
               <PlaybookToggle kind={item.exception.kind} />
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1 pl-[22px] sm:shrink-0 sm:flex-nowrap sm:pl-0 sm:pt-0.5">
             <ActionLink item={item} className={`${ROW_BUTTON} gap-1.5`} />
-            <button type="button" onClick={() => onHandled(item)} className={QUIET_BUTTON} aria-label={`Marcar como atendido: ${fullName(item.client)}`}>
+            <button
+              type="button"
+              onClick={() => onHandled(item)}
+              className={QUIET_BUTTON}
+              aria-label={t(`Marcar como atendido: ${fullName(item.client)}`, `Mark as handled: ${fullName(item.client)}`)}
+            >
               <Icon name="check" size={16} />
-              Atendido
+              {t("Atendido", "Handled")}
             </button>
+            {item.action.kind === "whatsapp" && <ClientLanguageTag client={item.client} className="basis-full sm:hidden" />}
           </div>
         </li>
       ))}
@@ -151,6 +258,8 @@ export function FocusMode({
 }) {
   const item = items[Math.min(index, items.length - 1)];
   const panel = useRef<HTMLDivElement>(null);
+  const t = useTx();
+  const { locale } = useStaffLocale();
   const at = Math.min(index, Math.max(items.length - 1, 0));
 
   const go = useCallback((delta: number) => onIndex(Math.max(0, Math.min(items.length - 1, at + delta))), [at, items.length, onIndex]);
@@ -183,10 +292,10 @@ export function FocusMode({
       <div ref={panel} tabIndex={-1} className="card w-full max-w-2xl px-5 py-5 outline-none sm:px-7 sm:py-6" onClick={(e) => e.stopPropagation()} data-testid="focus-mode">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500 tabular-nums">
-            Siguiente · {items.length === 0 ? "0 de 0" : `${at + 1} de ${items.length}`}
+            {t("Siguiente", "Next")} · {items.length === 0 ? t("0 de 0", "0 of 0") : t(`${at + 1} de ${items.length}`, `${at + 1} of ${items.length}`)}
           </p>
-          <button type="button" onClick={onClose} className={QUIET_BUTTON} aria-label="Cerrar">
-            Cerrar <kbd className="ml-1 hidden rounded border border-slate-300 px-1 text-[11px] sm:inline">Esc</kbd>
+          <button type="button" onClick={onClose} className={QUIET_BUTTON} aria-label={t("Cerrar", "Close")}>
+            {t("Cerrar", "Close")} <kbd className="ml-1 hidden rounded border border-slate-300 px-1 text-[11px] sm:inline">Esc</kbd>
           </button>
         </div>
 
@@ -196,9 +305,9 @@ export function FocusMode({
               <Icon name="check" size={22} />
             </span>
             <h2 id="focus-title" className="mt-3 text-[22px] font-semibold text-slate-900">
-              Terminaste por hoy
+              {t("Terminaste por hoy", "You're done for today")}
             </h2>
-            <p className="mt-1 text-[15px] text-slate-600">Nada más necesita una persona. Lo demás avanza solo.</p>
+            <p className="mt-1 text-[15px] text-slate-600">{t("Nada más necesita una persona. Lo demás avanza solo.", "Nothing else needs a person. The rest moves on its own.")}</p>
           </div>
         ) : (
           <>
@@ -207,13 +316,15 @@ export function FocusMode({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 id="focus-title" className="text-[22px] font-semibold leading-tight text-slate-900">
-                    {fullName(item.client)}
+                    {item.group ? item.group.company : fullName(item.client)}
                   </h2>
-                  <Chip tone="bg-slate-100 text-slate-700">{EXCEPTION_LABEL[item.exception.kind]}</Chip>
+                  <Chip tone="bg-slate-100 text-slate-700">{EXCEPTION_LABELS[locale][item.exception.kind]}</Chip>
                 </div>
                 <p className="mt-2 text-[16px] leading-relaxed text-slate-700">{item.why}</p>
                 <AnswerHint item={item} answerFor={answerFor} />
+                <GroupBox item={item} />
                 <TriedBox item={item} />
+                <SentWords item={item} />
                 <Meta item={item} now={now} />
               </div>
             </div>
@@ -226,25 +337,27 @@ export function FocusMode({
               <ActionLink id="focus-action" item={item} className={`${PRIMARY_BUTTON} gap-2`} />
               <button type="button" onClick={() => onHandled(item)} className={`${SECONDARY_BUTTON} gap-1.5`}>
                 <Icon name="check" size={16} />
-                Atendido
+                {t("Atendido", "Handled")}
               </button>
             </div>
+            {item.action.kind === "whatsapp" && <ClientLanguageTag client={item.client} className="mt-2" />}
             <div className="mt-3 flex items-center justify-between gap-2">
               <button type="button" onClick={() => go(-1)} disabled={at === 0} className={`${QUIET_BUTTON} disabled:opacity-40`}>
-                ← Anterior
+                {t("← Anterior", "← Previous")}
               </button>
               <Link href={`/equipo/clientes/${item.client.id}`} className="inline-flex min-h-11 items-center text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
-                Abrir su caso
+                {t("Abrir su caso", "Open their case")}
               </Link>
               <button type="button" onClick={() => go(1)} disabled={at >= items.length - 1} className={`${QUIET_BUTTON} disabled:opacity-40`}>
-                Siguiente →
+                {t("Siguiente →", "Next →")}
               </button>
             </div>
             </div>
           </>
         )}
         <p className="mt-4 hidden border-t hairline pt-3 text-[12px] text-slate-500 sm:block">
-          Teclado: <Kbd>J</Kbd> siguiente · <Kbd>K</Kbd> anterior · <Kbd>E</Kbd> abrir la acción · <Kbd>H</Kbd> atendido · <Kbd>Esc</Kbd> cerrar
+          {t("Teclado:", "Keyboard:")} <Kbd>J</Kbd> {t("siguiente", "next")} · <Kbd>K</Kbd> {t("anterior", "previous")} · <Kbd>E</Kbd> {t("abrir la acción", "open the action")} · <Kbd>H</Kbd>{" "}
+          {t("atendido", "handled")} · <Kbd>Esc</Kbd> {t("cerrar", "close")}
         </p>
       </div>
     </div>,

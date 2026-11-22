@@ -30,6 +30,14 @@ export const PARTNER_STATUS_LABEL: Record<PartnerStatus, string> = {
   suspended: "Suspendido",
 };
 
+/** The same, for a staff member whose console is in English. */
+export const PARTNER_STATUS_LABEL_EN: Record<PartnerStatus, string> = {
+  pending: "To review",
+  approved: "Approved",
+  declined: "Not approved",
+  suspended: "Suspended",
+};
+
 /**
  * How a commission is earned. Per person who signs, or per client who is
  * active (at least one round mailed). Never per result on a credit report:
@@ -42,6 +50,13 @@ export const COMMISSION_BASIS_LABEL: Record<CommissionBasis, string> = {
   none: "Sin comisión",
   signed_client: "Por cliente que firma su acuerdo",
   active_client: "Por cliente activo (primera ronda enviada)",
+};
+
+/** The same, for a staff member whose console is in English. */
+export const COMMISSION_BASIS_LABEL_EN: Record<CommissionBasis, string> = {
+  none: "No commission",
+  signed_client: "Per client who signs their agreement",
+  active_client: "Per active client (first round mailed)",
 };
 
 export interface Partner {
@@ -63,6 +78,9 @@ export interface Partner {
   commissionNote: string | null;
   appliedAt: string;
   decidedAt: string | null;
+  /** Co-branding logo (migration 0023): its review status, and the image for an administrator to look at. */
+  logoStatus?: "none" | "pending" | "approved" | "rejected";
+  logo?: string | null;
 }
 
 export interface CommissionRecord {

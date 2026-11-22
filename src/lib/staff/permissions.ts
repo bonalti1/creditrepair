@@ -1,4 +1,5 @@
 import type { ExceptionKind } from "./stage";
+import { listJoin, type StaffLocale, staffLocaleFallback } from "./i18n/locale";
 import type { StaffClient, StaffRole } from "./types";
 
 // What each member of the team may see and do.
@@ -15,17 +16,23 @@ import type { StaffClient, StaffRole } from "./types";
 
 export const STAFF_ROLES: readonly StaffRole[] = ["admin", "specialist", "sales"];
 
-export const ROLE_LABEL: Record<StaffRole, string> = {
-  admin: "Administrador",
-  specialist: "Especialista",
-  sales: "Ventas",
+export const ROLE_LABELS: Record<StaffLocale, Record<StaffRole, string>> = {
+  en: { admin: "Administrator", specialist: "Specialist", sales: "Sales" },
+  es: { admin: "Administrador", specialist: "Especialista", sales: "Ventas" },
 };
 
 /** One line on the team screen: what the role is for. */
-export const ROLE_SUMMARY: Record<StaffRole, string> = {
-  admin: "Todo: clientes, cartas, cobros, números del negocio, el equipo y el piloto automático.",
-  specialist: "Trabaja los clientes que tiene asignados: reportes, cartas y respuestas. Sin cobros ni equipo.",
-  sales: "Agrega prospectos e invita. Ve solo a los clientes que trajo. Sin cartas ni cobros.",
+export const ROLE_SUMMARIES: Record<StaffLocale, Record<StaffRole, string>> = {
+  en: {
+    admin: "Everything: clients, letters, billing, business numbers, the team and the autopilot.",
+    specialist: "Works the clients assigned to them: reports, letters and replies. No billing or team.",
+    sales: "Adds leads and sends invites. Sees only the clients they brought in. No letters or billing.",
+  },
+  es: {
+    admin: "Todo: clientes, cartas, cobros, números del negocio, el equipo y el piloto automático.",
+    specialist: "Trabaja los clientes que tiene asignados: reportes, cartas y respuestas. Sin cobros ni equipo.",
+    sales: "Agrega prospectos e invita. Ve solo a los clientes que trajo. Sin cartas ni cobros.",
+  },
 };
 
 export const CAPABILITIES = [
@@ -56,13 +63,20 @@ export type Capability = (typeof CAPABILITIES)[number];
 /** Which clients a role sees: every one, the ones assigned to them, or the ones they brought in. */
 export type ClientScope = "all" | "assigned" | "brought";
 
-export const SCOPE_LABEL: Record<ClientScope, string> = {
-  all: "Todos los clientes",
-  assigned: "Solo los asignados a esa persona",
-  brought: "Solo los que esa persona trajo",
+export const SCOPE_LABELS: Record<StaffLocale, Record<ClientScope, string>> = {
+  en: {
+    all: "All clients",
+    assigned: "Only those assigned to them",
+    brought: "Only those they brought in",
+  },
+  es: {
+    all: "Todos los clientes",
+    assigned: "Solo los asignados a esa persona",
+    brought: "Solo los que esa persona trajo",
+  },
 };
 
-export const CAPABILITY_LABEL: Record<Capability, string> = {
+const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "clients.add": "Agregar clientes a mano",
   "clients.invite": "Preparar invitaciones",
   "clients.assign": "Asignar clientes",
@@ -82,6 +96,29 @@ export const CAPABILITY_LABEL: Record<Capability, string> = {
   "partners.manage": "Aprobar socios y fijar sus comisiones",
   "letters.edit": "Editar las cartas y registrar la aprobación del abogado",
 };
+
+const CAPABILITY_LABEL_EN: Record<Capability, string> = {
+  "clients.add": "Add clients by hand",
+  "clients.invite": "Prepare invites",
+  "clients.assign": "Assign clients",
+  "clients.export": "Export the list (CSV)",
+  "clients.followup": "Notes and marking notices handled",
+  "case.view": "See the report, answers, letters and conversation",
+  "reports.import": "Import reports",
+  "rounds.send": "Send and print rounds",
+  "clients.reply": "Reply to the client in the app",
+  "billing.view": "See billing",
+  "billing.pause": "Pause and resume billing",
+  "billing.refund": "Refund charges",
+  "business.view": "See the business numbers",
+  "team.manage": "Manage the team",
+  "autopilot.manage": "Set up the autopilot",
+  "partners.view": "See the partners who refer clients",
+  "partners.manage": "Approve partners and set their commissions",
+  "letters.edit": "Edit the letters and record the attorney's approval",
+};
+
+export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
 
 export interface RolePermissions {
   scope: ClientScope;
@@ -162,18 +199,21 @@ export function rolesThatCan(capability: Capability): StaffRole[] {
   return STAFF_ROLES.filter((role) => ROLE_PERMISSIONS[role].can[capability]);
 }
 
-function listEs(parts: string[]): string {
-  if (parts.length <= 1) return parts.join("");
-  return `${parts.slice(0, -1).join(", ")} o ${parts[parts.length - 1]}`;
-}
+const ROLE_NOUN: Record<StaffLocale, Record<StaffRole, string>> = {
+  en: { admin: "an administrator", specialist: "a specialist", sales: "sales" },
+  es: { admin: "un administrador", specialist: "un especialista", sales: "ventas" },
+};
 
-const ROLE_NOUN: Record<StaffRole, string> = { admin: "un administrador", specialist: "un especialista", sales: "ventas" };
-
-/** The short reason shown beside a control the viewer may not use: "Solo un administrador puede devolver cobros." */
-export function deniedReason(capability: Capability): string {
-  const who = rolesThatCan(capability).map((role) => ROLE_NOUN[role]);
-  const what = CAPABILITY_LABEL[capability].charAt(0).toLowerCase() + CAPABILITY_LABEL[capability].slice(1);
-  return who.length === 0 ? `Nadie del equipo puede ${what}.` : `Solo ${listEs(who)} puede ${what}.`;
+/**
+ * The short reason shown beside a control the viewer may not use:
+ * "Only an administrator can refund charges." / "Solo un administrador puede devolver cobros."
+ */
+export function deniedReason(capability: Capability, locale: StaffLocale = staffLocaleFallback()): string {
+  const who = rolesThatCan(capability).map((role) => ROLE_NOUN[locale][role]);
+  const label = CAPABILITY_LABELS[locale][capability];
+  const what = label.charAt(0).toLowerCase() + label.slice(1);
+  if (locale === "es") return who.length === 0 ? `Nadie del equipo puede ${what}.` : `Solo ${listJoin(who, "es", "o")} puede ${what}.`;
+  return who.length === 0 ? `Nobody on the team can ${what}.` : `Only ${listJoin(who, "en", "or")} can ${what}.`;
 }
 
 // ── Who is looking ──────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { formatUsAddress, parseUsAddress } from "@/lib/mail/address";
 import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
+import { getAdminClient } from "@/lib/supabase/admin";
 import { getServerSupabase, getSessionUser } from "@/lib/supabase/server";
 
 // The signed-in client's mailing address: the return address on every letter
@@ -42,5 +43,15 @@ export async function POST(req: Request) {
 
   const { error } = await supabase.from("profiles").update({ address_lines: addressLines }).eq("id", user.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // A request to confirm the address (migration 0022) is answered by the client writing it here too.
+  const admin = getAdminClient();
+  if (admin) {
+    await admin
+      .from("address_confirmations")
+      .update({ confirmed_at: new Date().toISOString(), confirmed_lines: addressLines })
+      .eq("user_id", user.id)
+      .is("confirmed_at", null)
+      .is("closed_at", null);
+  }
   return NextResponse.json({ ok: true, addressLines });
 }

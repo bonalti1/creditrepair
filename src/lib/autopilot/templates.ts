@@ -179,10 +179,59 @@ export const FOLLOWUP_TEMPLATES: Record<FollowupKind, readonly [MessageTemplate,
       `Hi {{1}}, we still do not have your FTC identity theft report. ${LAST_EN} {{2}}`,
     ),
   ],
+  // The address on file is the return address of every letter. The post office's data did not recognise it:
+  // the client confirms it (or corrects it) with one tap, prefilled with what the post office suggests.
+  address_unconfirmed: [
+    T(
+      "credalti_direccion_1",
+      "Primer aviso: la dirección del cliente no se pudo confirmar con los datos del correo antes de enviar sus cartas.",
+      ["nombre", "enlace"],
+      "Hola {{1}}, antes de enviar tus cartas revisamos tu dirección con los datos del correo (USPS) y no la pudimos confirmar. Va como remitente en cada carta. ¿Puedes revisarla? La confirmas o la corriges con un toque aquí: {{2}}",
+      "Hi {{1}}, before mailing your letters we checked your address against the post office's (USPS) data and could not confirm it. It is the return address on every letter. Could you check it? You can confirm or correct it with one tap here: {{2}}",
+    ),
+    T(
+      "credalti_direccion_2",
+      "Segundo aviso de la dirección por confirmar.",
+      ["nombre", "enlace"],
+      "Hola {{1}}, tus cartas esperan a que confirmes tu dirección. Te mostramos la que reconoce el correo; si es la tuya, confírmala con un toque, y si no, corrígela aquí: {{2}}",
+      "Hi {{1}}, your letters are waiting for you to confirm your address. We show you the one the post office recognises; if it is yours, confirm it with one tap, and if not, correct it here: {{2}}",
+    ),
+    T(
+      "credalti_direccion_3",
+      "Último aviso automático de la dirección.",
+      ["nombre", "enlace"],
+      `Hola {{1}}, todavía falta que confirmes tu dirección para enviar tus cartas. ${LAST_ES} {{2}}`,
+      `Hi {{1}}, we still need you to confirm your address to mail your letters. ${LAST_EN} {{2}}`,
+    ),
+  ],
+  // A document the automatic check could not accept, for a reason the client can fix: the reason in plain words.
+  document_reupload: [
+    T(
+      "credalti_documento_nuevo_1",
+      "Primer aviso: la revisión automática no pudo aceptar un documento, por un motivo que el cliente puede corregir.",
+      ["nombre", "documento", "motivo", "enlace"],
+      "Hola {{1}}, revisamos el documento que subiste ({{2}}) y no lo pudimos usar: {{3}}. ¿Puedes subir otro? Toma un minuto desde aquí: {{4}}",
+      "Hi {{1}}, we checked the document you uploaded ({{2}}) and could not use it: {{3}}. Could you upload another one? It takes a minute from here: {{4}}",
+    ),
+    T(
+      "credalti_documento_nuevo_2",
+      "Segundo aviso del documento por subir de nuevo.",
+      ["nombre", "documento", "motivo", "enlace"],
+      "Hola {{1}}, todavía necesitamos una nueva copia de tu {{2}} ({{3}}). Va junto con cada carta. Puedes subirla aquí: {{4}}",
+      "Hi {{1}}, we still need a new copy of your {{2}} ({{3}}). It goes with each letter. You can upload it here: {{4}}",
+    ),
+    T(
+      "credalti_documento_nuevo_3",
+      "Último aviso automático del documento.",
+      ["nombre", "documento", "motivo", "enlace"],
+      `Hola {{1}}, todavía falta una nueva copia de tu {{2}} ({{3}}). ${LAST_ES} {{4}}`,
+      `Hi {{1}}, we still need a new copy of your {{2}} ({{3}}). ${LAST_EN} {{4}}`,
+    ),
+  ],
 };
 
 /** Status templates. `report_changes` has two: with items no longer listed, and without. */
-export const STATUS_TEMPLATES: Record<StatusKind | "report_new", MessageTemplate> = {
+export const STATUS_TEMPLATES: Record<StatusKind | "report_new" | "payment_paused", MessageTemplate> = {
   letters_mailed: T(
     "credalti_cartas_enviadas",
     "Aviso: el equipo envió las cartas de una ronda.",
@@ -225,6 +274,36 @@ export const STATUS_TEMPLATES: Record<StatusKind | "report_new", MessageTemplate
     "Hola {{1}}, recibo {{2}}: cobramos {{3}} el {{4}} por trabajo ya hecho ({{5}}). Lo ves cuando quieras en «Mis pagos»: {{6}}",
     "Hi {{1}}, receipt {{2}}: we charged {{3}} on {{4}} for work already done ({{5}}). You can see it anytime under \"My payments\": {{6}}",
   ),
+  // Billing's notices (billing/server.ts), each with the one-tap «Actualizar mi tarjeta» link. Updating the card retries the
+  // same charge at once, under every billing rule (one charge per round, never before the work, never more often than 30 days).
+  payment_declined: T(
+    "credalti_pago_rechazado",
+    "Aviso: un cobro por una ronda ya enviada no pasó; el sistema lo intenta de nuevo en la fecha dada.",
+    ["nombre", "monto", "ronda", "fecha", "enlace"],
+    "Hola {{1}}, no pudimos procesar el cobro de {{2}} por tu ronda {{3}} de cartas, que ya se envió. A veces es un dato de la tarjeta o un límite del banco. Lo intentamos de nuevo el {{4}}. Si prefieres, actualiza tu tarjeta aquí y el cobro se intenta enseguida: {{5}} No hay ningún cargo extra por esto.",
+    "Hi {{1}}, we could not process the {{2}} charge for your round {{3}} of letters, which was already mailed. Sometimes it is a card detail or a bank limit. We will try again on {{4}}. If you prefer, update your card here and the charge is tried right away: {{5}} There is no extra charge for this.",
+  ),
+  payment_paused: T(
+    "credalti_pago_pausa",
+    "Aviso: el último intento de cobro no pasó; el caso queda en pausa hasta que el cliente actualice su tarjeta.",
+    ["nombre", "monto", "ronda", "enlace"],
+    "Hola {{1}}, no pudimos procesar el cobro de {{2}} por tu ronda {{3}} de cartas y ya no lo intentaremos por nuestra cuenta. No hay cargos extra ni recargos. Tu caso queda en pausa hasta que el pago quede resuelto; en cuanto actualices tu tarjeta aquí, sigue solo: {{4}} Si prefieres hablarlo con una persona, responde a este mensaje.",
+    "Hi {{1}}, we could not process the {{2}} charge for your round {{3}} of letters, and we will not try again on our own. There are no extra charges and no late fees. Your case is paused until the payment is settled; as soon as you update your card here, it continues by itself: {{4}} If you would rather talk it over with a person, reply to this message.",
+  ),
+  payment_method_needed: T(
+    "credalti_pago_falta_metodo",
+    "Aviso: una ronda ya se envió, el cobro está al día y no hay método de pago.",
+    ["nombre", "ronda", "fecha", "enlace"],
+    "Hola {{1}}, tu equipo envió tu ronda {{2}} de cartas el {{3}} y todavía no tenemos tu método de pago. Puedes agregarlo en un minuto aquí: {{4}} El cobro es por ese trabajo, que ya se hizo.",
+    "Hi {{1}}, your team mailed your round {{2}} of letters on {{3}} and we do not have your payment method yet. You can add it in a minute here: {{4}} The charge is for that work, which is already done.",
+  ),
+  letter_remailed: T(
+    "credalti_carta_reenviada",
+    "Aviso: el correo devolvió una carta y el sistema la envió de nuevo a la dirección corregida.",
+    ["nombre", "destinatario", "ronda", "enlace"],
+    "Hola {{1}}, el correo devolvió tu carta para {{2}} de la ronda {{3}}. Revisamos la dirección con los datos del correo y la enviamos de nuevo. Es parte de la misma ronda: tu cobro no cambia. En la app ves cómo va: {{4}}",
+    "Hi {{1}}, the post office returned your letter to {{2}} from round {{3}}. We checked the address against the post office's data and mailed it again. It is part of the same round: your charge does not change. You can follow it in the app: {{4}}",
+  ),
 };
 
 /** Every template, for the settings screen and the docs. */
@@ -252,6 +331,11 @@ const SUBJECT: Record<string, Record<MessageLocale, string>> = {
   report_changes: { es: "Llegó tu reporte nuevo", en: "Your new report is in" },
   next_round_prepared: { es: "Tu siguiente ronda de cartas", en: "Your next round of letters" },
   payment_receipt: { es: "Tu recibo", en: "Your receipt" },
+  address_unconfirmed: { es: "Confirma tu dirección", en: "Confirm your address" },
+  document_reupload: { es: "Sube tu documento de nuevo", en: "Upload your document again" },
+  payment_declined: { es: "Tu cobro no pasó", en: "Your payment did not go through" },
+  payment_method_needed: { es: "Tu método de pago", en: "Your payment method" },
+  letter_remailed: { es: "Enviamos tu carta de nuevo", en: "We mailed your letter again" },
 };
 
 /** The email's subject line for a message's topic. */

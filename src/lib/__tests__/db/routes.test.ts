@@ -8,6 +8,10 @@ import { loadStaffClients } from "../../staff/load";
 import type { StaffClient } from "../../staff/types";
 import { startHarness, type Harness } from "./pg";
 import { addClient, addDocuments, addStaff, approveBuiltinLetters, assign, DAY, sampleReport, signAgreement } from "./seed";
+import { setStaffLocaleFallback } from "../../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // Each new staff route against the real migrations: what it accepts, who may
 // call it (the role from the caller's own staff row; the client through the

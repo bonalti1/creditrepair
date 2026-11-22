@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useLocale } from "@/lib/i18n";
 import { BILLING_COPY } from "@/lib/ux/billingCopy";
+import { CLIENT_SHARING_COPY } from "@/lib/partners/sharingCopy";
 import { HUMAN_HELP, humanHelpHref } from "@/lib/ux/humanHelp";
 import Icon, { type IconName } from "@/components/Icon";
 import { CharacterAvatar } from "@/components/Character";
@@ -146,6 +147,13 @@ export default function Mas() {
               tint="bg-green-600"
               title={BILLING_COPY[locale].navTitle}
               desc={BILLING_COPY[locale].navDesc}
+            />
+            <Row
+              href="/mas/compartir"
+              icon="person"
+              tint="bg-slate-700"
+              title={CLIENT_SHARING_COPY[locale].navTitle}
+              desc={CLIENT_SHARING_COPY[locale].navDesc}
             />
           </div>
         </section>

@@ -5,7 +5,8 @@ import { sentBetween, workQueue, workSummary, type QueueContext, type QueueItem 
 import type { ChannelAvailability, AutopilotSettings } from "../autopilot/types";
 import { count } from "./format";
 import { visibleClients, type Viewer } from "./permissions";
-import { EXCEPTION_LABEL } from "./stage";
+import { EXCEPTION_LABELS } from "./stage";
+import { type StaffLocale, staffLocaleFallback } from "./i18n/locale";
 import type { DigestChannel, StaffPreferences } from "./preferences";
 import type { StaffClient } from "./types";
 
@@ -19,12 +20,18 @@ import type { StaffClient } from "./types";
 //
 // Clients are named by first name and the initial of the last name only: the
 // message leaves the app (WhatsApp, an inbox) and does not need more.
+//
+// In the member's language (their saved choice on /equipo/perfil; English
+// until they choose). WhatsApp outside the 24-hour window uses the approved
+// template in that language (DIGEST_TEMPLATE_BODIES).
 
 export const DIGEST_TEMPLATE = "credalti_resumen_equipo";
 /** "What the system did overnight": the last this many hours. */
 export const OVERNIGHT_HOURS = 24;
 
 export interface MorningSummary {
+  /** The language it is written in: the member's. */
+  locale: StaffLocale;
   /** The member's first name. */
   name: string;
   count: number;
@@ -55,7 +62,15 @@ function roundsMailedBySystem(clients: readonly StaffClient[], from: Date, to: D
   );
 }
 
-function overnightPhrase(overnight: { messages: number; rounds: number }): string {
+function overnightPhrase(overnight: { messages: number; rounds: number }, locale: StaffLocale): string {
+  if (locale === "en") {
+    if (overnight.messages === 0 && overnight.rounds === 0) return "didn't send anything";
+    const parts = [
+      ...(overnight.messages > 0 ? [`sent ${count(overnight.messages, "message", "messages")} to clients`] : []),
+      ...(overnight.rounds > 0 ? [`mailed ${count(overnight.rounds, "round of letters", "rounds of letters")}`] : []),
+    ];
+    return parts.join(" and ");
+  }
   if (overnight.messages === 0 && overnight.rounds === 0) return "no envió nada";
   const parts = [
     ...(overnight.messages > 0 ? [`envió ${count(overnight.messages, "mensaje", "mensajes")} a clientes`] : []),
@@ -68,31 +83,44 @@ function overnightPhrase(overnight: { messages: number; rounds: number }): strin
  * The summary for one member, from the clients their role lets them see
  * (the same scopes the database applies: permissions.ts canSeeClient).
  */
-export function morningSummary(viewer: Viewer, clients: readonly StaffClient[], now: Date, context: QueueContext, base = ""): MorningSummary {
+export function morningSummary(viewer: Viewer, clients: readonly StaffClient[], now: Date, context: QueueContext, base = "", locale: StaffLocale = staffLocaleFallback()): MorningSummary {
   const mine = visibleClients(viewer, [...clients]);
-  const queue: QueueItem[] = workQueue(mine, now, context, viewer.role);
+  const queue: QueueItem[] = workQueue(mine, now, { ...context, locale }, viewer.role);
   const work = workSummary(queue);
   const since = new Date(now.getTime() - OVERNIGHT_HOURS * 60 * 60 * 1000);
   const overnight = {
     messages: sentBetween(mine, since, now).length,
     rounds: roundsMailedBySystem(mine, since, now),
   };
-  const top = queue.slice(0, 3).map((item) => ({ client: shortClientName(item.client), label: EXCEPTION_LABEL[item.exception.kind], minutes: item.minutes }));
+  const top = queue.slice(0, 3).map((item) => ({ client: shortClientName(item.client), label: EXCEPTION_LABELS[locale][item.exception.kind], minutes: item.minutes }));
   const name = viewer.name.split(" ")[0] ?? viewer.name;
   const focusUrl = `${base.replace(/\/$/, "")}/equipo?siguiente=1`;
-  const head = `Buenos días, ${name}. Hoy: ${count(work.count, "cosa", "cosas")} · ~${work.minutes} minutos.`;
-  const lines = [
-    head,
-    ...(work.overdue > 0 ? [`${count(work.overdue, "ya pasó su plazo", "ya pasaron su plazo")}.`] : []),
-    ...(top.length > 0 ? ["", "Lo primero:", ...top.map((t, i) => `${i + 1}. ${t.client} · ${t.label} (~${t.minutes} min)`)] : ["", "Nada necesita una persona por ahora."]),
-    "",
-    `En las últimas ${OVERNIGHT_HOURS} horas el sistema ${overnightPhrase(overnight)}.`,
-    "",
-    `Empieza aquí: ${focusUrl}`,
-    "",
-    `— Resumen de la mañana de ${BRAND.name}. Lo apagas en tu perfil.`,
-  ];
+  const lines =
+    locale === "en"
+      ? [
+          `Good morning, ${name}. Today: ${count(work.count, "thing", "things")} · ~${work.minutes} minutes.`,
+          ...(work.overdue > 0 ? [`${count(work.overdue, "is past due", "are past due")}.`] : []),
+          ...(top.length > 0 ? ["", "First up:", ...top.map((t, i) => `${i + 1}. ${t.client} · ${t.label} (~${t.minutes} min)`)] : ["", "Nothing needs a person right now."]),
+          "",
+          `In the last ${OVERNIGHT_HOURS} hours the system ${overnightPhrase(overnight, "en")}.`,
+          "",
+          `Start here: ${focusUrl}`,
+          "",
+          `— ${BRAND.name} morning summary. Turn it off in your profile.`,
+        ]
+      : [
+          `Buenos días, ${name}. Hoy: ${count(work.count, "cosa", "cosas")} · ~${work.minutes} minutos.`,
+          ...(work.overdue > 0 ? [`${count(work.overdue, "ya pasó su plazo", "ya pasaron su plazo")}.`] : []),
+          ...(top.length > 0 ? ["", "Lo primero:", ...top.map((t, i) => `${i + 1}. ${t.client} · ${t.label} (~${t.minutes} min)`)] : ["", "Nada necesita una persona por ahora."]),
+          "",
+          `En las últimas ${OVERNIGHT_HOURS} horas el sistema ${overnightPhrase(overnight, "es")}.`,
+          "",
+          `Empieza aquí: ${focusUrl}`,
+          "",
+          `— Resumen de la mañana de ${BRAND.name}. Lo apagas en tu perfil.`,
+        ];
   return {
+    locale,
     name,
     count: work.count,
     minutes: work.minutes,
@@ -105,8 +133,8 @@ export function morningSummary(viewer: Viewer, clients: readonly StaffClient[], 
       name,
       String(work.count),
       String(work.minutes),
-      top.length > 0 ? top.map((t) => `${t.client} (${t.label.toLowerCase()})`).join("; ") : "nada necesita una persona",
-      overnightPhrase(overnight),
+      top.length > 0 ? top.map((t) => `${t.client} (${t.label.toLowerCase()})`).join("; ") : locale === "en" ? "nothing needs a person" : "nada necesita una persona",
+      overnightPhrase(overnight, locale),
       focusUrl,
     ],
   };
@@ -115,6 +143,19 @@ export function morningSummary(viewer: Viewer, clients: readonly StaffClient[], 
 /** The approved template's body, with {{n}} where the values go: what to create in WhatsApp Manager. */
 export const DIGEST_TEMPLATE_BODY =
   "Buenos días, {{1}}. Hoy: {{2}} cosas · ~{{3}} minutos. Lo primero: {{4}}. En las últimas 24 horas el sistema {{5}}. Empieza aquí: {{6}}";
+
+/** The same template in each language (one template name, two languages in WhatsApp Manager). */
+export const DIGEST_TEMPLATE_BODIES: Record<StaffLocale, string> = {
+  es: DIGEST_TEMPLATE_BODY,
+  en: "Good morning, {{1}}. Today: {{2}} things · ~{{3}} minutes. First up: {{4}}. In the last 24 hours the system {{5}}. Start here: {{6}}",
+};
+
+/** The email's subject line, in the summary's language. */
+export function digestSubject(summary: Pick<MorningSummary, "count" | "minutes" | "locale">): string {
+  return summary.locale === "en"
+    ? `Today: ${summary.count} ${summary.count === 1 ? "thing" : "things"} · ~${summary.minutes} minutes`
+    : `Hoy: ${summary.count} ${summary.count === 1 ? "cosa" : "cosas"} · ~${summary.minutes} minutos`;
+}
 
 // ── When it goes ────────────────────────────────────────────────────────
 

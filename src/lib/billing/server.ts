@@ -10,7 +10,8 @@ import { runClientBilling, type ChargeStore, type ClientBillingReport, type Paym
 import { paymentFailedMessage, paymentMethodNeededMessage } from "./dunning";
 import type { PaymentGateway } from "./gateway";
 import { receiptFor, receiptMessage } from "./receipts";
-import { CHARGE_DELAY_DAYS } from "./rules";
+import { billingDay, CHARGE_DELAY_DAYS, formatCents } from "./rules";
+import { recordResolution } from "../autopilot/resolutions";
 import type {
   BillableRound,
   BillingAccount,
@@ -242,7 +243,7 @@ export function databaseChargeStore(db: SupabaseClient, userId: string, roundIds
 async function tellClient(db: SupabaseClient, userId: string, message: { es: string; en: string }, context: string, options: { whatsapp?: boolean } = {}): Promise<void> {
   try {
     const { data: profile } = await db.from("profiles").select("phone_e164, locale").eq("id", userId).maybeSingle();
-    const locale: L = profile?.locale === "en" ? "en" : "es";
+    const locale: L = profile?.locale === "es" ? "es" : "en";
     const body = message[locale];
     await db.from("chat_messages").insert({ user_id: userId, channel: "app", role: "assistant", source: "journey", body });
     if (options.whatsapp !== false && profile?.phone_e164 && !(await isOptedOut(db, userId))) await sendWhatsAppText(profile.phone_e164 as string, body, context);
@@ -285,7 +286,13 @@ export interface UserBillingSummary {
  * something to look at, and right after a client puts a new payment method on
  * file, so that paying resumes the case at once.
  */
-export async function runBillingForUser(db: SupabaseClient, gateway: PaymentGateway, userId: string, now: Date): Promise<UserBillingSummary> {
+export async function runBillingForUser(
+  db: SupabaseClient,
+  gateway: PaymentGateway,
+  userId: string,
+  now: Date,
+  options: { afterCardUpdate?: boolean } = {},
+): Promise<UserBillingSummary> {
   const loaded = await loadBilling(db, userId, { withHandle: true });
   const store = databaseChargeStore(db, userId, loaded.roundIds, gateway.name);
   const report: ClientBillingReport = await runClientBilling({ gateway, store }, loaded.context, loaded.handle, now);
@@ -310,6 +317,16 @@ export async function runBillingForUser(db: SupabaseClient, gateway: PaymentGate
         kind: "charge_succeeded",
         payload: { chargeId: charge.id, roundNumber: charge.roundNumber, amountCents: charge.amountCents },
       });
+      // A charge that had been declined and is now paid: resolved without a person ("Resuelto solo").
+      if (charge.attempts > 1) {
+        await recordResolution(db, {
+          userId,
+          kind: "payment_fixed",
+          detail: { chargeId: charge.id, roundNumber: charge.roundNumber, attempts: charge.attempts, afterCardUpdate: options.afterCardUpdate === true },
+          dedupeKey: `payment_fixed:${charge.id}`,
+          at: now,
+        });
+      }
       const receipt = receiptFor(charge, roundOf(charge));
       if (receipt) {
         // In the app at once; on WhatsApp or email through the autopilot's outbound log (opt-out, quiet hours, cap).
@@ -330,7 +347,23 @@ export async function runBillingForUser(db: SupabaseClient, gateway: PaymentGate
         kind: attempt.outcome === "exhausted" ? "charge_retries_exhausted" : "charge_declined",
         payload: { chargeId: charge.id, roundNumber: charge.roundNumber, attempts: charge.attempts, code: charge.failureCode },
       });
-      await tellClient(db, userId, paymentFailedMessage({ firstName: name, charge }), "billing:declined");
+      // In the app at once; on WhatsApp or email through the autopilot's outbound log (opt-out, quiet hours,
+      // the cap, dedupe), with the one-tap «Actualizar mi tarjeta» link. The words the client gets are kept
+      // there, so the person's card shows exactly what was sent if it ever reaches one.
+      await tellClient(db, userId, paymentFailedMessage({ firstName: name, charge }), "billing:declined", { whatsapp: false });
+      await queueStatus(
+        db,
+        userId,
+        {
+          kind: "payment_declined",
+          chargeId: charge.id,
+          attempts: charge.attempts,
+          roundNumber: charge.roundNumber,
+          amount: formatCents(charge.amountCents),
+          retryOn: charge.nextAttemptAt ? { es: billingDay(charge.nextAttemptAt, "es"), en: billingDay(charge.nextAttemptAt, "en") } : null,
+        },
+        now,
+      );
       if (attempt.outcome === "exhausted") {
         summary.needsPerson = true;
         await notifyTeam(
@@ -378,7 +411,13 @@ export async function runBillingForUser(db: SupabaseClient, gateway: PaymentGate
         .limit(1);
       if (round?.mailedAt && (!told || told.length === 0)) {
         await db.from("events").insert({ user_id: userId, kind: "payment_method_requested", payload: { roundNumber } });
-        await tellClient(db, userId, paymentMethodNeededMessage({ firstName: name, roundNumber, workDate: round.mailedAt }), "billing:method-needed");
+        await tellClient(db, userId, paymentMethodNeededMessage({ firstName: name, roundNumber, workDate: round.mailedAt }), "billing:method-needed", { whatsapp: false });
+        await queueStatus(
+          db,
+          userId,
+          { kind: "payment_method_needed", roundNumber, workDate: { es: billingDay(round.mailedAt, "es"), en: billingDay(round.mailedAt, "en") } },
+          now,
+        );
       }
     }
   }

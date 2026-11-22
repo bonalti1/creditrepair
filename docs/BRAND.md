@@ -217,7 +217,7 @@ to the app:
 - **No guaranteed outcomes**, and no wording or visuals of "deleted",
   "removed", "fixed", "+100 points", "guaranteed" or "approved" as a result.
   `src/lib/compliance/guardrails.ts` enforces the wording on marketing lines,
-  in Spanish and English.
+  in English and Spanish.
 - **No credit-score visuals in marketing**: no score dials, gauges, numbers,
   before/after scores or green up-arrows, unless the owner approves a specific
   asset. The landing page, `/empezar`, the `/empezar` screenshots and the ad
@@ -308,12 +308,24 @@ Rules for the characters:
 
 ## What the brand says it does
 
-Full service, in one sentence: **"Tú nos dices qué está mal en tu reporte;
-nuestro equipo prepara y envía las cartas por ti y te mantiene al tanto."**
-Everything a client or a prospect reads is written around it: the landing
-page, `/empezar`, onboarding, the app, AltiBot and the WhatsApp messages.
+Full service, in one sentence: **"You tell us what is wrong on your report.
+Our team prepares and mails the letters for you and keeps you posted."**
+(Spanish: *"Tú nos dices qué está mal en tu reporte; nuestro equipo prepara y
+envía las cartas por ti y te mantiene al tanto."*) Everything a client or a
+prospect reads is written around it: the landing page, `/empezar`,
+onboarding, the app, AltiBot and the WhatsApp messages.
 
-Three things hold in every line of copy:
+**Language: English first, Spanish if needed** (the owner's decision,
+November 2026; it replaces "Spanish-first"). Every client-facing surface is in
+English by default and fully in Spanish one tap away; a Spanish browser, a
+salesperson's Spanish invitation or the client's own choice starts it in
+Spanish (`src/lib/i18n/detect.ts`). Say "in English or Spanish" (or
+"bilingual"), never "Spanish-first" or "everything in Spanish". English copy is
+written, not translated: short sentences, plain words, the same claims as the
+Spanish and nothing more. Both languages pass the same claim rules and the
+plain-language check. The staff console (`/equipo`) is still Spanish only.
+
+Three things hold in every line of copy, in both languages:
 
 - **Process, never outcome.** We say what we do (prepare and mail letters,
   keep the client posted). We never say or imply what will happen to a report
@@ -322,10 +334,11 @@ Three things hold in every line of copy:
   picks what to dispute, or that everything negative gets disputed.
 - **No price in the copy.** The service has a monthly fee, separate from the
   monitoring subscription the client pays to the monitoring provider. Amounts
-  are not written anywhere; "nuestro equipo te explica el plan".
+  are not written anywhere; "our team explains the plan" ("nuestro equipo te
+  explica el plan").
 
 `src/lib/compliance/guardrails.ts` enforces the first two, and the tests run
-every marketing line through it in Spanish and English. How the service is
+every marketing line through it in English and Spanish. How the service is
 delivered is a switch, `NEXT_PUBLIC_SERVICE_MODE` (`src/lib/service/mode.ts`):
 unset means full service; `self_serve` brings back the earlier
 do-it-yourself wording and its approve button, kept for later.

@@ -18,12 +18,27 @@ export const FOLLOWUP_KINDS = [
   "monitoring_inactive",
   "payment_method_missing",
   "identity_theft_report_missing",
+  // Things that used to wait for a person and now go to the client first (docs/AUTOPILOT.md, "Lo que se arregla solo"):
+  // the address on file the post office does not recognise, and a document the AI could not accept.
+  "address_unconfirmed",
+  "document_reupload",
 ] as const;
 
 export type FollowupKind = (typeof FOLLOWUP_KINDS)[number];
 
 /** The moments the client is told about by themselves (status.ts). */
-export const STATUS_KINDS = ["letters_mailed", "certified_delivered", "report_changes", "next_round_prepared", "payment_receipt"] as const;
+export const STATUS_KINDS = [
+  "letters_mailed",
+  "certified_delivered",
+  "report_changes",
+  "next_round_prepared",
+  "payment_receipt",
+  // Billing's notices, now through the outbound log (opt-out, quiet hours, the cap, dedupe), each with the link to «Actualizar mi tarjeta».
+  "payment_declined",
+  "payment_method_needed",
+  // A letter that came back went out again to the corrected address.
+  "letter_remailed",
+] as const;
 
 export type StatusKind = (typeof STATUS_KINDS)[number];
 

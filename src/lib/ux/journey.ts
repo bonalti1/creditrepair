@@ -295,7 +295,7 @@ export interface JourneyOptions {
   now?: Date;
 }
 
-export function nextAction(s: JourneyState, locale: Locale = "es", options: JourneyOptions = {}): JourneyStep {
+export function nextAction(s: JourneyState, locale: Locale = "en", options: JourneyOptions = {}): JourneyStep {
   const now = options.now ?? new Date();
   return (options.mode ?? SERVICE_MODE) === "full_service" ? fullServiceStep(s, locale, now) : selfServeStep(s, locale, now);
 }

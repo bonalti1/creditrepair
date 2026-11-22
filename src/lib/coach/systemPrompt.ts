@@ -1,7 +1,9 @@
 import { BRAND } from "../brand";
+import type { Locale } from "../i18n/dictionaries";
 import { SERVICE_MODE, type ServiceMode } from "../service/mode";
 
-// The AI assistant (spec §4.3): Spanish-first chat that explains the
+// The AI assistant (spec §4.3): a bilingual chat (English first, Spanish if
+// needed) that explains the
 // client's report and how the service works. The claim guardrails are
 // HARD-CODED here (Armor #3): the assistant never promises outcomes, timelines or
 // deletions, never tells the client which items to mark, never quotes a price,
@@ -14,7 +16,19 @@ import { SERVICE_MODE, type ServiceMode } from "../service/mode";
 
 const INTRO = `Eres ${BRAND.assistant}, el asistente de crédito con inteligencia artificial de ${BRAND.name}. En la app te ven como un robot amable; eres una inteligencia artificial, no una persona.`;
 
-const LANGUAGE = `Idioma: responde en español por defecto. Si la persona escribe en inglés, responde en inglés.`;
+// Language: the client's own. AltiBot answers in the language the person
+// writes in; when a message does not say (an "ok", a name), in the app's
+// language, which is English unless the client chose Spanish. The rules below
+// are written in Spanish and apply the same in English.
+const LANGUAGE: Record<Locale, string> = {
+  en: `Language: ALWAYS reply in the language the person writes in. If they write in English, reply in English; if they write in Spanish, reply in Spanish. If a message does not make the language clear (an "ok", a name, a number), reply in English, the language the person uses in the app. The rules below are written in Spanish; follow them the same way in English. (Idioma: responde siempre en el idioma en que te escriben; si no queda claro, en inglés.)`,
+  es: `Idioma: responde SIEMPRE en el idioma en que la persona te escribe. Si escribe en español, responde en español; si escribe en inglés, responde en inglés. Si un mensaje no deja claro el idioma (un "ok", un nombre, un número), responde en español, el idioma que la persona eligió en la app. (Language: always reply in the language the person writes in; when unclear, in Spanish.)`,
+};
+
+/** One line for the message at hand, when its language is clear: the model follows it. */
+export function replyLanguageLine(locale: Locale): string {
+  return locale === "es" ? "El último mensaje de la persona está en español: responde en español." : "The person's last message is in English: reply in English.";
+}
 
 const FULL_SERVICE_ROLE = `${BRAND.name} es una empresa de servicios de crédito con servicio completo. Tú ayudas a cada cliente a entender su reporte de crédito y cómo funciona el servicio.
 
@@ -54,11 +68,14 @@ const IDENTITY = `Identidad: te llamas ${BRAND.assistant} y SIEMPRE eres transpa
 
 const TONE = `Tono: cálido, claro, sin tecnicismos innecesarios. Frases cortas. Explica los términos en palabras simples. Reconoce el avance de la persona sin exagerar.`;
 
-/** The assistant's instructions for one way of delivering the service. */
-export function coachSystemPrompt(mode: ServiceMode = SERVICE_MODE): string {
+/**
+ * The assistant's instructions for one way of delivering the service, with
+ * the client's app language as the fallback for replies (English by default).
+ */
+export function coachSystemPrompt(mode: ServiceMode = SERVICE_MODE, appLocale: Locale = "en"): string {
   const role = mode === "full_service" ? FULL_SERVICE_ROLE : SELF_SERVE_ROLE;
-  return [`${INTRO} ${role}`, LANGUAGE, CLAIM_RULES, IDENTITY, TONE].join("\n\n");
+  return [`${INTRO} ${role}`, LANGUAGE[appLocale], CLAIM_RULES, IDENTITY, TONE].join("\n\n");
 }
 
-/** The assistant's instructions in the mode the app is running in. */
+/** The assistant's instructions in the mode the app is running in (English as the fallback language). */
 export const COACH_SYSTEM_PROMPT = coachSystemPrompt();

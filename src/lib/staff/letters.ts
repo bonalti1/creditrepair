@@ -15,7 +15,8 @@ export function letterEnclosures(client: Pick<StaffClient, "documents">): Docume
 /**
  * The text of a letter as it is mailed, in English. Each item carries the
  * reason the client gave for it (letter.itemReasons); an item confirmed before
- * reasons existed is listed without one. The client's own words are not in it.
+ * reasons existed is listed without one. The client's own words are not in it;
+ * the report facts the client chose to include (letter.itemDetails) are.
  * `letterVersions`: the approved texts; without them, version 1 (the text in code).
  */
 export function staffLetterText(client: StaffClient, round: StaffRound, letter: StaffLetter, now: Date, letterVersions?: readonly LetterVersion[]): string {
@@ -29,6 +30,7 @@ export function staffLetterText(client: StaffClient, round: StaffRound, letter: 
       roundNumber: round.number,
       enclosures: letterEnclosures(client).map((kind) => ENCLOSURE_LABELS[kind]!),
       itemReasons: letter.itemReasons,
+      itemDetails: letter.itemDetails,
     },
     letterVersions,
   );

@@ -3,10 +3,12 @@
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { BILLING_STATE_LABEL, BILLING_STATES, clientRows, clientsCsv, filterRows } from "@/lib/staff/clientList";
+import { BILLING_STATE_LABELS, BILLING_STATES, clientRows, clientsCsv, filterRows } from "@/lib/staff/clientList";
 import { count, formatPhone, relativeDay, stateName } from "@/lib/staff/format";
 import { defaultsToMine, deniedReason, scopeOf } from "@/lib/staff/permissions";
-import { EXCEPTION_KINDS, EXCEPTION_LABEL, RESPONSE_WINDOW_DAYS, sendableRound, STAGE_ORDER, STAGES, type Stage } from "@/lib/staff/stage";
+import { EXCEPTION_KINDS, EXCEPTION_LABELS, RESPONSE_WINDOW_DAYS, sendableRound, STAGE_ORDER, STAGE_TEXT, type Stage } from "@/lib/staff/stage";
+import { useTx } from "@/lib/staff/i18n/StaffLocale";
+import { staffMessage } from "@/lib/staff/i18n/messages";
 import { assignableMembers, memberName } from "@/lib/staff/team";
 import { fullName } from "@/lib/staff/types";
 import { useAutopilot } from "@/lib/autopilot/useAutopilot";
@@ -31,7 +33,10 @@ const control =
 const SMALL = "pressable inline-flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[14px] font-semibold";
 
 function ClientList() {
-  const { data, team, ready, clients, now, reload, viewer, members, can } = useStaff();
+  const { data, team, ready, clients, now, reload, viewer, members, can, locale } = useStaff();
+  const t = useTx();
+  const STAGES = STAGE_TEXT[locale];
+  const EXCEPTION_LABEL = EXCEPTION_LABELS[locale];
   // The automatic follow-ups: a notice they are still working on is not listed as a person's.
   const { env } = useAutopilot();
   const params = useSearchParams();
@@ -75,10 +80,10 @@ function ClientList() {
 
   const rows = useMemo(
     () =>
-      clientRows(clients, viewer, now, env).sort(
+      clientRows(clients, viewer, now, env, locale).sort(
         (a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage) || fullName(a.client).localeCompare(fullName(b.client), "es"),
       ),
-    [clients, viewer, now, env],
+    [clients, viewer, now, env, locale],
   );
   const sellers = useMemo(() => [...new Set(clients.map((c) => c.salesperson))].sort(), [clients]);
   const states = useMemo(() => [...new Set(clients.map((c) => c.state))].sort(), [clients]);
@@ -113,13 +118,16 @@ function ClientList() {
     const result = await team.assignClients(chosen.map((r) => r.client.id), to, viewer);
     setBusy(false);
     if (!result.ok) {
-      setNotice(result.message);
+      setNotice(staffMessage(result.message, locale));
       return;
     }
     setNotice(
       result.count === 0
-        ? "Nada cambió: ya estaban así."
-        : `${count(result.count ?? 0, "cliente", "clientes")} ${to ? `con ${memberName(members, to)}` : "sin asignar"}.`,
+        ? t("Nada cambió: ya estaban así.", "Nothing changed: they were already set that way.")
+        : t(
+            `${count(result.count ?? 0, "cliente", "clientes")} ${to ? `con ${memberName(members, to, "es")}` : "sin asignar"}.`,
+            `${count(result.count ?? 0, "client", "clients")} ${to ? `now with ${memberName(members, to, "en")}` : "unassigned"}.`,
+          ),
     );
     setSelected(new Set());
     await reload();
@@ -131,30 +139,35 @@ function ClientList() {
     // The same send the home screen uses: the data layer checks again that each round may go out now.
     await data.markRoundsSent(readyToSend);
     setBusy(false);
-    setNotice(`${count(readyToSend.length, "ronda enviada", "rondas enviadas")}. El sistema vuelve a importar cada reporte en ${RESPONSE_WINDOW_DAYS} días.`);
+    setNotice(
+      t(
+        `${count(readyToSend.length, "ronda enviada", "rondas enviadas")}. El sistema vuelve a importar cada reporte en ${RESPONSE_WINDOW_DAYS} días.`,
+        `${count(readyToSend.length, "round sent", "rounds sent")}. The system pulls each report again in ${RESPONSE_WINDOW_DAYS} days.`,
+      ),
+    );
     setSelected(new Set());
     await reload();
   };
 
   const exportCsv = () => {
     const rowsOut = chosen.length > 0 ? chosen : shown;
-    const blob = new Blob([clientsCsv(rowsOut, members)], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([clientsCsv(rowsOut, members, locale)], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `clientes-${now.toISOString().slice(0, 10)}.csv`;
+    a.download = `${t("clientes", "clients")}-${now.toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const title = mine ? "Mis clientes" : "Clientes";
+  const title = mine ? t("Mis clientes", "My clients") : t("Clientes", "Clients");
   const scopeLine =
     scope === "assigned"
-      ? "Los clientes que el equipo te asignó."
+      ? t("Los clientes que el equipo te asignó.", "The clients the team assigned to you.")
       : scope === "brought"
-        ? "Las personas que tú trajiste."
+        ? t("Las personas que tú trajiste.", "The people you brought in.")
         : mine
-          ? "Los que tienes asignados o que tú trajiste."
+          ? t("Los que tienes asignados o que tú trajiste.", "The ones assigned to you or that you brought in.")
           : null;
 
   return (
@@ -164,30 +177,30 @@ function ClientList() {
           <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{title}</h1>
           <p className="mt-0.5 text-[14px] tabular-nums text-slate-500" role="status">
             {scopeLine ? `${scopeLine} ` : ""}
-            {filtered ? `${shown.length} de ${base.length}` : `${base.length} en total`}
+            {filtered ? t(`${shown.length} de ${base.length}`, `${shown.length} of ${base.length}`) : t(`${base.length} en total`, `${base.length} total`)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {canExport && (
             <button type="button" onClick={exportCsv} className={`${SMALL} bg-slate-100 text-slate-900 hover:bg-slate-200`} data-testid="export-csv">
               <Icon name="download" size={16} />
-              {chosen.length > 0 ? `Exportar ${chosen.length}` : "Exportar CSV"}
+              {chosen.length > 0 ? t(`Exportar ${chosen.length}`, `Export ${chosen.length}`) : t("Exportar CSV", "Export CSV")}
             </button>
           )}
           {can("clients.add") && !adding && (
             <button type="button" onClick={() => setAdding(true)} className={`${SMALL} bg-amber-400 text-blue-900 hover:bg-amber-500`} data-testid="add-client-open">
               <Icon name="plus" size={16} strokeWidth={2.25} />
-              Agregar cliente
+              {t("Agregar cliente", "Add client")}
             </button>
           )}
         </div>
       </div>
 
       {seesAll && (
-        <div className="mt-4 inline-flex rounded-full bg-slate-100 p-1" role="group" aria-label="Qué clientes ver">
+        <div className="mt-4 inline-flex rounded-full bg-slate-100 p-1" role="group" aria-label={t("Qué clientes ver", "Which clients to show")}>
           {[
-            ["", "Todos"],
-            ["mios", "Mis clientes"],
+            ["", t("Todos", "All")],
+            ["mios", t("Mis clientes", "My clients")],
           ].map(([value, label]) => (
             <button
               key={value}
@@ -220,57 +233,57 @@ function ClientList() {
               setQuery(e.target.value);
               setParam("q", e.target.value);
             }}
-            placeholder="Buscar por nombre o teléfono"
-            aria-label="Buscar por nombre o teléfono"
+            placeholder={t("Buscar por nombre o teléfono", "Search by name or phone")}
+            aria-label={t("Buscar por nombre o teléfono", "Search by name or phone")}
             className={`${control} pl-10 placeholder:text-slate-400`}
           />
         </div>
-        <select aria-label="Etapa" className={control} value={stage} onChange={(e) => setParam("etapa", e.target.value)}>
-          <option value="">Todas las etapas</option>
+        <select aria-label={t("Etapa", "Stage")} className={control} value={stage} onChange={(e) => setParam("etapa", e.target.value)}>
+          <option value="">{t("Todas las etapas", "All stages")}</option>
           {STAGE_ORDER.map((s) => (
             <option key={s} value={s}>{STAGES[s].label}</option>
           ))}
         </select>
-        <select aria-label="Avisos" className={control} value={noticeParam} onChange={(e) => setParam("aviso", e.target.value)}>
-          <option value="">Con o sin avisos</option>
-          <option value="alguno">Necesita una persona</option>
+        <select aria-label={t("Avisos", "Notices")} className={control} value={noticeParam} onChange={(e) => setParam("aviso", e.target.value)}>
+          <option value="">{t("Con o sin avisos", "With or without notices")}</option>
+          <option value="alguno">{t("Necesita una persona", "Needs a person")}</option>
           {EXCEPTION_KINDS.map((k) => (
             <option key={k} value={k}>{EXCEPTION_LABEL[k]}</option>
           ))}
         </select>
         {seesAll && (
-          <select aria-label="Quién lo trabaja" className={control} value={filters.assigned} onChange={(e) => setParam("asignado", e.target.value)}>
-            <option value="">Lo trabaje quien sea</option>
-            <option value="none">Sin asignar</option>
+          <select aria-label={t("Quién lo trabaja", "Who works it")} className={control} value={filters.assigned} onChange={(e) => setParam("asignado", e.target.value)}>
+            <option value="">{t("Lo trabaje quien sea", "Worked by anyone")}</option>
+            <option value="none">{t("Sin asignar", "Unassigned")}</option>
             {members
               .filter((m) => m.role !== "sales")
               .map((m) => (
                 <option key={m.handle} value={m.handle}>
                   {m.name}
-                  {m.active ? "" : " (desactivada)"}
+                  {m.active ? "" : t(" (desactivada)", " (deactivated)")}
                 </option>
               ))}
           </select>
         )}
         {scope !== "brought" && (
-          <select aria-label="Ventas" className={control} value={filters.seller} onChange={(e) => setParam("vendedor", e.target.value)}>
-            <option value="">Lo trajo quien sea</option>
+          <select aria-label={t("Ventas", "Sales")} className={control} value={filters.seller} onChange={(e) => setParam("vendedor", e.target.value)}>
+            <option value="">{t("Lo trajo quien sea", "Brought in by anyone")}</option>
             {sellers.map((s) => (
-              <option key={s} value={s}>{memberName(members, s)}</option>
+              <option key={s} value={s}>{memberName(members, s, locale)}</option>
             ))}
           </select>
         )}
         {can("billing.view") && (
-          <select aria-label="Cobros" className={control} value={filters.billing} onChange={(e) => setParam("cobros", e.target.value)}>
-            <option value="">Cualquier estado de cobro</option>
+          <select aria-label={t("Cobros", "Billing")} className={control} value={filters.billing} onChange={(e) => setParam("cobros", e.target.value)}>
+            <option value="">{t("Cualquier estado de cobro", "Any billing status")}</option>
             {BILLING_STATES.map((b) => (
-              <option key={b} value={b}>{BILLING_STATE_LABEL[b]}</option>
+              <option key={b} value={b}>{BILLING_STATE_LABELS[locale][b]}</option>
             ))}
           </select>
         )}
         {states.length > 1 && (
-          <select aria-label="Estado" className={control} value={filters.state} onChange={(e) => setParam("estado", e.target.value)}>
-            <option value="">Todos los estados</option>
+          <select aria-label={t("Estado", "State")} className={control} value={filters.state} onChange={(e) => setParam("estado", e.target.value)}>
+            <option value="">{t("Todos los estados", "All states")}</option>
             {states.map((s) => (
               <option key={s} value={s}>{stateName(s)}</option>
             ))}
@@ -288,7 +301,7 @@ function ClientList() {
           }}
           className="mt-3 px-1 text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline"
         >
-          Quitar filtros
+          {t("Quitar filtros", "Clear filters")}
         </button>
       )}
 
@@ -301,21 +314,21 @@ function ClientList() {
 
       {selectable && chosen.length > 0 && (
         <div className="card sticky top-[7.5rem] z-10 mt-4 flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-3.5 lg:top-[6.5rem]" data-testid="bulk-bar">
-          <p className="text-[14px] font-semibold text-slate-900">{count(chosen.length, "seleccionado", "seleccionados")}</p>
+          <p className="text-[14px] font-semibold text-slate-900">{t(count(chosen.length, "seleccionado", "seleccionados"), `${chosen.length} selected`)}</p>
           {canAssign ? (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <select
-                aria-label="Asignar a"
+                aria-label={t("Asignar a", "Assign to")}
                 className="h-11 w-48 min-w-0 rounded-2xl bg-white px-3 text-[14px] text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] outline-none focus:ring-2 focus:ring-blue-300"
                 value={assignTo} onChange={(e) => setAssignTo(e.target.value)}>
-                <option value="">Asignar a…</option>
+                <option value="">{t("Asignar a…", "Assign to…")}</option>
                 {assignable.map((m) => (
                   <option key={m.handle} value={m.handle}>{m.name}</option>
                 ))}
-                <option value="none">Nadie (sin asignar)</option>
+                <option value="none">{t("Nadie (sin asignar)", "Nobody (unassigned)")}</option>
               </select>
               <button type="button" onClick={assign} disabled={!assignTo || busy} className={`${SMALL} bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:text-slate-400`}>
-                Asignar
+                {t("Asignar", "Assign")}
               </button>
             </div>
           ) : null}
@@ -325,15 +338,17 @@ function ClientList() {
               onClick={send}
               disabled={readyToSend.length === 0 || busy}
               className={`${SMALL} bg-amber-400 text-blue-900 hover:bg-amber-500 disabled:bg-slate-100 disabled:text-slate-500`}
-              title={readyToSend.length === 0 ? "Ninguno de los seleccionados tiene una ronda lista para enviar." : undefined}
+              title={readyToSend.length === 0 ? t("Ninguno de los seleccionados tiene una ronda lista para enviar.", "None of the selected clients has a round ready to send.") : undefined}
             >
-              {readyToSend.length === 0 ? "Sin rondas listas" : `Enviar ${count(readyToSend.length, "ronda lista", "rondas listas")}`}
+              {readyToSend.length === 0
+                ? t("Sin rondas listas", "No rounds ready")
+                : t(`Enviar ${count(readyToSend.length, "ronda lista", "rondas listas")}`, `Send ${count(readyToSend.length, "ready round", "ready rounds")}`)}
             </button>
           )}
           <button type="button" onClick={() => setSelected(new Set())} className="text-[13px] font-medium text-slate-500 hover:text-slate-900">
-            Quitar selección
+            {t("Quitar selección", "Clear selection")}
           </button>
-          {!canAssign && <DeniedNote>{deniedReason("clients.assign")}</DeniedNote>}
+          {!canAssign && <DeniedNote>{deniedReason("clients.assign", locale)}</DeniedNote>}
         </div>
       )}
 
@@ -347,25 +362,25 @@ function ClientList() {
             <input
               type="checkbox"
               className="h-4 w-4 accent-blue-700"
-              aria-label="Seleccionar todos los que se ven"
+              aria-label={t("Seleccionar todos los que se ven", "Select all shown")}
               checked={allChosen}
               onChange={() => setSelected(allChosen ? new Set() : new Set(shown.map((r) => r.client.id)))}
             />
           )}
-          <span>Cliente</span>
-          <span>Etapa</span>
-          <span>Qué sigue</span>
-          <span>Trabaja el caso</span>
-          <span>Actividad</span>
+          <span>{t("Cliente", "Client")}</span>
+          <span>{t("Etapa", "Stage")}</span>
+          <span>{t("Qué sigue", "What's next")}</span>
+          <span>{t("Trabaja el caso", "Working the case")}</span>
+          <span>{t("Actividad", "Activity")}</span>
         </div>
 
         {shown.length === 0 ? (
           <p className="px-5 py-8 text-center text-[15px] text-slate-500">
             {base.length === 0
               ? scope === "assigned"
-                ? "Todavía no tienes clientes asignados."
-                : "Todavía no hay clientes aquí."
-              : "Ningún cliente coincide con estos filtros."}
+                ? t("Todavía no tienes clientes asignados.", "You don't have any assigned clients yet.")
+                : t("Todavía no hay clientes aquí.", "No clients here yet.")
+              : t("Ningún cliente coincide con estos filtros.", "No clients match these filters.")}
           </p>
         ) : (
           <ul>
@@ -378,7 +393,7 @@ function ClientList() {
                       className="h-[18px] w-[18px] accent-blue-700 lg:h-4 lg:w-4"
                       checked={selected.has(client.id)}
                       onChange={() => toggle(client.id)}
-                      aria-label={`Seleccionar a ${fullName(client)}`}
+                      aria-label={t(`Seleccionar a ${fullName(client)}`, `Select ${fullName(client)}`)}
                     />
                   </label>
                 )}
@@ -393,11 +408,11 @@ function ClientList() {
                     <span className="min-w-0">
                       <span className="block break-words text-[16px] font-medium leading-snug text-slate-900">{fullName(client)}</span>
                       <span className="block text-[13px] text-slate-500 lg:truncate">
-                        {formatPhone(client.phone)} · ventas: {memberName(members, client.salesperson).split(" ")[0]}
+                        {formatPhone(client.phone)} · {t("ventas", "sales")}: {memberName(members, client.salesperson, locale).split(" ")[0]}
                       </span>
-                      {sourceLine(client.leadSource) && (
+                      {sourceLine(client.leadSource, locale) && (
                         <span className="block text-[12.5px] font-medium text-blue-700 lg:truncate" data-testid="lead-source">
-                          {sourceLine(client.leadSource)}
+                          {sourceLine(client.leadSource, locale)}
                         </span>
                       )}
                     </span>
@@ -410,21 +425,21 @@ function ClientList() {
                     <span className="block text-[14px] leading-snug text-slate-700">{step.text}</span>
                     {exceptions.length > 0 && (
                       <span className="block text-[13px] leading-snug text-slate-500">
-                        Aviso: {exceptions.map((e) => EXCEPTION_LABEL[e.kind].toLowerCase()).join(", ")}
+                        {t("Aviso", "Notice")}: {exceptions.map((e) => EXCEPTION_LABEL[e.kind].toLowerCase()).join(", ")}
                       </span>
                     )}
                   </span>
                   <span className="col-span-2 pl-5 text-[13px] text-slate-600 lg:col-span-1 lg:pl-0">
-                    <span className="lg:hidden">Trabaja el caso: </span>
+                    <span className="lg:hidden">{t("Trabaja el caso: ", "Working the case: ")}</span>
                     {client.assignedTo ? (
-                      memberName(members, client.assignedTo)
+                      memberName(members, client.assignedTo, locale)
                     ) : (
-                      <span className="text-slate-400">Sin asignar</span>
+                      <span className="text-slate-400">{t("Sin asignar", "Unassigned")}</span>
                     )}
                   </span>
                   <span className="col-span-2 pl-5 text-[13px] text-slate-500 lg:col-span-1 lg:pl-0">
-                    <span className="lg:hidden">Última actividad: </span>
-                    {relativeDay(client.lastActivityAt, now)}
+                    <span className="lg:hidden">{t("Última actividad: ", "Last activity: ")}</span>
+                    {relativeDay(client.lastActivityAt, now, locale)}
                   </span>
                 </Link>
               </li>
@@ -434,7 +449,7 @@ function ClientList() {
       </div>
       {canExport && (
         <p className="px-1 pt-2 text-xs leading-relaxed text-slate-500">
-          El CSV lleva lo que ves en la lista, sin teléfono, correo, dirección, reporte ni cobros.
+          {t("El CSV lleva lo que ves en la lista, sin teléfono, correo, dirección, reporte ni cobros.", "The CSV has what you see in the list, without phone, email, address, report or billing.")}
         </p>
       )}
     </main>

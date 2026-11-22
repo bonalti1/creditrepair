@@ -38,6 +38,7 @@ async function record(db: SupabaseClient, kind: "saved" | "edited" | "approved" 
     question: row.question,
     answer: row.answer,
     status: row.status,
+    language: row.language === "en" ? "en" : "es",
   });
   if (error) throw new Error(`saved_answer_events: ${error.message}`);
 }
@@ -60,6 +61,7 @@ export async function changeSavedAnswer(db: SupabaseClient, member: StaffMember,
         .insert({
           question: parsed.data.question,
           answer: parsed.data.answer,
+          language: action.language ?? "es",
           status,
           created_by: member.userId,
           created_by_name: member.handle,
@@ -104,7 +106,7 @@ export async function changeSavedAnswer(db: SupabaseClient, member: StaffMember,
   // Edit: the words change; an approved answer stays approved only because an administrator edited it (mayChange).
   const { data, error } = await db
     .from("saved_answers")
-    .update({ question: action.question.trim(), answer: action.answer.trim() })
+    .update({ question: action.question.trim(), answer: action.answer.trim(), ...(action.language ? { language: action.language } : {}) })
     .eq("id", action.id)
     .select("*")
     .single();

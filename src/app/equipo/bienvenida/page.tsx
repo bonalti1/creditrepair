@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { openQuestions } from "@/lib/staff/conversation";
 import { EXCEPTION_KINDS } from "@/lib/staff/stage";
-import { HOUSE_RULES, SCREENS_TOUR, TOUR_STEPS, playbookFor } from "@/lib/staff/playbook";
+import { HOUSE_RULE_TEXT, SCREENS_TOURS, TOUR_STEP_TEXT, playbookFor } from "@/lib/staff/playbook";
+import { useTx } from "@/lib/staff/i18n/StaffLocale";
 import { useStaff } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
 import { TOUR_DONE_KEY } from "@/components/staff/NewHireChecklist";
@@ -19,7 +20,11 @@ import { PRIMARY_BUTTON, SectionTitle } from "@/components/staff/ui";
 // resuelve» card in one place.
 
 export default function Bienvenida() {
-  const { ready, clients, viewer, data } = useStaff();
+  const { ready, clients, viewer, data, locale } = useStaff();
+  const t = useTx();
+  const HOUSE_RULES = HOUSE_RULE_TEXT[locale];
+  const SCREENS_TOUR = SCREENS_TOURS[locale];
+  const TOUR_STEPS = TOUR_STEP_TEXT[locale];
   const router = useRouter();
   const [tourDone, setTourDone] = useState(false);
 
@@ -50,15 +55,19 @@ export default function Bienvenida() {
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">Bienvenida, {viewer.name.split(" ")[0]}</h1>
+      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">
+        {t(`Bienvenida, ${viewer.name.split(" ")[0]}`, `Welcome, ${viewer.name.split(" ")[0]}`)}
+      </h1>
       <p className="mt-1 max-w-3xl text-[15px] leading-relaxed text-slate-500">
-        Aquí trabajas los casos de los clientes desde una sola lista. El sistema hace lo de rutina (recordatorios, avisos, preparar cartas) y te deja solo lo que
-        necesita una persona, con los pasos para resolverlo.
+        {t(
+          "Aquí trabajas los casos de los clientes desde una sola lista. El sistema hace lo de rutina (recordatorios, avisos, preparar cartas) y te deja solo lo que necesita una persona, con los pasos para resolverlo.",
+          "Here you work clients' cases from one list. The system does the routine work (reminders, notices, preparing letters) and leaves you only what needs a person, with the steps to handle it.",
+        )}
       </p>
 
       <section className="mt-7 scroll-mt-28" id="recorrido" aria-labelledby="recorrido-title">
-        <SectionTitle aside={tourDone ? <span className="text-[13px] font-medium text-green-700">Hecho</span> : undefined}>
-          <span id="recorrido-title">Recorrido de 5 minutos</span>
+        <SectionTitle aside={tourDone ? <span className="text-[13px] font-medium text-green-700">{t("Hecho", "Done")}</span> : undefined}>
+          <span id="recorrido-title">{t("Recorrido de 5 minutos", "5-minute tour")}</span>
         </SectionTitle>
         <div className="card px-5 py-5">
           <ol className="space-y-2.5">
@@ -72,18 +81,20 @@ export default function Bienvenida() {
             ))}
           </ol>
           <button type="button" onClick={startTour} className={`${PRIMARY_BUTTON} mt-5 w-full gap-2 sm:w-auto`} data-testid="start-tour">
-            {tourDone ? "Hacerlo otra vez" : "Empezar el recorrido"}
+            {tourDone ? t("Hacerlo otra vez", "Do it again") : t("Empezar el recorrido", "Start the tour")}
             <Icon name="chevron" size={18} />
           </button>
           <p className="mt-2 text-[12.5px] leading-snug text-slate-500">
-            {data.demo ? "Sigue a una clienta inventada con una pregunta esperando." : "Sigue a uno de tus clientes; no se envía nada durante el recorrido."}
+            {data.demo
+              ? t("Sigue a una clienta inventada con una pregunta esperando.", "It follows a made-up client with a question waiting.")
+              : t("Sigue a uno de tus clientes; no se envía nada durante el recorrido.", "It follows one of your clients; nothing is sent during the tour.")}
           </p>
         </div>
       </section>
 
       <section className="mt-7 scroll-mt-28" id="reglas" aria-labelledby="reglas-title">
         <SectionTitle>
-          <span id="reglas-title">Las reglas</span>
+          <span id="reglas-title">{t("Las reglas", "The rules")}</span>
         </SectionTitle>
         <ul className="card divide-y divide-slate-900/[0.06] overflow-hidden" data-testid="house-rules">
           {HOUSE_RULES.map((rule, i) => (
@@ -97,7 +108,7 @@ export default function Bienvenida() {
 
       <section className="mt-7 scroll-mt-28" id="pantallas" aria-labelledby="pantallas-title">
         <SectionTitle>
-          <span id="pantallas-title">Qué hace cada pantalla</span>
+          <span id="pantallas-title">{t("Qué hace cada pantalla", "What each screen does")}</span>
         </SectionTitle>
         <ul className="card overflow-hidden">
           {SCREENS_TOUR.map((screen, i) => (
@@ -112,18 +123,20 @@ export default function Bienvenida() {
             </li>
           ))}
         </ul>
-        <p className="mt-2 px-1 text-[13px] text-slate-500">En cualquier pantalla, «¿Qué hago aquí?» arriba a la derecha explica esa pantalla.</p>
+        <p className="mt-2 px-1 text-[13px] text-slate-500">
+          {t("En cualquier pantalla, «¿Qué hago aquí?» arriba a la derecha explica esa pantalla.", "On any screen, “What do I do here?” at the top right explains that screen.")}
+        </p>
       </section>
 
       <section className="mt-7" aria-labelledby="tarjetas-title">
         <SectionTitle>
-          <span id="tarjetas-title">Cómo se resuelve cada aviso</span>
+          <span id="tarjetas-title">{t("Cómo se resuelve cada aviso", "How to handle each notice")}</span>
         </SectionTitle>
         <div className="grid grid-cols-[minmax(0,1fr)] gap-2 lg:grid-cols-2">
           {EXCEPTION_KINDS.map((kind) => (
             <details key={kind} className="group card overflow-hidden">
               <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-5 text-[15px] font-medium text-slate-900 [&::-webkit-details-marker]:hidden">
-                {playbookFor(kind).title}
+                {playbookFor(kind, locale).title}
                 <Icon name="chevron" size={16} className="shrink-0 rotate-90 text-slate-400 group-open:-rotate-90" />
               </summary>
               <div className="px-2 pb-2">

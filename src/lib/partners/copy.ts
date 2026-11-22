@@ -1,8 +1,8 @@
 import { BRAND } from "../brand";
 
 // Every word a partner (or someone applying to be one) reads: the /socios
-// signup page and the partner portal, in Spanish (the source) and English (a
-// faithful translation). The test suite runs every string through the
+// signup page and the partner portal, in English and Spanish (English first;
+// the two say the same thing). The test suite runs every string through the
 // advertising claim rules (checkMarketingCopy): partner copy describes the
 // process, never an outcome. The rules partners agree to are here too, and
 // repeated in docs/PARTNERS.md.
@@ -181,7 +181,7 @@ export const PARTNER_COPY: Record<"es" | "en", PartnerCopy> = {
         { title: "Follow your referrals", body: "Your portal shows whether we contacted them, whether they signed and whether their service is active. Nothing from their credit file." },
       ],
       rulesTitle: "The partner rules",
-      formTitle: "Application",
+      formTitle: "Apply",
       name: "Your full name",
       company: "Company or agency",
       kind: "What you do",
@@ -252,6 +252,21 @@ export const PARTNER_COPY: Record<"es" | "en", PartnerCopy> = {
     referralConsent: `The partner confirms the person agreed to be contacted by the ${brand} team on WhatsApp.`,
   },
 };
+
+/**
+ * The rules, as they read while "Comisiones a socios" is on or off
+ * (program.ts). Off: the two rules about commissions become one line saying
+ * the program pays no referral fees.
+ */
+export function partnerRules(locale: "es" | "en", commissionsEnabled: boolean): string[] {
+  const rules = PARTNER_COPY[locale].rules;
+  if (commissionsEnabled) return rules;
+  const noFees =
+    locale === "es"
+      ? "Por ahora, el programa de socios no paga comisiones por referir. No aceptes nada de valor de nadie por referirlo."
+      : "For now, the partner program pays no referral fees. Do not accept anything of value from anyone for referring them.";
+  return [...rules.slice(0, 3), noFees, ...rules.slice(5)];
+}
 
 /** Every string in the partner copy, for the claim-rule test. */
 export function allPartnerStrings(): string[] {

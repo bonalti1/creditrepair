@@ -32,7 +32,7 @@ export const IDENTITY_ACCESS_TEMPLATES: Record<string, LetterTemplate> = {
       ctx,
       "Notice of identity theft and request to stop reporting — FCRA Section 623(a)(6)",
       "I am a victim of identity theft. The following account(s) or debt(s), which you report in my name, resulted from identity theft. I did not open them, I did not use them, and I did not authorize them:",
-      itemLines(ctx.items, ctx.itemReasons),
+      itemLines(ctx.items, ctx.itemReasons, ctx.itemDetails),
       "I have enclosed a copy of my identity theft report and proof of my identity.",
       "Section 623(a)(6)(B) of the Fair Credit Reporting Act (15 U.S.C. § 1681s-2) provides that when a consumer submits an identity theft report to a furnisher at the address the furnisher specifies for such reports, the furnisher may not furnish the information to any consumer reporting agency unless it later knows, or is informed by the consumer, that the information is correct.",
       "I ask that you stop reporting this information to the consumer reporting agencies, ask them to delete what you have already reported, and close the account(s). If this is not the address you use for identity theft reports, please tell me the correct one.",

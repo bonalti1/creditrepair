@@ -10,11 +10,13 @@ import { pulseSummary, type PulseSummary } from "../pulse/pulse";
 import { clientBillingOutlook, clientExceptions, clientStage, daysSince, roundItemCount, STAFF_TIME_ZONE } from "./stage";
 import { memberName, type TeamMember } from "./team";
 import type { StaffClient, StaffRole, StaffRound } from "./types";
+import { dateLocale, type StaffLocale } from "./i18n/locale";
 
 // The numbers an owner checks, from the same records the console shows.
 //
-// Every number has a written definition (METRIC_INFO) that the dashboard
-// shows beside it, so nobody has to guess what was counted. Two rules hold
+// Every number has a written definition (METRIC_INFOS, in English and
+// Spanish) that the dashboard shows beside it, so nobody has to guess what
+// was counted. Two rules hold
 // throughout:
 //   - Only what is on record is counted. Money comes from the billing
 //     records themselves (charges, refunds, the system's own schedule), never
@@ -28,12 +30,13 @@ import type { StaffClient, StaffRole, StaffRound } from "./types";
 export const PERIODS = ["month", "30d", "90d", "all"] as const;
 export type Period = (typeof PERIODS)[number];
 
-export const PERIOD_LABEL: Record<Period, string> = {
-  month: "Este mes",
-  "30d": "Últimos 30 días",
-  "90d": "Últimos 90 días",
-  all: "Desde el inicio",
+export const PERIOD_LABELS: Record<StaffLocale, Record<Period, string>> = {
+  en: { month: "This month", "30d": "Last 30 days", "90d": "Last 90 days", all: "All time" },
+  es: { month: "Este mes", "30d": "Últimos 30 días", "90d": "Últimos 90 días", all: "Desde el inicio" },
 };
+
+/** The Spanish names, as they always read (the partners' screens use them). */
+export const PERIOD_LABEL: Record<Period, string> = PERIOD_LABELS.es;
 
 export interface PeriodRange {
   /** Inclusive. Null for "since the beginning". */
@@ -116,7 +119,9 @@ export type MetricKey =
   | "salesSigned"
   | "salesCancelled";
 
-export const METRIC_INFO: Record<MetricKey, { label: string; definition: string }> = {
+export type MetricInfo = { label: string; definition: string };
+
+const METRIC_INFO_ES: Record<MetricKey, MetricInfo> = {
   newLeads: { label: "Prospectos nuevos", definition: "Personas cuyo primer contacto con ventas fue en el periodo, por invitación o agregadas a mano." },
   signed: { label: "Acuerdos firmados", definition: "Acuerdos de servicio firmados en el periodo." },
   cancelled: { label: "Cancelaciones", definition: "Clientes que cancelaron su acuerdo en el periodo, dentro o fuera del plazo de 3 días hábiles." },
@@ -186,6 +191,81 @@ export const METRIC_INFO: Record<MetricKey, { label: string; definition: string 
   salesSigned: { label: "Firmaron", definition: "Acuerdos firmados en el periodo por clientes que la persona trajo." },
   salesCancelled: { label: "Cancelaron", definition: "Cancelaciones en el periodo de clientes que la persona trajo." },
 };
+
+const METRIC_INFO_EN: Record<MetricKey, MetricInfo> = {
+  newLeads: { label: "New leads", definition: "People whose first contact with sales was in the period, by invite or added by hand." },
+  signed: { label: "Agreements signed", definition: "Service agreements signed in the period." },
+  cancelled: { label: "Cancellations", definition: "Clients who cancelled their agreement in the period, inside or outside the 3-business-day window." },
+  active: { label: "Active today", definition: "Today: agreement signed and in effect (not cancelled, no request to end) and the case isn't paused." },
+  paused: { label: "Paused today", definition: "Today: cases paused for a charge that didn't go through, or because the client didn't mark anything as inaccurate." },
+  ended: { label: "Ended", definition: "Today: clients who cancelled their agreement or asked to end the service. Their record is kept." },
+  conversion: {
+    label: "Lead → agreement",
+    definition: "Of the leads with first contact in the period, the share that has signed their agreement as of today.",
+  },
+  churn: {
+    label: "Churn",
+    definition: "Clients who cancelled or asked to end in the period, out of everyone who had an agreement in effect at some point in the period.",
+  },
+  roundsMailed: { label: "Rounds mailed", definition: "Rounds marked as mailed in the period, by their mailing date." },
+  lettersMailed: { label: "Letters mailed", definition: "Letters in those rounds: one per recipient (bureau or creditor)." },
+  itemsDisputed: {
+    label: "Items disputed",
+    definition: "Distinct items covered by the letters in those rounds. Only items the client confirmed as inaccurate count.",
+  },
+  itemsNoLongerReported: {
+    label: "Items no longer on the report",
+    definition:
+      "Disputed items that a report imported in the period no longer shows, per each round's record. It doesn't say why, or whether they'll show up again.",
+  },
+  daysToFirstRound: {
+    label: "Days from signing to round 1",
+    definition:
+      "Average days between signing the agreement and mailing the first round, for first rounds mailed in the period. Includes the 3 business days when work can't start.",
+  },
+  roundsOverdue: {
+    label: `Behind the ${ROUND_CYCLE_DAYS}-day cycle`,
+    definition: `Today: clients with work in progress whose last round went out more than ${ROUND_CYCLE_DAYS} days ago and who have no newer one mailed.`,
+  },
+  charged: { label: "Charged", definition: "Charges that went through in the period, by charge date. Includes ones refunded later." },
+  refunded: { label: "Refunded", definition: "Refunds made in the period, by their date. Always the full charge." },
+  net: { label: "Net", definition: "Charged minus refunded, in the period." },
+  failedPayments: {
+    label: "Failed charges",
+    definition: "Charges still unpaid whose last attempt was declined in the period: the system retries them, or the case was paused.",
+  },
+  recoveredPayments: { label: "Recovered", definition: "Charges that went through in the period after at least one declined attempt." },
+  scheduled30: {
+    label: "Scheduled, next 30 days",
+    definition:
+      "Charges and retries the system already has dated in the next 30 days, only for rounds already mailed and the signed agreement's fee. Rounds that haven't gone out don't count.",
+  },
+  revenuePerActive: { label: "Net per active client", definition: "The period's net divided by today's active clients." },
+  humanMinutesPerActive: {
+    label: "Minutes of human work per active client",
+    definition:
+      "“Needs a person” notices the team marked handled in the period, plus the ones waiting today, each with its estimated minutes (Autopilot), divided by today's active clients. What the system does on its own (reminders, notices, mailing) doesn't count. It's an estimate, not a time log.",
+  },
+  pulse: {
+    label: "“How are we doing?” (average)",
+    definition:
+      "Average of the answers to “How are we doing?” given in the period: 1 = not great, 2 = so-so, 3 = good. One answer per client per moment (signed their agreement, first letters went out, first answer came in). Questions the client skipped don't count. It asks about the service, never about results.",
+  },
+  pulseAnswers: {
+    label: "Answers to “How are we doing?”",
+    definition: "How many answers clients gave in the period, and how many of each face. Only from the clients your role can see.",
+  },
+  memberAssigned: { label: "Clients", definition: "Today: clients assigned to the person, not counting those who ended." },
+  memberRounds: { label: "Rounds", definition: "Rounds the person sent in the period." },
+  memberReplies: { label: "Replies", definition: "Messages the person wrote to clients in the app in the period." },
+  memberExceptions: { label: "Open notices", definition: "Today: “Needs a person” notices for their assigned clients." },
+  salesInvites: { label: "Leads", definition: "Leads the person brought in, with first contact in the period." },
+  salesSigned: { label: "Signed", definition: "Agreements signed in the period by clients the person brought in." },
+  salesCancelled: { label: "Cancelled", definition: "Cancellations in the period by clients the person brought in." },
+};
+
+/** Every number's name and how it is counted, in each language. */
+export const METRIC_INFOS: Record<StaffLocale, Record<MetricKey, MetricInfo>> = { en: METRIC_INFO_EN, es: METRIC_INFO_ES };
 
 // ── Small facts about a client ──────────────────────────────────────────
 
@@ -435,7 +515,7 @@ export interface MonthPoint {
 }
 
 /** The last `months` calendar months in Texas, oldest first, the current one last (partial). */
-export function monthlySeries(clients: StaffClient[], now: Date, months = 6): MonthPoint[] {
+export function monthlySeries(clients: StaffClient[], now: Date, months = 6, locale: StaffLocale = "es"): MonthPoint[] {
   const { year, month } = texasParts(now);
   const points: MonthPoint[] = [];
   for (let back = months - 1; back >= 0; back -= 1) {
@@ -451,7 +531,7 @@ export function monthlySeries(clients: StaffClient[], now: Date, months = 6): Mo
     const refunded = sum(charges.flatMap((ch) => (ch.refund && within(ch.refund.completedAt ?? ch.refund.at) ? [ch.refund.amountCents] : [])));
     points.push({
       key: `${y}-${String(m).padStart(2, "0")}`,
-      label: from.toLocaleDateString("es-MX", { month: "short", timeZone: STAFF_TIME_ZONE }).replace(".", ""),
+      label: from.toLocaleDateString(dateLocale(locale), { month: "short", timeZone: STAFF_TIME_ZONE }).replace(".", ""),
       leads: clients.filter((c) => within(c.createdAt)).length,
       signed: clients.filter((c) => within(c.agreementSignedAt)).length,
       roundsMailed: clients.flatMap((c) => c.rounds).filter((r) => isMailed(r) && within(r.mailedAt)).length,

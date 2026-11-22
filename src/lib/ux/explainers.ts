@@ -174,7 +174,7 @@ const STAGES_EN: Record<string, { name: string; plain: string }> = {
       "This letter demands the collector PROVE the debt is yours, the amount is right, and they have the right to collect it. If they can't validate it, they must stop reporting it. It's the strongest tool against collection accounts.",
   },
   identity_theft_block: {
-    name: "Identity theft block (FCRA §605B)",
+    name: "Identity theft block (credit reporting law, FCRA §605B)",
     plain:
       "If an item resulted from identity theft, this letter requires the bureau to block it within 4 business days. It needs your identity theft report (identitytheft.gov) and proof of identity attached.",
   },
@@ -189,9 +189,9 @@ const STAGES_EN: Record<string, { name: string; plain: string }> = {
       "This letter asks the bureaus to remove old or incorrect addresses, names, or employers from your file. It goes first because a clean file prevents mix-ups with other people's data.",
   },
   dispute: {
-    name: "FCRA §611 dispute",
+    name: "Dispute to the bureau (credit reporting law, FCRA §611)",
     plain:
-      "This letter exercises your legal right (FCRA Section 611) to have the bureau investigate the items you believe are inaccurate. They have ~30 days to verify each one or delete it.",
+      "This letter uses your right under the credit reporting law (FCRA Section 611) to have the bureau investigate the items you believe are inaccurate. They have about 30 days to verify each one or delete it.",
   },
   mov: {
     name: "Method of verification",

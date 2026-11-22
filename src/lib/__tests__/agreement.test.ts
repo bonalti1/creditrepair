@@ -64,6 +64,10 @@ import {
 } from "../staff/stage";
 import { clientTimeline } from "../staff/timeline";
 import { nextAction, sessionJourneyState, type JourneyState } from "../ux/journey";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // The agreement: the days the law counts, the gate that holds every letter,
 // what the documents must contain, who may sign, and how the journey and the

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLocale } from "@/lib/i18n";
-import { PARTNER_COPY } from "@/lib/partners/copy";
-import { demoApply } from "@/lib/partners/data";
+import { partnerRules, PARTNER_COPY } from "@/lib/partners/copy";
+import { demoApply, demoProgram } from "@/lib/partners/data";
+import { NO_FEES_LINE } from "@/lib/partners/program";
 import { checkPartnerApplication, PARTNER_KIND_LABEL, PARTNER_KINDS, type PartnerApplicationField } from "@/lib/partners/rules";
 import { isDemoMode } from "@/lib/supabase/config";
 import { ALL_STATES } from "@/lib/compliance/states";
@@ -14,6 +15,8 @@ import Logo from "@/components/Logo";
 
 // /socios: what the partner program is, its rules, and the application. Every
 // string is in src/lib/partners/copy.ts (ES and EN, checked by the claim rules).
+// While "Comisiones a socios" is off (program.ts), the rules and the box below
+// them say the program pays no referral fees instead of how to disclose one.
 
 const field =
   "h-12 w-full rounded-2xl bg-white px-4 text-[16px] text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.1)] outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-300";
@@ -29,6 +32,14 @@ export default function SociosContent() {
   const [problems, setProblems] = useState<Partial<Record<PartnerApplicationField, "required" | "invalid">>>({});
   const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
   const demo = isDemoMode();
+  const [fees, setFees] = useState(false);
+  useEffect(() => {
+    if (demo) return setFees(demoProgram().commissionsEnabled);
+    fetch("/api/partners/public")
+      .then((r) => r.json() as Promise<{ commissionsEnabled?: boolean }>)
+      .then((b) => setFees(b.commissionsEnabled === true))
+      .catch(() => undefined);
+  }, [demo]);
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm({ ...form, [key]: e.target.value });
 
@@ -59,7 +70,7 @@ export default function SociosContent() {
       return;
     }
     try {
-      const res = await fetch("/api/partners/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+      const res = await fetch("/api/partners/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...input, locale }) });
       setStatus(res.ok ? "done" : "error");
     } catch {
       setStatus("error");
@@ -109,19 +120,23 @@ export default function SociosContent() {
         <section aria-labelledby="reglas" className="card p-5 sm:p-6">
           <h2 id="reglas" className="font-display text-[22px] font-bold text-blue-700">{c.rulesTitle}</h2>
           <ul className="mt-3 space-y-2.5">
-            {copy.rules.map((rule) => (
+            {partnerRules(locale, fees).map((rule) => (
               <li key={rule} className="flex gap-2.5 text-[15px] leading-snug text-slate-700">
                 <Icon name="check" size={18} className="mt-0.5 shrink-0 text-green-700" />
                 <span>{rule}</span>
               </li>
             ))}
           </ul>
-          <div className="mt-5 rounded-2xl bg-amber-50 px-4 py-3.5">
-            <p className="text-[13px] font-semibold uppercase tracking-wide text-blue-900">{c.disclosureTitle}</p>
-            <p className="mt-1 text-[14px] leading-snug text-blue-900">
-              {c.disclosure} <strong>«{copy.disclosureLine}»</strong>
-            </p>
-          </div>
+          {fees ? (
+            <div className="mt-5 rounded-2xl bg-amber-50 px-4 py-3.5">
+              <p className="text-[13px] font-semibold uppercase tracking-wide text-blue-900">{c.disclosureTitle}</p>
+              <p className="mt-1 text-[14px] leading-snug text-blue-900">
+                {c.disclosure} <strong>«{copy.disclosureLine}»</strong>
+              </p>
+            </div>
+          ) : (
+            <p className="mt-5 rounded-2xl bg-slate-50 px-4 py-3.5 text-[14px] leading-snug text-slate-700">{NO_FEES_LINE[locale]}</p>
+          )}
         </section>
 
         <section id="solicitud" aria-labelledby="form-title" className="card scroll-mt-6 p-5 sm:p-6">

@@ -76,7 +76,11 @@ beforeAll(async () => {
   marta = await addStaff(h, "specialist", "marta", "Marta Leal");
   ana = await addStaff(h, "sales", "ana", "Ana Prieto");
   luis = await addStaff(h, "sales", "luis", "Luis Ortega");
-  P1 = await insertPartner({ name: "Laura Benítez", kind: "realtor", phone_e164: "+17135550161", status: "approved", referral_code: "laura-benitez", salesperson: "ana", commission_basis: "signed_client", commission_cents: 10000 });
+  // "Comisiones a socios" is off until an administrator records the attorney's
+  // approval (migration 0023; partnerSharing.test.ts covers the switch). These
+  // tests are about commissions, so the program is on, as an administrator would set it.
+  await h.service.from("partner_program_changes").insert({ commissions_enabled: true, attorney_name: "Lic. Prueba Abogada", attorney_approved_on: "2026-11-20", confirmed: true, changed_by: admin.userId, changed_by_name: "carmen" });
+  P1 =await insertPartner({ name: "Laura Benítez", kind: "realtor", phone_e164: "+17135550161", status: "approved", referral_code: "laura-benitez", salesperson: "ana", commission_basis: "signed_client", commission_cents: 10000 });
   P2 = await insertPartner({ name: "Jorge Treviño", kind: "loan_officer", phone_e164: "+19565550162", status: "approved", referral_code: "jorge-trevino" });
   P3 = await insertPartner({ name: "Sandra Olvera", kind: "tax_preparer", phone_e164: "+12105550163", status: "pending" });
   laura = uid();

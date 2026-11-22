@@ -14,7 +14,9 @@ import {
 } from "@/lib/staff/conversation";
 import type { StaffData } from "@/lib/staff/data";
 import { relativeDay, shortDateTime } from "@/lib/staff/format";
-import { STAFF_MESSAGE_RULES } from "@/lib/staff/messages";
+import { STAFF_MESSAGE_RULE_TEXT } from "@/lib/staff/messages";
+import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
+import { clientLanguage } from "@/lib/staff/i18n/locale";
 import type { StaffClient } from "@/lib/staff/types";
 import { bestMatch } from "@/lib/staff/answers";
 import { questionToAnswer } from "@/lib/staff/drafts";
@@ -25,7 +27,7 @@ import { messageVoice } from "@/lib/ux/chatMessages";
 import { CharacterAvatar } from "@/components/Character";
 import Icon from "@/components/Icon";
 import TeamMessage from "@/components/TeamMessage";
-import { DeniedNote, PRIMARY_BUTTON, SectionTitle } from "@/components/staff/ui";
+import { ClientLanguageTag, DeniedNote, PRIMARY_BUTTON, SectionTitle } from "@/components/staff/ui";
 import ReplyAssist, { useDraft } from "@/components/staff/ReplyAssist";
 import SaveAnswer from "@/components/staff/SaveAnswer";
 
@@ -48,6 +50,10 @@ import SaveAnswer from "@/components/staff/SaveAnswer";
 // its "(IA)" label). A teammate's message is labelled with that person's own
 // name and never with the team character: a mascot must never look like the
 // author of words a real person wrote.
+//
+// The screen is in the member's language; the reply goes to the client, so
+// the box says which language the client reads (ClientLanguageTag), and the
+// saved answer and the draft offered are in that language.
 
 const BUBBLE: Record<ThreadVoice, string> = {
   client: "bg-slate-100 text-slate-900",
@@ -76,6 +82,9 @@ export default function Conversation({
   replyDenied?: string | null;
 }) {
   const id = useId();
+  const { locale } = useStaffLocale();
+  const t = useTx();
+  const language = clientLanguage(client);
   const threadRef = useRef<HTMLDivElement>(null);
   const [name, setName] = useState("");
   const [editingName, setEditingName] = useState(false);
@@ -93,9 +102,10 @@ export default function Conversation({
   // The question to help with, and the help: a saved answer first, then the assistant's draft.
   const question = replyDenied ? null : questionToAnswer(client);
   const questionKey = question ? (waiting[0]?.id ?? thread[thread.length - 1]?.id ?? question) : null;
-  const library = useSavedAnswers(viewer);
-  const match = question ? bestMatch(question, library.answers) : null;
-  const [draft, retryDraft] = useDraft(client.id, questionKey, viewer?.role ?? null, data.demo);
+  const library = useSavedAnswers(viewer, locale);
+  // Only an answer in the client's language: it goes to the client.
+  const match = question ? bestMatch(question, library.answers, undefined, language) : null;
+  const [draft, retryDraft] = useDraft(client.id, questionKey, viewer?.role ?? null, data.demo, locale);
 
   useEffect(() => {
     const stored = staffName();
@@ -117,7 +127,7 @@ export default function Conversation({
     if (!words.trim() || signature.length < 2 || busy) return;
     setSent(false);
     setJustSent(null);
-    const found = checkStaffReply(words);
+    const found = checkStaffReply(words, locale);
     if (found.length > 0) {
       setText(words);
       setProblems(found);
@@ -138,7 +148,9 @@ export default function Conversation({
       setSent(true);
       // Offered to the library without the client's name in the greeting: a saved answer is for anyone.
       const first = client.firstName.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const general = first ? result.message.text.replace(new RegExp(`^(hola|buenos días|buenas tardes|hi)\\s*,?\\s+${first}\\s*[.,!]?\\s*`, "i"), "Hola. ") : result.message.text;
+      const general = first
+        ? result.message.text.replace(new RegExp(`^(hola|buenos días|buenas tardes|hi|hello)\\s*,?\\s+${first}\\s*[.,!]?\\s*`, "i"), language === "en" ? "Hi. " : "Hola. ")
+        : result.message.text;
       setJustSent({ question: question ?? "", answer: general });
       await onSent();
     } finally {
@@ -152,30 +164,33 @@ export default function Conversation({
         aside={
           thread.length > 0 ? (
             <span className="text-[13px] text-slate-500">
-              {thread.length === 1 ? "1 mensaje" : `${thread.length} mensajes`} en la app
+              {thread.length === 1 ? t("1 mensaje en la app", "1 message in the app") : t(`${thread.length} mensajes en la app`, `${thread.length} messages in the app`)}
             </span>
           ) : undefined
         }
       >
         <span id="conversacion" className="scroll-mt-28">
-          Conversación
+          {t("Conversación", "Conversation")}
         </span>
       </SectionTitle>
 
       {!client.signedUpAt ? (
         <div className="card px-5 py-6 text-[15px] leading-snug text-slate-500">
-          Todavía no tiene cuenta, así que no hay conversación en la app. Ventas sigue con esta persona por WhatsApp.
+          {t(
+            "Todavía no tiene cuenta, así que no hay conversación en la app. Ventas sigue con esta persona por WhatsApp.",
+            "No account yet, so there's no conversation in the app. Sales follows up with this person on WhatsApp.",
+          )}
         </div>
       ) : (
         <div className="card overflow-hidden" data-testid="conversation">
           {thread.length === 0 ? (
             <p className="px-5 py-5 text-[15px] leading-snug text-slate-500">
-              Todavía no hay mensajes en su conversación con {BRAND.assistant}.
+              {t(`Todavía no hay mensajes en su conversación con ${BRAND.assistant}.`, `No messages yet in their conversation with ${BRAND.assistant}.`)}
             </p>
           ) : (
             <div ref={threadRef} className="max-h-[26rem] space-y-3 overflow-y-auto px-4 py-4 sm:px-5" data-testid="thread">
               {thread.map((message) => {
-                const author = threadAuthor(message);
+                const author = threadAuthor(message, locale);
                 const ours = author.voice !== "client";
                 return (
                   <div key={message.id} data-voice={author.voice} className={`flex flex-col ${ours ? "items-end" : "items-start"}`}>
@@ -183,7 +198,7 @@ export default function Conversation({
                       {author.voice === "assistant" && <CharacterAvatar character="assistant" size={20} decorative />}
                       <span className="font-semibold text-slate-700">{author.label}</span>
                       <span>
-                        {author.voice === "team" && " · equipo"} · {shortDateTime(message.at)}
+                        {author.voice === "team" && t(" · equipo", " · team")} · {shortDateTime(message.at, locale)}
                       </span>
                     </p>
                     <div
@@ -200,22 +215,23 @@ export default function Conversation({
           {data.demo && lastReply && (
             <details className="group border-t hairline px-5 py-3" data-testid="client-view">
               <summary className="cursor-pointer list-none text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden">
-                <span className="group-open:hidden">Demo: ver cómo lo ve el cliente en su chat</span>
-                <span className="hidden group-open:inline">Ocultar la vista del cliente</span>
+                <span className="group-open:hidden">{t("Demo: ver cómo lo ve el cliente en su chat", "Demo: see how the client sees it in their chat")}</span>
+                <span className="hidden group-open:inline">{t("Ocultar la vista del cliente", "Hide the client's view")}</span>
               </summary>
               <div className="mt-3 max-w-sm rounded-3xl bg-slate-50 p-4">
                 <TeamMessage
                   byline={
-                    messageVoice({ role: "assistant", text: lastReply.text, author: { kind: "team", name: lastReply.authorName ?? "" } }, "es")
+                    messageVoice({ role: "assistant", text: lastReply.text, author: { kind: "team", name: lastReply.authorName ?? "" } }, language)
                       .byline ?? ""
                   }
                   text={lastReply.text}
                 />
               </div>
               <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                Así aparece el último mensaje del equipo en el chat del cliente: con el nombre de quien escribe y «del
-                equipo», distinto de los mensajes de {BRAND.assistant} y sin la etiqueta de IA. En la demo el chat del cliente no
-                está conectado con esta consola, así que el mensaje no le llega a nadie.
+                {t(
+                  `Así aparece el último mensaje del equipo en el chat del cliente: con el nombre de quien escribe y «del equipo», distinto de los mensajes de ${BRAND.assistant} y sin la etiqueta de IA. En la demo el chat del cliente no está conectado con esta consola, así que el mensaje no le llega a nadie.`,
+                  `This is how the team's last message shows in the client's chat: with the writer's name and “from the team”, unlike ${BRAND.assistant}'s messages and without the AI label. In the demo the client's chat isn't connected to this console, so the message doesn't reach anyone.`,
+                )}
               </p>
             </details>
           )}
@@ -232,8 +248,10 @@ export default function Conversation({
                 data-testid="open-question"
                 className="mb-3 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900"
               >
-                <span className="font-semibold">Pregunta que {BRAND.assistant} pasó al equipo ({relativeDay(question.askedAt, now)}):</span>{" "}
-                «{question.text}» Tu respuesta aquí la contesta y quita el aviso.
+                <span className="font-semibold">
+                  {t(`Pregunta que ${BRAND.assistant} pasó al equipo`, `Question ${BRAND.assistant} passed to the team`)} ({relativeDay(question.askedAt, now, locale)}):
+                </span>{" "}
+                «{question.text}» {t("Tu respuesta aquí la contesta y quita el aviso.", "Your reply here answers it and clears the notice.")}
               </p>
             ))}
 
@@ -256,7 +274,7 @@ export default function Conversation({
             {editingName ? (
               <div className="mb-3">
                 <label htmlFor={`${id}-name`} className="block text-[14px] font-medium text-slate-900">
-                  Tu nombre, como lo verá el cliente
+                  {t("Tu nombre, como lo verá el cliente", "Your name, as the client will see it")}
                 </label>
                 <input
                   id={`${id}-name`}
@@ -264,28 +282,31 @@ export default function Conversation({
                   onChange={(e) => setName(e.target.value)}
                   maxLength={40}
                   autoComplete="given-name"
-                  placeholder="Por ejemplo, Ana"
+                  placeholder={t("Por ejemplo, Ana", "For example, Ana")}
                   className={`${FIELD} mt-1.5 h-11 max-w-xs`}
                 />
               </div>
             ) : (
               <p className="mb-2 text-[13px] leading-snug text-slate-500">
-                Respondes como <span className="font-semibold text-slate-900">{signature}</span>. El cliente verá tu
-                nombre y «del equipo».{" "}
+                {t("Respondes como", "You're replying as")} <span className="font-semibold text-slate-900">{signature}</span>.{" "}
+                {t("El cliente verá tu nombre y «del equipo».", "The client sees your name and “from the team”.")}{" "}
                 <button
                   type="button"
                   onClick={() => setEditingName(true)}
                   // Inside the sentence, so the hit area grows instead of the line.
                   className="relative font-medium after:absolute after:-inset-x-2 after:-inset-y-3.5 after:content-[''] text-blue-700 underline-offset-2 hover:underline"
                 >
-                  Cambiar
+                  {t("Cambiar", "Change")}
                 </button>
               </p>
             )}
 
-            <label htmlFor={`${id}-reply`} className="sr-only">
-              Tu respuesta
-            </label>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <label htmlFor={`${id}-reply`} className="text-[13px] font-medium text-slate-700">
+                {t("Tu respuesta", "Your reply")}
+              </label>
+              <ClientLanguageTag client={client} />
+            </div>
             <textarea
               id={`${id}-reply`}
               value={text}
@@ -296,13 +317,13 @@ export default function Conversation({
               }}
               rows={3}
               maxLength={MAX_REPLY_CHARS}
-              placeholder="Escribe tu respuesta al cliente"
+              placeholder={t("Escribe tu respuesta al cliente", "Write your reply to the client")}
               className={`${FIELD} resize-y py-2.5`}
             />
 
             {problems && problems.length > 0 && (
               <div className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-[14px] leading-snug text-red-700" role="alert" data-testid="reply-blocked">
-                <p className="font-semibold">No se envió. El equipo no puede prometer resultados por escrito.</p>
+                <p className="font-semibold">{t("No se envió. El equipo no puede prometer resultados por escrito.", "Not sent. The team can't promise results in writing.")}</p>
                 <ul className="mt-1 space-y-1">
                   {problems.map((problem) => (
                     <li key={`${problem.phrase}|${problem.why}`} className="break-words">
@@ -310,7 +331,7 @@ export default function Conversation({
                     </li>
                   ))}
                 </ul>
-                <p className="mt-1">Cambia esa frase y vuelve a enviar.</p>
+                <p className="mt-1">{t("Cambia esa frase y vuelve a enviar.", "Change that phrase and send again.")}</p>
               </div>
             )}
 
@@ -318,8 +339,8 @@ export default function Conversation({
               <p className="mt-3 flex items-start gap-2.5 rounded-2xl bg-green-50 px-4 py-3 text-[14px] leading-snug text-green-700" role="status">
                 <Icon name="check" size={18} className="mt-px shrink-0" />
                 <span>
-                  Respuesta guardada en su conversación.
-                  {data.demo && " En la demo no le llega a nadie: los clientes son inventados."}
+                  {t("Respuesta guardada en su conversación.", "Reply saved in their conversation.")}
+                  {data.demo && t(" En la demo no le llega a nadie: los clientes son inventados.", " In the demo it doesn't reach anyone: the clients are made up.")}
                 </span>
               </p>
             )}
@@ -330,16 +351,17 @@ export default function Conversation({
                 question={justSent.question}
                 answer={justSent.answer}
                 clientFirstName={client.firstName}
+                language={language}
                 onSave={library.save}
               />
             )}
 
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <button type="button" onClick={() => void send()} disabled={!canSend} className={`${PRIMARY_BUTTON} shrink-0`}>
-                Enviar respuesta
+                {t("Enviar respuesta", "Send reply")}
               </button>
               <ul className="min-w-0 space-y-0.5 text-xs leading-relaxed text-slate-500 sm:text-right">
-                {STAFF_MESSAGE_RULES.map((rule) => (
+                {STAFF_MESSAGE_RULE_TEXT[locale].map((rule) => (
                   <li key={rule}>{rule}</li>
                 ))}
               </ul>

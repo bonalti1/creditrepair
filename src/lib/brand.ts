@@ -133,10 +133,12 @@ export const BRAND = {
     es: `${TEAM_MASCOT}, que representa a nuestro equipo de personas`,
     en: `${TEAM_MASCOT}, who stands for our team of people`,
   },
-  /** Browser-tab title of the customer app. */
-  title: "Credalti — Tu asistente de crédito con IA",
+  /** Browser-tab title of the customer app (English first; Spanish when the visitor's language is Spanish). */
+  title: "Credalti — Your AI credit assistant",
+  titleEs: "Credalti — Tu asistente de crédito con IA",
   /** Browser-tab title of the ad landing page. */
-  startTitle: "Credalti — Habla con nuestro equipo",
+  startTitle: "Credalti — Talk to our team",
+  startTitleEs: "Credalti — Habla con nuestro equipo",
   /** Browser-tab title of the staff console. */
   teamTitle: "Credalti — Equipo",
   /** Internal and spec name; never shown to customers. */

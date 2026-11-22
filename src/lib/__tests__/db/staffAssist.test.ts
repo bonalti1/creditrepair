@@ -7,6 +7,10 @@ import { loadStaffClients } from "../../staff/load";
 import { libraryReplyFor } from "../../staff/answers";
 import { startHarness, type Harness } from "./pg";
 import { addClient, addDocuments, addStaff, ago, assign, sampleReport, signAgreement } from "./seed";
+import { setStaffLocaleFallback } from "../../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // Migration 0020 on the real migrations: saved answers (written by the
 // server after the role check, read by role, every change recorded), each
@@ -143,7 +147,7 @@ describe("the pulse and drafts through the member's own connection", () => {
 
 describe("member preferences and the morning summary", () => {
   it("a member reads only their own preferences; nobody writes them directly", async () => {
-    await h.service.from("staff_preferences").upsert({ user_id: marta.userId, digest_enabled: true, digest_channel: "whatsapp", digest_time: "08:30" });
+    await h.service.from("staff_preferences").upsert({ user_id: marta.userId, digest_enabled: true, digest_channel: "whatsapp", digest_time: "08:30", locale: "es" });
     expect((await h.as(marta.userId).from("staff_preferences").select("user_id")).data).toEqual([{ user_id: marta.userId }]);
     expect((await h.as(admin.userId).from("staff_preferences").select("user_id")).data).toEqual([]);
     const { error } = await h.as(marta.userId).from("staff_preferences").update({ digest_time: "05:00" }).eq("user_id", marta.userId);
@@ -168,6 +172,7 @@ describe("member preferences and the morning summary", () => {
     expect(await runStaffDigests(h.service, nine, { channels, deliver, base: "https://app.test" })).toMatchObject({ members: 1, sent: 1 });
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ handle: "marta", channel: "whatsapp" });
+    // In the language Marta chose for her console (migration 0025); a member who chose none gets English.
     expect(sent[0]!.text).toMatch(/^Buenos días, Marta\. Hoy: /);
     expect(sent[0]!.text).toContain("https://app.test/equipo?siguiente=1");
     expect(sent[0]!.text).not.toContain("Luis");

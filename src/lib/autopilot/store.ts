@@ -149,7 +149,7 @@ export async function queueStatus(db: SupabaseClient, userId: string, event: Sta
     if (!settings.statusEnabled || (await isOptedOut(db, userId))) return "skipped";
     const { data: profile } = await db.from("profiles").select("full_name, locale").eq("id", userId).maybeSingle();
     const firstName = String((profile as Row | null)?.full_name ?? "").trim().split(/\s+/)[0] ?? "";
-    const locale = (profile as Row | null)?.locale === "en" ? "en" : "es";
+    const locale = (profile as Row | null)?.locale === "es" ? "es" : "en";
     const m = statusMessage(userId, firstName, locale, event);
     const { error } = await db.from("outbound_messages").insert({
       user_id: userId,

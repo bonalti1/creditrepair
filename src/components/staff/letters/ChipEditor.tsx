@@ -1,7 +1,9 @@
 "use client";
 
 import { useImperativeHandle, useLayoutEffect, useRef, type Ref } from "react";
-import { CHIPS, isChipKey, TOKEN, type ChipKey } from "@/lib/letters/versions/source";
+import { chipText, isChipKey, TOKEN, type ChipKey } from "@/lib/letters/versions/source";
+import { useStaffLocale } from "@/lib/staff/i18n/StaffLocale";
+import type { StaffLocale } from "@/lib/staff/i18n/locale";
 
 // The letter text, editable, with each chip ({partidas}, {detalles}, …) shown
 // as one solid piece: it cannot be typed into or split, only removed whole or
@@ -11,6 +13,8 @@ import { CHIPS, isChipKey, TOKEN, type ChipKey } from "@/lib/letters/versions/so
 // The element is uncontrolled while the owner types (React does not rewrite
 // it on every key, so the caret stays put). The text is written into it when
 // `resetKey` changes: another letter or version opened, or a draft thrown away.
+// A chip's label is in the member's language; the text around it is the
+// letter's own English.
 
 export interface ChipEditorHandle {
   /** Puts a chip where the caret is (or at the end) and reports the new text. */
@@ -25,19 +29,20 @@ const CHIP_CLASS =
 const KNOWN = `${CHIP_CLASS} border-blue-200 bg-blue-50 text-blue-800`;
 const UNKNOWN = `${CHIP_CLASS} border-red-300 bg-red-50 text-red-700`;
 
-function chipHtml(key: string): string {
+function chipHtml(key: string, locale: StaffLocale): string {
   const known = isChipKey(key);
-  const label = known ? CHIPS[key].label : `{${key}}`;
-  return `<span data-chip="${escape(key)}" contenteditable="false" class="${known ? KNOWN : UNKNOWN}" title="${escape(known ? CHIPS[key].help : "Esta ficha no existe")}"><span aria-hidden="true">${known ? "⦿" : "!"}</span>${escape(label)}</span>`;
+  const label = known ? chipText(key, locale).label : `{${key}}`;
+  const help = known ? chipText(key, locale).help : locale === "es" ? "Esta ficha no existe" : "This chip doesn't exist";
+  return `<span data-chip="${escape(key)}" contenteditable="false" class="${known ? KNOWN : UNKNOWN}" title="${escape(help)}"><span aria-hidden="true">${known ? "⦿" : "!"}</span>${escape(label)}</span>`;
 }
 
 /** The text as the editor's HTML: escaped text, line breaks, and a span per chip. */
-export function textToHtml(text: string): string {
+export function textToHtml(text: string, locale: StaffLocale = "en"): string {
   let html = "";
   let last = 0;
   for (const match of text.matchAll(TOKEN)) {
     html += escape(text.slice(last, match.index)).replace(/\n/g, "<br>");
-    html += chipHtml(match[1]!);
+    html += chipHtml(match[1]!, locale);
     last = match.index! + match[0].length;
   }
   html += escape(text.slice(last)).replace(/\n/g, "<br>");
@@ -90,16 +95,17 @@ export default function ChipEditor({
 }) {
   const box = useRef<HTMLDivElement>(null);
   const shown = useRef<string | null>(null);
+  const { locale } = useStaffLocale();
 
   // Written in when another text is opened (or always, read-only).
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
     if (readOnly || shown.current !== resetKey) {
-      el.innerHTML = textToHtml(value);
+      el.innerHTML = textToHtml(value, locale);
       shown.current = resetKey;
     }
-  }, [resetKey, readOnly, value]);
+  }, [resetKey, readOnly, value, locale]);
 
   const emit = () => {
     if (box.current) onChange(domToText(box.current));
@@ -117,7 +123,7 @@ export default function ChipEditor({
       const el = box.current;
       if (!el || readOnly) return;
       const holder = document.createElement("span");
-      holder.innerHTML = chipHtml(key);
+      holder.innerHTML = chipHtml(key, locale);
       const chip = holder.firstChild as HTMLElement;
       const space = document.createTextNode(" ");
       const range = caretInside();

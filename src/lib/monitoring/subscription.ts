@@ -43,7 +43,7 @@ export function monitoringState(input: {
   return { active: true, reason: "fresh_report", reportAgeDays: age };
 }
 
-/** Customer-facing explanation, Spanish first. Passes the claim rules. */
+/** Customer-facing explanation in Spanish (server error lines; staff read them). Passes the claim rules. */
 export function monitoringMessageEs(state: MonitoringState): string {
   switch (state.reason) {
     case "fresh_report":

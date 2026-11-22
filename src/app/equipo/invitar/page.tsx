@@ -5,9 +5,11 @@ import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
 import {
   buildInvitePath,
   GOALS,
-  inviteMessageEs,
+  inviteMessage,
   SALES_MAY_NOT_SAY,
+  SALES_MAY_NOT_SAY_EN,
   SALES_MAY_SAY,
+  SALES_MAY_SAY_EN,
   type GoalKey,
 } from "@/lib/sales/invite";
 import { formatPhone } from "@/lib/staff/format";
@@ -15,6 +17,7 @@ import { partnerCodeOf } from "@/lib/leads/source";
 import { deniedReason } from "@/lib/staff/permissions";
 import { useStaff } from "@/lib/staff/useStaff";
 import { NoAccess } from "@/components/staff/ui";
+import { useTx } from "@/lib/staff/i18n/StaffLocale";
 
 // The salesperson's side of the handoff. After the WhatsApp conversation they
 // fill in four things and get a personal link plus a ready message. The
@@ -35,12 +38,15 @@ const STATES = ["TX", ...ALL_STATES.filter((s) => s !== "TX")];
 const ME = "bonalti.salesName";
 
 export default function Invitar() {
-  const { data, ready: loaded, viewer, can } = useStaff();
+  const { data, ready: loaded, viewer, can, locale } = useStaff();
+  const t = useTx();
   const [me, setMe] = useState("");
   const [name, setName] = useState("");
   const [goal, setGoal] = useState<GoalKey>("general");
   const [state, setState] = useState("TX");
   const [phone, setPhone] = useState("");
+  // The client's language: the app opens in it and the message is written in it. English unless you talked in Spanish.
+  const [lang, setLang] = useState<"en" | "es">("en");
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState<"link" | "message" | null>(null);
   const [partner, setPartner] = useState<string | null>(null);
@@ -79,15 +85,15 @@ export default function Invitar() {
   // client's profiles.referred_by, which is what lets a salesperson see the people they brought in (migration 0012).
   const handle = !data.demo && viewer ? viewer.handle : undefined;
   const url = useMemo(
-    () => origin + buildInvitePath({ name, goal, state, refName: me, ref: handle, partner }),
-    [origin, name, goal, state, me, handle, partner],
+    () => origin + buildInvitePath({ name, goal, state, refName: me, ref: handle, partner, lang }),
+    [origin, name, goal, state, me, handle, partner, lang],
   );
   // Sending or copying the message for a prospect records when the invitation went out (HighLevel's "Invitado").
   const markInvited = () => {
     if (!clientId || data.demo) return;
     void fetch("/api/staff/prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "invited", id: clientId }) }).catch(() => undefined);
   };
-  const message = useMemo(() => inviteMessageEs({ name }, url), [name, url]);
+  const message = useMemo(() => inviteMessage({ name }, url, lang), [name, url, lang]);
   const open = stateStatus(state) === "open";
   const ready = me.trim().length >= 2 && name.trim().length >= 2;
   const digits = phone.replace(/\D/g, "");
@@ -104,18 +110,21 @@ export default function Invitar() {
     }
   };
 
-  if (loaded && !can("clients.invite")) return <NoAccess title="Invitar a un cliente" reason={deniedReason("clients.invite")} />;
+  if (loaded && !can("clients.invite")) return <NoAccess title={t("Invitar a un cliente", "Invite a client")} reason={deniedReason("clients.invite", locale)} />;
 
   return (
     <main className="animate-rise mx-auto max-w-md pb-6">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">Invitar a un cliente</h1>
+      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Invitar a un cliente", "Invite a client")}</h1>
       <p className="mt-2 text-[15px] leading-relaxed text-slate-500">
-        Llena esto al terminar la conversación. El cliente abre el enlace y ya no repite sus respuestas.
+        {t(
+          "Llena esto al terminar la conversación. El cliente abre el enlace y ya no repite sus respuestas.",
+          "Fill this in when the conversation ends. The client opens the link and doesn't have to repeat their answers.",
+        )}
       </p>
 
       <div className="mt-6 space-y-4">
         <div>
-          <label className={label} htmlFor="me">Tu nombre</label>
+          <label className={label} htmlFor="me">{t("Tu nombre", "Your name")}</label>
           <input
             id="me"
             className={field}
@@ -133,19 +142,27 @@ export default function Invitar() {
           />
         </div>
         <div>
-          <label className={label} htmlFor="name">Nombre del cliente</label>
+          <label className={label} htmlFor="name">{t("Nombre del cliente", "Client's name")}</label>
           <input id="name" className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="María" />
         </div>
         <div>
-          <label className={label} htmlFor="goal">Su meta</label>
+          <label className={label} htmlFor="goal">{t("Su meta", "Their goal")}</label>
           <select id="goal" className={field} value={goal} onChange={(e) => setGoal(e.target.value as GoalKey)}>
             {GOALS.map((g) => (
-              <option key={g.key} value={g.key}>{g.label}</option>
+              <option key={g.key} value={g.key}>{t(g.label, g.labelEn)}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className={label} htmlFor="state">Estado donde vive</label>
+          <label className={label} htmlFor="lang">{t("Idioma del cliente", "Client's language")}</label>
+          <select id="lang" className={field} value={lang} onChange={(e) => setLang(e.target.value === "es" ? "es" : "en")}>
+            <option value="en">{t("Inglés", "English")}</option>
+            <option value="es">{t("Español", "Spanish")}</option>
+          </select>
+          <p className="mt-1.5 text-[13px] text-slate-500">La app y el mensaje van en este idioma. El cliente puede cambiarlo en la app.</p>
+        </div>
+        <div>
+          <label className={label} htmlFor="state">{t("Estado donde vive", "State they live in")}</label>
           <select id="state" className={field} value={state} onChange={(e) => setState(e.target.value)}>
             {STATES.map((s) => (
               <option key={s} value={s}>{s === "TX" ? "Texas (TX)" : s}</option>
@@ -153,12 +170,12 @@ export default function Invitar() {
           </select>
           {!open && (
             <p className="mt-2 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] leading-snug text-amber-700">
-              Todavía no abrimos en {state}. El enlace lo llevará a la lista de espera, no a la app.
+              {t(`Todavía no abrimos en ${state}. El enlace lo llevará a la lista de espera, no a la app.`, `We're not open in ${state} yet. The link takes them to the waitlist, not the app.`)}
             </p>
           )}
         </div>
         <div>
-          <label className={label} htmlFor="phone">WhatsApp del cliente (opcional)</label>
+          <label className={label} htmlFor="phone">{t("WhatsApp del cliente (opcional)", "Client's WhatsApp (optional)")}</label>
           <input
             id="phone"
             className={field}
@@ -167,24 +184,27 @@ export default function Invitar() {
             placeholder="(713) 555-1234"
             inputMode="tel"
           />
-          <p className="mt-1.5 text-[13px] text-slate-500">Solo abre el chat; no se guarda ni va en el enlace.</p>
+          <p className="mt-1.5 text-[13px] text-slate-500">{t("Solo abre el chat; no se guarda ni va en el enlace.", "It only opens the chat; it isn't saved or put in the link.")}</p>
           {partner && (
             <p className="mt-2 rounded-2xl bg-blue-50 px-4 py-3 text-[14px] leading-snug text-blue-700" data-testid="invite-partner">
-              Lo refirió un socio: el enlace lleva su código ({partner}) para que quede registrado.
+              {t(
+                `Lo refirió un socio: el enlace lleva su código (${partner}) para que quede registrado.`,
+                `A partner referred them: the link carries their code (${partner}) so it's recorded.`,
+              )}
             </p>
           )}
         </div>
       </div>
 
       <section className="card mt-6 p-5">
-        <p className={label}>Mensaje listo para enviar</p>
+        <p className={label}>{t("Mensaje listo para enviar", "Message ready to send")}</p>
         <p className="whitespace-pre-line break-words text-[15px] leading-relaxed text-slate-900">
           {ready
             ? // The link may break at any character, so a break never reads as a hyphen in the address.
               message.split(url).flatMap((part, i) =>
                 i === 0 ? [part] : [<span key={i} className="break-all">{url}</span>, part],
               )
-            : "Escribe tu nombre y el del cliente para ver el mensaje."}
+            : t("Escribe tu nombre y el del cliente para ver el mensaje.", "Enter your name and the client's to see the message.")}
         </p>
       </section>
 
@@ -200,7 +220,7 @@ export default function Invitar() {
               ready ? "bg-amber-400 text-blue-900 hover:bg-amber-500" : "pointer-events-none bg-slate-200 text-slate-500"
             }`}
           >
-            Enviar por WhatsApp
+            {t("Enviar por WhatsApp", "Send on WhatsApp")}
           </a>
         ) : (
           <button
@@ -209,7 +229,7 @@ export default function Invitar() {
             onClick={() => copy("message")}
             className="pressable flex h-14 w-full items-center justify-center rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500 disabled:bg-slate-200 disabled:text-slate-500"
           >
-            {copied === "message" ? "Mensaje copiado" : "Copiar mensaje"}
+            {copied === "message" ? t("Mensaje copiado", "Message copied") : t("Copiar mensaje", "Copy message")}
           </button>
         )}
         <button
@@ -218,23 +238,23 @@ export default function Invitar() {
           onClick={() => copy("link")}
           className="pressable flex h-12 w-full items-center justify-center rounded-full bg-slate-100 text-[16px] font-medium text-slate-900 disabled:text-slate-400"
         >
-          {copied === "link" ? "Enlace copiado" : "Copiar solo el enlace"}
+          {copied === "link" ? t("Enlace copiado", "Link copied") : t("Copiar solo el enlace", "Copy just the link")}
         </button>
       </div>
 
       <section className="mt-8" data-testid="sales-may-say">
-        <p className={label}>Lo que sí puedes decir</p>
+        <p className={label}>{t("Lo que sí puedes decir", "What you can say")}</p>
         <ul className="card divide-y divide-slate-100 text-[15px] leading-snug text-slate-700">
-          {SALES_MAY_SAY.map((rule) => (
+          {t(SALES_MAY_SAY, SALES_MAY_SAY_EN).map((rule) => (
             <li key={rule} className="px-5 py-3.5">{rule}</li>
           ))}
         </ul>
       </section>
 
       <section className="mt-6" data-testid="sales-may-not-say">
-        <p className={label}>Lo que no puedes decir ni hacer</p>
+        <p className={label}>{t("Lo que no puedes decir ni hacer", "What you can't say or do")}</p>
         <ul className="card divide-y divide-slate-100 text-[15px] leading-snug text-slate-700">
-          {SALES_MAY_NOT_SAY.map((rule) => (
+          {t(SALES_MAY_NOT_SAY, SALES_MAY_NOT_SAY_EN).map((rule) => (
             <li key={rule} className="px-5 py-3.5">{rule}</li>
           ))}
         </ul>

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   const db = getAdminClient();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
-  const { data: profile } = await db.from("profiles").select("phone_e164").eq("id", userId).maybeSingle();
+  const { data: profile } = await db.from("profiles").select("phone_e164, locale").eq("id", userId).maybeSingle();
   if (!profile?.phone_e164) return NextResponse.json({ sent: false, reason: "no phone on profile" });
 
   const result = await sendWhatsApp(
@@ -37,6 +37,8 @@ export async function POST(req: Request) {
     action === "day40_reengage"
       ? { kind: "day40_reengage", deletedCount, remainingCount }
       : { kind: "attack_ready", roundNumber },
+    // The client's language: English unless they chose Spanish.
+    profile.locale === "es" ? "es" : "en",
   );
 
   await db.from("events").insert({ user_id: userId, kind: `n8n_${action}`, payload: parsed.data });

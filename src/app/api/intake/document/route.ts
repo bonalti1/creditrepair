@@ -4,6 +4,7 @@ import { checkUpload } from "@/lib/intake/files";
 import { checkIdentityDocument, simulatedIdentityCheck, type IdentityDocumentKind } from "@/lib/intake/identity";
 import { intakeRecordFromRow, readUpload, recordIntake, storeFile } from "@/lib/intake/server";
 import { reportError } from "@/lib/observability/errors";
+import { recordResolution } from "@/lib/autopilot/resolutions";
 import { rateLimit } from "@/lib/security/rateLimit";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { isDemoMode } from "@/lib/supabase/config";
@@ -60,6 +61,12 @@ export async function POST(req: Request) {
     const { data: profile } = await db.from("profiles").select("full_name, address_lines").eq("id", user.id).maybeSingle();
     const onFile = { fullName: String(profile?.full_name ?? ""), addressLines: Array.isArray(profile?.address_lines) ? (profile.address_lines as string[]) : [] };
     const result = await checkIdentityDocument({ kind, bytes: upload.bytes, onFile, now: new Date(), live: true });
+    // The check before this one, of the same kind: a document that was not accepted and now is was fixed by the client.
+    const { data: before } = await db.from("intake_documents").select("id, status").eq("user_id", user.id).eq("kind", kind).order("created_at", { ascending: false }).limit(1);
+    const previous = ((before as Array<{ id: string; status: string }> | null) ?? [])[0];
+    if (previous?.status === "needs_person" && result.status === "accepted") {
+      await recordResolution(db, { userId: user.id, kind: "document_reuploaded", detail: { kind, previous: previous.id }, dedupeKey: `document_reuploaded:${previous.id}` });
+    }
     await recordIntake(db, {
       userId: user.id,
       kind,

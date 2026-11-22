@@ -3,10 +3,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { optReply, parseOptKeyword } from "@/lib/autopilot/optout";
 import { recordOptChange } from "@/lib/autopilot/store";
 import { BRAND } from "@/lib/brand";
-import { COACH_SYSTEM_PROMPT } from "@/lib/coach/systemPrompt";
+import { replyLanguage } from "@/lib/coach/language";
+import { coachSystemPrompt, replyLanguageLine } from "@/lib/coach/systemPrompt";
 import { checkClaimGuardrails } from "@/lib/compliance/guardrails";
 import { loadWhatsAppThread, storeMessage, toE164, toModelMessages } from "@/lib/chat/history";
-import { CLIENT_FALLBACK_REPLY, LEAD_GREETING, sendWhatsAppText } from "@/lib/integrations/whatsapp";
+import { CLIENT_FALLBACK_REPLIES, LEAD_GREETINGS, sendWhatsAppText } from "@/lib/integrations/whatsapp";
 import { reportError } from "@/lib/observability/errors";
 import { checkRateLimit } from "@/lib/security/rateLimit";
 import { safeEqual, verifyMetaSignature } from "@/lib/security/signatures";
@@ -27,7 +28,6 @@ import { getAdminClient } from "@/lib/supabase/admin";
 // The two fixed texts (the reply when the coach is unavailable, and the lead
 // greeting) live with the rest of the WhatsApp copy in integrations/whatsapp.ts.
 const AI_PREFIX = "🤖 ";
-const FALLBACK = CLIENT_FALLBACK_REPLY;
 
 // Sales comes first. Someone writing in who is not yet a customer (no profile
 // with that phone number) is a lead, and leads are handled by a person. The assistant
@@ -130,9 +130,12 @@ export async function POST(req: Request) {
     if (!phone) continue;
 
     let userId: string | null = null;
+    /** The client's saved language (profiles.locale); null for a lead. */
+    let savedLocale: string | null = null;
     if (db) {
-      const { data: profile } = await db.from("profiles").select("id").eq("phone_e164", phone).maybeSingle();
+      const { data: profile } = await db.from("profiles").select("id, locale").eq("phone_e164", phone).maybeSingle();
       userId = (profile?.id as string | undefined) ?? null;
+      savedLocale = (profile?.locale as string | undefined) ?? null;
 
       const fresh = await storeMessage(db, {
         userId,
@@ -172,6 +175,9 @@ export async function POST(req: Request) {
 
     if (!checkRateLimit(`whatsapp:${phone}`, SENDER_LIMIT, SENDER_WINDOW_MS).allowed) continue;
 
+    // Answer in the language of the message; when it does not say, the client's saved language (English otherwise).
+    const language = replyLanguage(question, savedLocale === "es" ? "es" : "en");
+
     const isLead = userId === null;
     if (isLead && process.env.WHATSAPP_LEAD_REPLIES !== "ai") {
       // One greeting per lead per day; after that the thread belongs to sales.
@@ -181,14 +187,14 @@ export async function POST(req: Request) {
         : false;
       if (firstToday && !alreadyGreeted) {
         try {
-          await sendWhatsAppText(phone.slice(1), AI_PREFIX + LEAD_GREETING, "whatsapp:lead-greeting");
+          await sendWhatsAppText(phone.slice(1), AI_PREFIX + LEAD_GREETINGS[language], "whatsapp:lead-greeting");
           if (db) {
             await storeMessage(db, {
               phoneE164: phone,
               channel: "whatsapp",
               role: "assistant",
               source: "journey",
-              text: LEAD_GREETING,
+              text: LEAD_GREETINGS[language],
             });
             await db
               .from("events")
@@ -204,7 +210,7 @@ export async function POST(req: Request) {
       continue;
     }
 
-    let reply = FALLBACK;
+    let reply = CLIENT_FALLBACK_REPLIES[language];
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
       try {
@@ -217,7 +223,8 @@ export async function POST(req: Request) {
           model: "claude-sonnet-5",
           max_tokens: 600,
           system:
-            COACH_SYSTEM_PROMPT +
+            coachSystemPrompt(undefined, savedLocale === "es" ? "es" : "en") +
+            `\n\n${replyLanguageLine(language)}` +
             "\n\nContexto: estás respondiendo por WhatsApp. Sé breve (máximo ~4 oraciones) y cálido." +
             (isLead
               ? " Esta persona todavía no es cliente: explícale cómo funciona el servicio, no des precios y dile que una persona del equipo le responde aquí mismo."

@@ -57,6 +57,17 @@ export const FURNISHER_FIELD_LABEL: Record<FurnisherField, string> = {
   verifiedOn: "Verificada el",
 };
 
+/** The same, for a member whose console is in English. */
+export const FURNISHER_FIELD_LABEL_EN: Record<FurnisherField, string> = {
+  name: "Name",
+  aliases: "Other names",
+  addressLines: "Dispute address",
+  phone: "Phone",
+  notes: "Notes",
+  source: "Source",
+  verifiedOn: "Verified on",
+};
+
 // ── Names ───────────────────────────────────────────────────────────────
 
 const ABBREVIATIONS: Record<string, string> = {
@@ -130,6 +141,55 @@ export function findFurnisher(book: readonly FurnisherEntry[], name: string): Fu
   if (hits.length === 0) return { status: "none" };
   if (hits.length > 1) return { status: "ambiguous", entries: hits };
   return { status: "found", entry: hits[0]! };
+}
+
+/**
+ * Entries whose name shares most of its words with this one, when there is
+ * no exact match: "MIDLAND CREDIT" and "Midland Credit Management". Only a
+ * SUGGESTION for a person ("¿Es la misma empresa?"): a letter is never mailed
+ * on a near match, only on an exact name or alias a person added.
+ */
+export function nearFurnishers(book: readonly FurnisherEntry[], name: string, limit = 3): FurnisherEntry[] {
+  const words = (s: string) =>
+    new Set(
+      s
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, " ")
+        .split(" ")
+        .map((w) => ABBREVIATIONS[w] ?? w)
+        .filter((w) => w.length > 1 && !LEGAL_WORDS.has(w)),
+    );
+  const mine = words(name);
+  if (mine.size === 0) return [];
+  const scored = book
+    .map((entry) => {
+      const best = Math.max(
+        ...[entry.name, ...entry.aliases].map((candidate) => {
+          const theirs = words(candidate);
+          const shared = [...mine].filter((w) => theirs.has(w)).length;
+          return shared / Math.max(mine.size, theirs.size, 1);
+        }),
+      );
+      return { entry, best };
+    })
+    .filter((s) => s.best >= 0.5 && !entryKeys(s.entry).includes(normalizeCompanyName(name)))
+    .sort((a, b) => b.best - a.best);
+  return scored.slice(0, limit).map((s) => s.entry);
+}
+
+/**
+ * A company whose dispute address is missing, as recorded once for every
+ * client (furnisher_gaps, migration 0022): when it was first seen missing
+ * (the queue's clock counts from here) and when it was resolved.
+ */
+export interface FurnisherGapRecord {
+  normalizedName: string;
+  company: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  resolvedAt: string | null;
 }
 
 // ── Addresses ───────────────────────────────────────────────────────────

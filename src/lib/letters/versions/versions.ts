@@ -63,6 +63,14 @@ export const STATUS_LABEL: Record<LetterVersionStatus, string> = {
   rejected: "Rechazada",
 };
 
+/** The same, for a staff member whose console is in English. */
+export const STATUS_LABEL_EN: Record<LetterVersionStatus, string> = {
+  draft: "Draft",
+  sent: "With the attorney",
+  approved: "Approved",
+  rejected: "Rejected",
+};
+
 /** The text's fingerprint: what an approval is an approval of. */
 export function contentHash(templateKey: string, source: LetterSource): string {
   const { subject, body } = normalizeSource(source);

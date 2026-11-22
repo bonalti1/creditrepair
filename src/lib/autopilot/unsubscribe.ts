@@ -17,10 +17,13 @@ export function verifyUnsubscribeToken(userId: string, token: string, secret: st
   return safeEqual(token, unsubscribeToken(userId, secret));
 }
 
-/** The full link, or null when the app's address or the secret is not configured. */
-export function unsubscribeUrl(userId: string, env: Record<string, string | undefined> = process.env): string | null {
+/**
+ * The full link, or null when the app's address or the secret is not
+ * configured. With the email's language, the page opens in it (`lang`).
+ */
+export function unsubscribeUrl(userId: string, env: Record<string, string | undefined> = process.env, locale?: "es" | "en"): string | null {
   const base = env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "");
   const secret = env.UNSUBSCRIBE_SECRET;
   if (!base || !secret) return null;
-  return `${base}/baja?u=${encodeURIComponent(userId)}&t=${unsubscribeToken(userId, secret)}`;
+  return `${base}/baja?u=${encodeURIComponent(userId)}&t=${unsubscribeToken(userId, secret)}${locale ? `&lang=${locale}` : ""}`;
 }

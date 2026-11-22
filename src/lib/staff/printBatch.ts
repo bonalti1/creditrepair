@@ -4,6 +4,7 @@ import { letterEnclosures, staffLetterText } from "./letters";
 import { letterDestination } from "../mail/sendPlan";
 import { sendableRound, sendBlockReason, type StaffContext } from "./stage";
 import { fullName, type DocumentKind, type StaffClient, type StaffLetter, type StaffRound } from "./types";
+import { staffLocaleFallback } from "./i18n/locale";
 
 // Printing a batch of letters locally, as an alternative to a mail service:
 // staff print the letters, sign and mail them, then mark the rounds as sent.
@@ -53,21 +54,29 @@ export function sendRefsHref(refs: RoundRef[]): string {
 
 // ── What goes in the envelope ───────────────────────────────────────────
 
-const SLIP_NAME: Record<DocumentKind, string> = {
-  government_id: "copia de identificación",
-  proof_of_address: "comprobante de domicilio",
-  ssn_card: "copia de la tarjeta de Seguro Social",
-  identity_theft_report: "reporte de robo de identidad de la FTC",
+const SLIP_NAME: Record<"es" | "en", Record<DocumentKind, string>> = {
+  es: {
+    government_id: "copia de identificación",
+    proof_of_address: "comprobante de domicilio",
+    ssn_card: "copia de la tarjeta de Seguro Social",
+    identity_theft_report: "reporte de robo de identidad de la FTC",
+  },
+  en: {
+    government_id: "copy of ID",
+    proof_of_address: "proof of address",
+    ssn_card: "copy of the Social Security card",
+    identity_theft_report: "FTC identity theft report",
+  },
 };
 
-/** The documents to add to an envelope, as the reminder slip names them. */
-export function slipNames(kinds: DocumentKind[]): string[] {
-  return kinds.map((kind) => SLIP_NAME[kind]);
+/** The documents to add to an envelope, as the reminder slip (for whoever stuffs the envelopes) names them. */
+export function slipNames(kinds: DocumentKind[], locale: "es" | "en" = "es"): string[] {
+  return kinds.map((kind) => SLIP_NAME[locale][kind]);
 }
 
-/** "Adjuntar: copia de identificación, comprobante de domicilio". */
-export function slipLine(kinds: DocumentKind[]): string {
-  return `Adjuntar: ${slipNames(kinds).join(", ")}`;
+/** "Adjuntar: copia de identificación, comprobante de domicilio" / "Enclose: copy of ID, proof of address". */
+export function slipLine(kinds: DocumentKind[], locale: "es" | "en" = "es"): string {
+  return `${locale === "es" ? "Adjuntar" : "Enclose"}: ${slipNames(kinds, locale).join(", ")}`;
 }
 
 // ── A letter, split for the page ────────────────────────────────────────
@@ -223,23 +232,24 @@ export function buildPrintBatch(clients: StaffClient[], refs: RoundRef[], now: D
     }
     const clientName = fullName(client);
     const skip = (reason: string) => skipped.push({ ref, clientName, reason });
+    const es = (context.locale ?? staffLocaleFallback()) === "es";
     const round = client.rounds.find((r) => r.number === ref.roundNumber);
     if (!round) {
-      skip(`No tiene una ronda ${ref.roundNumber}.`);
+      skip(es ? `No tiene una ronda ${ref.roundNumber}.` : `There's no round ${ref.roundNumber}.`);
       continue;
     }
     if (round.letters.length === 0) {
-      skip("La ronda no tiene cartas.");
+      skip(es ? "La ronda no tiene cartas." : "The round has no letters.");
       continue;
     }
     const alreadySent = round.status === "mailed" || round.status === "responded";
     if (!alreadySent) {
       if (round.status === "draft") {
-        skip("La ronda todavía está en preparación.");
+        skip(es ? "La ronda todavía está en preparación." : "The round is still being prepared.");
         continue;
       }
       if (sendableRound(client, now, context)?.number !== round.number) {
-        skip(sendBlockReason(client, now, context) ?? "La ronda todavía no se puede enviar.");
+        skip(sendBlockReason(client, now, context) ?? (es ? "La ronda todavía no se puede enviar." : "The round can't be sent yet."));
         continue;
       }
     }

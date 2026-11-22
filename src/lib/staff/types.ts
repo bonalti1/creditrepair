@@ -36,7 +36,18 @@ export const REQUIRED_DOCUMENTS: readonly DocumentKind[] = ["government_id", "pr
 export type ItemAnswer =
   | { status: "pending" }
   | { status: "correct"; answeredAt: string }
-  | { status: "inaccurate"; reason: string; reasonCode?: DisputeReasonCode; confirmedAt: string };
+  | {
+      status: "inaccurate";
+      reason: string;
+      reasonCode?: DisputeReasonCode;
+      confirmedAt: string;
+      /**
+       * The data checks (domain/checks.ts) whose facts the client chose to put
+       * in their letter (item_flags.check_ids, migration 0021). Staff read it;
+       * only the client sets it. Absent: none.
+       */
+      checkIds?: string[];
+    };
 
 export type RoundStatus = "draft" | "ready" | "mailed" | "responded";
 
@@ -61,6 +72,12 @@ export interface StaffLetter {
    * existed; absent on a letter written before then.
    */
   itemReasons?: Record<string, DisputeReasonCode>;
+  /**
+   * The report facts the client chose to include for each item, by
+   * fingerprint (LetterContext.itemDetails). Printed after the item's reason.
+   * Absent: none.
+   */
+  itemDetails?: Record<string, string>;
   mailStatus: MailStatus;
   /**
    * How this letter is to be mailed, chosen on the send screen; absent means
@@ -323,7 +340,7 @@ export interface StaffRound extends StaffRoundTeamFields {}
 
 /** Fields the autopilot adds to a client. */
 export interface StaffClientAutopilotFields {
-  /** The client's language for messages (profiles.locale). Absent: Spanish. */
+  /** The client's language for messages (profiles.locale). Absent: English. */
   locale?: "es" | "en";
   /** Every automatic message, oldest first (outbound_messages). */
   outbound?: OutboundMessage[];
@@ -370,3 +387,53 @@ export interface StaffClientPulseFields {
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StaffClient extends StaffClientPulseFields {}
+
+// ── What fixes itself (migration 0022) ──────────────────────────────────
+//
+// Additions for the things that used to wait for a person and now go to the
+// client or the system first (docs/AUTOPILOT.md, "Lo que se arregla solo").
+// All optional: a record without them reads as before.
+
+/** The client's address, asked to be confirmed (address_confirmations): the newest request. */
+export interface AddressCheck {
+  id: string;
+  /** Why: the check before mailing, or a letter that came back. */
+  reason: "verification" | "returned_letter";
+  /** What the post office's data said about the address on file. */
+  finding: "undeliverable" | "ambiguous";
+  requestedAt: string;
+  inputLines: string[];
+  /** What the post office suggests; empty when it suggests nothing. */
+  suggestionLines: string[];
+  letterId: string | null;
+  roundNumber: number | null;
+  confirmedAt: string | null;
+  confirmedLines: string[] | null;
+  closedAt: string | null;
+  /** How many times the client has been asked, this request included. */
+  requests: number;
+}
+
+/** One thing the system resolved by itself (autopilot_resolutions). */
+export interface SelfResolution {
+  id: string;
+  kind: "address_corrected" | "address_confirmed" | "letter_remailed" | "payment_fixed" | "document_reuploaded" | "furnisher_matched";
+  at: string;
+  /** One line for the team, in Spanish. */
+  text: string;
+}
+
+export interface StaffClientSelfHealingFields {
+  addressCheck?: AddressCheck | null;
+  resolutions?: SelfResolution[];
+}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientSelfHealingFields {}
+
+/** Fields the re-mail adds to a letter. */
+export interface StaffLetterSelfHealingFields {
+  /** Set on a letter that re-mails one that came back: the returned letter's id (same round, never charged again). */
+  remailOf?: string | null;
+}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffLetter extends StaffLetterSelfHealingFields {}

@@ -65,7 +65,7 @@ import {
   nextBillingStep,
   nextStep,
   sendableRound,
-  STAGES,
+  STAGE_TEXT,
 } from "../staff/stage";
 import { clientTimeline } from "../staff/timeline";
 import type { StaffClient, StaffRound } from "../staff/types";
@@ -73,6 +73,10 @@ import { BILLING_COPY, billingCopyStrings } from "../ux/billingCopy";
 import { DEMO_SCENARIOS, demoScenarioState } from "../ux/billingDemo";
 import { EMPTY_DEMO_BILLING } from "../ux/billingLocal";
 import { nextAction, type JourneyState } from "../ux/journey";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // Billing. One rule everything hangs on: the software must be unable to charge
 // a client for work that has not been recorded as done. These tests cover the
@@ -1108,6 +1112,8 @@ describe("billing: the staff console", () => {
     const base: StaffClient = {
       id: "t1",
       firstName: "Prueba",
+      // A Spanish-speaking client: the drafts below are written in Spanish.
+      locale: "es",
       lastName: "Ejemplo",
       phone: "+17135550100",
       state: "TX",
@@ -1154,7 +1160,7 @@ describe("billing: the staff console", () => {
     expect(clientStage(c, NOW)).toBe("paused");
     expect(nextAutomaticStep(c, NOW)).toBeNull();
     expect(nextStep(c, NOW)).toEqual({ actor: "client", text: "Actualizar su método de pago", at: null });
-    expect(STAGES.paused.description).toMatch(/Con un cobro sin resolver no se prepara ni se envía ninguna ronda; en cuanto el cliente paga, el caso sigue solo/);
+    expect(STAGE_TEXT.es.paused.description).toMatch(/Con un cobro sin resolver no se prepara ni se envía ninguna ronda; en cuanto el cliente paga, el caso sigue solo/);
   });
 
   it("paused means no new round goes out, even one that is prepared", () => {

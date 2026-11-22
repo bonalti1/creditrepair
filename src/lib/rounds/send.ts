@@ -14,10 +14,11 @@ import { parseUsAddress } from "../mail/address";
 import { defaultMailClass } from "../mail/classes";
 import { resolveFurnisherAddress } from "../mail/furnishers";
 import { furnisherFromRow } from "../mail/server";
+import { verifyRoundAddresses, type Verifier } from "../mail/verifyServer";
 import type { MailClass } from "../mail/types";
 import { loadMonitoringState, monitoringMessageEs } from "../monitoring/subscription";
 import { reportError } from "../observability/errors";
-import { attestedFlagsFromRows, historyFromRows, itemFromRow, letterKey, nextRoundNumber } from "./plan";
+import { attestedFlagsFromRows, historyFromRows, itemDetailsFromRows, itemFromRow, letterKey, nextRoundNumber } from "./plan";
 
 // Mailing one round of a client's letters. One code path for both ways a
 // round leaves:
@@ -40,6 +41,11 @@ import { attestedFlagsFromRows, historyFromRows, itemFromRow, letterKey, nextRou
 //   5. the client's return address can be read, and every letter to a
 //      creditor or collector has an address a person checked in the furnisher
 //      address book (never the address the report printed);
+//   5b. (added on top of 5, migration 0022) every one of those addresses is
+//      checked against the post office's data (Lob's US verification;
+//      mail/verify.ts): a correction is used as the post office writes it, a
+//      client address it cannot confirm asks the client to confirm it, a
+//      creditor address it does not deliver to becomes a missing address;
 //   6. every letter in the round has a text an attorney approved
 //      (letter_template_versions, migration 0019; docs/LETTERS-EDITOR.md),
 //      unless LETTERS_ALLOW_UNAPPROVED=1 is set for testing. Each letter is
@@ -78,6 +84,8 @@ export interface SendRoundOptions {
     sendWhatsApp?: typeof sendWhatsApp;
     /** The approved letter texts for these templates. Default: read from letter_template_versions. */
     loadLetterVersions?: (db: SupabaseClient, templateKeys: string[]) => Promise<LetterVersion[]>;
+    /** How each address is checked (step 5b). Default: Lob's US verification, "unchecked" without a key. */
+    verifyAddress?: Verifier;
   };
 }
 
@@ -170,10 +178,12 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
   const monitoring = await loadMonitoringState(db, userId);
   if (!monitoring.active) return refuse(402, monitoringMessageEs(monitoring), "monitoring_inactive", { reason: monitoring.reason });
 
-  const [profileRows, itemRows, flagRows] = await Promise.all([
+  const [profileRows, itemRows, flagRows, pullRows] = await Promise.all([
     rows(db.from("profiles").select("*").eq("id", userId).limit(1), "profiles"),
     rows(db.from("report_items").select("*").eq("user_id", userId).eq("status", "active"), "report_items"),
     rows(db.from("item_flags").select("*").eq("user_id", userId), "item_flags"),
+    // The newest report's date: the data checks are recomputed against it.
+    rows(db.from("report_pulls").select("pulled_at").eq("user_id", userId).order("pulled_at", { ascending: false }).limit(1), "report_pulls"),
   ]);
   const profileRow = profileRows[0];
   if (!profileRow) return refuse(404, "Profile not found", "profile_not_found");
@@ -182,7 +192,7 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
     id: userId,
     fullName: String(profileRow.full_name ?? ""),
     addressLines: (profileRow.address_lines as string[] | null) ?? [],
-    locale: profileRow.locale === "en" ? "en" : "es",
+    locale: profileRow.locale === "es" ? "es" : "en",
     goal: (profileRow.goal as string | null) ?? null,
   };
 
@@ -194,6 +204,11 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
   // (item_flags.reason_code, migration 0008); the letter prints its sentence
   // after the item. The client's own words (item_flags.reason) are never printed.
   const { flags, itemReasons } = attestedFlagsFromRows(flagRows, itemIdToFp);
+  // The report facts the client chose to add to an attested item's line (data
+  // checks, migration 0021): recomputed here from the client's own report and
+  // kept only where they fit the reason the client picked. Same as the preview.
+  const reportDate = pullRows[0]?.pulled_at ? String(pullRows[0].pulled_at) : null;
+  const itemDetails = reportDate ? itemDetailsFromRows(items, flagRows, itemIdToFp, reportDate) : {};
   const attestedFps = new Set(flags.filter((f) => f.attested && f.attestedAt).map((f) => f.fingerprint));
 
   // The team asks for a round by number; it must be the one that comes next.
@@ -249,6 +264,46 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
     else missing.push(resolved.message);
   }
   if (missing.length > 0) return refuse(409, missing.join(" "), "furnisher_address_missing");
+
+  // 5b. Every address checked against the post office's data (mail/verify.ts), the
+  // return address and each recipient's, before any letter goes. A step added on
+  // top of step 5, which still applies: the address must also parse and, for a
+  // creditor, be one a person verified in the book. What the post office
+  // corrects is used as it writes it; what it cannot confirm stops the round.
+  let verification;
+  try {
+    verification = await verifyRoundAddresses(
+      db,
+      {
+        userId,
+        roundNumber,
+        from: user.addressLines,
+        recipients: plan.letters.map((planned) => {
+          const destination = destinations.get(planned)!;
+          const resolved = planned.target.type === "furnisher" ? resolveFurnisherAddress(book, planned.target.name) : null;
+          return {
+            ref: letterKey(planned.target.type, planned.target.key, planned.templateKey),
+            type: planned.target.type,
+            key: planned.target.key,
+            name: destination.name,
+            lines: destination.addressLines,
+            entryId: resolved?.ok ? resolved.entry.id : null,
+          };
+        }),
+      },
+      options.deps?.verifyAddress,
+      now,
+    );
+  } catch (error) {
+    await reportError(error, { where: "rounds/send:verify", userId });
+    return refuse(502, "Could not check the addresses with the mail service. Nothing was sent; please try again.", "address_verification_failed");
+  }
+  if (!verification.ok) return refuse(verification.status, verification.message, verification.code);
+  user.addressLines = verification.from;
+  for (const planned of plan.letters) {
+    const checked = verification.to.get(letterKey(planned.target.type, planned.target.key, planned.templateKey));
+    if (checked) destinations.set(planned, { ...destinations.get(planned)!, addressLines: checked });
+  }
 
   // 6. Only attorney-approved letter text is mailed or printed for a client.
   const templateKeys = [...new Set(plan.letters.map((l) => l.templateKey))];
@@ -336,6 +391,7 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
       roundNumber,
       enclosures,
       itemReasons,
+      itemDetails,
     });
     // A printed letter is printed exactly as the console shows it; the mail service gets the reworded one.
     const body = via === "mail" ? await vary(baseBody) : baseBody;

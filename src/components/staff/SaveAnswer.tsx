@@ -5,6 +5,8 @@ import { MAX_QUESTION_CHARS } from "@/lib/staff/answers";
 import type { ReplyProblem } from "@/lib/staff/conversation";
 import type { StaffRole } from "@/lib/staff/types";
 import type { AnswerResult } from "@/lib/staff/useSavedAnswers";
+import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
+import { LANGUAGE_NAME, STAFF_LOCALES, type StaffLocale } from "@/lib/staff/i18n/locale";
 import Icon from "@/components/Icon";
 import { PRIMARY_BUTTON_COMPACT, QUIET_BUTTON } from "@/components/staff/ui";
 
@@ -12,6 +14,8 @@ import { PRIMARY_BUTTON_COMPACT, QUIET_BUTTON } from "@/components/staff/ui";
 // library of saved answers. An administrator's is approved at once; a
 // specialist's waits for an administrator. The words are checked again: no
 // promises, nothing of this one client (their name, an amount, a number).
+// It is saved in the language it is written in (the client's, to start):
+// it is only ever suggested to clients who read that language.
 
 const FIELD = "w-full rounded-2xl bg-white px-3.5 text-[15px] text-slate-900 outline-none ring-1 ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-300";
 
@@ -20,15 +24,21 @@ export default function SaveAnswer({
   question: initialQuestion,
   answer: initialAnswer,
   clientFirstName,
+  language: initialLanguage,
   onSave,
 }: {
   role: StaffRole;
   question: string;
   answer: string;
   clientFirstName: string;
-  onSave: (input: { question: string; answer: string }, clientFirstName: string) => Promise<AnswerResult>;
+  /** The language the answer is written in: the client's. */
+  language: StaffLocale;
+  onSave: (input: { question: string; answer: string; language: StaffLocale }, clientFirstName: string) => Promise<AnswerResult>;
 }) {
   const id = useId();
+  const { locale } = useStaffLocale();
+  const t = useTx();
+  const [language, setLanguage] = useState<StaffLocale>(initialLanguage);
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState(initialQuestion);
   const [answer, setAnswer] = useState(initialAnswer);
@@ -43,8 +53,8 @@ export default function SaveAnswer({
       <p className="mt-2 flex items-start gap-2 text-[14px] leading-snug text-green-700" role="status" data-testid="answer-saved">
         <Icon name="check" size={16} className="mt-0.5 shrink-0" />
         {admin
-          ? "Guardada y aprobada. Aparece primero cuando otro cliente pregunte algo parecido."
-          : "Propuesta enviada. Un administrador la revisa antes de que se use."}
+          ? t("Guardada y aprobada. Aparece primero cuando otro cliente pregunte algo parecido.", "Saved and approved. It shows first when another client asks something similar.")
+          : t("Propuesta enviada. Un administrador la revisa antes de que se use.", "Proposal sent. An administrator reviews it before it's used.")}
       </p>
     );
   }
@@ -53,7 +63,7 @@ export default function SaveAnswer({
     return (
       <button type="button" onClick={() => setOpen(true)} className={`${QUIET_BUTTON} mt-1 px-0 text-blue-700 hover:bg-transparent`} data-testid="save-as-answer">
         <Icon name="plus" size={16} />
-        Guardar como respuesta
+        {t("Guardar como respuesta", "Save as answer")}
       </button>
     );
   }
@@ -63,7 +73,7 @@ export default function SaveAnswer({
     setProblems(null);
     setMessage(null);
     try {
-      const result = await onSave({ question, answer }, clientFirstName);
+      const result = await onSave({ question, answer, language }, clientFirstName);
       if (result.ok) setSaved(true);
       else {
         setMessage(result.message);
@@ -76,19 +86,31 @@ export default function SaveAnswer({
 
   return (
     <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3" data-testid="save-answer-form">
-      <p className="text-[14px] font-semibold text-slate-900">Guardar como respuesta</p>
+      <p className="text-[14px] font-semibold text-slate-900">{t("Guardar como respuesta", "Save as answer")}</p>
       <p className="mt-0.5 text-[13px] leading-snug text-slate-600">
-        Para que sirva a cualquier cliente: sin su nombre, montos ni datos de su caso.
-        {admin ? " Como administrador, queda aprobada al guardarla." : " Un administrador la aprueba antes de que se use."}
+        {t("Para que sirva a cualquier cliente: sin su nombre, montos ni datos de su caso.", "So it works for any client: no name, amounts or details of their case.")}
+        {admin
+          ? t(" Como administrador, queda aprobada al guardarla.", " As an administrator, it's approved when you save it.")
+          : t(" Un administrador la aprueba antes de que se use.", " An administrator approves it before it's used.")}
       </p>
       <label htmlFor={`${id}-q`} className="mt-3 block text-[13px] font-medium text-slate-700">
-        La pregunta, como la escribiría un cliente
+        {t("La pregunta, como la escribiría un cliente", "The question, as a client would write it")}
       </label>
       <input id={`${id}-q`} value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={MAX_QUESTION_CHARS} className={`${FIELD} mt-1 h-11`} />
       <label htmlFor={`${id}-a`} className="mt-3 block text-[13px] font-medium text-slate-700">
-        La respuesta
+        {t("La respuesta", "The answer")}
       </label>
       <textarea id={`${id}-a`} value={answer} onChange={(e) => setAnswer(e.target.value)} rows={4} className={`${FIELD} mt-1 resize-y py-2.5`} />
+      <label htmlFor={`${id}-l`} className="mt-3 block text-[13px] font-medium text-slate-700">
+        {t("Idioma de la respuesta (se sugiere solo a clientes que lo leen)", "Language of the answer (only suggested to clients who read it)")}
+      </label>
+      <select id={`${id}-l`} value={language} onChange={(e) => setLanguage(e.target.value === "en" ? "en" : "es")} className={`${FIELD} mt-1 h-11 max-w-xs`}>
+        {STAFF_LOCALES.map((option) => (
+          <option key={option} value={option}>
+            {LANGUAGE_NAME[locale][option]}
+          </option>
+        ))}
+      </select>
       {(message || problems) && (
         <div className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-[13.5px] leading-snug text-red-700" role="alert">
           {message && <p className="font-semibold">{message}</p>}
@@ -105,10 +127,10 @@ export default function SaveAnswer({
       )}
       <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" onClick={save} disabled={busy} className={`${PRIMARY_BUTTON_COMPACT} px-5`}>
-          {admin ? "Guardar y aprobar" : "Proponer"}
+          {admin ? t("Guardar y aprobar", "Save and approve") : t("Proponer", "Propose")}
         </button>
         <button type="button" onClick={() => setOpen(false)} className={QUIET_BUTTON}>
-          Cancelar
+          {t("Cancelar", "Cancel")}
         </button>
       </div>
     </div>

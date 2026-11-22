@@ -17,8 +17,9 @@ export default function manifest(): MetadataRoute.Manifest {
     name: BRAND.name,
     short_name: BRAND.name,
     description:
-      "Servicio de crédito en español. Tú nos dices qué está mal en tu reporte; nuestro equipo prepara y envía las cartas por ti. Los resultados varían.",
-    lang: "es",
+      "Credit services in English and Spanish. You tell us what is wrong on your report; our team prepares and mails the letters for you. Results vary.",
+    // English first; the app switches to Spanish inside (src/lib/i18n/detect.ts).
+    lang: "en",
     start_url: "/dashboard",
     scope: "/",
     display: "standalone",

@@ -23,10 +23,14 @@ import { seededBook } from "../mail/data";
 import { demoClientsWithMail } from "../mail/demo";
 import { activityFeed, clientActivity } from "../staff/activity";
 import { buildDemoClients } from "../staff/demoClients";
-import { businessMetrics, METRIC_INFO } from "../staff/metrics";
+import { businessMetrics, METRIC_INFOS } from "../staff/metrics";
 import { clientExceptions, EXCEPTION_KINDS } from "../staff/stage";
 import { buildDemoTeam } from "../staff/team";
 import type { ItemAnswer, StaffClient, StaffRound } from "../staff/types";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // Piloto automático: the follow-up engine, the status messages, quiet hours,
 // the daily cap, opt-out, the WhatsApp window, automatic sending and the work
@@ -127,8 +131,13 @@ describe("autopilot: the follow-up schedules", () => {
     const due = dueFollowups(base, day1, ON);
     expect(due).toHaveLength(1);
     expect(due[0]).toMatchObject({ step: 1, topic: "agreement_unsigned", dedupeKey: expect.stringMatching(/^followup:.+:agreement_unsigned:\d{4}-\d{2}-\d{2}:1$/) });
-    expect(due[0]!.body).toContain("Hola Rosa");
+    // No saved language: English (the default since migration 0024); a client who chose Spanish gets Spanish.
+    expect(due[0]).toMatchObject({ locale: "en" });
+    expect(due[0]!.body).toContain("Hi Rosa");
     expect(due[0]!.body).toContain("/acuerdo");
+    const dueEs = dueFollowups({ ...base, locale: "es" }, day1, ON);
+    expect(dueEs[0]).toMatchObject({ locale: "es", step: 1 });
+    expect(dueEs[0]!.body).toContain("Hola Rosa");
 
     // Days later, all three went; the raw notice exists (> 3 days) but is still the system's until day 6.
     const day5 = new Date(NOW.getTime() + 5 * DAY);
@@ -347,7 +356,7 @@ describe("autopilot: every automatic message passes the claim rules", () => {
   const filled = (params: readonly string[]) => params.map((p, i) => (p === "enlace" ? "https://app.credalti.test/acuerdo" : i === 0 ? "Rosa" : "3"));
 
   it("each template, in Spanish and English: no promise, no score, no pressure; says it is automatic and how to stop", () => {
-    expect(ALL_TEMPLATES.length).toBe(24);
+    expect(ALL_TEMPLATES.length).toBe(34);
     expect(new Set(ALL_TEMPLATES.map((t) => t.name)).size).toBe(ALL_TEMPLATES.length);
     for (const t of ALL_TEMPLATES) {
       expect(t.name).toMatch(/^credalti_[a-z_0-9]+$/);
@@ -451,19 +460,26 @@ describe("autopilot: the one-person work queue", () => {
   const env: AutopilotEnv = { settings: DEMO_SETTINGS, channels: DEMO_CHANNELS };
   const queue = workQueue(demo, later, { furnishers: seededBook(), autopilot: env });
 
-  it("shrinks the demo's list to what only a person can decide (14 notices → 10)", () => {
+  it("shrinks the demo's list to what only a person can decide (17 notices → 9)", () => {
     const raw = demo.flatMap((c) => clientExceptions(c, later, { furnishers: seededBook() }).map((e) => ({ ...e, id: `${c.id}:${e.key}` })));
-    // 12 from the console's own rules, plus 2 from the AI intake demo (a document
-    // the AI could not accept, a bureau letter that asks for something): both
-    // are a person's by nature, so both stay in the queue.
-    expect(raw).toHaveLength(14);
-    expect(queue).toHaveLength(10);
+    // 12 from the console's own rules, 2 from the AI intake demo (a document the
+    // AI could not accept, a bureau letter that asks for something), 2 more
+    // clients waiting on Midland's address, and an address the post office could
+    // not confirm (autopilot/selfHealingDemo.ts).
+    expect(raw).toHaveLength(17);
+    expect(queue).toHaveLength(9);
     expect(queue.map((i) => i.exception.kind).sort()).toEqual(
-      ["agreement_unsigned", "bureau_letter_needs_person", "document_check_needs_person", "furnisher_address_missing", "identity_theft_report_missing", "letter_returned", "payment_past_due", "question_waiting", "response_overdue", "service_end_requested"].sort(),
+      ["agreement_unsigned", "bureau_letter_needs_person", "furnisher_address_missing", "identity_theft_report_missing", "letter_returned", "payment_past_due", "question_waiting", "response_overdue", "service_end_requested"].sort(),
     );
-    // Left to the system: documents, a review, monitoring, a payment method.
-    const off = raw.filter((e) => !queue.some((i) => i.id === e.id)).map((e) => e.kind).sort();
-    expect(off).toEqual(["documents_missing", "payment_method_missing", "report_stale", "review_stalled"]);
+    // Left to the system: documents, a review, monitoring, a payment method; the document the AI could not
+    // accept (a re-upload request with the reason), the address to confirm (a one-tap request to the client).
+    const off = raw.filter((e) => !queue.some((i) => i.id === e.id) && e.kind !== "furnisher_address_missing").map((e) => e.kind).sort();
+    expect(off).toEqual(["client_address_unconfirmed", "document_check_needs_person", "documents_missing", "payment_method_missing", "report_stale", "review_stalled"]);
+    // The three clients waiting on Midland Credit Management are ONE item: the book is shared.
+    const midland = queue.filter((i) => i.exception.kind === "furnisher_address_missing");
+    expect(midland).toHaveLength(1);
+    expect(midland[0]!.group!.waiting.map((w) => w.client.id).sort()).toEqual(["c50", "c51", "c52"]);
+    expect(midland[0]!.group!.suggestions[0]!.addressLines).toEqual(["350 Camino De La Reina", "San Diego, CA 92108"]);
   });
 
   it("each item says why, what the system tried, minutes, waiting time and a due time; overdue first", () => {
@@ -482,7 +498,7 @@ describe("autopilot: the one-person work queue", () => {
     expect(heriberto.triedSummary).toMatch(/BAJA/);
     const dolores = queue.find((i) => i.client.id === "c16")!;
     expect(dolores.tried.length).toBeGreaterThan(0);
-    expect(workSummary(queue)).toEqual({ count: 10, minutes: queue.reduce((n, i) => n + i.minutes, 0), overdue: queue.filter((i) => i.overdue).length });
+    expect(workSummary(queue)).toEqual({ count: 9, minutes: queue.reduce((n, i) => n + i.minutes, 0), overdue: queue.filter((i) => i.overdue).length });
   });
 
   it("a role sees only its own kinds of notice", () => {
@@ -520,8 +536,8 @@ describe("autopilot: the one-person work queue", () => {
   });
 
   it("the business dashboard: minutes of a person's work per active client, defined plainly", () => {
-    expect(METRIC_INFO.humanMinutesPerActive.label).toBe("Minutos de trabajo humano por cliente activo");
-    expect(METRIC_INFO.humanMinutesPerActive.definition).toMatch(/minutos estimados/);
+    expect(METRIC_INFOS.es.humanMinutesPerActive.label).toBe("Minutos de trabajo humano por cliente activo");
+    expect(METRIC_INFOS.es.humanMinutesPerActive.definition).toMatch(/minutos estimados/);
     const members = buildDemoTeam(NOW).members;
     const withAutopilot = businessMetrics(demo, members, "month", later, env);
     const without = businessMetrics(demo, members, "month", later);

@@ -8,13 +8,14 @@ import { ROUND_CYCLE_DAYS } from "../domain/attack";
 import { FRESH_REPORT_DAYS } from "../monitoring/subscription";
 import { RESPONSE_WINDOW_DAYS } from "../ux/journey";
 import { itemLabel } from "../ux/itemDisplay";
-import type { FurnisherEntry } from "../mail/furnishers";
+import type { FurnisherEntry, FurnisherGapRecord } from "../mail/furnishers";
 import type { LetterVersion } from "../letters/versions/versions";
 import { addressBookHref, missingFurnisherAddresses } from "../mail/sendPlan";
-import { responseWindowStart, returnReasonEs } from "../mail/tracking";
+import { responseWindowStart, returnReason } from "../mail/tracking";
 import { billingContextFor } from "./billing";
 import { intakeExceptions } from "../intake/exceptions";
 import { REQUIRED_DOCUMENTS, type DocumentKind, type StaffClient, type StaffLetter, type StaffRound } from "./types";
+import { dateLocale, listJoin, type StaffLocale, staffLocaleFallback } from "./i18n/locale";
 
 // Where is this client, what is wrong, and what happens next.
 //
@@ -25,6 +26,10 @@ import { REQUIRED_DOCUMENTS, type DocumentKind, type StaffClient, type StaffLett
 //
 // Day counts follow the rule already used for monitoring (subscription.ts):
 // whole days elapsed, and "more than N days" means N + 1 whole days or more.
+//
+// Every sentence here is for the team, in the console's language (i18n/
+// locale.ts): English unless the member chose Spanish. The Spanish is exactly
+// what the console always said.
 
 export { RESPONSE_WINDOW_DAYS };
 /** A review still unfinished after this many days gets a person's attention. */
@@ -49,22 +54,25 @@ export function addDays(iso: string, days: number): Date {
   return new Date(new Date(iso).getTime() + days * DAY_MS);
 }
 
-/** "28 de diciembre", on the team's calendar. */
-export function formatDay(date: Date): string {
-  return date.toLocaleDateString("es-MX", { day: "numeric", month: "long", timeZone: STAFF_TIME_ZONE });
+/** "28 de diciembre" / "December 28", on the team's calendar. Spanish unless told otherwise (client messages use it too). */
+export function formatDay(date: Date, locale: StaffLocale = "es"): string {
+  return date.toLocaleDateString(dateLocale(locale), { day: "numeric", month: "long", timeZone: STAFF_TIME_ZONE });
 }
 
 function calendarDay(date: Date): string {
   return date.toLocaleDateString("en-CA", { timeZone: STAFF_TIME_ZONE });
 }
 
-/** "hoy" for today or an overdue date, otherwise "el 28 de diciembre". */
-function onDay(date: Date, now: Date): string {
-  return date.getTime() <= now.getTime() || calendarDay(date) === calendarDay(now) ? "hoy" : `el ${formatDay(date)}`;
+/** "hoy"/"today" for today or an overdue date, otherwise "el 28 de diciembre"/"on December 28". */
+function onDay(date: Date, now: Date, locale: StaffLocale): string {
+  const today = date.getTime() <= now.getTime() || calendarDay(date) === calendarDay(now);
+  if (locale === "es") return today ? "hoy" : `el ${formatDay(date, "es")}`;
+  return today ? "today" : `on ${formatDay(date, "en")}`;
 }
 
-function daysPhrase(days: number): string {
-  return days === 1 ? "1 día" : `${days} días`;
+function daysPhrase(days: number, locale: StaffLocale): string {
+  if (locale === "es") return days === 1 ? "1 día" : `${days} días`;
+  return days === 1 ? "1 day" : `${days} days`;
 }
 
 // ── Stages ──────────────────────────────────────────────────────────────
@@ -92,11 +100,9 @@ export const PIPELINE_STAGES: readonly Stage[] = STAGE_ORDER.filter((stage) => s
 /** Whose move it is. "staff" is the team running fulfillment; "sales" is whoever is talking with a lead. */
 export type Actor = "system" | "client" | "staff" | "sales";
 
-export const ACTOR_LABEL: Record<Actor, string> = {
-  system: "El sistema",
-  client: "El cliente",
-  staff: "El equipo",
-  sales: "Ventas",
+export const ACTOR_LABELS: Record<StaffLocale, Record<Actor, string>> = {
+  en: { system: "The system", client: "The client", staff: "The team", sales: "Sales" },
+  es: { system: "El sistema", client: "El cliente", staff: "El equipo", sales: "Ventas" },
 };
 
 export interface StageInfo {
@@ -109,7 +115,7 @@ export interface StageInfo {
   actor: Actor;
 }
 
-export const STAGES: Record<Stage, StageInfo> = {
+const STAGES_ES: Record<Stage, StageInfo> = {
   lead: {
     label: "Prospecto",
     short: "Prospectos",
@@ -188,6 +194,91 @@ export const STAGES: Record<Stage, StageInfo> = {
   },
 };
 
+const STAGES_EN: Record<Stage, StageInfo> = {
+  lead: {
+    label: "Lead",
+    short: "Leads",
+    description: "Hasn't created an account yet. Sales keeps the WhatsApp conversation going and sends their invite link.",
+    actor: "sales",
+  },
+  agreement_pending: {
+    label: "Agreement not signed",
+    short: "Agreement",
+    description: "The client needs to sign the service agreement. Nothing moves until then.",
+    actor: "client",
+  },
+  cancellation_window: {
+    label: "In cancellation period",
+    short: "Cancellation",
+    description:
+      "Signed the agreement and is in their 3 business days to cancel at no cost. The law doesn't allow any work before then. Nobody needs to do anything: the system flags the day work can start.",
+    actor: "system",
+  },
+  documents_pending: {
+    label: "Documents missing",
+    short: "Documents",
+    description: "The client needs to upload their ID and proof of address. They go inside every letter.",
+    actor: "client",
+  },
+  report_pending: {
+    label: "Report missing",
+    short: "Report",
+    description: "The client turns on their credit monitoring. The system imports the report as soon as it has access.",
+    actor: "client",
+  },
+  client_review_pending: {
+    label: "Client reviewing",
+    short: "Review",
+    description: `The client goes through their report with ${BRAND.assistant} and says what's inaccurate. Only the client can answer.`,
+    actor: "client",
+  },
+  ready_to_send: {
+    label: "Ready to send",
+    short: "To send",
+    description: "The client finished their review and the first round of letters is ready. The team sends it.",
+    actor: "staff",
+  },
+  waiting_on_bureaus: {
+    label: "Waiting on the bureaus",
+    short: "With bureaus",
+    description: `The letters are on their way. The bureaus have ${RESPONSE_WINDOW_DAYS} days to answer, and the system pulls the report again on its own.`,
+    actor: "system",
+  },
+  results_in: {
+    label: "Answers are in",
+    short: "Answers",
+    description: "The new report is in. The system compares it with the last one and prepares the next round.",
+    actor: "system",
+  },
+  next_round_ready: {
+    label: "Next round ready",
+    short: "Next round",
+    description: "The next round of letters is ready. The team sends it.",
+    actor: "staff",
+  },
+  paused: {
+    label: "Paused",
+    short: "Paused",
+    description:
+      "No work in progress: a charge didn't go through after the retries, or the client didn't mark anything as inaccurate. With an unpaid charge, no round is prepared or sent; once the client pays, the case moves on by itself.",
+    actor: "client",
+  },
+  cancelled: {
+    label: "Cancelled their agreement",
+    short: "Cancelled",
+    description: "The client cancelled their agreement. No work is done, no letter is sent and they aren't charged. Their record is kept.",
+    actor: "staff",
+  },
+};
+
+/** Each stage's chip, short name and one-line meaning, in each language. */
+export const STAGE_TEXT: Record<StaffLocale, Record<Stage, StageInfo>> = { en: STAGES_EN, es: STAGES_ES };
+
+/** One stage, in the console's language. */
+export function stageInfo(stage: Stage, locale: StaffLocale): StageInfo {
+  return STAGE_TEXT[locale][stage];
+}
+
 // ── The agreement ───────────────────────────────────────────────────────
 
 /** The client's agreement as the gate reads it (src/lib/agreement/gate.ts). */
@@ -226,23 +317,36 @@ function serviceEndPending(client: StaffClient): boolean {
 
 /**
  * The agreement in one line, for the client page:
+ * "In cancellation period — work can start December 1" /
  * "En periodo de cancelación — se puede empezar el 25 de noviembre".
  */
-export function agreementLine(client: StaffClient, now: Date): string {
+export function agreementLine(client: StaffClient, now: Date, locale: StaffLocale = staffLocaleFallback()): string {
+  const es = locale === "es";
+  const day = (iso: string | Date) => formatDay(new Date(iso), locale);
   if (!client.agreementSignedAt) {
-    return clientAgreement(client).disclosureAcknowledgedAt
-      ? "Recibió la declaración de sus derechos; falta que firme el contrato"
-      : "Sin firmar";
+    if (clientAgreement(client).disclosureAcknowledgedAt) {
+      return es ? "Recibió la declaración de sus derechos; falta que firme el contrato" : "Received the statement of their rights; hasn't signed the contract yet";
+    }
+    return es ? "Sin firmar" : "Not signed";
   }
   if (client.agreementCancelledAt) {
+    if (es) {
+      return client.cancelledWithinWindow === false
+        ? `Cancelado el ${day(client.agreementCancelledAt)}, después del plazo`
+        : `Cancelado el ${day(client.agreementCancelledAt)}, dentro del plazo`;
+    }
     return client.cancelledWithinWindow === false
-      ? `Cancelado el ${formatDay(new Date(client.agreementCancelledAt))}, después del plazo`
-      : `Cancelado el ${formatDay(new Date(client.agreementCancelledAt))}, dentro del plazo`;
+      ? `Cancelled ${day(client.agreementCancelledAt)}, after the deadline`
+      : `Cancelled ${day(client.agreementCancelledAt)}, within the deadline`;
   }
   const starts = workStartsAt(client, now);
-  if (starts) return `En periodo de cancelación — se puede empezar el ${formatDay(starts)}`;
-  if (serviceEndPending(client)) return `Vigente — pidió terminar el servicio el ${formatDay(new Date(client.serviceEndRequestedAt!))}`;
-  return "Vigente — el periodo de cancelación ya terminó";
+  if (starts) return es ? `En periodo de cancelación — se puede empezar el ${day(starts)}` : `In cancellation period — work can start ${day(starts)}`;
+  if (serviceEndPending(client)) {
+    return es
+      ? `Vigente — pidió terminar el servicio el ${day(client.serviceEndRequestedAt!)}`
+      : `In effect — asked to end the service on ${day(client.serviceEndRequestedAt!)}`;
+  }
+  return es ? "Vigente — el periodo de cancelación ya terminó" : "In effect — the cancellation period is over";
 }
 
 // ── Billing ─────────────────────────────────────────────────────────────
@@ -358,13 +462,15 @@ export const EXCEPTION_KINDS = [
   // AI intake (src/lib/intake/exceptions.ts): only what the automatic check was not sure about.
   "document_check_needs_person",
   "bureau_letter_needs_person",
+  // The post office's data could not confirm the client's own address (mail/verify.ts): the client is asked first.
+  "client_address_unconfirmed",
 ] as const;
 
 export type ExceptionKind = (typeof EXCEPTION_KINDS)[number];
 
 export type Severity = "high" | "medium" | "low";
 
-export const EXCEPTION_LABEL: Record<ExceptionKind, string> = {
+const EXCEPTION_LABEL_ES: Record<ExceptionKind, string> = {
   review_stalled: "Revisión detenida",
   documents_missing: "Faltan documentos",
   report_stale: "Reporte vencido",
@@ -379,7 +485,29 @@ export const EXCEPTION_LABEL: Record<ExceptionKind, string> = {
   furnisher_address_missing: "Falta la dirección de un acreedor",
   document_check_needs_person: "Documento para revisar",
   bureau_letter_needs_person: "Carta de un buró para revisar",
+  client_address_unconfirmed: "Dirección del cliente sin confirmar",
 };
+
+const EXCEPTION_LABEL_EN: Record<ExceptionKind, string> = {
+  review_stalled: "Review stalled",
+  documents_missing: "Documents missing",
+  report_stale: "Report out of date",
+  payment_past_due: "Unpaid charge",
+  payment_method_missing: "No payment method",
+  letter_returned: "Letter returned",
+  question_waiting: "Unanswered question",
+  response_overdue: "No new report",
+  agreement_unsigned: "Agreement not signed",
+  identity_theft_report_missing: "Identity theft, no report",
+  service_end_requested: "Asked to end service",
+  furnisher_address_missing: "Creditor address missing",
+  document_check_needs_person: "Document to review",
+  bureau_letter_needs_person: "Bureau letter to review",
+  client_address_unconfirmed: "Client address unconfirmed",
+};
+
+/** Each kind of notice's short name, in each language. */
+export const EXCEPTION_LABELS: Record<StaffLocale, Record<ExceptionKind, string>> = { en: EXCEPTION_LABEL_EN, es: EXCEPTION_LABEL_ES };
 
 export interface StaffException {
   /** Stable id of this exception on this client, used to mark it handled. */
@@ -407,24 +535,46 @@ export interface StaffContext {
   furnishers?: readonly FurnisherEntry[];
   /** The approved letter texts (letters/versions): printed and previewed letters use them. */
   letterVersions?: readonly LetterVersion[];
+  /** Companies whose dispute address is missing, as first seen for every client (furnisher_gaps). The queue's clock for them. */
+  furnisherGaps?: readonly FurnisherGapRecord[];
+  /** The language sentences are written in (the console's). English when left out. */
+  locale?: StaffLocale;
+}
+
+/** The request to the client to confirm their address, while it is open (neither confirmed nor closed). */
+export function openAddressCheck(client: StaffClient): NonNullable<StaffClient["addressCheck"]> | null {
+  const check = client.addressCheck;
+  return check && !check.confirmedAt && !check.closedAt ? check : null;
+}
+
+/** True for a letter that came back and has been sent again (a later letter of the same round re-mails it). */
+export function letterRemailed(round: Pick<StaffRound, "letters">, letterId: string): boolean {
+  return round.letters.some((l) => l.remailOf === letterId);
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
 
-const DOCUMENT_NAME: Record<DocumentKind, string> = {
-  government_id: "identificación",
-  proof_of_address: "comprobante de domicilio",
-  ssn_card: "tarjeta de Seguro Social",
-  identity_theft_report: "reporte de robo de identidad",
+export const DOCUMENT_NAMES: Record<StaffLocale, Record<DocumentKind, string>> = {
+  es: {
+    government_id: "identificación",
+    proof_of_address: "comprobante de domicilio",
+    ssn_card: "tarjeta de Seguro Social",
+    identity_theft_report: "reporte de robo de identidad",
+  },
+  en: {
+    government_id: "ID",
+    proof_of_address: "proof of address",
+    ssn_card: "Social Security card",
+    identity_theft_report: "identity theft report",
+  },
 };
 
-function listEs(parts: string[]): string {
-  if (parts.length <= 1) return parts.join("");
-  return `${parts.slice(0, -1).join(", ")} y ${parts[parts.length - 1]}`;
-}
-
-export function documentNames(kinds: DocumentKind[]): string {
-  return listEs(kinds.map((k) => DOCUMENT_NAME[k]));
+/** "identificación y comprobante de domicilio" / "ID and proof of address". Spanish unless told otherwise (client messages use it too). */
+export function documentNames(kinds: DocumentKind[], locale: StaffLocale = "es"): string {
+  return listJoin(
+    kinds.map((k) => DOCUMENT_NAMES[locale][k]),
+    locale,
+  );
 }
 
 function clip(text: string, max: number): string {
@@ -437,12 +587,12 @@ function clip(text: string, max: number): string {
  * reason "identity theft", while no identity theft report (FTC) is on file.
  * The client was told a teammate would follow up, so a person has to.
  */
-export function identityTheftItemsWithoutReport(client: StaffClient): Array<{ label: string; confirmedAt: string }> {
+export function identityTheftItemsWithoutReport(client: StaffClient, locale: StaffLocale = staffLocaleFallback()): Array<{ label: string; confirmedAt: string }> {
   if (!client.report || client.documents.includes("identity_theft_report")) return [];
   return client.report.items.flatMap((item) => {
     const answer = client.answers[item.fingerprint];
     return answer?.status === "inaccurate" && answer.reasonCode === "identity_theft"
-      ? [{ label: itemLabel(item, "es"), confirmedAt: answer.confirmedAt }]
+      ? [{ label: itemLabel(item, locale), confirmedAt: answer.confirmedAt }]
       : [];
   });
 }
@@ -472,6 +622,10 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
   // A cancelled client has nothing in flight, so nothing can be wrong with it.
   if (client.agreementCancelledAt) return [];
 
+  const locale = context.locale ?? staffLocaleFallback();
+  const es = locale === "es";
+  const L = (spanish: string, english: string) => (es ? spanish : english);
+  const day = (iso: string | Date) => formatDay(new Date(iso), locale);
   const found: StaffException[] = [];
 
   // Past the cancellation window the client asked to stop. Nothing more is
@@ -482,8 +636,11 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
       key: "service_end_requested",
       kind: "service_end_requested",
       severity: "high",
-      sentence: `Pidió terminar el servicio${why ? `: «${clip(why, 110)}»` : ""}. No se envía nada más hasta que alguien del equipo lo confirme con el cliente.`,
-      actionLabel: "Confirmarle por WhatsApp",
+      sentence: L(
+        `Pidió terminar el servicio${why ? `: «${clip(why, 110)}»` : ""}. No se envía nada más hasta que alguien del equipo lo confirme con el cliente.`,
+        `Asked to end the service${why ? `: “${clip(why, 110)}”` : ""}. Nothing else goes out until someone on the team confirms it with the client.`,
+      ),
+      actionLabel: L("Confirmarle por WhatsApp", "Confirm on WhatsApp"),
       action: "whatsapp",
       since: client.serviceEndRequestedAt ?? null,
     });
@@ -496,13 +653,16 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
   const failed = unpaidCharge(client.billing);
   const outlook = clientBillingOutlook(client, now);
   if (failed && accountStanding(client.billing) === "past_due" && !serviceEndPending(client)) {
-    const tries = failed.attempts === 1 ? "1 intento" : `${failed.attempts} intentos`;
+    const tries = es ? (failed.attempts === 1 ? "1 intento" : `${failed.attempts} intentos`) : failed.attempts === 1 ? "1 try" : `${failed.attempts} tries`;
     found.push({
       key: `payment_past_due:${failed.id}`,
       kind: "payment_past_due",
       severity: "high",
-      sentence: `El cobro de la ronda ${failed.roundNumber} no pasó en ${tries} y el sistema ya no lo intenta. Su caso está en pausa hasta que actualice su método de pago; al pagar, sigue solo.`,
-      actionLabel: "Escribirle sobre el pago",
+      sentence: L(
+        `El cobro de la ronda ${failed.roundNumber} no pasó en ${tries} y el sistema ya no lo intenta. Su caso está en pausa hasta que actualice su método de pago; al pagar, sigue solo.`,
+        `The charge for round ${failed.roundNumber} failed after ${tries} and the system has stopped trying. The case is paused until they update their payment method; once they pay, it moves on by itself.`,
+      ),
+      actionLabel: L("Escribirle sobre el pago", "Message them about the payment"),
       action: "whatsapp",
       since: failed.lastAttemptAt,
     });
@@ -512,8 +672,11 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
       key: `payment_method_missing:${outlook.roundNumber}`,
       kind: "payment_method_missing",
       severity: "high",
-      sentence: `Falta su método de pago. La ronda ${outlook.roundNumber} se envió${round?.mailedAt ? ` el ${formatDay(new Date(round.mailedAt))}` : ""} y el sistema no tiene con qué cobrarla.`,
-      actionLabel: "Pedirle su método de pago",
+      sentence: L(
+        `Falta su método de pago. La ronda ${outlook.roundNumber} se envió${round?.mailedAt ? ` el ${day(round.mailedAt)}` : ""} y el sistema no tiene con qué cobrarla.`,
+        `No payment method on file. Round ${outlook.roundNumber} went out${round?.mailedAt ? ` on ${day(round.mailedAt)}` : ""} and the system has nothing to charge it to.`,
+      ),
+      actionLabel: L("Pedirle su método de pago", "Ask for their payment method"),
       action: "whatsapp",
       since: round?.mailedAt ?? null,
     });
@@ -526,8 +689,11 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
         key: "agreement_unsigned",
         kind: "agreement_unsigned",
         severity: "low",
-        sentence: `No ha firmado el acuerdo de servicio. Creó su cuenta hace ${daysPhrase(days)}.`,
-        actionLabel: "Recordarle el acuerdo",
+        sentence: L(
+          `No ha firmado el acuerdo de servicio. Creó su cuenta hace ${daysPhrase(days, "es")}.`,
+          `Hasn't signed the service agreement. Created their account ${daysPhrase(days, "en")} ago.`,
+        ),
+        actionLabel: L("Recordarle el acuerdo", "Remind them about the agreement"),
         action: "whatsapp",
         since: client.signedUpAt,
       });
@@ -542,8 +708,11 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
         key: "documents_missing",
         kind: "documents_missing",
         severity: "medium",
-        sentence: `Falta su ${documentNames(missing)}. Firmó el acuerdo hace ${daysPhrase(days)}.`,
-        actionLabel: "Pedirle los documentos",
+        sentence: L(
+          `Falta su ${documentNames(missing, "es")}. Firmó el acuerdo hace ${daysPhrase(days, "es")}.`,
+          `Their ${documentNames(missing, "en")} ${missing.length === 1 ? "is" : "are"} missing. Signed the agreement ${daysPhrase(days, "en")} ago.`,
+        ),
+        actionLabel: L("Pedirle los documentos", "Ask for the documents"),
         action: "whatsapp",
         since: client.agreementSignedAt,
       });
@@ -562,8 +731,11 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
         key: "review_stalled",
         kind: "review_stalled",
         severity: "medium",
-        sentence: `No ha terminado su revisión: le faltan ${review.pending} de ${review.total} puntos. Su reporte llegó hace ${daysPhrase(reportAge)}.`,
-        actionLabel: "Recordarle su revisión",
+        sentence: L(
+          `No ha terminado su revisión: le faltan ${review.pending} de ${review.total} puntos. Su reporte llegó hace ${daysPhrase(reportAge, "es")}.`,
+          `Hasn't finished their review: ${review.pending} of ${review.total} items left. Their report came in ${daysPhrase(reportAge, "en")} ago.`,
+        ),
+        actionLabel: L("Recordarle su revisión", "Remind them about their review"),
         action: "whatsapp",
         since: client.report.pulledAt,
       });
@@ -576,24 +748,30 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
         key: "report_stale",
         kind: "report_stale",
         severity: "medium",
-        sentence: `Su reporte tiene ${daysPhrase(reportAge)} y no se actualizó solo. Puede que su monitoreo esté inactivo.`,
-        actionLabel: "Pedirle que revise su monitoreo",
+        sentence: L(
+          `Su reporte tiene ${daysPhrase(reportAge, "es")} y no se actualizó solo. Puede que su monitoreo esté inactivo.`,
+          `Their report is ${daysPhrase(reportAge, "en")} old and didn't refresh on its own. Their monitoring may be inactive.`,
+        ),
+        actionLabel: L("Pedirle que revise su monitoreo", "Ask them to check their monitoring"),
         action: "whatsapp",
         since: addDays(client.report.pulledAt, FRESH_REPORT_DAYS).toISOString(),
       });
     }
   }
 
-  const theft = identityTheftItemsWithoutReport(client);
+  const theft = identityTheftItemsWithoutReport(client, locale);
   if (theft.length > 0) {
     const names = [...new Set(theft.map((t) => t.label))];
-    const which = names.length <= 2 ? ` (${clip(names.join(" y "), 90)})` : "";
+    const which = names.length <= 2 ? ` (${clip(names.join(es ? " y " : " and "), 90)})` : "";
     found.push({
       key: "identity_theft_report_missing",
       kind: "identity_theft_report_missing",
       severity: "high",
-      sentence: `Dijo que ${theft.length === 1 ? "1 punto es" : `${theft.length} puntos son`} resultado de robo de identidad${which} y no hay un reporte de robo de identidad de la FTC en archivo. La app le avisó que una persona del equipo lo contactaría.`,
-      actionLabel: "Pedirle el reporte de robo de identidad",
+      sentence: L(
+        `Dijo que ${theft.length === 1 ? "1 punto es" : `${theft.length} puntos son`} resultado de robo de identidad${which} y no hay un reporte de robo de identidad de la FTC en archivo. La app le avisó que una persona del equipo lo contactaría.`,
+        `Said ${theft.length === 1 ? "1 item is" : `${theft.length} items are`} the result of identity theft${which} and there's no FTC identity theft report on file. The app told them someone on the team would reach out.`,
+      ),
+      actionLabel: L("Pedirle el reporte de robo de identidad", "Ask for the identity theft report"),
       action: "whatsapp",
       since: theft.map((t) => t.confirmedAt).sort()[0] ?? null,
     });
@@ -602,16 +780,24 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
   for (const round of client.rounds) {
     for (const letter of round.letters) {
       if (letter.mailStatus !== "returned" && letter.mailStatus !== "undeliverable") continue;
+      // Settled by the system: sent again to the corrected address (once; the re-mail is tracked as its own letter).
+      if (letterRemailed(round, letter.id)) continue;
+      // Waiting on the client: they were asked to confirm their address because of this letter.
+      if (openAddressCheck(client)?.letterId === letter.id) continue;
       found.push({
         key: `letter_returned:${letter.id}`,
         kind: "letter_returned",
         severity: "high",
-        sentence:
-          (letter.mailStatus === "returned"
-            ? `El correo devolvió la carta para ${letter.recipient.name} de la ronda ${round.number}.`
-            : `El correo no pudo entregar la carta para ${letter.recipient.name} de la ronda ${round.number}.`) +
-          (letter.mail?.returnReason ? ` Motivo: ${returnReasonEs(letter.mail.returnReason)}.` : ""),
-        actionLabel: "Revisar la carta",
+        sentence: es
+          ? (letter.mailStatus === "returned"
+              ? `El correo devolvió la carta para ${letter.recipient.name} de la ronda ${round.number}.`
+              : `El correo no pudo entregar la carta para ${letter.recipient.name} de la ronda ${round.number}.`) +
+            (letter.mail?.returnReason ? ` Motivo: ${returnReason(letter.mail.returnReason, "es")}.` : "")
+          : (letter.mailStatus === "returned"
+              ? `The post office returned the round ${round.number} letter to ${letter.recipient.name}.`
+              : `The post office couldn't deliver the round ${round.number} letter to ${letter.recipient.name}.`) +
+            (letter.mail?.returnReason ? ` Reason: ${returnReason(letter.mail.returnReason, "en")}.` : ""),
+        actionLabel: L("Revisar la carta", "Check the letter"),
         action: "open_client",
         since: letter.mail?.returnedAt ?? round.mailedAt,
       });
@@ -628,8 +814,11 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
         key: `furnisher_address_missing:${gap.company}`,
         kind: "furnisher_address_missing",
         severity: "high",
-        sentence: `La ronda ${pending.number} tiene una carta para ${gap.company} y falta su dirección verificada para disputas. La ronda no se envía hasta tenerla.`,
-        actionLabel: "Agregar la dirección",
+        sentence: L(
+          `La ronda ${pending.number} tiene una carta para ${gap.company} y falta su dirección verificada para disputas. La ronda no se envía hasta tenerla.`,
+          `Round ${pending.number} has a letter to ${gap.company}, and its verified dispute address is missing. The round can't go out until it's added.`,
+        ),
+        actionLabel: L("Agregar la dirección", "Add the address"),
         action: "open_client",
         since: null,
         href: addressBookHref(gap.company, gap.entryId),
@@ -640,13 +829,22 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
   for (const question of client.questions) {
     if (question.answeredAt) continue;
     const days = Math.max(0, daysSince(question.askedAt, now));
-    const waiting = days === 0 ? "Espera desde hoy." : `Espera desde hace ${daysPhrase(days)}.`;
+    const waiting = es
+      ? days === 0
+        ? "Espera desde hoy."
+        : `Espera desde hace ${daysPhrase(days, "es")}.`
+      : days === 0
+        ? "Waiting since today."
+        : `Waiting for ${daysPhrase(days, "en")}.`;
     found.push({
       key: `question:${question.id}`,
       kind: "question_waiting",
       severity: "high",
-      sentence: `Hizo una pregunta que ${BRAND.assistant} pasó al equipo: «${clip(question.text, 110)}» ${waiting}`,
-      actionLabel: "Responderle por WhatsApp",
+      sentence: L(
+        `Hizo una pregunta que ${BRAND.assistant} pasó al equipo: «${clip(question.text, 110)}» ${waiting}`,
+        `Asked a question ${BRAND.assistant} passed to the team: “${clip(question.text, 110)}” ${waiting}`,
+      ),
+      actionLabel: L("Responderle por WhatsApp", "Reply on WhatsApp"),
       action: "whatsapp",
       since: question.askedAt,
     });
@@ -658,14 +856,43 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
       key: `response_overdue:${overdueRound.number}`,
       kind: "response_overdue",
       severity: "medium",
-      sentence: `La ronda ${overdueRound.number} se envió hace ${daysPhrase(days)} y no ha llegado un reporte nuevo. Sin él no se sabe qué respondieron los burós.`,
-      actionLabel: "Pedirle que revise su monitoreo",
+      sentence: L(
+        `La ronda ${overdueRound.number} se envió hace ${daysPhrase(days, "es")} y no ha llegado un reporte nuevo. Sin él no se sabe qué respondieron los burós.`,
+        `Round ${overdueRound.number} went out ${daysPhrase(days, "en")} ago and no new report has come in. Without it, we can't tell what the bureaus answered.`,
+      ),
+      actionLabel: L("Pedirle que revise su monitoreo", "Ask them to check their monitoring"),
       action: "whatsapp",
       since: addDays(overdueRound.mailedAt, RESPONSE_WINDOW_DAYS).toISOString(),
     });
   }
 
-  found.push(...intakeExceptions(client.intake, client.id));
+  found.push(...intakeExceptions(client.intake, client.id, locale));
+
+  // The post office's data could not confirm the client's own address (the
+  // check before mailing, or a letter that came back). The client was asked
+  // to confirm it with one tap; the automatic follow-ups carry it, and it is a
+  // person's only when they do not answer, or when it fails a second time.
+  const addressCheck = openAddressCheck(client);
+  if (addressCheck) {
+    const what =
+      addressCheck.finding === "ambiguous"
+        ? L("parece que falta o sobra el número de departamento", "the apartment number seems to be missing or extra")
+        : L("el correo no entrega en esa dirección", "the post office doesn't deliver to that address");
+    const again = addressCheck.requests > 1 ? L(" Es la segunda vez: la dirección que confirmó tampoco pasó.", " This is the second time: the address they confirmed didn't pass either.") : "";
+    found.push({
+      key: `client_address_unconfirmed:${addressCheck.id}`,
+      kind: "client_address_unconfirmed",
+      severity: "high",
+      sentence: L(
+        `El correo no pudo confirmar su dirección (${what}): ${clip(addressCheck.inputLines.join(", "), 90)}. Sus cartas esperan a que la confirme.${again}`,
+        `The post office couldn't confirm their address (${what}): ${clip(addressCheck.inputLines.join(", "), 90)}. Their letters wait until they confirm it.${again}`,
+      ),
+      actionLabel: L("Revisar su dirección", "Check their address"),
+      action: "open_client",
+      since: addressCheck.requestedAt,
+      href: `/equipo/clientes/${client.id}#cartas`,
+    });
+  }
 
   return found.sort((a, b) => {
     const bySeverity = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
@@ -708,7 +935,7 @@ export function handledExceptions(client: StaffClient, now: Date, context: Staff
 // ── What happens next ───────────────────────────────────────────────────
 
 export interface AutomaticStep {
-  /** For example "Re-importar el reporte el 28 de diciembre". */
+  /** For example "Pull the report again on December 28" / "Re-importar el reporte el 28 de diciembre". */
   text: string;
   /** When the system will do it (ISO). */
   at: string;
@@ -718,13 +945,13 @@ export interface AutomaticStep {
  * What the system will do next for this client, and when. Null when the next
  * move belongs to a person (the client or the team).
  */
-export function nextAutomaticStep(client: StaffClient, now: Date): AutomaticStep | null {
+export function nextAutomaticStep(client: StaffClient, now: Date, locale: StaffLocale = staffLocaleFallback()): AutomaticStep | null {
   // The client asked to stop: the system does nothing more on its own.
   if (serviceEndPending(client)) return null;
 
   // Whichever comes first: the next step of the work, or the next step of billing.
-  const work = nextWorkStep(client, now);
-  const money = nextBillingStep(client, now);
+  const work = nextWorkStep(client, now, locale);
+  const money = nextBillingStep(client, now, locale);
   if (work && money) return new Date(money.at).getTime() < new Date(work.at).getTime() ? money : work;
   return work ?? money;
 }
@@ -734,35 +961,41 @@ export function nextAutomaticStep(client: StaffClient, now: Date): AutomaticStep
  * declined charge again. Null when billing is waiting on a person or has
  * nothing to do.
  */
-export function nextBillingStep(client: StaffClient, now: Date): AutomaticStep | null {
+export function nextBillingStep(client: StaffClient, now: Date, locale: StaffLocale = staffLocaleFallback()): AutomaticStep | null {
   if (client.agreementCancelledAt) return null;
   const outlook = clientBillingOutlook(client, now);
   if (!outlook.at || outlook.roundNumber === null) return null;
   const at = new Date(outlook.at);
+  const when = onDay(at, now, locale);
   if (outlook.kind === "retry_scheduled") {
-    return { text: `Reintentar el cobro de la ronda ${outlook.roundNumber} ${onDay(at, now)}`, at: outlook.at };
+    const text = locale === "es" ? `Reintentar el cobro de la ronda ${outlook.roundNumber} ${when}` : `Retry the round ${outlook.roundNumber} charge ${when}`;
+    return { text, at: outlook.at };
   }
   // A charge with no payment method on file is announced only once it is due, as an exception.
   if (outlook.kind === "charge_scheduled" && client.billing.paymentMethod) {
-    return { text: `Cobrar la ronda ${outlook.roundNumber} ${onDay(at, now)}`, at: outlook.at };
+    const text = locale === "es" ? `Cobrar la ronda ${outlook.roundNumber} ${when}` : `Charge for round ${outlook.roundNumber} ${when}`;
+    return { text, at: outlook.at };
   }
   return null;
 }
 
-function nextWorkStep(client: StaffClient, now: Date): AutomaticStep | null {
+function nextWorkStep(client: StaffClient, now: Date, locale: StaffLocale): AutomaticStep | null {
   const stage = clientStage(client, now);
+  const es = locale === "es";
 
   if (stage === "cancellation_window") {
     // Nobody acts: the system waits out the cancellation period, then work may begin.
     const starts = workStartsAt(client, now);
-    return starts ? { text: `Empezar el ${formatDay(starts)}`, at: starts.toISOString() } : null;
+    if (!starts) return null;
+    return { text: es ? `Empezar el ${formatDay(starts, "es")}` : `Start on ${formatDay(starts, "en")}`, at: starts.toISOString() };
   }
 
   if (stage === "waiting_on_bureaus") {
     const round = latestRound(client);
     if (!round?.mailedAt || responseOverdue(client, now)) return null;
     const due = addDays(responseWindowStart(round) ?? round.mailedAt, RESPONSE_WINDOW_DAYS);
-    return { text: `Re-importar el reporte ${onDay(due, now)}`, at: due.toISOString() };
+    const when = onDay(due, now, locale);
+    return { text: es ? `Re-importar el reporte ${when}` : `Pull the report again ${when}`, at: due.toISOString() };
   }
 
   if (stage === "results_in") {
@@ -770,12 +1003,16 @@ function nextWorkStep(client: StaffClient, now: Date): AutomaticStep | null {
     if (!mailed?.mailedAt) return null;
     const cycleEnd = addDays(mailed.mailedAt, ROUND_CYCLE_DAYS);
     const due = cycleEnd.getTime() > now.getTime() ? cycleEnd : now;
-    return { text: `Preparar las cartas de la ronda ${mailed.number + 1} ${onDay(due, now)}`, at: due.toISOString() };
+    const when = onDay(due, now, locale);
+    return {
+      text: es ? `Preparar las cartas de la ronda ${mailed.number + 1} ${when}` : `Prepare the round ${mailed.number + 1} letters ${when}`,
+      at: due.toISOString(),
+    };
   }
 
   if (stage === "ready_to_send" && latestRound(client)?.status !== "ready") {
     // The review just finished and the letters are still being written.
-    return { text: "Preparar las cartas de la ronda 1 hoy", at: now.toISOString() };
+    return { text: es ? "Preparar las cartas de la ronda 1 hoy" : "Prepare the round 1 letters today", at: now.toISOString() };
   }
 
   return null;
@@ -789,45 +1026,48 @@ export interface NextStep {
 }
 
 /** The next move in a few words, whoever makes it: for lists and the client header. */
-export function nextStep(client: StaffClient, now: Date): NextStep {
-  const automatic = nextAutomaticStep(client, now);
+export function nextStep(client: StaffClient, now: Date, locale: StaffLocale = staffLocaleFallback()): NextStep {
+  const automatic = nextAutomaticStep(client, now, locale);
   if (automatic) return { actor: "system", text: automatic.text, at: automatic.at };
 
   const stage = clientStage(client, now);
+  const L = (spanish: string, english: string) => (locale === "es" ? spanish : english);
   const person = (actor: Actor, text: string): NextStep => ({ actor, text, at: null });
 
-  if (serviceEndPending(client)) return person("staff", "Confirmar con el cliente que termina el servicio");
+  if (serviceEndPending(client)) return person("staff", L("Confirmar con el cliente que termina el servicio", "Confirm with the client that the service is ending"));
 
   switch (stage) {
     case "lead":
-      return person("sales", "Seguir la conversación y enviarle su enlace");
+      return person("sales", L("Seguir la conversación y enviarle su enlace", "Keep the conversation going and send their link"));
     case "agreement_pending":
-      return person("client", "Firmar el acuerdo de servicio");
+      return person("client", L("Firmar el acuerdo de servicio", "Sign the service agreement"));
     case "cancellation_window":
-      return person("system", "Esperar a que termine su periodo de cancelación");
+      return person("system", L("Esperar a que termine su periodo de cancelación", "Wait for their cancellation period to end"));
     case "cancelled":
-      return person("staff", "Canceló su acuerdo: nada pendiente");
-    case "documents_pending":
-      return person("client", `Subir su ${documentNames(missingDocuments(client))}`);
+      return person("staff", L("Canceló su acuerdo: nada pendiente", "Cancelled their agreement: nothing pending"));
+    case "documents_pending": {
+      const kinds = missingDocuments(client);
+      return person("client", L(`Subir su ${documentNames(kinds, "es")}`, `Upload their ${documentNames(kinds, "en")}`));
+    }
     case "report_pending":
-      return person("client", "Activar su monitoreo de crédito");
+      return person("client", L("Activar su monitoreo de crédito", "Turn on their credit monitoring"));
     case "client_review_pending": {
       const review = reviewProgress(client);
-      return person("client", `Terminar su revisión (faltan ${review.pending} de ${review.total})`);
+      return person("client", L(`Terminar su revisión (faltan ${review.pending} de ${review.total})`, `Finish their review (${review.pending} of ${review.total} left)`));
     }
     case "ready_to_send":
     case "next_round_ready": {
       const round = latestRound(client);
-      if (sendBlockReason(client, now)) return person("client", "Actualizar su reporte antes de enviar");
-      return person("staff", `Enviar la ronda ${round?.number ?? 1}`);
+      if (sendBlockReason(client, now)) return person("client", L("Actualizar su reporte antes de enviar", "Refresh their report before sending"));
+      return person("staff", L(`Enviar la ronda ${round?.number ?? 1}`, `Send round ${round?.number ?? 1}`));
     }
     case "waiting_on_bureaus":
-      return person("client", "Revisar su monitoreo: falta el reporte nuevo");
+      return person("client", L("Revisar su monitoreo: falta el reporte nuevo", "Check their monitoring: the new report is missing"));
     case "results_in":
-      return person("staff", "Revisar el caso");
+      return person("staff", L("Revisar el caso", "Review the case"));
     case "paused":
-      if (pausedForPayment(client)) return person("client", "Actualizar su método de pago");
-      return person("staff", "Nada marcado como inexacto: nada que enviar");
+      if (pausedForPayment(client)) return person("client", L("Actualizar su método de pago", "Update their payment method"));
+      return person("staff", L("Nada marcado como inexacto: nada que enviar", "Nothing marked inaccurate: nothing to send"));
   }
 }
 
@@ -839,36 +1079,59 @@ export function nextStep(client: StaffClient, now: Date): NextStep {
  * report only; a handled mark does not lift this.
  */
 export function sendBlockReason(client: StaffClient, now: Date, context: StaffContext = {}): string | null {
+  const locale = context.locale ?? staffLocaleFallback();
+  const L = (spanish: string, english: string) => (locale === "es" ? spanish : english);
   // The agreement comes before everything else: no signature, a cancellation,
   // the cancellation window or a request to stop each hold every letter.
   const gate = agreementGate(client, now);
   if (!gate.allowed) {
     if (gate.code === "in_cancellation_window") {
       const starts = workStartsAt(client, now);
-      return `El cliente está en su periodo de cancelación de 3 días hábiles y la ley no permite empezar antes.${
-        starts ? ` Se puede enviar a partir del ${formatDay(starts)}.` : ""
-      }`;
+      return L(
+        `El cliente está en su periodo de cancelación de 3 días hábiles y la ley no permite empezar antes.${starts ? ` Se puede enviar a partir del ${formatDay(starts, "es")}.` : ""}`,
+        `The client is in their 3-business-day cancellation period and the law doesn't allow starting earlier.${starts ? ` Letters can go out from ${formatDay(starts, "en")}.` : ""}`,
+      );
     }
-    if (gate.code === "cancelled") return "El cliente canceló su acuerdo. Sus cartas no se envían.";
-    return gate.reason.es;
+    if (gate.code === "cancelled") return L("El cliente canceló su acuerdo. Sus cartas no se envían.", "The client cancelled their agreement. Their letters don't go out.");
+    return gate.reason[locale];
   }
   const stale = openExceptions(client, now).find((e) => e.kind === "report_stale");
   if (stale) {
-    return `El reporte tiene más de ${FRESH_REPORT_DAYS} días. Hace falta uno reciente antes de enviar cartas.`;
+    return L(
+      `El reporte tiene más de ${FRESH_REPORT_DAYS} días. Hace falta uno reciente antes de enviar cartas.`,
+      `The report is more than ${FRESH_REPORT_DAYS} days old. A recent one is needed before letters go out.`,
+    );
   }
   // A letter that says "this is identity theft" must not go out until the
   // client's identity theft report is on file to back it and to enclose.
   const identityTheft = openExceptions(client, now).find((e) => e.kind === "identity_theft_report_missing");
   if (identityTheft) {
-    return "El cliente indicó robo de identidad y falta su reporte de robo de identidad (FTC). No se envían cartas hasta tenerlo en archivo.";
+    return L(
+      "El cliente indicó robo de identidad y falta su reporte de robo de identidad (FTC). No se envían cartas hasta tenerlo en archivo.",
+      "The client reported identity theft and their FTC identity theft report is missing. No letters go out until it's on file.",
+    );
   }
   // Never to a guessed address: a creditor or collector letter needs a checked one.
   const round = latestRound(client);
   if (context.furnishers && round?.status === "ready") {
     const gaps = missingFurnisherAddresses(round, context.furnishers);
     if (gaps.length > 0) {
-      return `Falta la dirección verificada para disputas de ${listEs(gaps.map((g) => g.company))}. Agrégala en Acreedores y la ronda queda lista.`;
+      const companies = listJoin(
+        gaps.map((g) => g.company),
+        locale,
+      );
+      return L(
+        `Falta la dirección verificada para disputas de ${companies}. Agrégala en Acreedores y la ronda queda lista.`,
+        `The verified dispute address for ${companies} is missing. Add it under Creditors and the round is ready.`,
+      );
     }
+  }
+  // Added with the address verification (migration 0022): the client's own address waits for their confirmation.
+  if (openAddressCheck(client)) {
+    return L(
+      "El correo no pudo confirmar la dirección del cliente. Se le pidió confirmarla; la ronda sale cuando la confirme.",
+      "The post office couldn't confirm the client's address. They were asked to confirm it; the round goes out once they do.",
+    );
   }
   return null;
 }
@@ -887,7 +1150,7 @@ export function roundItemCount(round: StaffRound): number {
   return new Set(round.letters.flatMap((l) => l.items.map((i) => i.fingerprint))).size;
 }
 
-/** "Dirección: 123 Old Street…, Capital One" — what a letter is about, in the report's own words. */
-export function letterCovers(letter: StaffLetter): string {
-  return letter.items.map((item) => itemLabel(item, "es")).join(" · ");
+/** "Address: 123 Old Street…, Capital One" — what a letter is about, in the report's own words. */
+export function letterCovers(letter: StaffLetter, locale: StaffLocale = staffLocaleFallback()): string {
+  return letter.items.map((item) => itemLabel(item, locale)).join(" · ");
 }

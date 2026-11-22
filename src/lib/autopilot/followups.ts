@@ -9,6 +9,7 @@ import {
   identityTheftItemsWithoutReport,
   latestRound,
   missingDocuments,
+  openAddressCheck,
   overdueResponseRound,
   reviewProgress,
   workStartsAt,
@@ -16,6 +17,7 @@ import {
 } from "../staff/stage";
 import type { DocumentKind, StaffClient } from "../staff/types";
 import { responseWindowStart } from "../mail/tracking";
+import { DOCUMENT_NAME, failuresSinceAccepted, reuploadRequest } from "../intake/reupload";
 import { RESPONSE_WINDOW_DAYS } from "../ux/journey";
 import { chooseChannel, type ChannelChoice } from "./channels";
 import { appLink, FOLLOWUP_TEMPLATES, renderTemplate, type MessageTemplate } from "./templates";
@@ -119,7 +121,8 @@ export const FOLLOWUP_SCHEDULES: Record<FollowupKind, FollowupSchedule> = {
     stepDays: [3, 5, 8],
     personAfterDays: 10,
     personFromStart: false,
-    path: "/pagos",
+    // The one-tap card page (the processor's hosted fields); a charge waiting on it is tried at once.
+    path: "/pagos/tarjeta",
     covers: ["payment_method_missing"],
   },
   identity_theft_report_missing: {
@@ -133,7 +136,64 @@ export const FOLLOWUP_SCHEDULES: Record<FollowupKind, FollowupSchedule> = {
     path: "/asistente",
     covers: ["identity_theft_report_missing"],
   },
+  address_unconfirmed: {
+    kind: "address_unconfirmed",
+    label: "Dirección por confirmar",
+    description:
+      "El correo no pudo confirmar la dirección del cliente (antes de enviar, o por una carta devuelta). Se le pide confirmarla o corregirla con un toque. Cuenta desde la solicitud; si la que confirma tampoco pasa, es de una persona.",
+    stepDays: [0, 2, 4],
+    personAfterDays: 6,
+    personFromStart: false,
+    path: "/confirmar-direccion",
+    covers: ["client_address_unconfirmed"],
+  },
+  document_reupload: {
+    kind: "document_reupload",
+    label: "Documento por subir de nuevo",
+    description:
+      "La revisión automática no aceptó su identificación o su comprobante por algo que el cliente puede corregir (foto borrosa, comprobante viejo). Se le dice el motivo y se le pide otro. Un segundo rechazo, o un motivo que no se corrige con otra foto, es de una persona.",
+    stepDays: [0, 2, 5],
+    personAfterDays: 7,
+    personFromStart: false,
+    path: "/documentos",
+    covers: ["document_check_needs_person"],
+  },
 };
+
+/** Each follow-up's name and description for the staff console in English (the Spanish ones are in FOLLOWUP_SCHEDULES). */
+export const FOLLOWUP_TEXT_EN: Record<FollowupKind, { label: string; description: string }> = {
+  agreement_unsigned: { label: "Agreement not signed", description: "Created their account and hasn't signed the agreement. Counts from the day they created their account." },
+  documents_missing: { label: "Documents missing", description: "Their ID or proof of address is missing. Counts from the end of their cancellation period." },
+  review_unfinished: { label: "Review not finished", description: "Hasn't finished reviewing their report. Counts from their last answer: if they make progress, it starts over." },
+  monitoring_inactive: {
+    label: "Monitoring with no new report",
+    description: `Their report is more than ${FRESH_REPORT_DAYS} days old, or the bureaus' ${RESPONSE_WINDOW_DAYS} days to answer passed with no new report.`,
+  },
+  payment_method_missing: {
+    label: "No payment method",
+    description: "A round went out and there's no payment method. Billing already tells them on the day of the charge; this follows after. Counts from the mailing.",
+  },
+  identity_theft_report_missing: {
+    label: "Identity theft report",
+    description:
+      "Reported identity theft and their FTC report is missing. They get the IdentityTheft.gov steps, but a person handles it from day one: the app told them someone on the team would write.",
+  },
+  address_unconfirmed: {
+    label: "Address to confirm",
+    description:
+      "The post office couldn't confirm the client's address (before mailing, or because a letter came back). They're asked to confirm or correct it with one tap. Counts from the request; if the one they confirm doesn't pass either, it goes to a person.",
+  },
+  document_reupload: {
+    label: "Document to upload again",
+    description:
+      "The automatic check didn't accept their ID or proof of address for something the client can fix (a blurry photo, an old bill). They're told the reason and asked for another. A second rejection, or a reason another photo won't fix, goes to a person.",
+  },
+};
+
+/** A follow-up's name and description in the console's language. */
+export function followupText(kind: FollowupKind, locale: "es" | "en"): { label: string; description: string } {
+  return locale === "en" ? FOLLOWUP_TEXT_EN[kind] : { label: FOLLOWUP_SCHEDULES[kind].label, description: FOLLOWUP_SCHEDULES[kind].description };
+}
 
 /** The follow-up situation that stands for a console notice, if any. */
 export function followupKindOf(exception: ExceptionKind): FollowupKind | null {
@@ -149,6 +209,12 @@ export interface Situation {
   startedAt: string;
   /** The template's values besides the name and the link, per language. */
   values: Record<MessageLocale, string[]>;
+  /**
+   * The one console notice this occurrence stands for, when a kind can have
+   * several at once (a re-upload request per document). Absent: any notice of
+   * the kinds the schedule covers.
+   */
+  exceptionKey?: string;
 }
 
 const DOCUMENT_EN: Record<DocumentKind, string> = {
@@ -229,6 +295,29 @@ export function openSituations(client: StaffClient, now: Date): Situation[] {
     add("identity_theft_report_missing", start, day(start));
   }
 
+  // The client's own address, which the post office could not confirm: the
+  // first request only. If the address they confirm fails again, a person.
+  const check = openAddressCheck(client);
+  if (check && check.requests <= 1) {
+    add("address_unconfirmed", check.requestedAt, check.id);
+    found[found.length - 1]!.exceptionKey = `client_address_unconfirmed:${check.id}`;
+  }
+
+  // A document the automatic check did not accept, for reasons the client can
+  // fix: the first time only. A second failure goes to a person.
+  for (const kind of ["government_id", "proof_of_address"] as const) {
+    const failures = failuresSinceAccepted(client.intake ?? [], kind);
+    const newest = failures[0];
+    if (!newest || failures.length > 1) continue;
+    const request = reuploadRequest(newest);
+    if (!request) continue;
+    add("document_reupload", newest.at, `${kind}:${newest.id}`, {
+      es: [DOCUMENT_NAME[kind].es, request.motivo.es],
+      en: [DOCUMENT_NAME[kind].en, request.motivo.en],
+    });
+    found[found.length - 1]!.exceptionKey = `document_check_needs_person:${newest.id}`;
+  }
+
   return found.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 }
 
@@ -242,6 +331,15 @@ export const BLOCK_TEXT: Record<FollowupBlock, string> = {
   held: "El piloto automático está detenido para este cliente.",
   no_channel: "No hay un canal para escribirle solo (WhatsApp o correo).",
   template_not_approved: "Falta aprobar en Meta la plantilla de WhatsApp de este mensaje, y no tiene correo.",
+};
+
+/** The same, for the staff console in English. */
+export const BLOCK_TEXT_EN: Record<FollowupBlock, string> = {
+  disabled: "Automatic reminders for this are turned off.",
+  opted_out: "Asked not to get automatic messages.",
+  held: "The autopilot is on hold for this client.",
+  no_channel: "There's no channel to message them automatically (WhatsApp or email).",
+  template_not_approved: "This message's WhatsApp template still needs Meta's approval, and they have no email.",
 };
 
 export interface FollowupState {
@@ -331,7 +429,7 @@ export interface PlannedMessage {
 }
 
 export function clientLocale(client: StaffClient): MessageLocale {
-  return client.locale === "en" ? "en" : "es";
+  return client.locale === "es" ? "es" : "en";
 }
 
 /** The follow-up messages due now, before quiet hours and the daily cap (plan.ts applies those). */

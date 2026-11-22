@@ -11,6 +11,7 @@ import { DEMO_EXAMPLE_FEE } from "../staff/demoClients";
 import type { ItemAnswer, StaffClient, StaffLetter, StaffRound } from "../staff/types";
 import { defaultMailClass, isCertified } from "./classes";
 import { mailState } from "./tracking";
+import { demoMidlandClients } from "../autopilot/selfHealingDemo";
 import type { LetterMail, MailClass, MailEventKind, MailEventRecord, MailStatus } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -215,5 +216,10 @@ export function demoRosario(now: Date): StaffClient {
 /** The demo clients with mail records, and Rosario. */
 export function demoClientsWithMail(clients: StaffClient[], now: Date): StaffClient[] {
   const withMail = withDemoMail(clients);
-  return withMail.some((c) => c.id === "c50") ? withMail : [...withMail, demoRosario(now)];
+  if (withMail.some((c) => c.id === "c50")) return withMail;
+  // Rosario's round 4 has waited two days for Midland's address; two more clients wait on the same company
+  // (autopilot/selfHealingDemo.ts): the queue shows one item for the three.
+  const rosario = demoRosario(now);
+  rosario.rounds = rosario.rounds.map((r) => (r.status === "ready" ? { ...r, readyAt: new Date(now.getTime() - 50 * HOUR_MS).toISOString() } : r));
+  return [...withMail, rosario, ...demoMidlandClients(now)];
 }

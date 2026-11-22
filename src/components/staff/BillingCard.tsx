@@ -14,6 +14,9 @@ import type { StaffClient } from "@/lib/staff/types";
 import { staffAuthor } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
 import { Chip, DeniedNote, SectionTitle, WAITING_TONE } from "@/components/staff/ui";
+import { txFor, useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
+import { staffMessage } from "@/lib/staff/i18n/messages";
+import type { StaffLocale } from "@/lib/staff/i18n/locale";
 
 // Billing for one client, as the team reads it: the payment method on file,
 // every charge with the work it paid for, and one sentence about what the
@@ -24,31 +27,42 @@ import { Chip, DeniedNote, SectionTitle, WAITING_TONE } from "@/components/staff
 // do is return a charge in full (with a written reason) and pause automatic
 // charges for this client (with a reason). There is no field for an amount.
 
-const STANDING: Record<ChargeStanding, { label: string; tone: string }> = {
-  paid: { label: "Pagado", tone: "bg-green-50 text-green-700" },
-  refunded: { label: "Reembolsado", tone: "bg-slate-100 text-slate-600" },
-  processing: { label: "En proceso", tone: "bg-blue-50 text-blue-700" },
-  retrying: { label: "Se reintenta", tone: WAITING_TONE },
-  exhausted: { label: "No pasó", tone: "bg-red-50 text-red-700" },
+const STANDING: Record<ChargeStanding, { label: { es: string; en: string }; tone: string }> = {
+  paid: { label: { es: "Pagado", en: "Paid" }, tone: "bg-green-50 text-green-700" },
+  refunded: { label: { es: "Reembolsado", en: "Refunded" }, tone: "bg-slate-100 text-slate-600" },
+  processing: { label: { es: "En proceso", en: "Processing" }, tone: "bg-blue-50 text-blue-700" },
+  retrying: { label: { es: "Se reintenta", en: "Retrying" }, tone: WAITING_TONE },
+  exhausted: { label: { es: "No pasó", en: "Failed" }, tone: "bg-red-50 text-red-700" },
 };
 
-/** "el equipo" when the teammate gave no name (staffAuthor signs those "equipo"). */
-const who = (by: string) => (!by.trim() || by.trim().toLowerCase() === "equipo" ? "el equipo" : by.trim());
+/** "the team"/"el equipo" when the teammate gave no name (staffAuthor signs those "equipo"). */
+const who = (by: string, locale: StaffLocale) =>
+  !by.trim() || by.trim().toLowerCase() === "equipo" ? (locale === "es" ? "el equipo" : "the team") : by.trim();
 
 const FIELD =
   "mt-2 w-full resize-y rounded-2xl bg-slate-50 px-3.5 py-2.5 text-[14px] text-slate-900 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-300";
 const SMALL_BUTTON = "pressable inline-flex h-11 md:h-9 items-center justify-center rounded-full px-3.5 text-[13px] font-semibold";
 
 /** What happened to a charge after it was created, in a line. */
-function chargeDetail(charge: BillingCharge): string {
+function chargeDetail(charge: BillingCharge, locale: StaffLocale): string {
   const standing = chargeStanding(charge);
-  const tries = count(charge.attempts, "intento", "intentos");
+  const t = txFor(locale);
+  const day = (iso: string) => shortDay(iso, locale);
+  const tries = t(count(charge.attempts, "intento", "intentos"), count(charge.attempts, "try", "tries"));
   if (standing === "paid" || standing === "refunded") {
-    return `Cobrado el ${shortDay(charge.chargedAt!)}${charge.attempts > 1 ? ` · al ${charge.attempts}.º intento` : ""}`;
+    return t(
+      `Cobrado el ${day(charge.chargedAt!)}${charge.attempts > 1 ? ` · al ${charge.attempts}.º intento` : ""}`,
+      `Charged ${day(charge.chargedAt!)}${charge.attempts > 1 ? ` · on try ${charge.attempts}` : ""}`,
+    );
   }
-  if (standing === "retrying") return `${tries} · el sistema lo intenta de nuevo el ${shortDay(charge.nextAttemptAt!)}`;
-  if (standing === "exhausted") return `${tries}, el último el ${shortDay(charge.lastAttemptAt ?? charge.createdAt)} · el sistema ya no lo intenta`;
-  return "Esperando la respuesta del procesador de pagos";
+  if (standing === "retrying") return t(`${tries} · el sistema lo intenta de nuevo el ${day(charge.nextAttemptAt!)}`, `${tries} · the system tries again ${day(charge.nextAttemptAt!)}`);
+  if (standing === "exhausted") {
+    return t(
+      `${tries}, el último el ${day(charge.lastAttemptAt ?? charge.createdAt)} · el sistema ya no lo intenta`,
+      `${tries}, the last on ${day(charge.lastAttemptAt ?? charge.createdAt)} · the system has stopped trying`,
+    );
+  }
+  return t("Esperando la respuesta del procesador de pagos", "Waiting on the payment processor");
 }
 
 export default function BillingCard({
@@ -68,6 +82,8 @@ export default function BillingCard({
   /** Set when the viewer's role may not pause or resume billing: the reason, shown instead of the controls. */
   pauseDenied?: string | null;
 }) {
+  const { locale } = useStaffLocale();
+  const t = useTx();
   const [refunding, setRefunding] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [pausing, setPausing] = useState(false);
@@ -90,7 +106,7 @@ export default function BillingCard({
     const result = await run();
     setBusy(false);
     if (!result.ok) {
-      setError(result.message);
+      setError(staffMessage(result.message, locale));
       return;
     }
     done();
@@ -122,7 +138,7 @@ export default function BillingCard({
   return (
     <section aria-labelledby="cobros" data-testid="billing-card">
       <SectionTitle>
-        <span id="cobros">Cobros</span>
+        <span id="cobros">{t("Cobros", "Billing")}</span>
       </SectionTitle>
       <div className="card overflow-hidden">
         <div className="px-5 py-4">
@@ -130,32 +146,38 @@ export default function BillingCard({
             data-testid="billing-outlook"
             className={`text-[15px] font-medium leading-snug ${attention ? "rounded-2xl bg-amber-50 px-3.5 py-3 text-blue-900" : "text-slate-900"}`}
           >
-            {outlook.staff}
+            {t(outlook.staff, outlook.staffEn)}
           </p>
 
           <dl className="mt-3 space-y-2.5 border-t hairline pt-3 text-[14px]">
             <div className="flex items-center justify-between gap-3">
-              <dt className="shrink-0 text-slate-500">Método de pago</dt>
+              <dt className="shrink-0 text-slate-500">{t("Método de pago", "Payment method")}</dt>
               <dd className="min-w-0 text-right">
                 {paymentMethod ? (
                   <span className="font-medium text-slate-900" data-testid="billing-method">
                     {cardLabel(paymentMethod.brand, paymentMethod.last4)}
                   </span>
                 ) : (
-                  <Chip tone={outlook.kind === "payment_method_missing" ? WAITING_TONE : "bg-slate-100 text-slate-600"}>Sin método</Chip>
+                  <Chip tone={outlook.kind === "payment_method_missing" ? WAITING_TONE : "bg-slate-100 text-slate-600"}>{t("Sin método", "None")}</Chip>
                 )}
               </dd>
             </div>
             {paymentMethod && (
               <div className="flex items-baseline justify-between gap-3">
-                <dt className="shrink-0 text-slate-500">Autorización</dt>
-                <dd className="text-right font-medium text-slate-900">Aceptada el {shortDay(paymentMethod.authorizedAt)}</dd>
+                <dt className="shrink-0 text-slate-500">{t("Autorización", "Authorization")}</dt>
+                <dd className="text-right font-medium text-slate-900">
+                  {t(`Aceptada el ${shortDay(paymentMethod.authorizedAt, "es")}`, `Accepted ${shortDay(paymentMethod.authorizedAt, "en")}`)}
+                </dd>
               </div>
             )}
             <div className="flex items-baseline justify-between gap-3">
-              <dt className="shrink-0 text-slate-500">Cuota de su acuerdo</dt>
+              <dt className="shrink-0 text-slate-500">{t("Cuota de su acuerdo", "Agreement fee")}</dt>
               <dd className="text-right font-medium text-slate-900">
-                {fee !== null ? `${formatCents(fee)} por ronda enviada` : client.agreementSignedAt ? "Sin cuota en el acuerdo" : "Sin acuerdo firmado"}
+                {fee !== null
+                  ? t(`${formatCents(fee)} por ronda enviada`, `${formatCents(fee)} per mailed round`)
+                  : client.agreementSignedAt
+                    ? t("Sin cuota en el acuerdo", "No fee in the agreement")
+                    : t("Sin acuerdo firmado", "No signed agreement")}
               </dd>
             </div>
           </dl>
@@ -164,11 +186,12 @@ export default function BillingCard({
         {pause && (
           <div className="border-t hairline bg-amber-50 px-5 py-3.5" data-testid="billing-paused">
             <p className="text-[14px] leading-snug text-blue-900">
-              <span className="font-semibold">Cobros en pausa</span> desde el {shortDay(pause.at)}, por {who(pause.by)}: «{pause.reason}»
+              <span className="font-semibold">{t("Cobros en pausa", "Billing paused")}</span>{" "}
+              {t(`desde el ${shortDay(pause.at, "es")}, por ${who(pause.by, "es")}`, `since ${shortDay(pause.at, "en")}, by ${who(pause.by, "en")}`)}: «{pause.reason}»
             </p>
             {!pauseDenied && (
             <button type="button" onClick={resume} disabled={busy} className={`${SMALL_BUTTON} mt-2.5 bg-white text-blue-900 hover:bg-slate-50`}>
-              Reanudar cobros
+              {t("Reanudar cobros", "Resume billing")}
             </button>
             )}
           </div>
@@ -186,20 +209,23 @@ export default function BillingCard({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[15px] font-medium leading-snug text-slate-900">
-                        Ronda {charge.roundNumber} · enviada el {shortDay(charge.workDate)}
+                        {t(`Ronda ${charge.roundNumber} · enviada el ${shortDay(charge.workDate, "es")}`, `Round ${charge.roundNumber} · mailed ${shortDay(charge.workDate, "en")}`)}
                       </p>
                       <p className="text-[13px] leading-snug text-slate-500">
                         {formatCents(charge.amountCents)}
-                        {round ? ` · ${count(round.letters.length, "carta", "cartas")}` : ""}
+                        {round ? ` · ${t(count(round.letters.length, "carta", "cartas"), count(round.letters.length, "letter", "letters"))}` : ""}
                       </p>
                     </div>
-                    <Chip tone={STANDING[standing].tone}>{STANDING[standing].label}</Chip>
+                    <Chip tone={STANDING[standing].tone}>{STANDING[standing].label[locale]}</Chip>
                   </div>
-                  <p className="mt-1 text-[13px] leading-snug text-slate-600">{chargeDetail(charge)}</p>
+                  <p className="mt-1 text-[13px] leading-snug text-slate-600">{chargeDetail(charge, locale)}</p>
                   {charge.refund && (
                     <p className="mt-1.5 rounded-2xl bg-slate-100 px-3.5 py-2.5 text-[13px] leading-snug text-slate-700" data-testid="billing-refund">
-                      Devuelto completo ({formatCents(charge.refund.amountCents)}) el {shortDay(charge.refund.at)} por {who(charge.refund.by)}: «
-                      {charge.refund.reason}»
+                      {t(
+                        `Devuelto completo (${formatCents(charge.refund.amountCents)}) el ${shortDay(charge.refund.at, "es")} por ${who(charge.refund.by, "es")}`,
+                        `Refunded in full (${formatCents(charge.refund.amountCents)}) on ${shortDay(charge.refund.at, "en")} by ${who(charge.refund.by, "en")}`,
+                      )}
+                      : «{charge.refund.reason}»
                     </p>
                   )}
 
@@ -214,25 +240,27 @@ export default function BillingCard({
                       data-testid="refund-open"
                       className="mt-1.5 text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline"
                     >
-                      Reembolsar este cobro
+                      {t("Reembolsar este cobro", "Refund this charge")}
                     </button>
                   )}
                   {open && (
                     <div className="mt-2.5 rounded-2xl bg-slate-100 px-3.5 py-3" data-testid="refund-form">
                       <label htmlFor={`refund-${charge.id}`} className="block text-[13px] font-medium text-slate-900">
-                        Motivo del reembolso (obligatorio)
+                        {t("Motivo del reembolso (obligatorio)", "Reason for the refund (required)")}
                       </label>
                       <textarea
                         id={`refund-${charge.id}`}
                         value={reason}
                         onChange={(e) => setReason(e.target.value.slice(0, 1000))}
                         rows={2}
-                        placeholder="Qué pasó. Queda en el registro y no se puede borrar."
+                        placeholder={t("Qué pasó. Queda en el registro y no se puede borrar.", "What happened. It goes on the record and can't be deleted.")}
                         className={`${FIELD} bg-white`}
                       />
                       <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-                        Se devuelve el cobro completo: {formatCents(charge.amountCents)}. El cobro queda en el registro como reembolsado y
-                        esa ronda no se vuelve a cobrar.
+                        {t(
+                          `Se devuelve el cobro completo: ${formatCents(charge.amountCents)}. El cobro queda en el registro como reembolsado y esa ronda no se vuelve a cobrar.`,
+                          `The full charge is returned: ${formatCents(charge.amountCents)}. The charge stays on record as refunded and that round isn't charged again.`,
+                        )}
                       </p>
                       <div className="mt-2.5 flex flex-wrap gap-2">
                         <button
@@ -242,10 +270,10 @@ export default function BillingCard({
                           data-testid="refund-confirm"
                           className={`${SMALL_BUTTON} bg-blue-700 text-white hover:bg-blue-800 disabled:bg-slate-300`}
                         >
-                          Reembolsar {formatCents(charge.amountCents)}
+                          {t(`Reembolsar ${formatCents(charge.amountCents)}`, `Refund ${formatCents(charge.amountCents)}`)}
                         </button>
                         <button type="button" onClick={() => setRefunding(null)} className={`${SMALL_BUTTON} bg-white text-slate-900`}>
-                          Cancelar
+                          {t("Cancelar", "Cancel")}
                         </button>
                       </div>
                     </div>
@@ -280,23 +308,26 @@ export default function BillingCard({
                 data-testid="pause-open"
                 className="inline-flex min-h-11 items-center text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline"
               >
-                Pausar los cobros de este cliente
+                {t("Pausar los cobros de este cliente", "Pause billing for this client")}
               </button>
             ) : (
               <div data-testid="pause-form">
                 <label htmlFor="pause-reason" className="block text-[13px] font-medium text-slate-900">
-                  Motivo de la pausa (obligatorio)
+                  {t("Motivo de la pausa (obligatorio)", "Reason for the pause (required)")}
                 </label>
                 <textarea
                   id="pause-reason"
                   value={pauseReason}
                   onChange={(e) => setPauseReason(e.target.value.slice(0, 1000))}
                   rows={2}
-                  placeholder="Por qué no se le cobra por ahora."
+                  placeholder={t("Por qué no se le cobra por ahora.", "Why they aren't being charged for now.")}
                   className={FIELD}
                 />
                 <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-                  Mientras dure la pausa el sistema no crea ni reintenta ningún cobro. Las cartas siguen su curso.
+                  {t(
+                    "Mientras dure la pausa el sistema no crea ni reintenta ningún cobro. Las cartas siguen su curso.",
+                    "While the pause lasts, the system doesn't create or retry any charge. The letters keep going.",
+                  )}
                 </p>
                 <div className="mt-2.5 flex flex-wrap gap-2">
                   <button
@@ -306,10 +337,10 @@ export default function BillingCard({
                     data-testid="pause-confirm"
                     className={`${SMALL_BUTTON} bg-blue-700 text-white hover:bg-blue-800 disabled:bg-slate-300`}
                   >
-                    Pausar cobros
+                    {t("Pausar cobros", "Pause billing")}
                   </button>
                   <button type="button" onClick={() => setPausing(false)} className={`${SMALL_BUTTON} bg-slate-100 text-slate-900`}>
-                    Cancelar
+                    {t("Cancelar", "Cancel")}
                   </button>
                 </div>
               </div>
@@ -321,37 +352,39 @@ export default function BillingCard({
       <p className="flex gap-2 px-1 pt-2 text-xs leading-relaxed text-slate-500">
         <Icon name="check" size={14} className="mt-0.5 shrink-0" />
         <span>
-          Los cobros los hace el sistema, solo por rondas ya enviadas y por la cuota del acuerdo firmado. El equipo no puede crear un cobro ni
-          cambiar un monto: solo reembolsar o pausar.
+          {t(
+            "Los cobros los hace el sistema, solo por rondas ya enviadas y por la cuota del acuerdo firmado. El equipo no puede crear un cobro ni cambiar un monto: solo reembolsar o pausar.",
+            "The system makes the charges, only for rounds already mailed and at the signed agreement's fee. The team can't create a charge or change an amount: only refund or pause.",
+          )}
         </span>
       </p>
 
       {data.demo && (outlook.kind === "paused_for_payment" || outlook.kind === "payment_method_missing" || outlook.kind === "retry_scheduled") && (
         <p className="px-1 pt-1.5 text-xs leading-relaxed text-slate-500">
-          El método de pago lo pone el cliente en su app. Demo:{" "}
+          {t("El método de pago lo pone el cliente en su app. Demo:", "The client enters their payment method in their app. Demo:")}{" "}
           <button
             type="button"
             data-testid="demo-new-method"
             onClick={() => simulate(true)}
             className="font-medium text-blue-700 underline-offset-2 hover:underline"
           >
-            simular que el cliente puso un método de pago que sí pasa
+            {t("simular que el cliente puso un método de pago que sí pasa", "pretend the client added a payment method that works")}
           </button>
           .
         </p>
       )}
       {data.demo && outlook.kind === "charge_scheduled" && outlook.at !== null && new Date(outlook.at).getTime() <= now.getTime() && (
         <p className="px-1 pt-1.5 text-xs leading-relaxed text-slate-500">
-          Demo:{" "}
+          {t("Demo:", "Demo:")}{" "}
           <button
             type="button"
             data-testid="demo-run-billing"
             onClick={() => simulate(false)}
             className="font-medium text-blue-700 underline-offset-2 hover:underline"
           >
-            simular la corrida de cobros del sistema
+            {t("simular la corrida de cobros del sistema", "simulate the system's billing run")}
           </button>
-          . No se mueve dinero.
+          {t(". No se mueve dinero.", ". No money moves.")}
         </p>
       )}
     </section>

@@ -12,6 +12,7 @@ import type { ItemFlag, NormalizedReport, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
 import { DEMO_RAW_REPORT } from "../demo";
 import { attachDemoIntake } from "../intake/demo";
+import { attachDemoSelfHealing } from "../autopilot/selfHealingDemo";
 import { paidCharge, sampleMethod } from "./billing";
 import type {
   ItemAnswer,
@@ -94,6 +95,9 @@ function rawReport(person: { first: string; last: string; city: string; zip: str
       furnisher: { name: "Sample Medical Collections", addressLines: ["P.O. Box 0000", "Dallas, TX 75201"] },
     });
     tu.personalInfo.push({ field: "name", value: `${person.first.toUpperCase()} ${person.last.toUpperCase().slice(0, -1)}` });
+    // The same Midland account with another balance on Experian: a data check
+    // (domain/checks.ts) the team sees on the client page.
+    ex.tradelines[0]!.balance = 900;
   }
   if (shape === "extra_inquiry") {
     ex.inquiries.push({ inquirer: "Example Wireless", date: "2026-05-22", type: "hard" });
@@ -903,6 +907,11 @@ export function buildDemoClients(now: Date): StaffClient[] {
 
   // What the AI intake recorded for a few of them (src/lib/intake/demo.ts).
   attachDemoIntake(clients, ago);
+
+  // What fixed itself (autopilot/selfHealingDemo.ts): an address to confirm, a confirmed one, a returned
+  // letter sent again, a document uploaded again, corrected addresses, a payment fixed. Before the
+  // autopilot's history below, so its reminders follow from it.
+  attachDemoSelfHealing(clients, ago);
 
   // What the autopilot did for them: messages sent, a hold, an opt-out, a
   // round mailed by itself, when each prepared round was first seen

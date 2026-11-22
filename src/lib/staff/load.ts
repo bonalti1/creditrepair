@@ -113,6 +113,14 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     optionalRows(sel("chat_messages", "user_id, created_at").eq("channel", "whatsapp").eq("role", "user").order("created_at", { ascending: false }).limit(2000), "chat_messages"),
   ]);
 
+  // What fixes itself (migration 0022): the client's address confirmations, what the system resolved
+  // by itself, and which letters re-mail one that came back.
+  const [addressConfirmations, resolutions, remails] = await Promise.all([
+    optionalRows(sel("address_confirmations", "*"), "address_confirmations"),
+    optionalRows(sel("autopilot_resolutions", "id, user_id, kind, detail, at"), "autopilot_resolutions"),
+    optionalRows(sel("letters", "id, remail_of"), "letters"),
+  ]);
+
   // "¿Cómo vamos?" answers (migration 0018): the "staff read pulses" policy decides (admin, assigned specialist).
   const pulses = await optionalRows(sel("client_pulses", "user_id, moment, rating, comment, created_at"), "client_pulses");
 
@@ -168,6 +176,9 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     intake,
     partners,
     pulses,
+    addressConfirmations,
+    resolutions,
+    remails: remails.filter((r) => r.remail_of),
   };
 }
 

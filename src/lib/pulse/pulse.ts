@@ -33,7 +33,7 @@ export const pulseSubmissionSchema = z.object({
     .transform((v) => v.trim())
     .optional()
     .transform((v) => (v ? v : undefined)),
-  locale: z.enum(["es", "en"]).default("es"),
+  locale: z.enum(["es", "en"]).default("en"),
 });
 export type PulseSubmission = z.infer<typeof pulseSubmissionSchema>;
 

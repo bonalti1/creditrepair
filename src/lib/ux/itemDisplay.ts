@@ -75,6 +75,41 @@ const REMARK: Record<string, Pair> = {
   paid_collection: { es: "Cobranza pagada", en: "Paid collection" },
 };
 
+/** Who is responsible for an account. */
+export const OWNERSHIP: Record<string, Pair> = {
+  individual: { es: "Individual", en: "Individual" },
+  joint: { es: "Conjunta", en: "Joint" },
+  authorized_user: { es: "Usuario autorizado", en: "Authorized user" },
+};
+
+/** A month's payment code is "on time" when it is one of these (anything else is a late or missing payment). */
+const ON_TIME_CODES: ReadonlySet<string> = new Set(["ok", "c", "current", "0", "on_time", ""]);
+
+/** True when a payment-history code says the month was paid on time (or has no data). */
+export function onTimeCode(status: unknown): boolean {
+  return ON_TIME_CODES.has(code(status));
+}
+
+/** A payment-history code in plain words: "30" → "30 días de atraso", "OK" → "al corriente". */
+export function paymentCodeLabel(status: unknown, locale: Locale): string {
+  const key = code(status);
+  if (ON_TIME_CODES.has(key)) return locale === "es" ? "al corriente" : "on time";
+  const days = key.match(/\d+/)?.[0];
+  if (days) return locale === "es" ? `${days} días de atraso` : `${days} days late`;
+  return translateStatus(status, locale).toLowerCase();
+}
+
+/** "marzo de 2025 (30 días de atraso); …": the months a payment history shows late, oldest first. */
+function lateMonths(history: unknown, locale: Locale): string {
+  if (!Array.isArray(history)) return "";
+  return history
+    .filter((m): m is { month: string; status: string } => Boolean(m) && typeof m === "object" && typeof m.month === "string")
+    .filter((m) => !onTimeCode(m.status))
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .map((m) => `${formatDate(m.month, locale)} (${paymentCodeLabel(m.status, locale)})`)
+    .join("; ");
+}
+
 const INQUIRY_TYPE: Record<string, Pair> = {
   hard: { es: "Dura", en: "Hard" },
   soft: { es: "Suave", en: "Soft" },
@@ -115,7 +150,8 @@ function translate(value: unknown, table: Record<string, Pair>, locale: Locale):
   return locale === "en" ? capitalise(raw.replace(/_/g, " ")) : raw;
 }
 
-function translateStatus(value: unknown, locale: Locale): string {
+/** An account status in plain words ("30_days_late" → "30 días de atraso"). */
+export function translateStatus(value: unknown, locale: Locale): string {
   const key = code(value);
   // "30_days_late", "late_60": the number of days is in the report; keep it.
   const days = /late/.test(key) ? key.match(/\d+/)?.[0] : undefined;
@@ -128,7 +164,7 @@ function isAmount(value: unknown): value is number {
 }
 
 /** $1,250 — whole dollars without cents, anything else with two decimals. */
-function formatMoney(amount: number): string {
+export function formatMoney(amount: number): string {
   const digits = Number.isInteger(amount) ? 0 : 2;
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -139,7 +175,7 @@ function formatMoney(amount: number): string {
 }
 
 /** ISO dates in the reader's language; anything else is shown as given. */
-function formatDate(value: unknown, locale: Locale): string {
+export function formatDate(value: unknown, locale: Locale): string {
   const raw = text(value);
   if (!raw) return "";
   const tag = locale === "es" ? "es-MX" : "en-US";
@@ -166,10 +202,16 @@ const LABELS = {
     paymentStatus: "Estado de pago",
     balance: "Saldo",
     creditLimit: "Límite de crédito",
+    highCredit: "Crédito más alto",
+    pastDue: "Monto vencido",
+    ownership: "Responsabilidad",
+    originalCreditor: "Acreedor original",
     opened: "Fecha de apertura",
     lastPayment: "Último pago",
     firstDelinquency: "Primer atraso",
     lastReported: "Último reporte",
+    closed: "Fecha de cierre",
+    lateMonths: "Meses con atraso",
     remarks: "Notas",
     inquiryDate: "Fecha",
     inquiryType: "Tipo de consulta",
@@ -184,10 +226,16 @@ const LABELS = {
     paymentStatus: "Payment status",
     balance: "Balance",
     creditLimit: "Credit limit",
+    highCredit: "High credit",
+    pastDue: "Past due",
+    ownership: "Responsibility",
+    originalCreditor: "Original creditor",
     opened: "Opened",
     lastPayment: "Last payment",
     firstDelinquency: "First late payment",
     lastReported: "Last reported",
+    closed: "Closed",
+    lateMonths: "Months reported late",
     remarks: "Remarks",
     inquiryDate: "Date",
     inquiryType: "Inquiry type",
@@ -225,14 +273,20 @@ export function itemFacts(item: ReportItem, locale: Locale): ItemFact[] {
   if (item.category === "tradeline") {
     add(label.accountType, translate(data.accountType, ACCOUNT_TYPE, locale));
     add(label.accountNumber, text(data.accountNumberMasked));
+    add(label.originalCreditor, text(data.originalCreditor));
+    add(label.ownership, translate(data.ownership, OWNERSHIP, locale));
     add(label.status, translateStatus(data.status, locale));
     add(label.paymentStatus, translateStatus(data.paymentStatus, locale));
     if (isAmount(data.balance)) add(label.balance, formatMoney(data.balance));
+    if (isAmount(data.pastDue)) add(label.pastDue, formatMoney(data.pastDue));
     if (isAmount(data.creditLimit)) add(label.creditLimit, formatMoney(data.creditLimit));
+    if (isAmount(data.highCredit)) add(label.highCredit, formatMoney(data.highCredit));
     add(label.opened, formatDate(data.openedAt, locale));
     add(label.lastPayment, formatDate(data.lastPaymentAt, locale));
     add(label.firstDelinquency, formatDate(data.firstDelinquencyAt, locale));
+    add(label.closed, formatDate(data.closedAt, locale));
     add(label.lastReported, formatDate(data.lastReportedAt, locale));
+    add(label.lateMonths, lateMonths(data.paymentHistory, locale));
     if (Array.isArray(data.remarks)) {
       const remarks = data.remarks.map((r) => translate(r, REMARK, locale)).filter(Boolean);
       add(label.remarks, remarks.join("; "));

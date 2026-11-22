@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
-import { COACH_SYSTEM_PROMPT } from "@/lib/coach/systemPrompt";
+import { COACH_SAFE_FALLBACK, replyLanguage } from "@/lib/coach/language";
+import { coachSystemPrompt, replyLanguageLine } from "@/lib/coach/systemPrompt";
 import { checkClaimGuardrails } from "@/lib/compliance/guardrails";
 import { DEMO_SAVED_ANSWERS, libraryReplyFor, libraryReplyText, type SavedAnswer } from "@/lib/staff/answers";
 import { loadApprovedAnswers } from "@/lib/staff/answersServer";
@@ -13,7 +14,9 @@ import { rateLimit } from "@/lib/security/rateLimit";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/supabase/server";
 
-// AI Credit Coach (spec §4.3). Spanish-first. The system prompt hard-codes the
+// AI Credit Coach (spec §4.3). Answers in the language the client writes in,
+// else in the app's language (`locale`, English by default; coach/language.ts).
+// The system prompt hard-codes the
 // claim guardrails; as defense in depth, output is also linted post-hoc and
 // replaced with a safe fallback if it would violate them.
 //
@@ -31,10 +34,10 @@ const bodySchema = z.object({
     .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(4000) }))
     .min(1)
     .max(40),
+  /** The language the client is using the app in (the fallback when a message does not say). */
+  locale: z.enum(["es", "en"]).optional(),
 });
 
-const SAFE_FALLBACK =
-  "Puedo ayudarte a entender tu reporte y el proceso de disputa, pero no puedo prometer resultados: cada caso es distinto y los resultados varían. ¿Qué elemento de tu reporte quieres entender mejor?";
 
 export async function POST(req: Request) {
   // Each call spends model tokens: cap it per caller.
@@ -49,6 +52,7 @@ export async function POST(req: Request) {
 
   const messages = parsed.data.messages;
   const question = messages[messages.length - 1]!;
+  const language = replyLanguage(question.content, parsed.data.locale);
   if (question.role !== "user" || messages[0]!.role !== "user") {
     return NextResponse.json({ error: "Conversation must start and end with a user message" }, { status: 400 });
   }
@@ -56,8 +60,9 @@ export async function POST(req: Request) {
   // The team's approved answers first: a close match is answered without the model and without a person.
   const library = await approvedLibrary();
   const fromLibrary = libraryReplyFor(question.content, library);
-  if (fromLibrary) {
-    const reply = libraryReplyText(fromLibrary);
+  // Only an answer written in the language of the reply (the team writes each one in one language).
+  if (fromLibrary && replyLanguage(fromLibrary.answer.answer, language) === language) {
+    const reply = libraryReplyText(fromLibrary, language);
     // Checked once more as the exact words that go out.
     if (checkClaimGuardrails(reply).length === 0) {
       const stored = await storeExchange(question.content, reply);
@@ -80,7 +85,7 @@ export async function POST(req: Request) {
     const response = await client.messages.create({
       model: "claude-sonnet-5",
       max_tokens: 1024,
-      system: COACH_SYSTEM_PROMPT,
+      system: `${coachSystemPrompt(undefined, parsed.data.locale ?? "en")}\n\n${replyLanguageLine(language)}`,
       messages,
     });
     reply = response.content
@@ -96,7 +101,7 @@ export async function POST(req: Request) {
   const violations = checkClaimGuardrails(reply);
   if (violations.length > 0 || !reply) {
     console.warn("Coach guardrail violation, replacing reply:", violations.map((v) => v.rule));
-    reply = SAFE_FALLBACK;
+    reply = COACH_SAFE_FALLBACK[language];
   }
 
   const stored = await storeExchange(question.content, reply, user);

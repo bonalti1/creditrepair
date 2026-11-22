@@ -18,6 +18,9 @@ import { RESPONSE_WINDOW_DAYS } from "@/lib/staff/stage";
 import { useStaff } from "@/lib/staff/useStaff";
 import { useMail } from "@/lib/mail/useMail";
 import { useLetterVersions } from "@/lib/letters/versions/useLetterVersions";
+import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
+import { staffMessage } from "@/lib/staff/i18n/messages";
+import type { StaffLocale } from "@/lib/staff/i18n/locale";
 import Icon from "@/components/Icon";
 import { PRIMARY_BUTTON, PRIMARY_BUTTON_COMPACT, SECONDARY_BUTTON, SECONDARY_BUTTON_COMPACT } from "@/components/staff/ui";
 
@@ -29,6 +32,9 @@ import { PRIMARY_BUTTON, PRIMARY_BUTTON_COMPACT, SECONDARY_BUTTON, SECONDARY_BUT
 // boxes to tick as each is printed, signed and mailed), then every letter, each
 // followed by a slip naming the copies that go in its envelope. The copies are
 // the client's own photos, so the slip is a reminder and not the copy itself.
+//
+// The cover and the slips are for the team, so they are in the member's
+// language; the letters themselves are the English letter text.
 //
 // The page layout is plain print CSS in physical units, kept in this file so it
 // can be read in one place. Two things in it are deliberate:
@@ -126,24 +132,29 @@ function Box() {
 }
 
 function Cover({ batch, now }: { batch: PrintBatch; now: Date }) {
+  const t = useTx();
+  const { locale } = useStaffLocale();
   return (
     <Sheet kind="cover" className="pl-note">
       <div data-pl-flow="cover">
-        <p className="pl-kicker">Hoja de control · no va en ningún sobre</p>
-        <h1>Lote de cartas para imprimir</h1>
+        <p className="pl-kicker">{t("Hoja de control · no va en ningún sobre", "Control sheet · doesn't go in any envelope")}</p>
+        <h1>{t("Lote de cartas para imprimir", "Batch of letters to print")}</h1>
         <p style={{ marginTop: "4pt" }}>
-          {longDay(now.toISOString())} · {count(batch.counts.rounds, "ronda", "rondas")} de{" "}
-          {count(batch.counts.clients, "cliente", "clientes")} · {count(batch.counts.letters, "carta", "cartas")}
+          {longDay(now.toISOString(), locale)} ·{" "}
+          {t(
+            `${count(batch.counts.rounds, "ronda", "rondas")} de ${count(batch.counts.clients, "cliente", "clientes")} · ${count(batch.counts.letters, "carta", "cartas")}`,
+            `${count(batch.counts.rounds, "round", "rounds")} for ${count(batch.counts.clients, "client", "clients")} · ${count(batch.counts.letters, "letter", "letters")}`,
+          )}
         </p>
         <table className="pl-list">
           <thead>
             <tr>
-              <th style={{ width: "1.55in" }}>Cliente</th>
-              <th style={{ width: "0.6in" }}>Ronda</th>
-              <th>Carta para</th>
-              <th className="pl-tick">Impresa</th>
-              <th className="pl-tick">Firmada</th>
-              <th className="pl-tick">Enviada</th>
+              <th style={{ width: "1.55in" }}>{t("Cliente", "Client")}</th>
+              <th style={{ width: "0.6in" }}>{t("Ronda", "Round")}</th>
+              <th>{t("Carta para", "Letter to")}</th>
+              <th className="pl-tick">{t("Impresa", "Printed")}</th>
+              <th className="pl-tick">{t("Firmada", "Signed")}</th>
+              <th className="pl-tick">{t("Enviada", "Mailed")}</th>
             </tr>
           </thead>
           <tbody>
@@ -168,8 +179,10 @@ function Cover({ batch, now }: { batch: PrintBatch; now: Date }) {
           </tbody>
         </table>
         <p className="pl-small" style={{ marginTop: "0.25in" }}>
-          Después de cada carta que lleva copias sale una hoja «Adjuntar» con lo que va en su sobre. Esas hojas y esta
-          son para el equipo: no van en ningún sobre.
+          {t(
+            "Después de cada carta que lleva copias sale una hoja «Adjuntar» con lo que va en su sobre. Esas hojas y esta son para el equipo: no van en ningún sobre.",
+            "Each letter that needs copies is followed by an “Enclose” sheet listing what goes in its envelope. Those sheets and this one are for the team: they don't go in any envelope.",
+          )}
         </p>
       </div>
     </Sheet>
@@ -212,16 +225,20 @@ function LetterSheet({ letter }: { letter: PrintLetter }) {
   );
 }
 
-function Slip({ letter }: { letter: PrintLetter }) {
+function Slip({ letter, locale }: { letter: PrintLetter; locale: StaffLocale }) {
+  const t = useTx();
   return (
     <Sheet kind="slip" className="pl-note">
-      <p className="pl-kicker">Recordatorio para el equipo · no va en el sobre</p>
-      <h1>{slipLine(letter.enclosures)}</h1>
+      <p className="pl-kicker">{t("Recordatorio para el equipo · no va en el sobre", "Reminder for the team · doesn't go in the envelope")}</p>
+      <h1>{slipLine(letter.enclosures, locale)}</h1>
       <p style={{ marginTop: "6pt" }}>
-        En el sobre de la carta anterior: {letter.clientName}, ronda {letter.roundNumber}, para {letter.recipient.name}.
+        {t(
+          `En el sobre de la carta anterior: ${letter.clientName}, ronda ${letter.roundNumber}, para ${letter.recipient.name}.`,
+          `In the envelope of the letter before this: ${letter.clientName}, round ${letter.roundNumber}, to ${letter.recipient.name}.`,
+        )}
       </p>
       <ul className="pl-slip-list">
-        {slipNames(letter.enclosures).map((name) => (
+        {slipNames(letter.enclosures, locale).map((name) => (
           <li key={name}>
             <Box />
             <span>{name.charAt(0).toUpperCase() + name.slice(1)}</span>
@@ -229,7 +246,10 @@ function Slip({ letter }: { letter: PrintLetter }) {
         ))}
       </ul>
       <p className="pl-small" style={{ marginTop: "0.3in" }}>
-        Las copias son las fotos que subió el cliente. Se imprimen aparte y van detrás de la carta.
+        {t(
+          "Las copias son las fotos que subió el cliente. Se imprimen aparte y van detrás de la carta.",
+          "The copies are the photos the client uploaded. Print them separately and put them behind the letter.",
+        )}
       </p>
     </Sheet>
   );
@@ -237,6 +257,8 @@ function Slip({ letter }: { letter: PrintLetter }) {
 
 function PrintView() {
   const params = useSearchParams();
+  const t = useTx();
+  const { locale } = useStaffLocale();
   const { data, ready: clientsReady, clients, now, reload } = useStaff();
   // Letters to creditors and collectors print with the address book's address, and wait without one.
   const { furnishers, ready: bookReady } = useMail();
@@ -245,7 +267,10 @@ function PrintView() {
   const ready = clientsReady && bookReady && lettersReady;
   const requested = params.get(ROUND_REFS_PARAM);
   const refs = useMemo(() => parseRoundRefs(requested), [requested]);
-  const batch = useMemo(() => buildPrintBatch(clients, refs, now, { furnishers, letterVersions }), [clients, refs, now, furnishers, letterVersions]);
+  const batch = useMemo(
+    () => buildPrintBatch(clients, refs, now, { furnishers, letterVersions, locale }),
+    [clients, refs, now, furnishers, letterVersions, locale],
+  );
 
   const stackRef = useRef<HTMLDivElement>(null);
   /** Pages on paper, measured from the sheets on screen (they are the same size as the paper). */
@@ -273,7 +298,10 @@ function PrintView() {
 
   const { counts, toMark } = batch;
   const markClients = new Set(toMark.map((ref) => ref.clientId)).size;
-  const markSummary = `${count(toMark.length, "ronda", "rondas")} de ${count(markClients, "cliente", "clientes")}`;
+  const markSummary = t(
+    `${count(toMark.length, "ronda", "rondas")} de ${count(markClients, "cliente", "clientes")}`,
+    `${count(toMark.length, "round", "rounds")} for ${count(markClients, "client", "clients")}`,
+  );
   const shownPages = pages ?? counts.pagesAtLeast;
 
   const mark = async () => {
@@ -284,7 +312,7 @@ function PrintView() {
       setMarked({ rounds: toMark.length, clients: markClients });
     } catch (error) {
       // With the database the server checks every round again; one it refuses is not marked.
-      window.alert(error instanceof Error && error.message ? error.message : "No se pudo marcar como enviadas. Intenta de nuevo.");
+      window.alert(staffMessage(error instanceof Error && error.message ? error.message : "No se pudo marcar como enviadas. Intenta de nuevo.", locale));
     }
     setConfirming(false);
     await reload();
@@ -298,28 +326,35 @@ function PrintView() {
       <div className="pl-screen">
         <Link href="/equipo" className="inline-flex items-center gap-1 text-[14px] font-medium text-blue-700">
           <Icon name="chevron" size={16} className="rotate-180" />
-          Inicio
+          {t("Inicio", "Home")}
         </Link>
-        <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-slate-900">Imprimir cartas</h1>
+        <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{t("Imprimir cartas", "Print letters")}</h1>
 
         {counts.letters === 0 ? (
           <div className="card mt-5 px-5 py-6 text-[15px] leading-snug text-slate-600" data-testid="print-empty">
-            No hay cartas para imprimir. Elige las rondas en «Listas para enviar», en el inicio, o abre la ronda desde
-            la página del cliente.
+            {t(
+              "No hay cartas para imprimir. Elige las rondas en «Listas para enviar», en el inicio, o abre la ronda desde la página del cliente.",
+              "There are no letters to print. Choose the rounds under “Ready to send” on the home screen, or open the round from the client's page.",
+            )}
           </div>
         ) : (
           <div className="card mt-5 px-5 py-4" data-testid="print-toolbar">
             <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
               <p className="text-[16px] font-semibold tabular-nums text-slate-900" data-testid="print-counts">
-                {count(counts.letters, "carta", "cartas")} · {count(shownPages, "página", "páginas")}
+                {t(
+                  `${count(counts.letters, "carta", "cartas")} · ${count(shownPages, "página", "páginas")}`,
+                  `${count(counts.letters, "letter", "letters")} · ${count(shownPages, "page", "pages")}`,
+                )}
                 <span className="block text-[13px] font-normal text-slate-500">
-                  {count(counts.rounds, "ronda", "rondas")} de {count(counts.clients, "cliente", "clientes")} · 1 hoja de
-                  control · {count(counts.slips, "hoja «Adjuntar»", "hojas «Adjuntar»")}
+                  {t(
+                    `${count(counts.rounds, "ronda", "rondas")} de ${count(counts.clients, "cliente", "clientes")} · 1 hoja de control · ${count(counts.slips, "hoja «Adjuntar»", "hojas «Adjuntar»")}`,
+                    `${count(counts.rounds, "round", "rounds")} for ${count(counts.clients, "client", "clients")} · 1 control sheet · ${count(counts.slips, "“Enclose” sheet", "“Enclose” sheets")}`,
+                  )}
                 </span>
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <button type="button" onClick={() => window.print()} className={PRIMARY_BUTTON}>
-                  Imprimir
+                  {t("Imprimir", "Print")}
                 </button>
                 <button
                   type="button"
@@ -327,7 +362,7 @@ function PrintView() {
                   disabled={toMark.length === 0 || confirming}
                   className={SECONDARY_BUTTON}
                 >
-                  Marcar como enviadas por correo
+                  {t("Marcar como enviadas por correo", "Mark as mailed")}
                 </button>
               </div>
             </div>
@@ -335,22 +370,24 @@ function PrintView() {
             {confirming && toMark.length > 0 && (
               <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3.5" role="group" aria-labelledby="confirmar-envio" data-testid="mark-confirm">
                 <p id="confirmar-envio" className="text-[15px] font-semibold leading-snug text-slate-900">
-                  ¿Marcar {markSummary} como enviadas por correo?
+                  {t(`¿Marcar ${markSummary} como enviadas por correo?`, `Mark ${markSummary} as mailed?`)}
                 </p>
                 <p className="mt-1 text-[14px] leading-snug text-slate-700">
                   {batch.rounds
                     .filter((r) => !r.alreadySent)
-                    .map((r) => `${r.letters[0]!.clientName} (ronda ${r.round.number})`)
+                    .map((r) => t(`${r.letters[0]!.clientName} (ronda ${r.round.number})`, `${r.letters[0]!.clientName} (round ${r.round.number})`))
                     .join(" · ")}
-                  . Hazlo cuando los sobres ya estén en el correo: desde ese día el sistema cuenta los{" "}
-                  {RESPONSE_WINDOW_DAYS} días de respuesta.
+                  {t(
+                    `. Hazlo cuando los sobres ya estén en el correo: desde ese día el sistema cuenta los ${RESPONSE_WINDOW_DAYS} días de respuesta.`,
+                    `. Do this once the envelopes are in the mail: from that day the system counts the ${RESPONSE_WINDOW_DAYS} days for answers.`,
+                  )}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button type="button" onClick={mark} disabled={working} className={PRIMARY_BUTTON_COMPACT}>
-                    Sí, marcar {count(toMark.length, "ronda", "rondas")}
+                    {t(`Sí, marcar ${count(toMark.length, "ronda", "rondas")}`, `Yes, mark ${count(toMark.length, "round", "rounds")}`)}
                   </button>
                   <button type="button" onClick={() => setConfirming(false)} className={SECONDARY_BUTTON_COMPACT}>
-                    Cancelar
+                    {t("Cancelar", "Cancel")}
                   </button>
                 </div>
               </div>
@@ -360,35 +397,37 @@ function PrintView() {
               <p className="mt-4 flex items-start gap-2.5 rounded-2xl bg-green-50 px-4 py-3 text-[14px] leading-snug text-green-700" role="status" data-testid="mark-done">
                 <Icon name="check" size={18} className="mt-px shrink-0" />
                 <span>
-                  {count(marked.rounds, "ronda marcada", "rondas marcadas")} como {marked.rounds === 1 ? "enviada" : "enviadas"} por
-                  correo, de {count(marked.clients, "cliente", "clientes")}. El sistema vuelve a importar cada reporte en{" "}
-                  {RESPONSE_WINDOW_DAYS} días.
-                  {data.demo && " (En la demo solo quedan marcadas.)"}
+                  {t(
+                    `${count(marked.rounds, "ronda marcada", "rondas marcadas")} como ${marked.rounds === 1 ? "enviada" : "enviadas"} por correo, de ${count(marked.clients, "cliente", "clientes")}. El sistema vuelve a importar cada reporte en ${RESPONSE_WINDOW_DAYS} días.`,
+                    `${count(marked.rounds, "round", "rounds")} marked as mailed, for ${count(marked.clients, "client", "clients")}. The system imports each report again in ${RESPONSE_WINDOW_DAYS} days.`,
+                  )}
+                  {data.demo && t(" (En la demo solo quedan marcadas.)", " (In the demo they're only marked.)")}
                 </span>
               </p>
             )}
             {!marked && toMark.length === 0 && (
               <p className="mt-3 text-[13px] leading-snug text-slate-500">
-                Estas rondas ya están marcadas como enviadas. Lo que ves es una copia.
+                {t("Estas rondas ya están marcadas como enviadas. Lo que ves es una copia.", "These rounds are already marked as mailed. What you see is a copy.")}
               </p>
             )}
 
             <p className="mt-3 border-t hairline pt-3 text-xs leading-relaxed text-slate-500">
-              En el cuadro de impresión: papel tamaño Carta, escala 100 %, sin encabezados ni pies de página. Con la hoja
-              doblada en tres, la dirección del destinatario queda en la ventana de un sobre #10. Las copias de
-              identificación y de domicilio son las fotos del cliente y se imprimen aparte
-              {data.demo ? "; en la demo no hay ninguna." : "."}
+              {t(
+                "En el cuadro de impresión: papel tamaño Carta, escala 100 %, sin encabezados ni pies de página. Con la hoja doblada en tres, la dirección del destinatario queda en la ventana de un sobre #10. Las copias de identificación y de domicilio son las fotos del cliente y se imprimen aparte",
+                "In the print dialog: Letter paper, 100% scale, no headers or footers. With the sheet folded in thirds, the recipient's address shows in the window of a #10 envelope. The ID and proof-of-address copies are the client's photos and print separately",
+              )}
+              {data.demo ? t("; en la demo no hay ninguna.", "; the demo has none.") : "."}
             </p>
           </div>
         )}
 
         {batch.skipped.length > 0 && (
           <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900" data-testid="print-skipped">
-            <p className="font-semibold">No se {batch.skipped.length === 1 ? "incluye" : "incluyen"}:</p>
+            <p className="font-semibold">{t(`No se ${batch.skipped.length === 1 ? "incluye" : "incluyen"}:`, "Left out:")}</p>
             <ul className="mt-1 space-y-0.5">
               {batch.skipped.map((s) => (
                 <li key={`${s.ref.clientId}:${s.ref.roundNumber}`}>
-                  {s.clientName ?? s.ref.clientId}, ronda {s.ref.roundNumber}. {s.reason}
+                  {s.clientName ?? s.ref.clientId}, {t("ronda", "round")} {s.ref.roundNumber}. {s.reason}
                 </li>
               ))}
             </ul>
@@ -403,7 +442,7 @@ function PrintView() {
             <Cover batch={batch} now={now} />
             {batch.letters.flatMap((letter) => [
               <LetterSheet key={letter.id} letter={letter} />,
-              ...(letter.enclosures.length > 0 ? [<Slip key={`${letter.id}-slip`} letter={letter} />] : []),
+              ...(letter.enclosures.length > 0 ? [<Slip key={`${letter.id}-slip`} letter={letter} locale={locale} />] : []),
             ])}
           </div>
         </div>

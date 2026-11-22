@@ -49,8 +49,8 @@ export const CHIPS: Record<ChipKey, ChipInfo> = {
   partidas: {
     key: "partidas",
     label: "Lista de partidas",
-    help: "Las cuentas o datos que el cliente marcó, una por línea, cada una con el motivo que el cliente eligió. Va sola en su párrafo.",
-    attorneyLabel: "[the items the client disputed, one per line, each followed by the reason the client chose]",
+    help: "Las cuentas o datos que el cliente marcó, una por línea, cada una con el motivo que el cliente eligió y, si el cliente decidió incluirlos, los datos de su reporte que tienen que ver con ese motivo. Va sola en su párrafo.",
+    attorneyLabel: "[the items the client disputed, one per line, each followed by the reason the client chose and, only where the client chose to include them, the facts from the client's own report that relate to that reason]",
     optional: false,
   },
   detalles: {
@@ -89,6 +89,33 @@ export const CHIPS: Record<ChipKey, ChipInfo> = {
     optional: true,
   },
 };
+
+/** Each chip's label and help for a staff member whose console is in English (the attorney's text stays attorneyLabel). */
+export const CHIP_TEXT_EN: Record<ChipKey, { label: string; help: string }> = {
+  partidas: {
+    label: "Item list",
+    help: "The accounts or details the client marked, one per line, each with the reason the client chose and, if the client chose to include them, the details from their report that relate to that reason. Goes alone in its paragraph.",
+  },
+  detalles: {
+    label: "Client's words",
+    help: "What the client wrote in their own words. The paragraph that has it prints only if the client wrote something.",
+  },
+  sin_detalles: {
+    label: "Only if they wrote nothing",
+    help: "Marks a paragraph that prints only when the client wrote nothing. Prints no text.",
+  },
+  frase_adjuntos: {
+    label: "Enclosures sentence",
+    help: `Prints “${ENCLOSED_SENTENCE}” only when the letter has enclosed documents.`,
+  },
+  nombre: { label: "Client's name", help: "The client's full name, as it shows on their account." },
+  destinatario: { label: "Recipient", help: "The name of the bureau or the company the letter goes to." },
+};
+
+/** A chip's label and help in the member's language. */
+export function chipText(key: ChipKey, locale: "en" | "es"): { label: string; help: string } {
+  return locale === "es" ? { label: CHIPS[key].label, help: CHIPS[key].help } : CHIP_TEXT_EN[key];
+}
 
 export const CHIP_KEYS = Object.keys(CHIPS) as ChipKey[];
 
@@ -147,7 +174,7 @@ export function renderSource(templateKey: string, source: LetterSource, ctx: Let
   const value = (key: string): string => {
     switch (key) {
       case "partidas":
-        return itemLines(ctx.items, letterPrintsReasons(templateKey) ? ctx.itemReasons : undefined);
+        return letterPrintsReasons(templateKey) ? itemLines(ctx.items, ctx.itemReasons, ctx.itemDetails) : itemLines(ctx.items);
       case "detalles":
         return details;
       case "sin_detalles":

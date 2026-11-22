@@ -1,5 +1,6 @@
-import { LocaleProvider } from "@/lib/i18n";
+import RequestLocaleProvider from "@/lib/i18n/RequestLocaleProvider";
 import { BRAND } from "@/lib/brand";
+import { inRequestLocale } from "@/lib/i18n/server";
 import PortalContent from "@/components/partners/PortalContent";
 
 // The partner portal. With a database, the proxy requires a signed-in session
@@ -7,17 +8,16 @@ import PortalContent from "@/components/partners/PortalContent";
 // (/api/partners/portal), so row level security decides what they see. In the
 // demo it shows an invented partner.
 
-export const metadata = {
-  title: `Portal de socios · ${BRAND.name}`,
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata() {
+  return { title: await inRequestLocale({ en: `Partner portal · ${BRAND.name}`, es: `Portal de socios · ${BRAND.name}` }), robots: { index: false, follow: false } };
+}
 
 export const dynamic = "force-dynamic";
 
 export default function SociosPortal() {
   return (
-    <LocaleProvider>
+    <RequestLocaleProvider>
       <PortalContent />
-    </LocaleProvider>
+    </RequestLocaleProvider>
   );
 }

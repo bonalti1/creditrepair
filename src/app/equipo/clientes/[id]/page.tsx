@@ -10,11 +10,12 @@ import { count, formatBytes, formatPhone, longDay, relativeDay, shortDateTime, s
 import { staffLetterText } from "@/lib/staff/letters";
 import type { LetterVersion } from "@/lib/letters/versions/versions";
 import { useLetterVersions } from "@/lib/letters/versions/useLetterVersions";
-import { exceptionMessage, STAFF_MESSAGE_RULES, whatsappHref } from "@/lib/staff/messages";
+import { exceptionMessage, STAFF_MESSAGE_RULE_TEXT, whatsappHref } from "@/lib/staff/messages";
+import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import { roundRefsHref, sendRefsHref } from "@/lib/staff/printBatch";
 import type { FurnisherEntry } from "@/lib/mail/furnishers";
 import { addressBookHref, chosenMailClass, letterAsItWillGo, letterDestination } from "@/lib/mail/sendPlan";
-import { returnReasonEs } from "@/lib/mail/tracking";
+import { returnReason } from "@/lib/mail/tracking";
 import { useMail } from "@/lib/mail/useMail";
 import { personExceptions } from "@/lib/autopilot/queue";
 import { useAutopilot } from "@/lib/autopilot/useAutopilot";
@@ -32,7 +33,7 @@ import {
   reviewProgress,
   sendableRound,
   sendBlockReason,
-  STAGES,
+  STAGE_TEXT,
 } from "@/lib/staff/stage";
 import { clientTimeline } from "@/lib/staff/timeline";
 import { clientActivity } from "@/lib/staff/activity";
@@ -56,6 +57,8 @@ import { reasonLabel } from "@/lib/ux/disputeReason";
 import { itemFacts, itemTitle } from "@/lib/ux/itemDisplay";
 import Icon from "@/components/Icon";
 import ItemFacts from "@/components/ItemFacts";
+import DataChecks from "@/components/DataChecks";
+import { checksForItem, dataChecks } from "@/lib/domain/checks";
 import ActivityList from "@/components/staff/ActivityList";
 import AssignmentCard from "@/components/staff/AssignmentCard";
 import LeadSourceCard from "@/components/staff/LeadSourceCard";
@@ -67,6 +70,7 @@ import IntakeChecks from "@/components/staff/IntakeChecks";
 import {
   ActorTag,
   Chip,
+  ClientLanguageTag,
   DeniedNote,
   PRIMARY_BUTTON,
   QUIET_BUTTON,
@@ -87,35 +91,39 @@ import {
 //
 // The client's answers are shown, never edited: staff cannot mark an item as
 // inaccurate here or anywhere else in the console.
+//
+// In the member's language; what goes to the client (the WhatsApp drafts, a
+// reply) is in the client's, and says so (ClientLanguageTag).
 
 const BUREAU: Record<Bureau, string> = { equifax: "Equifax", experian: "Experian", transunion: "TransUnion" };
 
-const DOCUMENT: Record<DocumentKind, string> = {
-  government_id: "Identificación con foto",
-  proof_of_address: "Comprobante de domicilio",
-  ssn_card: "Tarjeta de Seguro Social",
-  identity_theft_report: "Reporte de robo de identidad",
+const DOCUMENT: Record<DocumentKind, { es: string; en: string }> = {
+  government_id: { es: "Identificación con foto", en: "Photo ID" },
+  proof_of_address: { es: "Comprobante de domicilio", en: "Proof of address" },
+  ssn_card: { es: "Tarjeta de Seguro Social", en: "Social Security card" },
+  identity_theft_report: { es: "Reporte de robo de identidad", en: "Identity theft report" },
 };
 
-const ROUND_STATUS: Record<RoundStatus, { label: string; tone: string }> = {
-  draft: { label: "En preparación", tone: "bg-slate-100 text-slate-600" },
-  ready: { label: "Lista para enviar", tone: "bg-blue-50 text-blue-700" },
-  mailed: { label: "Enviada", tone: "bg-green-50 text-green-700" },
-  responded: { label: "Con respuesta", tone: "bg-green-50 text-green-700" },
+const ROUND_STATUS: Record<RoundStatus, { label: { es: string; en: string }; tone: string }> = {
+  draft: { label: { es: "En preparación", en: "Being prepared" }, tone: "bg-slate-100 text-slate-600" },
+  ready: { label: { es: "Lista para enviar", en: "Ready to send" }, tone: "bg-blue-50 text-blue-700" },
+  mailed: { label: { es: "Enviada", en: "Mailed" }, tone: "bg-green-50 text-green-700" },
+  responded: { label: { es: "Con respuesta", en: "Answered" }, tone: "bg-green-50 text-green-700" },
 };
 
-const MAIL_STATUS: Record<MailStatus, { label: string; tone: string }> = {
-  not_sent: { label: "Sin enviar", tone: "bg-slate-100 text-slate-600" },
-  in_transit: { label: "En camino", tone: "bg-blue-50 text-blue-700" },
-  delivered: { label: "Entregada", tone: "bg-green-50 text-green-700" },
-  returned: { label: "Devuelta", tone: "bg-red-50 text-red-700" },
-  undeliverable: { label: "No se pudo entregar", tone: "bg-red-50 text-red-700" },
+const MAIL_STATUS: Record<MailStatus, { label: { es: string; en: string }; tone: string }> = {
+  not_sent: { label: { es: "Sin enviar", en: "Not sent" }, tone: "bg-slate-100 text-slate-600" },
+  in_transit: { label: { es: "En camino", en: "In transit" }, tone: "bg-blue-50 text-blue-700" },
+  delivered: { label: { es: "Entregada", en: "Delivered" }, tone: "bg-green-50 text-green-700" },
+  returned: { label: { es: "Devuelta", en: "Returned" }, tone: "bg-red-50 text-red-700" },
+  undeliverable: { label: { es: "No se pudo entregar", en: "Undeliverable" }, tone: "bg-red-50 text-red-700" },
 };
 
 function AnswerChip({ answer }: { answer: ItemAnswer | undefined }) {
-  if (answer?.status === "inaccurate") return <Chip tone="bg-blue-50 text-blue-700">Inexacto</Chip>;
-  if (answer?.status === "correct") return <Chip tone="bg-slate-100 text-slate-600">Correcto</Chip>;
-  return <Chip tone={WAITING_TONE}>Sin responder</Chip>;
+  const t = useTx();
+  if (answer?.status === "inaccurate") return <Chip tone="bg-blue-50 text-blue-700">{t("Inexacto", "Inaccurate")}</Chip>;
+  if (answer?.status === "correct") return <Chip tone="bg-slate-100 text-slate-600">{t("Correcto", "Correct")}</Chip>;
+  return <Chip tone={WAITING_TONE}>{t("Sin responder", "Not answered")}</Chip>;
 }
 
 /**
@@ -124,16 +132,21 @@ function AnswerChip({ answer }: { answer: ItemAnswer | undefined }) {
  * carries no reason, and it is marked quietly so the team knows why.
  */
 function AnswerReason({ answer }: { answer: ItemAnswer | undefined }) {
+  const { locale } = useStaffLocale();
+  const t = useTx();
   if (answer?.status !== "inaccurate") return null;
-  const label = reasonLabel(answer.reasonCode, "es");
+  const label = reasonLabel(answer.reasonCode, locale);
   if (!label) {
     return (
       <span
         data-testid="sin-motivo"
-        title="Confirmado antes de que se pidiera un motivo. Cuenta igual; su línea en la carta va sin motivo."
+        title={t(
+          "Confirmado antes de que se pidiera un motivo. Cuenta igual; su línea en la carta va sin motivo.",
+          "Confirmed before a reason was asked for. It still counts; its line in the letter goes without a reason.",
+        )}
         className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-slate-300 px-2 py-0.5 text-[11px] font-medium text-slate-500"
       >
-        sin motivo
+        {t("sin motivo", "no reason")}
       </span>
     );
   }
@@ -151,6 +164,8 @@ function AnswerReason({ answer }: { answer: ItemAnswer | undefined }) {
  * address, or that it has none yet.
  */
 function LetterMailInfo({ round, letter, furnishers }: { round: StaffRound; letter: StaffLetter; furnishers: readonly FurnisherEntry[] }) {
+  const { locale } = useStaffLocale();
+  const t = useTx();
   const mail = letter.mail;
   if (!mail) {
     if (round.status !== "ready" && round.status !== "draft") return null;
@@ -159,13 +174,13 @@ function LetterMailInfo({ round, letter, furnishers }: { round: StaffRound; lett
       <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] leading-snug" data-testid="letter-mail">
         <MailClassChip mailClass={chosenMailClass(letter)} />
         {destination.to ? (
-          letter.recipient.type === "furnisher" && <span className="text-slate-500">Dirección de la libreta de acreedores</span>
+          letter.recipient.type === "furnisher" && <span className="text-slate-500">{t("Dirección de la libreta de acreedores", "Address from the creditor address book")}</span>
         ) : (
           <span className="text-red-700">
             {destination.blocker}{" "}
             {destination.missingCompany && (
               <Link href={addressBookHref(destination.missingCompany, destination.entryId)} className="font-semibold underline underline-offset-2">
-                Agregar la dirección
+                {t("Agregar la dirección", "Add the address")}
               </Link>
             )}
           </span>
@@ -177,26 +192,26 @@ function LetterMailInfo({ round, letter, furnishers }: { round: StaffRound; lett
     <div className="mt-2" data-testid="letter-mail">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] leading-snug text-slate-600">
         <MailClassChip mailClass={mail.mailClass} />
-        {mail.provider === "simulated" && <SimulatedPill title="Registro de demostración o sin clave de Lob: no salió por correo." />}
-        {mail.provider === "print" && <span className="text-slate-500">Impresa en la oficina</span>}
-        {mail.mailedAt && <span>Enviada el {shortDay(mail.mailedAt)}</span>}
+        {mail.provider === "simulated" && <SimulatedPill title={t("Registro de demostración o sin clave de Lob: no salió por correo.", "A demo record, or no Lob key: it didn't go out by mail.")} />}
+        {mail.provider === "print" && <span className="text-slate-500">{t("Impresa en la oficina", "Printed in the office")}</span>}
+        {mail.mailedAt && <span>{t(`Enviada el ${shortDay(mail.mailedAt, "es")}`, `Mailed ${shortDay(mail.mailedAt, "en")}`)}</span>}
         {/* First class: the mail service's estimate, not a USPS scan (mail/tracking.ts). */}
         {mail.deliveredAt && (
           <span className="font-medium text-green-700">
-            · entregada el {shortDay(mail.deliveredAt)}
-            {mail.mailClass === "first_class" ? " (estimado del correo)" : ""}
+            {t(`· entregada el ${shortDay(mail.deliveredAt, "es")}`, `· delivered ${shortDay(mail.deliveredAt, "en")}`)}
+            {mail.mailClass === "first_class" ? t(" (estimado del correo)", " (mail service's estimate)") : ""}
           </span>
         )}
         {mail.returnedAt && (
           <span className="font-medium text-red-700">
-            · devuelta el {shortDay(mail.returnedAt)}
-            {mail.returnReason ? ` (${returnReasonEs(mail.returnReason)})` : ""}
+            {t(`· devuelta el ${shortDay(mail.returnedAt, "es")}`, `· returned ${shortDay(mail.returnedAt, "en")}`)}
+            {mail.returnReason ? ` (${returnReason(mail.returnReason, locale)})` : ""}
           </span>
         )}
       </div>
       {mail.trackingNumber && (
         <p className="mt-1 text-[13px] leading-snug text-slate-600">
-          Rastreo USPS: <TrackingLink trackingNumber={mail.trackingNumber} />
+          {t("Rastreo USPS:", "USPS tracking:")} <TrackingLink trackingNumber={mail.trackingNumber} />
         </p>
       )}
       <MailTimeline mail={mail} />
@@ -221,6 +236,8 @@ function Letter({
 }) {
   // A creditor's or collector's letter shows the address it will go to (the address book's), never the report's.
   const letter = useMemo(() => letterAsItWillGo(recorded, round, furnishers), [recorded, round, furnishers]);
+  const { locale } = useStaffLocale();
+  const t = useTx();
   // The text as it is mailed, with the reason the client gave after each item.
   // Letters are in English: that is the language the bureaus work in.
   // With the attorney-approved text of the letter (letters/versions), the one the server mails.
@@ -237,27 +254,34 @@ function Letter({
           <p className="text-[15px] font-medium leading-snug text-slate-900">{letter.recipient.name}</p>
           <p className="text-[13px] leading-snug text-slate-500">{letter.recipient.addressLines.join(", ")}</p>
         </div>
-        <Chip tone={MAIL_STATUS[letter.mailStatus].tone}>{MAIL_STATUS[letter.mailStatus].label}</Chip>
+        <Chip tone={MAIL_STATUS[letter.mailStatus].tone}>{MAIL_STATUS[letter.mailStatus].label[locale]}</Chip>
       </div>
       <LetterMailInfo round={round} letter={letter} furnishers={furnishers} />
       {letter.items.length === 0 ? (
-        <p className="mt-1 text-[13px] leading-snug text-slate-500">Pide una copia del expediente del cliente. No disputa ningún punto.</p>
+        <p className="mt-1 text-[13px] leading-snug text-slate-500">
+          {t("Pide una copia del expediente del cliente. No disputa ningún punto.", "Asks for a copy of the client's file. It doesn't dispute any item.")}
+        </p>
       ) : (
         <ul className="mt-1.5 space-y-0.5">
           {letter.items.map((item) => {
-            const { kicker, title } = itemTitle(item, "es");
+            const { kicker, title } = itemTitle(item, locale);
             return (
               <li key={item.fingerprint} className="break-words text-[13px] leading-snug text-slate-600">
                 {kicker ? `${kicker}: ${title}` : title}
                 {removed.has(item.fingerprint) ? (
                   <span className="font-medium text-green-700" data-testid="round-result">
                     {" "}
-                    · ya no aparece en el reporte del {shortDay(removed.get(item.fingerprint)!.reportDate)}
+                    {t(
+                      `· ya no aparece en el reporte del ${shortDay(removed.get(item.fingerprint)!.reportDate, "es")}`,
+                      `· no longer on the ${shortDay(removed.get(item.fingerprint)!.reportDate, "en")} report`,
+                    )}
                   </span>
                 ) : (
                   answered && (
                     <span className={current.has(item.fingerprint) ? "text-slate-500" : "font-medium text-green-700"}>
-                      {current.has(item.fingerprint) ? " · sigue en el reporte nuevo" : " · ya no aparece en el reporte nuevo"}
+                      {current.has(item.fingerprint)
+                        ? t(" · sigue en el reporte nuevo", " · still on the new report")
+                        : t(" · ya no aparece en el reporte nuevo", " · no longer on the new report")}
                     </span>
                   )
                 )}
@@ -269,11 +293,11 @@ function Letter({
       <details className="group mt-2">
         <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden">
           <Icon name="doc" size={15} />
-          <span className="group-open:hidden">Ver la carta</span>
-          <span className="hidden group-open:inline">Ocultar la carta</span>
+          <span className="group-open:hidden">{t("Ver la carta", "See the letter")}</span>
+          <span className="hidden group-open:inline">{t("Ocultar la carta", "Hide the letter")}</span>
         </summary>
         <p className="mt-2 text-xs leading-relaxed text-slate-500">
-          Va en inglés, el idioma de trabajo de los burós, a nombre del cliente.
+          {t("Va en inglés, el idioma de trabajo de los burós, a nombre del cliente.", "It's in English, the language the bureaus work in, in the client's name.")}
         </p>
         <pre className="mt-1.5 max-h-96 overflow-y-auto whitespace-pre-wrap break-words rounded-2xl bg-slate-50 p-4 font-serif text-[14px] leading-relaxed text-slate-800">
           {body}
@@ -285,7 +309,8 @@ function Letter({
 
 export default function ClientePage() {
   const { id } = useParams<{ id: string }>();
-  const { data, team, ready: clientsReady, clients, now, reload, viewer, members, can } = useStaff();
+  const { data, team, ready: clientsReady, clients, now, reload, viewer, members, can, locale } = useStaff();
+  const t = useTx();
   // The furnisher address book: letters to creditors and collectors go only to a checked address in it.
   const { furnishers, ready: bookReady } = useMail();
   // The approved letter texts: the letters below read as they are mailed.
@@ -309,68 +334,81 @@ export default function ClientePage() {
   if (!client) {
     return (
       <main className="animate-rise">
-        <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">No encontramos a este cliente</h1>
-        <p className="mt-2 text-[15px] text-slate-500">Puede que no exista o que no esté entre los clientes que tu rol te deja ver.</p>
+        <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("No encontramos a este cliente", "We couldn't find this client")}</h1>
+        <p className="mt-2 text-[15px] text-slate-500">
+          {t("Puede que no exista o que no esté entre los clientes que tu rol te deja ver.", "They may not exist, or they aren't among the clients your role lets you see.")}
+        </p>
         <Link href="/equipo/clientes" className="mt-4 inline-block text-[15px] font-medium text-blue-700">
-          Volver a clientes
+          {t("Volver a clientes", "Back to clients")}
         </Link>
       </main>
     );
   }
 
   const stage = clientStage(client, now);
-  const step = nextStepFor(client, now, viewer);
+  const step = nextStepFor(client, now, viewer, locale);
+  const STAGES = STAGE_TEXT[locale];
+  const denied = (capability: Parameters<typeof deniedReason>[0]) => deniedReason(capability, locale);
   // What this member's role is shown and may do (permissions.ts; the data layer checks again).
   const caseView = can("case.view");
-  const exceptions = personExceptions(client, now, { furnishers, autopilot: env })
+  const exceptions = personExceptions(client, now, { furnishers, autopilot: env, locale })
     .map((p) => p.exception)
     .filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
-  const handled = handledExceptions(client, now, { furnishers }).filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
+  const handled = handledExceptions(client, now, { furnishers, locale }).filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
   const prepared = sendableRound(client, now, { furnishers });
   const round = can("rounds.send") ? prepared : null;
-  const activity = clientActivity(client, members).filter((e) => e.actor !== "client");
-  const blocked = stage === "ready_to_send" || stage === "next_round_ready" ? sendBlockReason(client, now, { furnishers }) : null;
+  const activity = clientActivity(client, members, locale).filter((e) => e.actor !== "client");
+  const blocked = stage === "ready_to_send" || stage === "next_round_ready" ? sendBlockReason(client, now, { furnishers, locale }) : null;
+  const at = (iso: string) => shortDateTime(iso, locale);
   // The agreement record, as rows: what is on file and when.
   const deadline = client.agreementSignedAt ? deadlineOf(clientAgreement(client)) : null;
   const acknowledgedAt = clientAgreement(client).disclosureAcknowledgedAt;
   const agreementRows: Array<[string, string]> = [
-    ["Declaración de derechos", acknowledgedAt ? `Recibida el ${shortDateTime(acknowledgedAt)}` : "Sin recibir"],
-    ["Contrato", client.agreementSignedAt ? `Firmado el ${shortDateTime(client.agreementSignedAt)}` : "Sin firmar"],
+    [t("Declaración de derechos", "Statement of rights"), acknowledgedAt ? t(`Recibida el ${at(acknowledgedAt)}`, `Received ${at(acknowledgedAt)}`) : t("Sin recibir", "Not received")],
+    [t("Contrato", "Contract"), client.agreementSignedAt ? t(`Firmado el ${at(client.agreementSignedAt)}`, `Signed ${at(client.agreementSignedAt)}`) : t("Sin firmar", "Not signed")],
     ...(client.agreementSignedAt
       ? ([
-          ["Versión del texto", client.agreementVersion ?? "Sin registro"],
+          [t("Versión del texto", "Text version"), client.agreementVersion ?? t("Sin registro", "Not recorded")],
           [
-            "Puede cancelar sin costo",
+            t("Puede cancelar sin costo", "Can cancel at no cost"),
             deadline
-              ? `Hasta el ${shortDateTime(deadline.toISOString())}${deadline.getTime() >= now.getTime() ? "" : " (ya pasó)"}`
-              : "Sin fecha",
+              ? t(
+                  `Hasta el ${at(deadline.toISOString())}${deadline.getTime() >= now.getTime() ? "" : " (ya pasó)"}`,
+                  `Until ${at(deadline.toISOString())}${deadline.getTime() >= now.getTime() ? "" : " (passed)"}`,
+                )
+              : t("Sin fecha", "No date"),
           ],
         ] as Array<[string, string]>)
       : []),
     ...(client.agreementCancelledAt
       ? ([
           [
-            "Cancelación",
-            `${shortDateTime(client.agreementCancelledAt)}, ${client.cancelledWithinWindow === false ? "después del plazo" : "dentro del plazo"}`,
+            t("Cancelación", "Cancellation"),
+            `${at(client.agreementCancelledAt)}, ${
+              client.cancelledWithinWindow === false ? t("después del plazo", "after the deadline") : t("dentro del plazo", "within the deadline")
+            }`,
           ],
         ] as Array<[string, string]>)
       : []),
     ...(client.serviceEndRequestedAt
-      ? ([["Pidió terminar el servicio", shortDateTime(client.serviceEndRequestedAt)]] as Array<[string, string]>)
+      ? ([[t("Pidió terminar el servicio", "Asked to end the service"), at(client.serviceEndRequestedAt)]] as Array<[string, string]>)
       : []),
   ];
   const review = reviewProgress(client);
-  const timeline = historyFor(clientTimeline(client, now), viewer);
+  const timeline = historyFor(clientTimeline(client, now, locale), viewer);
   const missing = missingDocuments(client);
   const rounds = [...client.rounds].sort((a, b) => b.number - a.number);
   // An identity theft claim needs its own document: it is listed as soon as it is being waited on.
-  const theftReportMissing = identityTheftItemsWithoutReport(client).length > 0;
+  const theftReportMissing = identityTheftItemsWithoutReport(client, locale).length > 0;
   const documents: DocumentKind[] = [
     ...REQUIRED_DOCUMENTS,
     ...client.documents.filter((d) => !REQUIRED_DOCUMENTS.includes(d)),
     ...(theftReportMissing ? (["identity_theft_report"] as const) : []),
   ];
   const samples = client.reportSamples ?? [];
+  // What the report's own data shows, per item (domain/checks.ts). Read-only:
+  // for answering the client's questions. Nothing on this page can apply it.
+  const checks = client.report ? dataChecks(client.report.items, client.report.pulledAt) : [];
 
   const markHandled = async (key: string) => {
     await data.resolveException(client.id, key);
@@ -387,27 +425,29 @@ export default function ClientePage() {
     <main className="animate-rise">
       <Link href="/equipo/clientes" className="inline-flex min-h-11 items-center gap-1 text-[14px] font-medium text-blue-700">
         <Icon name="chevron" size={16} className="rotate-180" />
-        Clientes
+        {t("Clientes", "Clients")}
       </Link>
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{fullName(client)}</h1>
         <StageChip stage={stage} />
       </div>
       <p className="mt-1 text-[14px] text-slate-500">
-        {client.state === "TX" ? "Texas" : client.state} · con ventas desde el {shortDay(client.createdAt)} · vendedor:{" "}
-        {memberName(members, client.salesperson)} · trabaja el caso: {client.assignedTo ? memberName(members, client.assignedTo) : "nadie todavía"} · última
-        actividad {relativeDay(client.lastActivityAt, now)}
+        {client.state === "TX" ? "Texas" : client.state} ·{" "}
+        {t(`con ventas desde el ${shortDay(client.createdAt, "es")}`, `with sales since ${shortDay(client.createdAt, "en")}`)} · {t("vendedor", "salesperson")}:{" "}
+        {memberName(members, client.salesperson, locale)} · {t("trabaja el caso", "working the case")}:{" "}
+        {client.assignedTo ? memberName(members, client.assignedTo, locale) : t("nadie todavía", "nobody yet")} · {t("última actividad", "last activity")}{" "}
+        {relativeDay(client.lastActivityAt, now, locale)} · <ClientLanguageTag client={client} />
       </p>
 
       <div className="mt-6 grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-6">
-          <section className="card px-5 py-5 sm:px-6" aria-label="Dónde está y qué sigue">
-            <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">Dónde está</p>
+          <section className="card px-5 py-5 sm:px-6" aria-label={t("Dónde está y qué sigue", "Where they are and what's next")}>
+            <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Dónde está", "Where they are")}</p>
             <p className="mt-1.5 text-[17px] leading-snug text-slate-900">{STAGES[stage].description}</p>
 
             <div className="mt-4 flex flex-col gap-4 border-t hairline pt-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">Qué sigue</p>
+                <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Qué sigue", "What's next")}</p>
                 <p className="mt-1">
                   <ActorTag actor={step.actor} />
                 </p>
@@ -416,28 +456,28 @@ export default function ClientePage() {
               {/* The send screen shows each letter's address, mail class and cost before anything goes out. */}
               {round && (
                 <Link href={sendRefsHref([{ clientId: client.id, roundNumber: round.number }])} className={`${PRIMARY_BUTTON} shrink-0`}>
-                  Enviar ronda {round.number} · {count(round.letters.length, "carta", "cartas")}
+                  {t(`Enviar ronda ${round.number} · ${count(round.letters.length, "carta", "cartas")}`, `Send round ${round.number} · ${count(round.letters.length, "letter", "letters")}`)}
                 </Link>
               )}
-              {prepared && !round && <DeniedNote>{deniedReason("rounds.send")}</DeniedNote>}
+              {prepared && !round && <DeniedNote>{denied("rounds.send")}</DeniedNote>}
               {stage === "lead" && can("clients.invite") && (
                 <Link href={`/equipo/invitar?cliente=${client.id}`} className={`${PRIMARY_BUTTON} shrink-0`}>
-                  Preparar su invitación
+                  {t("Preparar su invitación", "Prepare their invite")}
                 </Link>
               )}
             </div>
 
             {blocked && (
               <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900">
-                La ronda está preparada, pero todavía no se puede enviar. {blocked}
+                {t("La ronda está preparada, pero todavía no se puede enviar.", "The round is prepared, but it can't be sent yet.")} {blocked}
               </p>
             )}
           </section>
 
           {(exceptions.length > 0 || handled.length > 0) && (
             <section aria-labelledby="avisos">
-              <SectionTitle>
-                <span id="avisos">Necesita una persona</span>
+              <SectionTitle aside={exceptions.some((e) => e.action === "whatsapp") ? <ClientLanguageTag client={client} /> : undefined}>
+                <span id="avisos">{t("Necesita una persona", "Needs a person")}</span>
               </SectionTitle>
               <ul className="card overflow-hidden">
                 {exceptions.map((exception, index) => (
@@ -470,7 +510,7 @@ export default function ClientePage() {
                       )}
                       <button type="button" onClick={() => markHandled(exception.key)} className={QUIET_BUTTON}>
                         <Icon name="check" size={16} />
-                        Atendido
+                        {t("Atendido", "Handled")}
                       </button>
                     </div>
                   </li>
@@ -484,8 +524,14 @@ export default function ClientePage() {
                       <Icon name="check" size={13} strokeWidth={2.25} />
                     </span>
                     <p className="min-w-0 text-[14px] leading-snug text-slate-500">
-                      <span className="font-medium text-slate-700">Atendido {relativeDay(exception.handledAt, now)}.</span>{" "}
-                      {exception.sentence} Si sigue igual, vuelve a la lista el {formatDay(new Date(exception.returnsAt))}.
+                      <span className="font-medium text-slate-700">
+                        {t("Atendido", "Handled")} {relativeDay(exception.handledAt, now, locale)}.
+                      </span>{" "}
+                      {exception.sentence}{" "}
+                      {t(
+                        `Si sigue igual, vuelve a la lista el ${formatDay(new Date(exception.returnsAt), "es")}.`,
+                        `If nothing changes, it comes back to the list on ${formatDay(new Date(exception.returnsAt), "en")}.`,
+                      )}
                     </p>
                   </li>
                 ))}
@@ -502,7 +548,7 @@ export default function ClientePage() {
               by={staffAuthor()}
               canHold={can("rounds.send") && caseView}
               canOptOut={can("clients.followup")}
-              holdDenied={deniedReason("rounds.send")}
+              holdDenied={denied("rounds.send")}
               onChanged={async () => {
                 await Promise.all([reload(), reloadAutopilot()]);
               }}
@@ -511,12 +557,12 @@ export default function ClientePage() {
 
           {!caseView && (
             <p className="card px-5 py-4 text-[14px] leading-snug text-slate-600" data-testid="case-hidden">
-              {deniedReason("case.view")} Aquí ves su etapa, su acuerdo, sus documentos y sus notas.
+              {denied("case.view")} {t("Aquí ves su etapa, su acuerdo, sus documentos y sus notas.", "Here you see their stage, agreement, documents and notes.")}
             </p>
           )}
 
           {caseView && (
-            <Conversation client={client} data={data} now={now} onSent={reload} viewer={viewer} replyDenied={can("clients.reply") ? null : deniedReason("clients.reply")} />
+            <Conversation client={client} data={data} now={now} onSent={reload} viewer={viewer} replyDenied={can("clients.reply") ? null : denied("clients.reply")} />
           )}
 
           {caseView && client.pulses && client.pulses.length > 0 && <ClientPulse client={client} />}
@@ -527,7 +573,9 @@ export default function ClientePage() {
               aside={
                 <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
                   {client.report && (
-                    <span className="text-[13px] text-slate-500">Reporte del {longDay(client.report.pulledAt)}</span>
+                    <span className="text-[13px] text-slate-500">
+                      {t(`Reporte del ${longDay(client.report.pulledAt, "es")}`, `Report from ${longDay(client.report.pulledAt, "en")}`)}
+                    </span>
                   )}
                   {!importing && can("reports.import") && (
                     <button
@@ -539,13 +587,13 @@ export default function ClientePage() {
                       className="pressable inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full bg-blue-50 px-3.5 md:h-9 text-[13px] font-semibold text-blue-700 hover:bg-blue-100"
                     >
                       <Icon name="arrowUp" size={15} strokeWidth={2.25} />
-                      Importar reporte
+                      {t("Importar reporte", "Import report")}
                     </button>
                   )}
                 </span>
               }
             >
-              <span id="reporte">Reporte y respuestas del cliente</span>
+              <span id="reporte">{t("Reporte y respuestas del cliente", "Report and the client's answers")}</span>
             </SectionTitle>
 
             {importing && (
@@ -572,23 +620,27 @@ export default function ClientePage() {
 
             {!client.report ? (
               <div className="card px-5 py-6 text-[15px] leading-snug text-slate-500">
-                Todavía no hay reporte. Llega solo cuando el cliente activa su monitoreo de crédito, o lo trae el
-                equipo con «Importar reporte».
+                {t(
+                  "Todavía no hay reporte. Llega solo cuando el cliente activa su monitoreo de crédito, o lo trae el equipo con «Importar reporte».",
+                  "No report yet. It comes in on its own once the client turns on their credit monitoring, or the team brings it in with “Import report”.",
+                )}
               </div>
             ) : (
               <div className="card overflow-hidden">
                 <p className="px-5 py-3.5 text-[14px] leading-snug text-slate-600">
                   <span className="font-medium text-slate-900">
-                    {count(review.total, "punto", "puntos")}: {review.inaccurate} {review.inaccurate === 1 ? "inexacto" : "inexactos"},{" "}
-                    {review.correct} {review.correct === 1 ? "correcto" : "correctos"}, {review.pending} sin responder.
+                    {t(
+                      `${count(review.total, "punto", "puntos")}: ${review.inaccurate} ${review.inaccurate === 1 ? "inexacto" : "inexactos"}, ${review.correct} ${review.correct === 1 ? "correcto" : "correctos"}, ${review.pending} sin responder.`,
+                      `${count(review.total, "item", "items")}: ${review.inaccurate} inaccurate, ${review.correct} correct, ${review.pending} not answered.`,
+                    )}
                   </span>{" "}
-                  Las respuestas son del cliente. Aquí se leen, no se cambian.
+                  {t("Las respuestas son del cliente. Aquí se leen, no se cambian.", "The answers are the client's. You read them here; you don't change them.")}
                 </p>
                 <ul>
                   {client.report.items.map((item) => {
-                    const { kicker, title } = itemTitle(item, "es");
+                    const { kicker, title } = itemTitle(item, locale);
                     const answer = client.answers[item.fingerprint];
-                    const facts = itemFacts(item, "es");
+                    const facts = itemFacts(item, locale);
                     return (
                       <li key={item.fingerprint} className="border-t hairline px-5 py-3.5">
                         <div className="flex items-start justify-between gap-3">
@@ -607,24 +659,34 @@ export default function ClientePage() {
                         {answer?.status === "inaccurate" && (
                           <p className="mt-1 text-[14px] leading-snug text-slate-600">
                             {answer.reason ? `«${answer.reason}» ` : ""}
-                            <span className="text-slate-500">Confirmado por el cliente el {shortDay(answer.confirmedAt)}.</span>
+                            <span className="text-slate-500">
+                              {t(`Confirmado por el cliente el ${shortDay(answer.confirmedAt, "es")}.`, `Confirmed by the client ${shortDay(answer.confirmedAt, "en")}.`)}
+                            </span>
                           </p>
                         )}
                         {answer?.status === "inaccurate" && answer.reasonCode === "identity_theft" && (
                           <p className="mt-1 text-[13px] leading-snug text-slate-500">
-                            Este motivo requiere un reporte de robo de identidad de la FTC.{" "}
-                            {client.documents.includes("identity_theft_report") ? "Está en archivo." : "Todavía no está en archivo."}
+                            {t("Este motivo requiere un reporte de robo de identidad de la FTC.", "This reason needs an FTC identity theft report.")}{" "}
+                            {client.documents.includes("identity_theft_report") ? t("Está en archivo.", "It's on file.") : t("Todavía no está en archivo.", "It's not on file yet.")}
                           </p>
                         )}
                         {facts.length > 0 && (
                           <details className="group mt-1.5">
                             <summary className="flex min-h-11 cursor-pointer list-none items-center text-[13px] md:min-h-0 font-medium text-blue-700 underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden">
-                              <span className="group-open:hidden">Lo que dice el reporte</span>
-                              <span className="hidden group-open:inline">Ocultar</span>
+                              <span className="group-open:hidden">{t("Lo que dice el reporte", "What the report says")}</span>
+                              <span className="hidden group-open:inline">{t("Ocultar", "Hide")}</span>
                             </summary>
                             <ItemFacts facts={facts} variant="list" className="mt-2 max-w-md" />
                           </details>
                         )}
+                        <DataChecks
+                          checks={checksForItem(checks, item.fingerprint)}
+                          category={item.category}
+                          locale={locale}
+                          variant="staff"
+                          included={answer?.status === "inaccurate" ? answer.checkIds : undefined}
+                          className="mt-2 max-w-2xl"
+                        />
                       </li>
                     );
                   })}
@@ -636,10 +698,12 @@ export default function ClientePage() {
               <div className="card mt-4 overflow-hidden" data-testid="report-samples">
                 <p className="px-5 py-3.5 text-[14px] leading-snug text-slate-600">
                   <span className="font-medium text-slate-900">
-                    {count(samples.length, "muestra guardada", "muestras guardadas")}.
+                    {t(count(samples.length, "muestra guardada", "muestras guardadas"), count(samples.length, "saved sample", "saved samples"))}.
                   </span>{" "}
-                  Son reportes de proveedores que todavía no podemos leer. Se guardan tal como llegaron, para construir
-                  el lector con ellos; no cambian la etapa del cliente.
+                  {t(
+                    "Son reportes de proveedores que todavía no podemos leer. Se guardan tal como llegaron, para construir el lector con ellos; no cambian la etapa del cliente.",
+                    "These are reports from providers we can't read yet. They're kept exactly as they came, to build the reader from them; they don't change the client's stage.",
+                  )}
                 </p>
                 <ul>
                   {samples.map((sample) => (
@@ -648,11 +712,11 @@ export default function ClientePage() {
                         <span className="font-medium">{readerLabel(sample.provider)}</span>
                         <span className="text-slate-500">
                           {" "}
-                          · {sample.fileName ?? "texto pegado"} · {formatBytes(new Blob([sample.text]).size)}
+                          · {sample.fileName ?? t("texto pegado", "pasted text")} · {formatBytes(new Blob([sample.text]).size)}
                         </span>
                       </p>
                       <p className="shrink-0 text-[13px] text-slate-500">
-                        {shortDay(sample.savedAt)} · {sample.savedBy}
+                        {shortDay(sample.savedAt, locale)} · {sample.savedBy}
                       </p>
                     </li>
                   ))}
@@ -665,11 +729,11 @@ export default function ClientePage() {
           {caseView && (
           <section aria-labelledby="cartas" className="scroll-mt-28">
             <SectionTitle>
-              <span id="cartas" className="scroll-mt-28">Rondas y cartas</span>
+              <span id="cartas" className="scroll-mt-28">{t("Rondas y cartas", "Rounds and letters")}</span>
             </SectionTitle>
             {rounds.length === 0 ? (
               <div className="card px-5 py-6 text-[15px] leading-snug text-slate-500">
-                Todavía no hay cartas. El sistema las prepara cuando el cliente termina su revisión.
+                {t("Todavía no hay cartas. El sistema las prepara cuando el cliente termina su revisión.", "No letters yet. The system prepares them when the client finishes their review.")}
               </div>
             ) : (
               <div className="space-y-4">
@@ -677,11 +741,11 @@ export default function ClientePage() {
                   <div key={r.number} className="card overflow-hidden">
                     <div className="flex items-center justify-between gap-3 px-5 py-3.5">
                       <div className="min-w-0">
-                        <p className="text-[16px] font-semibold text-slate-900">Ronda {r.number}</p>
+                        <p className="text-[16px] font-semibold text-slate-900">{t(`Ronda ${r.number}`, `Round ${r.number}`)}</p>
                         <p className="text-[13px] leading-snug text-slate-500">
-                          {count(r.letters.length, "carta", "cartas")}
-                          {r.mailedAt ? ` · enviada el ${shortDay(r.mailedAt)}` : ""}
-                          {r.respondedAt ? ` · reporte nuevo el ${shortDay(r.respondedAt)}` : ""}
+                          {t(count(r.letters.length, "carta", "cartas"), count(r.letters.length, "letter", "letters"))}
+                          {r.mailedAt ? t(` · enviada el ${shortDay(r.mailedAt, "es")}`, ` · mailed ${shortDay(r.mailedAt, "en")}`) : ""}
+                          {r.respondedAt ? t(` · reporte nuevo el ${shortDay(r.respondedAt, "es")}`, ` · new report ${shortDay(r.respondedAt, "en")}`) : ""}
                         </p>
                       </div>
                       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -692,10 +756,10 @@ export default function ClientePage() {
                             className={ROW_BUTTON}
                             data-testid="print-round"
                           >
-                            Imprimir esta ronda
+                            {t("Imprimir esta ronda", "Print this round")}
                           </Link>
                         )}
-                        <Chip tone={ROUND_STATUS[r.status].tone}>{ROUND_STATUS[r.status].label}</Chip>
+                        <Chip tone={ROUND_STATUS[r.status].tone}>{ROUND_STATUS[r.status].label[locale]}</Chip>
                       </div>
                     </div>
                     <ul>
@@ -714,7 +778,7 @@ export default function ClientePage() {
         <aside className="min-w-0 space-y-6">
           <section aria-labelledby="contacto">
             <SectionTitle>
-              <span id="contacto">Contacto</span>
+              <span id="contacto">{t("Contacto", "Contact")}</span>
             </SectionTitle>
             <div className="card px-5 py-4">
               <p className="text-[17px] font-medium tabular-nums text-slate-900">{formatPhone(client.phone)}</p>
@@ -728,23 +792,24 @@ export default function ClientePage() {
                 className="pressable mt-3.5 flex h-11 items-center justify-center gap-2 rounded-full bg-slate-100 text-[15px] font-medium text-slate-900 hover:bg-slate-200"
               >
                 <Icon name="chat" size={18} />
-                Abrir WhatsApp
+                {t("Abrir WhatsApp", "Open WhatsApp")}
               </a>
+              <ClientLanguageTag client={client} className="mt-2" />
               <ul className="mt-3 space-y-1 text-xs leading-relaxed text-slate-500">
-                {STAFF_MESSAGE_RULES.map((rule) => (
+                {STAFF_MESSAGE_RULE_TEXT[locale].map((rule) => (
                   <li key={rule}>{rule}</li>
                 ))}
               </ul>
               {can("clients.invite") && (
               <dl className="mt-4 space-y-2.5 border-t hairline pt-4 text-[14px]">
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-slate-500">Invitación</dt>
+                  <dt className="text-slate-500">{t("Invitación", "Invite")}</dt>
                   <dd>
                     <Link
                       href={`/equipo/invitar?cliente=${client.id}`}
                       className="font-medium text-blue-700 underline-offset-2 hover:underline"
                     >
-                      {client.signedUpAt ? "Reenviar enlace" : "Preparar enlace"}
+                      {client.signedUpAt ? t("Reenviar enlace", "Resend link") : t("Preparar enlace", "Prepare link")}
                     </Link>
                   </dd>
                 </div>
@@ -759,10 +824,10 @@ export default function ClientePage() {
 
           <section aria-labelledby="acuerdo" data-testid="agreement-record">
             <SectionTitle>
-              <span id="acuerdo">Acuerdo</span>
+              <span id="acuerdo">{t("Acuerdo", "Agreement")}</span>
             </SectionTitle>
             <div className="card px-5 py-4">
-              <p className="text-[15px] font-medium leading-snug text-slate-900">{agreementLine(client, now)}</p>
+              <p className="text-[15px] font-medium leading-snug text-slate-900">{agreementLine(client, now, locale)}</p>
               <dl className="mt-3 space-y-2.5 border-t hairline pt-3 text-[14px]">
                 {agreementRows.map(([label, value]) => (
                   <div key={label} className="flex items-baseline justify-between gap-3">
@@ -773,11 +838,14 @@ export default function ClientePage() {
               </dl>
               {client.serviceEndReason && (
                 <p className="mt-3 rounded-2xl bg-slate-100 px-4 py-3 text-[14px] leading-snug text-slate-700">
-                  Lo que escribió: «{client.serviceEndReason}»
+                  {t("Lo que escribió:", "What they wrote:")} «{client.serviceEndReason}»
                 </p>
               )}
               <p className="mt-3 text-xs leading-relaxed text-slate-500">
-                El acuerdo lo firma y lo cancela el cliente desde su app. El equipo no puede firmarlo ni cambiarlo.
+                {t(
+                  "El acuerdo lo firma y lo cancela el cliente desde su app. El equipo no puede firmarlo ni cambiarlo.",
+                  "The client signs and cancels the agreement from their app. The team can't sign or change it.",
+                )}
               </p>
             </div>
           </section>
@@ -788,23 +856,23 @@ export default function ClientePage() {
               data={data}
               now={now}
               onChanged={reload}
-              refundDenied={can("billing.refund") ? null : deniedReason("billing.refund")}
-              pauseDenied={can("billing.pause") ? null : deniedReason("billing.pause")}
+              refundDenied={can("billing.refund") ? null : denied("billing.refund")}
+              pauseDenied={can("billing.pause") ? null : denied("billing.pause")}
             />
           )}
 
           <section aria-labelledby="documentos">
             <SectionTitle>
-              <span id="documentos">Documentos</span>
+              <span id="documentos">{t("Documentos", "Documents")}</span>
             </SectionTitle>
             <ul className="card overflow-hidden">
               {documents.map((kind, index) => {
                 const onFile = client.documents.includes(kind);
                 return (
                   <li key={kind} className={`flex items-center justify-between gap-3 px-5 py-3 ${index > 0 ? "border-t hairline" : ""}`}>
-                    <span className="text-[14px] text-slate-900">{DOCUMENT[kind]}</span>
+                    <span className="text-[14px] text-slate-900">{DOCUMENT[kind][locale]}</span>
                     {onFile ? (
-                      <Chip tone="bg-green-50 text-green-700">En archivo</Chip>
+                      <Chip tone="bg-green-50 text-green-700">{t("En archivo", "On file")}</Chip>
                     ) : (
                       // Gold once the client has signed and the document is actually being waited on.
                       <Chip
@@ -814,7 +882,7 @@ export default function ClientePage() {
                             : "bg-slate-100 text-slate-600"
                         }
                       >
-                        Falta
+                        {t("Falta", "Missing")}
                       </Chip>
                     )}
                   </li>
@@ -823,7 +891,7 @@ export default function ClientePage() {
             </ul>
             {data.demo && theftReportMissing && (
               <p className="px-1 pt-2 text-xs leading-relaxed text-slate-500">
-                Los documentos los sube el cliente. Demo:{" "}
+                {t("Los documentos los sube el cliente. Demo:", "The client uploads documents. Demo:")}{" "}
                 <button
                   type="button"
                   data-testid="demo-upload-theft-report"
@@ -833,7 +901,7 @@ export default function ClientePage() {
                   }}
                   className="font-medium text-blue-700 underline-offset-2 hover:underline"
                 >
-                  simular que el cliente subió su reporte de robo de identidad
+                  {t("simular que el cliente subió su reporte de robo de identidad", "pretend the client uploaded their identity theft report")}
                 </button>
                 .
               </p>
@@ -843,7 +911,7 @@ export default function ClientePage() {
 
           <section aria-labelledby="historia">
             <SectionTitle>
-              <span id="historia">Historia</span>
+              <span id="historia">{t("Historia", "History")}</span>
             </SectionTitle>
             <ol className="card px-5 py-4">
               {timeline.map((entry, index) => (
@@ -859,11 +927,11 @@ export default function ClientePage() {
                   />
                   <div className="min-w-0">
                     <p className={`break-words text-[14px] leading-snug ${entry.kind === "upcoming" ? "font-medium text-green-700" : "text-slate-800"}`}>
-                      {entry.kind === "upcoming" ? `Sigue: ${entry.text.charAt(0).toLowerCase() + entry.text.slice(1)}` : entry.text}
+                      {entry.kind === "upcoming" ? `${t("Sigue", "Next")}: ${entry.text.charAt(0).toLowerCase() + entry.text.slice(1)}` : entry.text}
                     </p>
                     {entry.kind !== "upcoming" && (
                       <p className="text-xs text-slate-500">
-                        {shortDay(entry.at)} · {relativeDay(entry.at, now)}
+                        {shortDay(entry.at, locale)} · {relativeDay(entry.at, now, locale)}
                       </p>
                     )}
                   </div>
@@ -876,11 +944,11 @@ export default function ClientePage() {
             <SectionTitle
               aside={
                 <Link href={`/equipo/actividad?cliente=${client.id}`} className="inline-flex min-h-11 items-center md:min-h-0 text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
-                  Ver todo
+                  {t("Ver todo", "See all")}
                 </Link>
               }
             >
-              <span id="actividad">Quién hizo qué</span>
+              <span id="actividad">{t("Quién hizo qué", "Who did what")}</span>
             </SectionTitle>
             <div className="card overflow-hidden">
               <ActivityList entries={activity.slice(0, 6)} now={now} showClient={false} />
@@ -889,25 +957,25 @@ export default function ClientePage() {
 
           <section aria-labelledby="notas">
             <SectionTitle>
-              <span id="notas">Notas del equipo</span>
+              <span id="notas">{t("Notas del equipo", "Team notes")}</span>
             </SectionTitle>
             <div className="card px-5 py-4">
               {client.notes.length === 0 ? (
-                <p className="text-[14px] text-slate-500">Sin notas.</p>
+                <p className="text-[14px] text-slate-500">{t("Sin notas.", "No notes.")}</p>
               ) : (
                 <ul className="space-y-3">
                   {[...client.notes].reverse().map((n) => (
                     <li key={n.id}>
                       <p className="break-words text-[14px] leading-snug text-slate-800">{n.text}</p>
                       <p className="text-xs text-slate-500">
-                        {n.author} · {shortDay(n.at)}
+                        {n.author} · {shortDay(n.at, locale)}
                       </p>
                     </li>
                   ))}
                 </ul>
               )}
               <label htmlFor="nota" className="sr-only">
-                Nota nueva
+                {t("Nota nueva", "New note")}
               </label>
               <textarea
                 id="nota"
@@ -915,7 +983,7 @@ export default function ClientePage() {
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
                 maxLength={1000}
-                placeholder="Escribe una nota para el equipo"
+                placeholder={t("Escribe una nota para el equipo", "Write a note for the team")}
                 className="mt-3.5 w-full resize-y rounded-2xl bg-slate-50 px-3.5 py-2.5 text-[15px] text-slate-900 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-300"
               />
               <button
@@ -924,7 +992,7 @@ export default function ClientePage() {
                 disabled={!note.trim()}
                 className="pressable mt-2 flex h-11 w-full items-center justify-center rounded-full bg-slate-100 text-[14px] font-medium text-slate-900 hover:bg-slate-200 disabled:text-slate-400"
               >
-                Guardar nota
+                {t("Guardar nota", "Save note")}
               </button>
             </div>
           </section>

@@ -1,6 +1,7 @@
 import type { ReportItem } from "../domain/types";
 import type { Locale } from "../i18n/dictionaries";
 import { BUREAU_NAME, joinList } from "./roundCopy";
+import { sameAccountKey } from "../domain/checks";
 
 // The same account reported by more than one bureau. Each bureau's copy is its
 // own item and gets its own answer and its own confirmation: nothing here
@@ -8,29 +9,9 @@ import { BUREAU_NAME, joinList } from "./roundCopy";
 // answer to give. The note only tells the customer that the other card exists
 // and, if they already answered it, what they said.
 
-function norm(value: unknown): string {
-  return typeof value === "string" ? value.trim().toLowerCase().replace(/\s+/g, " ") : "";
-}
-
-/**
- * What makes two items "the same" across bureaus: for an account, the creditor
- * and the masked account number; for an inquiry, the inquirer and the date.
- * Null when the item cannot be matched (no account number, no date, or a
- * category that is not matched across bureaus).
- */
-function matchKey(item: ReportItem): string | null {
-  if (item.category === "tradeline") {
-    const creditor = norm(item.data.creditor) || norm(item.name);
-    const number = norm(item.data.accountNumberMasked);
-    return creditor && number ? `tradeline|${creditor}|${number}` : null;
-  }
-  if (item.category === "inquiry") {
-    const inquirer = norm(item.data.inquirer) || norm(item.name);
-    const date = norm(item.data.date);
-    return inquirer && date ? `inquiry|${inquirer}|${date}` : null;
-  }
-  return null;
-}
+// What makes two items "the same" across bureaus (creditor and masked account
+// number; inquirer and date) lives with the data checks, so both always agree.
+const matchKey = sameAccountKey;
 
 /** The same account or inquiry as it appears on the OTHER bureaus, in report order. */
 export function sameItemOnOtherBureaus(item: ReportItem, items: ReadonlyArray<ReportItem>): ReportItem[] {

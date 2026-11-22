@@ -1,6 +1,7 @@
 import type { ItemCategory } from "../domain/types";
 import { DISPUTE_REASONS, getDisputeReason, reasonsFor, type DisputeReason, type DisputeReasonCode } from "../letters/reasons";
 import type { Locale } from "../i18n/dictionaries";
+import { checksSupporting, type DataCheck } from "../domain/checks";
 
 // The reason a customer gives when they say an item is inaccurate.
 //
@@ -35,6 +36,12 @@ export interface DisputeDraft {
   note: string;
   /** The attestation checkbox. */
   attested: boolean;
+  /**
+   * "Include in my letter what my data shows": unticked until the customer
+   * ticks it, and it only counts for checks that relate to the reason picked
+   * (see includedCheckIds). Missing means unticked.
+   */
+  includeFacts?: boolean;
 }
 
 /** The form as it opens: no reason selected, nothing written, the box unchecked. */
@@ -82,4 +89,15 @@ export function itemReasonsFrom(
     if (answer && isDisputeReasonCode(answer.reasonCode)) reasons[fingerprint] = answer.reasonCode;
   }
   return reasons;
+}
+
+/**
+ * The data checks whose facts go in the letter, from the form as the customer
+ * left it: none unless they ticked "include", and then only the checks on this
+ * item that relate to the reason they picked. Changing the reason afterwards
+ * changes which checks those are; it never adds one the customer did not see.
+ */
+export function includedCheckIds(checks: readonly DataCheck[], fingerprint: string, draft: DisputeDraft): string[] {
+  if (!draft.includeFacts) return [];
+  return checksSupporting(checks, fingerprint, draft.reasonCode).map((c) => c.id);
 }

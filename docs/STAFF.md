@@ -9,7 +9,9 @@ each thing written next to it.
 
 This page is the day, start to finish, and the pieces that make it short:
 AltiBot's drafted replies, saved answers, the «Cómo se resuelve» cards, the
-morning summary, the new-hire checklist and the phone layout.
+morning summary, the new-hire checklist and the phone layout. The console is in
+English unless the member chooses Spanish (see «Language» below); the screen
+names quoted here are the Spanish ones.
 
 ## The day
 
@@ -24,15 +26,31 @@ trabajo humano por cliente activo» is where real numbers will show.
 | 8:35 | Open the link: **focus mode** (`/equipo?siguiente=1`). One item at a time, overdue first. Each shows why it needs a person, what the system already tried, the one button, and its **«Cómo se resuelve»** card with «Hecho cuando…» | — |
 | | Questions from clients (≈5 min each): the conversation opens with the **saved answer** that matches, or **AltiBot's draft**. Read, edit if needed, **«Enviar así»**. If it will help the next client, **«Guardar como respuesta»** | 2–5 min each |
 | | Calls after three automatic reminders (unsigned agreement, missing documents, stalled review, monitoring): the card says what to ask and what not to say | 5–6 min each |
-| | Money (payment past due, missing method): write with the button; never collect by hand, never ask for a card number | 5–8 min each |
-| | Addresses and returned letters: «Acreedores», only verified addresses | 8–10 min each |
+| | Money (payment past due, missing method): only after the client got every notice with the «Actualizar mi tarjeta» link and did not use it. The card shows the exact words they got. Call; never collect by hand, never ask for a card number | 5–8 min each, about 1 a day |
+| | A company's missing dispute address: **one item per company**, listing every client waiting on it, with the address the reports print as an unverified suggestion. Check it against a source, save it once in «Acreedores», and every waiting round can go | 8 min per company (not per client) |
+| | Returned letters, addresses the client did not confirm, documents the client did not re-upload: only what the system could not settle (see «Lo que se arregla solo» in `docs/AUTOPILOT.md`) | 4–10 min each, rare |
 | ~9:45 | **Listas para enviar**: review the prepared rounds and send them (or let automatic sending do it after its review window) | 5–10 min |
 | Afternoon | New questions as they come in; the home screen and the morning summary say what is new. Everything else moves by itself | 15–30 min |
 
-A typical day for 100 clients: **about 1½ to 2 hours of a person's work**,
-the rest of the day free for calls, new clients or a second job role. As the
-saved-answer library grows, AltiBot answers more questions by itself and the
-question time falls.
+A typical day for 100 clients: **about 1¼ to 1¾ hours of a person's work**
+(it was 1½ to 2 before the system began fixing addresses, returned letters,
+payments and documents by itself), the rest of the day free for calls, new
+clients or a second job role. As the saved-answer library grows, AltiBot
+answers more questions by itself and the question time falls.
+
+What changed, estimated for 100 clients (not measured):
+
+| Notice | Before | Now |
+| --- | --- | --- |
+| Missing creditor address | 8 min × every client waiting (often 2–4 a week) | 8 min once per company; candidates from the reports |
+| Returned letter | 10 min each | the system re-mails once when the post office's data corrects the address; a person sees only the rest |
+| Payment past due / missing method | 5–8 min each, a message written by hand | the client fixes it from the link; the person's card shows what was sent |
+| Document the AI could not accept | 4 min each | the client gets the plain reason and an upload button; a person only after a second failure or no answer |
+| Client address the post office cannot confirm | new: caught before mailing, instead of a returned letter weeks later | the client confirms with one tap |
+
+The home screen says how much: **«Esta semana el sistema resolvió N cosas
+por su cuenta»**, with the count of each kind under «Resuelto solo»
+(`autopilot_resolutions`, migration 0022).
 
 ## AltiBot's drafted replies
 
@@ -110,7 +128,7 @@ shows.
 
 ## «Cómo se resuelve» cards
 
-`src/lib/staff/playbook.ts`. One card per kind of notice (all 14), 3–5 steps
+`src/lib/staff/playbook.ts`. One card per kind of notice (all 15), 3–5 steps
 in plain Spanish and a «Hecho cuando…» line, written from what the app does
 for that notice (the rule in `stage.ts` or `intake/exceptions.ts`, the button,
 what the autopilot already tried). Folded under each item in the queue, open in
@@ -187,6 +205,54 @@ name. Read through the member's own connection under the 0018 policy:
 administrators see everyone's; a specialist sees their assigned clients' (also
 on each client page); sales sees none. Nobody on the team can change an answer.
 
+## Language
+
+English first, Spanish when the member wants it. Two languages, two rules:
+
+**The console speaks the member's language.** Each member chooses English or
+Spanish on «My profile» (`/equipo/perfil`, «Console language») or from the
+menu under their initial. The choice is theirs alone: `staff_preferences.locale`
+(migration `0025_staff_locale.sql`; written by the preferences route like the
+rest of the row), or this browser in the demo, per member of the demo team.
+Until they choose: their browser's language if it is Spanish
+(`Accept-Language` on the server for the first paint, `navigator.languages`
+after), otherwise English. The layout works it out on the server, so the first
+render is already in the right language (`src/lib/staff/i18n/`).
+
+Everything a teammate reads follows it: navigation, every `/equipo` screen,
+stages, notices and their buttons, next steps, the client's timeline and the
+activity feed, the work queue and what autopilot tried, metric labels and
+definitions, permission labels and denials, «How to handle it» cards, the
+new-hire checklist and tour, saved answers, partners, autopilot settings, the
+send and print screens, the address book, the letter editor's screen (the
+letters stay English legal text), the report import preview, the AI intake
+checks, and the morning summary (sent in the member's saved language, English
+if they never chose). Messages that come back from a check or a route are
+written once in Spanish where the rule lives and shown through
+`staffMessage` (`i18n/messages.ts`). What a client or a teammate typed (a
+question, a note, a refund reason) is quoted as typed.
+
+**What goes to a client is in the CLIENT's language**, whatever the member's:
+`clientLanguage(client)` (`profiles.locale`; a client with none is written to
+in English). That covers the drafted WhatsApp messages (`staff/messages.ts`),
+AltiBot's drafted replies (`drafts.ts`: the model is told to write in the
+client's language), saved answers (each has a language, `saved_answers.language`;
+only answers in the client's language are suggested or sent by AltiBot), the
+automatic reminders and the invite (the panel «Add client» and `/equipo/invitar`
+both ask for the client's language). Wherever a teammate writes to a client the
+console shows «Client's language: Spanish» (`ClientLanguageTag`).
+
+Replies are checked in both languages before they go (`checkStaffReply`: the
+claim rules plus plain one-to-one promises such as "it will be deleted" or
+"you'll be approved"); the reason a reply is held back is in the member's
+language.
+
+Code: text tables are `{ en, es }` with the same keys (`defineText`); inline
+screen text is `t("Spanish", "English")` from `useTx()`; sentence builders in
+`src/lib/staff/` take a `locale`. `src/lib/__tests__/staffLanguage.test.ts`
+walks every table in both languages and fails on a missing language or on
+Spanish words left in the English.
+
 ## What is not done
 
 - Nothing here has been tried with real clients or a live Claude key; the
@@ -198,3 +264,8 @@ on each client page); sales sees none. Nobody on the team can change an answer.
   demo's AltiBot (the server uses the invented library).
 - The minutes per notice are estimates until real handled times exist.
 - The checklist's ticks are kept per browser (its dismissal is per member).
+- Still Spanish in an English console: the invented demo data (names,
+  notes, conversations, refund reasons), the reasons the AI intake gives
+  when it reads a bureau letter (quoted as written), and the field labels of
+  the client-language picker on `/equipo/invitar` (owned by the client-side
+  work).

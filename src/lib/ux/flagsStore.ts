@@ -5,6 +5,7 @@ import type { DisputeReasonCode } from "../letters/reasons";
 import { isSupabaseConfigured } from "../supabase/config";
 import { fetchClientRound } from "./caseApi";
 import { isDisputeReasonCode } from "./disputeReason";
+import { useLocale } from "../i18n";
 
 // Shared review state so the user's decisions follow them across pages
 // (dashboard, item wizard, letters page). One of the core "10x" bets: the
@@ -24,6 +25,12 @@ export interface StoredFlag {
    */
   reasonCode?: DisputeReasonCode;
   attestedAt?: string;
+  /**
+   * The data checks (domain/checks.ts) whose facts the customer chose to
+   * include in their letter, by check id. Only ever set by the customer ticking
+   * "include" after picking a reason those checks relate to. Missing: none.
+   */
+  checkIds?: string[];
 }
 
 export type FlagsMap = Record<string, StoredFlag>;
@@ -64,6 +71,10 @@ export function normalizeFlags(raw: unknown): FlagsMap {
     if (typeof v.reason === "string") flag.reason = v.reason;
     if (isDisputeReasonCode(v.reasonCode)) flag.reasonCode = v.reasonCode;
     if (typeof v.attestedAt === "string") flag.attestedAt = v.attestedAt;
+    if (Array.isArray(v.checkIds)) {
+      const ids = v.checkIds.filter((id): id is string => typeof id === "string" && id.length > 0 && id.length <= 200).slice(0, 20);
+      if (ids.length > 0) flag.checkIds = ids;
+    }
     flags[fingerprint] = flag;
   }
   return flags;
@@ -82,6 +93,8 @@ export function roundSnapshot(flags: FlagsMap, fingerprints: readonly string[], 
 }
 
 export function useFlags() {
+  // The language the client is reading: the attestation text recorded with a confirmed item is the one they saw.
+  const { locale } = useLocale();
   const [flags, setFlags] = useState<FlagsMap>({});
   const [roundApproved, setRoundApprovedState] = useState(false);
   const [mailedFlags, setMailedFlags] = useState<FlagsMap | null>(null);
@@ -157,21 +170,21 @@ export function useFlags() {
   }, []);
 
   const writeThrough = useCallback(
-    (fingerprint: string, state: ReviewState | null, reason?: string, reasonCode?: DisputeReasonCode) => {
+    (fingerprint: string, state: ReviewState | null, reason?: string, reasonCode?: DisputeReasonCode, checkIds?: string[]) => {
       if (!synced) return;
       fetch("/api/flags", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fingerprint, state, reason, reasonCode, locale: "es" }),
+        body: JSON.stringify({ fingerprint, state, reason, reasonCode, checkIds, locale }),
       }).catch(() => undefined);
     },
-    [synced],
+    [synced, locale],
   );
 
   const review = useCallback(
     (fingerprint: string, state: ReviewState, extra?: Partial<StoredFlag>) => {
       persist({ ...flags, [fingerprint]: { state, ...extra } });
-      writeThrough(fingerprint, state, extra?.reason, extra?.reasonCode);
+      writeThrough(fingerprint, state, extra?.reason, extra?.reasonCode, extra?.checkIds);
     },
     [flags, persist, writeThrough],
   );

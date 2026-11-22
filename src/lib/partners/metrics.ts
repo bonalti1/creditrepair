@@ -37,6 +37,35 @@ export const PARTNER_METRIC_INFO: Record<PartnerMetricKey, { label: string; defi
   },
 };
 
+/** The same for the staff console in English. */
+export const PARTNER_METRIC_INFO_EN: Record<PartnerMetricKey, { label: string; definition: string }> = {
+  partnerReferrals: {
+    label: "Referred by partners",
+    definition: "People whose first contact was in the period and who came through a partner: their link, their portal or a HighLevel lead with their code.",
+  },
+  partnerSigned: {
+    label: "Referrals who signed",
+    definition: "Partner referrals who signed their service agreement in the period, whenever they came in.",
+  },
+  partnerActive: {
+    label: "Referrals active today",
+    definition:
+      "Today: partner referrals with a signed agreement, at least one round mailed, and no cancellation or request to end. The same “Active” the partner sees in their portal.",
+  },
+  partnerOwed: {
+    label: "Commission recorded",
+    definition: "Sum of the commissions an administrator recorded as owed in the period. The app doesn't calculate or pay commissions.",
+  },
+  partnerPaid: {
+    label: "Commission paid",
+    definition: "Sum of the payments to partners an administrator recorded in the period.",
+  },
+  partnersApproved: {
+    label: "Partners approved",
+    definition: "Today: partners with an approved account. In parentheses, the applications to review.",
+  },
+};
+
 export interface PartnerRow {
   id: string;
   name: string;

@@ -23,6 +23,17 @@ const rawTradeline = z.object({
   lastPaymentAt: z.string().optional(),
   firstDelinquencyAt: z.string().optional(),
   lastReportedAt: z.string().optional(),
+  // More optional detail many tri-merge reports carry. Used by the data checks
+  // (checks.ts) when present; a report without them is read exactly as before.
+  closedAt: z.string().optional(),
+  pastDue: z.number().optional(),
+  highCredit: z.number().optional(),
+  /** individual | joint | authorized_user, as the partner states it. */
+  ownership: z.string().optional(),
+  /** On a collection: the creditor the debt came from. */
+  originalCreditor: z.string().optional(),
+  /** Month by month, as reported: { month: "2025-03", status: "OK" | "30" | "60" | … }. */
+  paymentHistory: z.array(z.object({ month: z.string(), status: z.string() })).optional(),
   remarks: z.array(z.string()).optional().default([]),
   furnisher: z
     .object({ name: z.string(), addressLines: z.array(z.string()) })
