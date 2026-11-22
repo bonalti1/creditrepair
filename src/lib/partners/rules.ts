@@ -63,6 +63,9 @@ export interface Partner {
   commissionNote: string | null;
   appliedAt: string;
   decidedAt: string | null;
+  /** Co-branding logo (migration 0023): its review status, and the image for an administrator to look at. */
+  logoStatus?: "none" | "pending" | "approved" | "rejected";
+  logo?: string | null;
 }
 
 export interface CommissionRecord {
