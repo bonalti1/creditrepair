@@ -3,6 +3,7 @@ import { BRAND } from "../brand";
 import { checkClaimGuardrails } from "../compliance/guardrails";
 import { checkStaffReply, MAX_REPLY_CHARS, type ReplyProblem } from "./conversation";
 import type { StaffRole } from "./types";
+import { STAFF_LOCALES, type StaffLocale, staffLocaleFallback } from "./i18n/locale";
 
 // "Respuestas guardadas": a small library of approved answers to the
 // questions clients keep asking.
@@ -21,6 +22,11 @@ import type { StaffRole } from "./types";
 //     else goes on exactly as before, to the model and, when it cannot answer,
 //     to a person. That is how the "needs a person" list keeps shrinking.
 //
+// Each answer is written in one language (migration 0025: saved_answers.
+// language) and goes to a client only in theirs: the console suggests the
+// answers in the client's language (bestMatch with a language), never the
+// staff member's.
+//
 // Similarity is deliberately simple: the question's meaningful words, without
 // accents, plural endings or common Spanish and English words, compared as
 // sets. No embeddings, no model call: a match is explainable by the words the
@@ -36,6 +42,8 @@ export interface SavedAnswer {
   /** The answer, as it is sent. General: no names, amounts or a client's details. */
   answer: string;
   status: AnswerStatus;
+  /** The language it is written in. Answers saved before migration 0025 are Spanish. */
+  language: StaffLocale;
   /** Handle of who proposed it. */
   createdBy: string;
   createdAt: string;
@@ -47,17 +55,34 @@ export interface SavedAnswer {
 
 export const MAX_QUESTION_CHARS = 500;
 
+/** Why the question or the answer is refused before any rule is checked, in the member's language. */
+export const ANSWER_INPUT_ERRORS: Record<StaffLocale, { question: string; answer: string; generic: string }> = {
+  en: { question: "Write the client's question.", answer: "The answer is too short.", generic: "Check the question and the answer." },
+  es: { question: "Escribe la pregunta del cliente.", answer: "La respuesta es muy corta.", generic: "Revisa la pregunta y la respuesta." },
+};
+
 /** What the save and edit actions accept. */
 export const answerInputSchema = z.object({
   question: z.string().trim().min(8, "Escribe la pregunta del cliente.").max(MAX_QUESTION_CHARS),
   answer: z.string().trim().min(20, "La respuesta es muy corta.").max(MAX_REPLY_CHARS),
 });
+
+/** The first problem with an answer's input, in the member's language; null when it is well formed. */
+export function answerInputError(input: { question: string; answer: string }, locale: StaffLocale): string | null {
+  const parsed = answerInputSchema.safeParse(input);
+  if (parsed.success) return null;
+  const field = parsed.error.issues[0]?.path[0];
+  const words = ANSWER_INPUT_ERRORS[locale];
+  return field === "question" ? words.question : field === "answer" ? words.answer : words.generic;
+}
+
+const languageSchema = z.enum(STAFF_LOCALES);
 export type AnswerInput = z.infer<typeof answerInputSchema>;
 
 /** The body of POST /api/staff/answers. */
 export const answerActionSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("save"), question: z.string(), answer: z.string(), clientFirstName: z.string().max(80).optional() }),
-  z.object({ action: z.literal("edit"), id: z.string().uuid(), question: z.string(), answer: z.string() }),
+  z.object({ action: z.literal("save"), question: z.string(), answer: z.string(), clientFirstName: z.string().max(80).optional(), language: languageSchema.optional() }),
+  z.object({ action: z.literal("edit"), id: z.string().uuid(), question: z.string(), answer: z.string(), language: languageSchema.optional() }),
   z.object({ action: z.literal("approve"), id: z.string().uuid() }),
   z.object({ action: z.literal("delete"), id: z.string().uuid() }),
 ]);
@@ -81,29 +106,37 @@ export function mayChange(role: StaffRole, handle: string, answer: Pick<SavedAns
 
 // ── What a saved answer may say ─────────────────────────────────────────
 
-const PRIVATE_PATTERNS: Array<{ pattern: RegExp; why: string }> = [
-  { pattern: /\$\s?\d|\d+\s?(d[oó]lares|dollars|usd)\b/i, why: "Lleva un monto. Una respuesta guardada no menciona precios ni cantidades." },
-  { pattern: /\b\d{3}[-\s.]?\d{2}[-\s.]?\d{4}\b/, why: "Parece un número de Seguro Social o de cuenta." },
-  { pattern: /\b\d{5,}\b/, why: "Lleva un número largo (de cuenta, teléfono o caso)." },
-  { pattern: /[^@\s]+@[^@\s]+\.[a-z]{2,}/i, why: "Lleva un correo electrónico." },
-  { pattern: /\+?\d[\d\s().-]{8,}\d/, why: "Parece un número de teléfono." },
+const PRIVATE_PATTERNS: Array<{ pattern: RegExp; why: Record<StaffLocale, string> }> = [
+  {
+    pattern: /\$\s?\d|\d+\s?(d[oó]lares|dollars|usd)\b/i,
+    why: { es: "Lleva un monto. Una respuesta guardada no menciona precios ni cantidades.", en: "It has an amount. A saved answer never mentions prices or amounts." },
+  },
+  { pattern: /\b\d{3}[-\s.]?\d{2}[-\s.]?\d{4}\b/, why: { es: "Parece un número de Seguro Social o de cuenta.", en: "It looks like a Social Security or account number." } },
+  { pattern: /\b\d{5,}\b/, why: { es: "Lleva un número largo (de cuenta, teléfono o caso).", en: "It has a long number (an account, phone or case number)." } },
+  { pattern: /[^@\s]+@[^@\s]+\.[a-z]{2,}/i, why: { es: "Lleva un correo electrónico.", en: "It has an email address." } },
+  { pattern: /\+?\d[\d\s().-]{8,}\d/, why: { es: "Parece un número de teléfono.", en: "It looks like a phone number." } },
 ];
+
+const NAME_WHY: Record<StaffLocale, string> = {
+  es: "Lleva el nombre del cliente. Quítalo para que sirva a todos.",
+  en: "It has the client's name. Take it out so it works for everyone.",
+};
 
 /**
  * Why an answer cannot go into the library, or an empty list. The claim rules
  * staff replies pass, plus: nothing that belongs to one client (their first
  * name, an amount, a long number, an email or a phone).
  */
-export function answerProblems(input: { question: string; answer: string }, clientFirstName?: string | null): ReplyProblem[] {
-  const problems = [...checkStaffReply(input.answer)];
+export function answerProblems(input: { question: string; answer: string }, clientFirstName?: string | null, locale: StaffLocale = staffLocaleFallback()): ReplyProblem[] {
+  const problems = [...checkStaffReply(input.answer, locale)];
   for (const { pattern, why } of PRIVATE_PATTERNS) {
     const match = input.answer.match(pattern);
-    if (match) problems.push({ phrase: match[0], why });
+    if (match) problems.push({ phrase: match[0], why: why[locale] });
   }
   const name = clientFirstName?.trim();
   if (name && name.length >= 2) {
     const match = input.answer.match(new RegExp(`\\b${escapeRegExp(name)}\\b`, "i"));
-    if (match) problems.push({ phrase: match[0], why: "Lleva el nombre del cliente. Quítalo para que sirva a todos." });
+    if (match) problems.push({ phrase: match[0], why: NAME_WHY[locale] });
   }
   return problems;
 }
@@ -184,11 +217,16 @@ export interface AnswerMatch {
   shared: string[];
 }
 
-/** The closest approved answer to a question, if it is close enough to suggest. */
-export function bestMatch(question: string, answers: readonly SavedAnswer[], minScore = SUGGEST_MIN_SCORE): AnswerMatch | null {
+/**
+ * The closest approved answer to a question, if it is close enough to suggest.
+ * With a language (the client's: i18n/locale.ts clientLanguage), only answers
+ * written in it: an answer goes to a client in their language.
+ */
+export function bestMatch(question: string, answers: readonly SavedAnswer[], minScore = SUGGEST_MIN_SCORE, language?: StaffLocale): AnswerMatch | null {
   let best: AnswerMatch | null = null;
   for (const answer of answers) {
     if (answer.status !== "approved") continue;
+    if (language && answerLanguage(answer) !== language) continue;
     const { score, shared, overlap } = similarity(question, answer.question);
     if (score >= minScore && (!best || score > best.score)) best = { answer, score, shared, overlap };
   }
@@ -202,13 +240,18 @@ export function bestMatch(question: string, answers: readonly SavedAnswer[], min
  * close match, and only if the claim rules pass again at the moment it is
  * used: an answer approved before a rule existed is not sent.
  */
-export function libraryReplyFor(question: string, answers: readonly SavedAnswer[]): AnswerMatch | null {
-  const match = bestMatch(question, answers);
+export function libraryReplyFor(question: string, answers: readonly SavedAnswer[], language?: StaffLocale): AnswerMatch | null {
+  const match = bestMatch(question, answers, SUGGEST_MIN_SCORE, language);
   if (!match || match.shared.length < ALTIBOT_MIN_SHARED || match.overlap < ALTIBOT_MIN_OVERLAP) return null;
   if (match.answer.status !== "approved" || !match.answer.approvedBy) return null;
   if (checkClaimGuardrails(match.answer.answer).length > 0) return null;
   if (answerProblems(match.answer).length > 0) return null;
   return match;
+}
+
+/** The language a saved answer is written in (answers from before migration 0025 carry none: Spanish). */
+export function answerLanguage(answer: Pick<SavedAnswer, "language"> | { language?: StaffLocale }): StaffLocale {
+  return answer.language === "en" ? "en" : "es";
 }
 
 /** How AltiBot sends a library answer: marked as the team's approved answer, and still the AI's message. */
@@ -230,6 +273,7 @@ export function answerFromRow(row: Record<string, unknown>): SavedAnswer | null 
     question: row.question,
     answer: row.answer,
     status,
+    language: row.language === "en" ? "en" : "es",
     createdBy: typeof row.created_by_name === "string" ? row.created_by_name : "equipo",
     createdAt: iso(row.created_at) ?? new Date(0).toISOString(),
     approvedBy: typeof row.approved_by_name === "string" ? row.approved_by_name : null,
@@ -242,11 +286,12 @@ export function answerFromRow(row: Record<string, unknown>): SavedAnswer | null 
 
 const DEMO_AT = "2026-11-01T15:00:00.000Z";
 
-const demo = (id: string, question: string, answer: string, status: AnswerStatus = "approved", by = "carmen"): SavedAnswer => ({
+const demo = (id: string, question: string, answer: string, status: AnswerStatus = "approved", by = "carmen", language: StaffLocale = "es"): SavedAnswer => ({
   id,
   question,
   answer,
   status,
+  language,
   createdBy: by,
   createdAt: DEMO_AT,
   approvedBy: status === "approved" ? "carmen" : null,
@@ -287,5 +332,38 @@ export const DEMO_SAVED_ANSWERS: readonly SavedAnswer[] = [
     "Gracias por preguntar. Lo estamos confirmando con el servicio de monitoreo y te escribimos aquí mismo en cuanto lo sepamos.",
     "proposed",
     "marta",
+  ),
+  // The same library for clients who speak English: each answer goes out only in the client's language.
+  demo(
+    "00000000-0000-4000-a000-000000000011",
+    "When do my letters go out?",
+    "Your letters go out once you finish reviewing your report and the 3 business days of your cancellation period have passed. Our team prepares them and mails them; in the app you can see each letter and when it went out. You don't have to mail anything.",
+    "approved",
+    "carmen",
+    "en",
+  ),
+  demo(
+    "00000000-0000-4000-a000-000000000012",
+    "How long do the bureaus take to answer my letters?",
+    "The bureaus have about 30 days to answer each letter from the day they get it. When that time is up, we review your new report and the app shows you what changed. What changes on a report is up to the bureaus, and results vary.",
+    "approved",
+    "carmen",
+    "en",
+  ),
+  demo(
+    "00000000-0000-4000-a000-000000000013",
+    "Which items should I mark as inaccurate?",
+    `That decision is yours alone. It helps to review each item like this: do you recognize it? Do the dates, amounts and status match what you know? If you think something isn't right, mark it and pick the reason. If it's right, leave it as it is. ${BRAND.assistant} explains what each item means.`,
+    "approved",
+    "carmen",
+    "en",
+  ),
+  demo(
+    "00000000-0000-4000-a000-000000000014",
+    "Do I have to mail anything myself?",
+    "No. Our team prepares your letters and mails them. You review your report in the app and tell us what you think is inaccurate; then you can read each letter and see how it's going.",
+    "approved",
+    "carmen",
+    "en",
   ),
 ];

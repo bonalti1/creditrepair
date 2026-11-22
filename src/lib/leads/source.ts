@@ -41,22 +41,30 @@ export const CHANNEL_LABEL: Record<LeadChannel, string> = {
   partner: "Socio",
 };
 
-/** One short line for the console: "HighLevel · Anuncio casa nov", "Socio · Laura Benítez". */
-export function sourceLine(source: LeadSource | null | undefined): string | null {
+/** The same, for the staff console in English. */
+export const CHANNEL_LABEL_EN: Record<LeadChannel, string> = {
+  manual: "Added by hand",
+  highlevel: "HighLevel",
+  partner: "Partner",
+};
+
+/** One short line for the console: "HighLevel · Anuncio casa nov", "Socio · Laura Benítez" (or "Partner · …" in English). */
+export function sourceLine(source: LeadSource | null | undefined, locale: "es" | "en" = "es"): string | null {
   if (!source) return null;
+  const en = locale === "en";
   const parts: string[] = [];
   if (source.channel === "highlevel") {
     parts.push("HighLevel");
     const campaign = source.campaign || source.utm?.campaign;
     if (campaign) parts.push(campaign);
   } else if (source.channel === "partner") {
-    parts.push("Socio");
+    parts.push(en ? "Partner" : "Socio");
   } else if (!source.partnerId) {
     return null;
   }
   if (source.partnerId) {
-    if (source.channel !== "partner") parts.push("socio");
-    parts.push(source.partnerName || source.partnerCode || "referido");
+    if (source.channel !== "partner") parts.push(en ? "partner" : "socio");
+    parts.push(source.partnerName || source.partnerCode || (en ? "referral" : "referido"));
   }
   return parts.join(" · ");
 }

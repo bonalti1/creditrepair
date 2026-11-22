@@ -6,15 +6,16 @@ import { formatCents } from "@/lib/billing/rules";
 import {
   businessMetrics,
   formatPercent,
-  METRIC_INFO,
+  METRIC_INFOS,
   monthlySeries,
-  PERIOD_LABEL,
+  PERIOD_LABELS,
   PERIODS,
   type MetricKey,
   type MonthPoint,
   type Period,
 } from "@/lib/staff/metrics";
-import { ROLE_LABEL, deniedReason } from "@/lib/staff/permissions";
+import { ROLE_LABELS, deniedReason } from "@/lib/staff/permissions";
+import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import { useStaff } from "@/lib/staff/useStaff";
 import { useAutopilot } from "@/lib/autopilot/useAutopilot";
 import { useMail } from "@/lib/mail/useMail";
@@ -31,7 +32,8 @@ import { NoAccess, SectionTitle } from "@/components/staff/ui";
 // Administrators only.
 
 function Stat({ metric, value, note }: { metric: MetricKey; value: string; note?: string }) {
-  const info = METRIC_INFO[metric];
+  const { locale } = useStaffLocale();
+  const info = METRIC_INFOS[locale][metric];
   return (
     <div className="min-w-0 px-4 py-4 sm:px-5" data-testid={`metric-${metric}`}>
       <div className="flex items-start gap-1.5">
@@ -50,6 +52,7 @@ function StatGrid({ children, cols }: { children: React.ReactNode; cols: string 
 }
 
 function Bars({ title, points, value, format, definition }: { title: string; points: MonthPoint[]; value: (p: MonthPoint) => number; format: (n: number) => string; definition: string }) {
+  const t = useTx();
   const max = Math.max(1, ...points.map(value));
   return (
     <figure className="card px-5 pb-4 pt-4" aria-label={title}>
@@ -85,7 +88,7 @@ function Bars({ title, points, value, format, definition }: { title: string; poi
         ))}
       </div>
       <details className="mt-3">
-        <summary className="flex min-h-11 cursor-pointer items-center text-[12.5px] font-medium text-blue-700 md:min-h-0">Ver como tabla</summary>
+        <summary className="flex min-h-11 cursor-pointer items-center text-[12.5px] font-medium text-blue-700 md:min-h-0">{t("Ver como tabla", "See as a table")}</summary>
         <table className="mt-2 w-full text-[13px] tabular-nums">
           <tbody>
             {points.map((p) => (
@@ -101,16 +104,16 @@ function Bars({ title, points, value, format, definition }: { title: string; poi
   );
 }
 
-const TEAM_COLUMNS: Array<[MetricKey, string]> = [
-  ["memberAssigned", "Clientes"],
-  ["memberRounds", "Rondas"],
-  ["memberReplies", "Respuestas"],
-  ["memberExceptions", "Avisos"],
+const TEAM_COLUMNS: Array<[MetricKey, { es: string; en: string }]> = [
+  ["memberAssigned", { es: "Clientes", en: "Clients" }],
+  ["memberRounds", { es: "Rondas", en: "Rounds" }],
+  ["memberReplies", { es: "Respuestas", en: "Replies" }],
+  ["memberExceptions", { es: "Avisos", en: "Notices" }],
 ];
-const SALES_COLUMNS: Array<[MetricKey, string]> = [
-  ["salesInvites", "Prospectos"],
-  ["salesSigned", "Firmaron"],
-  ["salesCancelled", "Cancelaron"],
+const SALES_COLUMNS: Array<[MetricKey, { es: string; en: string }]> = [
+  ["salesInvites", { es: "Prospectos", en: "Leads" }],
+  ["salesSigned", { es: "Firmaron", en: "Signed" }],
+  ["salesCancelled", { es: "Cancelaron", en: "Cancelled" }],
 ];
 
 /** A table's rows as small blocks, for a phone: the name, then each number under its column name. */
@@ -139,9 +142,12 @@ function PhoneRows({ rows, columns }: { rows: Array<{ key: string; name: string;
 
 /** The definitions of a table's columns, one tap away (a tooltip inside a scrolling table would be cut off). */
 function HowCounted({ keys }: { keys: MetricKey[] }) {
+  const { locale } = useStaffLocale();
+  const t = useTx();
+  const METRIC_INFO = METRIC_INFOS[locale];
   return (
     <details className="px-1 pt-2">
-      <summary className="flex min-h-11 cursor-pointer items-center text-[12.5px] font-medium text-blue-700 md:min-h-0">Cómo se cuenta</summary>
+      <summary className="flex min-h-11 cursor-pointer items-center text-[12.5px] font-medium text-blue-700 md:min-h-0">{t("Cómo se cuenta", "How it's counted")}</summary>
       <dl className="mt-1.5 space-y-1 text-[12.5px] leading-snug text-slate-600">
         {keys.map((k) => (
           <div key={k}>
@@ -155,7 +161,11 @@ function HowCounted({ keys }: { keys: MetricKey[] }) {
 }
 
 function Dashboard() {
-  const { ready, clients, members, now, can } = useStaff();
+  const { ready, clients, members, now, can, locale } = useStaff();
+  const t = useTx();
+  const METRIC_INFO = METRIC_INFOS[locale];
+  const PERIOD_LABEL = PERIOD_LABELS[locale];
+  const ROLE_LABEL = ROLE_LABELS[locale];
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -165,22 +175,24 @@ function Dashboard() {
   const { env, ready: autopilotReady } = useAutopilot();
   const { furnishers, ready: bookReady } = useMail();
   const m = useMemo(() => businessMetrics(clients, members, period, now, env, furnishers), [clients, members, period, now, env, furnishers]);
-  const series = useMemo(() => monthlySeries(clients, now, 6), [clients, now]);
+  const series = useMemo(() => monthlySeries(clients, now, 6, locale), [clients, now, locale]);
 
   if (!ready || !autopilotReady || !bookReady) return null;
-  if (!can("business.view")) return <NoAccess title="Negocio" reason={deniedReason("business.view")} />;
+  if (!can("business.view")) return <NoAccess title={t("Negocio", "Business")} reason={deniedReason("business.view", locale)} />;
 
-  const days = (n: number | null) => (n === null ? "—" : `${Math.round(n)} días`);
+  const days = (n: number | null) => (n === null ? "—" : t(`${Math.round(n)} días`, `${Math.round(n)} days`));
   const money = (n: number | null) => (n === null ? "—" : formatCents(n));
 
   return (
     <main className="animate-rise">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">Negocio</h1>
-          <p className="mt-0.5 text-[14px] text-slate-500">De los mismos registros que la consola. Toca «?» para ver cómo se cuenta cada número.</p>
+          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Negocio", "Business")}</h1>
+          <p className="mt-0.5 text-[14px] text-slate-500">
+            {t("De los mismos registros que la consola. Toca «?» para ver cómo se cuenta cada número.", "From the same records as the console. Tap “?” to see how each number is counted.")}
+          </p>
         </div>
-        <div className="grid grid-cols-2 gap-1 rounded-3xl bg-slate-100 p-1 sm:flex sm:rounded-full" role="group" aria-label="Periodo">
+        <div className="grid grid-cols-2 gap-1 rounded-3xl bg-slate-100 p-1 sm:flex sm:rounded-full" role="group" aria-label={t("Periodo", "Period")}>
           {PERIODS.map((p) => (
             <button
               key={p}
@@ -197,7 +209,7 @@ function Dashboard() {
 
       <section className="mt-7" aria-labelledby="clientes">
         <SectionTitle>
-          <span id="clientes">Clientes</span>
+          <span id="clientes">{t("Clientes", "Clients")}</span>
         </SectionTitle>
         <StatGrid cols="grid-cols-2 sm:grid-cols-4">
           <Stat metric="newLeads" value={String(m.clients.newLeads)} />
@@ -213,7 +225,7 @@ function Dashboard() {
 
       <section className="mt-7" aria-labelledby="trabajo">
         <SectionTitle>
-          <span id="trabajo">Trabajo</span>
+          <span id="trabajo">{t("Trabajo", "Work")}</span>
         </SectionTitle>
         <StatGrid cols="grid-cols-2 sm:grid-cols-3">
           <Stat metric="roundsMailed" value={String(m.work.roundsMailed)} />
@@ -221,18 +233,22 @@ function Dashboard() {
           <Stat metric="itemsDisputed" value={String(m.work.itemsDisputed)} />
           <Stat metric="itemsNoLongerReported" value={String(m.work.itemsNoLongerReported)} />
           <Stat metric="daysToFirstRound" value={days(m.work.daysToFirstRound)} />
-          <Stat metric="roundsOverdue" value={`${m.work.roundsOverdue} de ${m.work.inCycle}`} note="clientes con rondas enviadas" />
+          <Stat
+            metric="roundsOverdue"
+            value={t(`${m.work.roundsOverdue} de ${m.work.inCycle}`, `${m.work.roundsOverdue} of ${m.work.inCycle}`)}
+            note={t("clientes con rondas enviadas", "clients with rounds mailed")}
+          />
           <Stat
             metric="humanMinutesPerActive"
             value={m.work.humanMinutesPerActive === null ? "—" : `${m.work.humanMinutesPerActive.toFixed(1)} min`}
-            note={`${m.work.humanMinutes} min estimados entre ${m.clients.active} activos`}
+            note={t(`${m.work.humanMinutes} min estimados entre ${m.clients.active} activos`, `${m.work.humanMinutes} estimated min across ${m.clients.active} active`)}
           />
         </StatGrid>
       </section>
 
       <section className="mt-7" aria-labelledby="dinero">
         <SectionTitle>
-          <span id="dinero">Dinero</span>
+          <span id="dinero">{t("Dinero", "Money")}</span>
         </SectionTitle>
         <StatGrid cols="grid-cols-2 sm:grid-cols-4">
           <Stat metric="charged" value={money(m.money.chargedCents)} />
@@ -241,10 +257,13 @@ function Dashboard() {
           <Stat metric="revenuePerActive" value={money(m.money.revenuePerActiveCents)} />
           <Stat metric="failedPayments" value={String(m.money.failedCount)} note={m.money.failedCount > 0 ? money(m.money.failedCents) : undefined} />
           <Stat metric="recoveredPayments" value={String(m.money.recoveredCount)} note={m.money.recoveredCount > 0 ? money(m.money.recoveredCents) : undefined} />
-          <Stat metric="scheduled30" value={money(m.money.scheduledCents)} note={`${m.money.scheduledCount === 1 ? "1 cobro" : `${m.money.scheduledCount} cobros`}`} />
+          <Stat metric="scheduled30" value={money(m.money.scheduledCents)} note={m.money.scheduledCount === 1 ? t("1 cobro", "1 charge") : t(`${m.money.scheduledCount} cobros`, `${m.money.scheduledCount} charges`)} />
         </StatGrid>
         <p className="px-1 pt-2 text-xs leading-relaxed text-slate-500">
-          Se cobra solo por rondas ya enviadas, a la cuota del acuerdo firmado. Lo programado no incluye rondas que todavía no salen.
+          {t(
+            "Se cobra solo por rondas ya enviadas, a la cuota del acuerdo firmado. Lo programado no incluye rondas que todavía no salen.",
+            "Charges are only for rounds already mailed, at the signed agreement's fee. What's scheduled doesn't include rounds that haven't gone out.",
+          )}
         </p>
       </section>
 
@@ -255,33 +274,47 @@ function Dashboard() {
       {/* Internal operations data: what happened to past disputes (lib/staff/learning.ts). Never client-facing. */}
       <OutcomesLearning clients={clients} now={now} />
 
-      <section className="mt-7 grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2" aria-label="Por mes">
-        <Bars title="Rondas enviadas por mes" points={series} value={(p) => p.roundsMailed} format={(n) => String(n)} definition={`${METRIC_INFO.roundsMailed.definition} El mes actual va hasta hoy.`} />
-        <Bars title="Neto cobrado por mes" points={series} value={(p) => p.netCents} format={(n) => formatCents(n)} definition={`${METRIC_INFO.net.definition} El mes actual va hasta hoy.`} />
+      <section className="mt-7 grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2" aria-label={t("Por mes", "By month")}>
+        <Bars
+          title={t("Rondas enviadas por mes", "Rounds mailed by month")}
+          points={series}
+          value={(p) => p.roundsMailed}
+          format={(n) => String(n)}
+          definition={`${METRIC_INFO.roundsMailed.definition} ${t("El mes actual va hasta hoy.", "The current month runs through today.")}`}
+        />
+        <Bars
+          title={t("Neto cobrado por mes", "Net charged by month")}
+          points={series}
+          value={(p) => p.netCents}
+          format={(n) => formatCents(n)}
+          definition={`${METRIC_INFO.net.definition} ${t("El mes actual va hasta hoy.", "The current month runs through today.")}`}
+        />
       </section>
 
       <div className="mt-7 grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <section aria-labelledby="equipo-num">
           <SectionTitle>
-            <span id="equipo-num">Equipo · {PERIOD_LABEL[period].toLowerCase()}</span>
+            <span id="equipo-num">
+              {t("Equipo", "Team")} · {PERIOD_LABEL[period].toLowerCase()}
+            </span>
           </SectionTitle>
           <PhoneRows
             rows={m.team.map((row) => ({
               key: row.handle,
               name: row.name,
-              sub: `${ROLE_LABEL[row.role]}${row.active ? "" : " · desactivada"}`,
+              sub: `${ROLE_LABEL[row.role]}${row.active ? "" : t(" · desactivada", " · deactivated")}`,
               values: [row.role === "sales" ? "—" : String(row.assigned), String(row.roundsSent), String(row.replies), row.role === "sales" ? "—" : String(row.openExceptions)],
             }))}
-            columns={TEAM_COLUMNS.map(([, short]) => short)}
+            columns={TEAM_COLUMNS.map(([, short]) => short[locale])}
           />
           <div className="card hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[27rem] text-[14px] tabular-nums">
               <thead>
                 <tr className="border-b hairline text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="px-5 py-2.5 font-semibold">Persona</th>
+                  <th className="px-5 py-2.5 font-semibold">{t("Persona", "Person")}</th>
                   {TEAM_COLUMNS.map(([k, short]) => (
                     <th key={k} className="whitespace-nowrap px-3 py-2.5 text-right font-semibold last:pr-5" title={METRIC_INFO[k].definition}>
-                      {short}
+                      {short[locale]}
                     </th>
                   ))}
                 </tr>
@@ -293,7 +326,7 @@ function Dashboard() {
                       <span className="whitespace-nowrap font-medium text-slate-900">{row.name}</span>
                       <span className="block text-[12px] text-slate-500">
                         {ROLE_LABEL[row.role]}
-                        {row.active ? "" : " · desactivada"}
+                        {row.active ? "" : t(" · desactivada", " · deactivated")}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-right text-slate-900">{row.role === "sales" ? "—" : row.assigned}</td>
@@ -310,20 +343,22 @@ function Dashboard() {
 
         <section aria-labelledby="ventas-num">
           <SectionTitle>
-            <span id="ventas-num">Ventas · {PERIOD_LABEL[period].toLowerCase()}</span>
+            <span id="ventas-num">
+              {t("Ventas", "Sales")} · {PERIOD_LABEL[period].toLowerCase()}
+            </span>
           </SectionTitle>
           <PhoneRows
             rows={m.sales.map((row) => ({ key: row.handle, name: row.name, values: [String(row.invites), String(row.signed), String(row.cancelled)] }))}
-            columns={SALES_COLUMNS.map(([, short]) => short)}
+            columns={SALES_COLUMNS.map(([, short]) => short[locale])}
           />
           <div className="card hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[20rem] text-[14px] tabular-nums">
               <thead>
                 <tr className="border-b hairline text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="px-5 py-2.5 font-semibold">Quién trajo</th>
+                  <th className="px-5 py-2.5 font-semibold">{t("Quién trajo", "Brought in by")}</th>
                   {SALES_COLUMNS.map(([k, short]) => (
                     <th key={k} className="whitespace-nowrap px-3 py-2.5 text-right font-semibold last:pr-5" title={METRIC_INFO[k].definition}>
-                      {short}
+                      {short[locale]}
                     </th>
                   ))}
                 </tr>

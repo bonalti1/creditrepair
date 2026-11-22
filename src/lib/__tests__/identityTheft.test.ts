@@ -9,13 +9,17 @@ import { sendBlockReason as sendBlock } from "../staff/stage";
 import {
   clientExceptions,
   clientStage,
-  EXCEPTION_LABEL,
+  EXCEPTION_LABELS,
   HANDLED_QUIET_DAYS,
   handledExceptions,
   identityTheftItemsWithoutReport,
   sendableRound,
 } from "../staff/stage";
 import type { ItemAnswer, StaffClient } from "../staff/types";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // Identity theft needs a person: the client is told a teammate will follow up
 // when they pick that reason, so the team has to be told too.
@@ -41,6 +45,8 @@ function client(overrides: Partial<StaffClient> = {}): StaffClient {
   return {
     id: "t1",
     firstName: "Prueba",
+    // A Spanish-speaking client: the drafts below are written in Spanish.
+    locale: "es",
     lastName: "Ejemplo",
     phone: "+17135550100",
     state: "TX",
@@ -84,7 +90,7 @@ describe("staff: identity theft with no identity theft report on file", () => {
     expect(exception!.sentence).toBe(
       "Dijo que 1 punto es resultado de robo de identidad (Midland Credit Management) y no hay un reporte de robo de identidad de la FTC en archivo. La app le avisó que una persona del equipo lo contactaría.",
     );
-    expect(EXCEPTION_LABEL.identity_theft_report_missing).toBe("Robo de identidad sin reporte");
+    expect(EXCEPTION_LABELS.es.identity_theft_report_missing).toBe("Robo de identidad sin reporte");
     expect(checkClaimGuardrails(exception!.sentence)).toEqual([]);
   });
 

@@ -18,6 +18,10 @@ import {
   teamFirstName,
   type ChatMsg,
 } from "../ux/chatMessages";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 const NOW = new Date("2026-12-05T18:00:00.000Z");
 const later = new Date(NOW.getTime() + 5 * 60 * 1000);

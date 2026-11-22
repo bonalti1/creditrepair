@@ -23,10 +23,14 @@ import { seededBook } from "../mail/data";
 import { demoClientsWithMail } from "../mail/demo";
 import { activityFeed, clientActivity } from "../staff/activity";
 import { buildDemoClients } from "../staff/demoClients";
-import { businessMetrics, METRIC_INFO } from "../staff/metrics";
+import { businessMetrics, METRIC_INFOS } from "../staff/metrics";
 import { clientExceptions, EXCEPTION_KINDS } from "../staff/stage";
 import { buildDemoTeam } from "../staff/team";
 import type { ItemAnswer, StaffClient, StaffRound } from "../staff/types";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // Piloto automático: the follow-up engine, the status messages, quiet hours,
 // the daily cap, opt-out, the WhatsApp window, automatic sending and the work
@@ -532,8 +536,8 @@ describe("autopilot: the one-person work queue", () => {
   });
 
   it("the business dashboard: minutes of a person's work per active client, defined plainly", () => {
-    expect(METRIC_INFO.humanMinutesPerActive.label).toBe("Minutos de trabajo humano por cliente activo");
-    expect(METRIC_INFO.humanMinutesPerActive.definition).toMatch(/minutos estimados/);
+    expect(METRIC_INFOS.es.humanMinutesPerActive.label).toBe("Minutos de trabajo humano por cliente activo");
+    expect(METRIC_INFOS.es.humanMinutesPerActive.definition).toMatch(/minutos estimados/);
     const members = buildDemoTeam(NOW).members;
     const withAutopilot = businessMetrics(demo, members, "month", later, env);
     const without = businessMetrics(demo, members, "month", later);

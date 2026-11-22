@@ -36,13 +36,17 @@ import {
   type DraftCall,
   type DraftCaller,
 } from "../staff/drafts";
-import { businessMetrics, METRIC_INFO } from "../staff/metrics";
+import { businessMetrics, METRIC_INFOS } from "../staff/metrics";
 import { can, CAPABILITIES, ROLE_PERMISSIONS } from "../staff/permissions";
 import { HOUSE_RULES, helpForPath, NEW_HIRE_CHECKLIST, PLAYBOOK, SCREEN_HELP, TOUR_STEPS } from "../staff/playbook";
 import { applyPreferencesUpdate, DEFAULT_PREFERENCES, formatDigestTime, normalizePreferences, preferencesFromRow, preferencesUpdateSchema } from "../staff/preferences";
 import { EXCEPTION_KINDS } from "../staff/stage";
 import { buildDemoTeam } from "../staff/team";
 import type { StaffClient } from "../staff/types";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // The one-person console (docs/STAFF.md): AltiBot's drafts, saved answers,
 // the «Cómo se resuelve» cards, the morning summary and the pulse on the
@@ -122,7 +126,10 @@ describe("the letters capability", () => {
 
   it("the console's frame lists «Cartas» behind it", () => {
     const shell = readFileSync("src/components/staff/StaffShell.tsx", "utf8");
-    expect(shell).toMatch(/href: "\/equipo\/cartas", label: "Cartas", icon: "clipboard", needs: "letters\.edit"/);
+    expect(shell).toMatch(/href: "\/equipo\/cartas", label: "letters", icon: "clipboard", needs: "letters\.edit"/);
+    const text = readFileSync("src/lib/staff/i18n/ui/shell.ts", "utf8");
+    expect(text).toMatch(/letters: "Cartas"/);
+    expect(text).toMatch(/letters: "Letters"/);
   });
 });
 
@@ -133,6 +140,7 @@ const approved = (question: string, answer: string, extra: Partial<SavedAnswer> 
   question,
   answer,
   status: "approved",
+  language: "es",
   createdBy: "marta",
   createdAt: NOW.toISOString(),
   approvedBy: "carmen",
@@ -494,8 +502,8 @@ describe("member preferences", () => {
 
 describe("pulse on the business dashboard", () => {
   it("has a written definition, and counts only answers in the period", () => {
-    expect(METRIC_INFO.pulse.definition).toMatch(/1 = no muy bien, 2 = más o menos, 3 = bien/);
-    expect(checkClaimGuardrails(METRIC_INFO.pulse.definition)).toEqual([]);
+    expect(METRIC_INFOS.es.pulse.definition).toMatch(/1 = no muy bien, 2 = más o menos, 3 = bien/);
+    expect(checkClaimGuardrails(METRIC_INFOS.es.pulse.definition)).toEqual([]);
     const clients = demoClients();
     const members = buildDemoTeam(NOW).members;
     const all = businessMetrics(clients, members, "all", NOW);

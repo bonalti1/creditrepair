@@ -158,3 +158,20 @@ export const SALES_MAY_NOT_SAY: readonly string[] = [
   "Presión: nada de «solo hoy» ni «últimos lugares». El cliente decide con calma.",
   "Cobros por teléfono. Todo por escrito en WhatsApp: no cierres ventas ni tomes pagos por llamada.",
 ];
+
+/** The same two lists for a salesperson whose console is in English (the staff console's language, not the client's). */
+export const SALES_MAY_SAY_EN: readonly string[] = [
+  "How we work: the client reviews their report and says what's inaccurate; our team prepares and mails the letters, in rounds of about 40 days.",
+  "What's on the client: signing the agreement, uploading their ID and a proof of address, connecting their monitoring and reviewing their report.",
+  "Monitoring is a separate subscription: the client pays the monitoring service for it, not us.",
+  "The plan is explained before signing, exactly as it is in the agreement. No service is charged before it's done.",
+  "After signing, the client has 3 business days to cancel at no cost.",
+];
+
+export const SALES_MAY_NOT_SAY_EN: readonly string[] = [
+  "Results, points, dates or approvals. No “we remove”, “we delete” or “we'll raise your score”: the bureaus decide and results vary.",
+  "What to mark. The answers are the client's: don't give them for the client, and don't say we dispute everything negative.",
+  "Prices or discounts that aren't in the plan.",
+  "Pressure: no “today only” or “last spots”. The client decides calmly.",
+  "Payments by phone. Everything in writing on WhatsApp: don't close sales or take payments on a call.",
+];

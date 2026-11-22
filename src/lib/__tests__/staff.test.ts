@@ -22,7 +22,7 @@ import {
   clientStage,
   DOCUMENTS_GRACE_DAYS,
   EXCEPTION_KINDS,
-  EXCEPTION_LABEL,
+  EXCEPTION_LABELS,
   HANDLED_QUIET_DAYS,
   handledExceptions,
   nextAutomaticStep,
@@ -33,12 +33,16 @@ import {
   sendableRound,
   sendBlockReason,
   STAGE_ORDER,
-  STAGES,
+  STAGE_TEXT,
   type ExceptionKind,
   type Stage,
 } from "../staff/stage";
 import { clientTimeline } from "../staff/timeline";
 import type { ItemAnswer, MailStatus, RoundStatus, StaffClient, StaffRound } from "../staff/types";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // Noon in Texas on 5 December 2026, so calendar dates are unambiguous.
 const NOW = new Date("2026-12-05T18:00:00.000Z");
@@ -171,7 +175,7 @@ describe("staff: clientStage", () => {
   it("covers every stage, each with a label, a short name and a line saying who does what next", () => {
     expect(cases.map(([stage]) => stage)).toEqual([...STAGE_ORDER]);
     for (const stage of STAGE_ORDER) {
-      const info = STAGES[stage];
+      const info = STAGE_TEXT.es[stage];
       expect(info.label.length).toBeGreaterThan(3);
       expect(info.short.length).toBeGreaterThan(3);
       expect(info.description).toMatch(/cliente|equipo|sistema|Ventas/);
@@ -380,7 +384,7 @@ describe("staff: clientExceptions", () => {
   });
 
   it("has a label for every kind", () => {
-    for (const kind of EXCEPTION_KINDS) expect(EXCEPTION_LABEL[kind].length).toBeGreaterThan(5);
+    for (const kind of EXCEPTION_KINDS) expect(EXCEPTION_LABELS.es[kind].length).toBeGreaterThan(5);
   });
 });
 
@@ -615,10 +619,19 @@ describe("staff: what the console says", () => {
 
   it("drafted WhatsApp messages pass the claim rules and never say what to mark", () => {
     const drafts = demoClientsWithMail(clients, NOW).flatMap((c) =>
-      clientExceptions(c, later, { furnishers: seededBook() }).map((e) => exceptionMessage(c, e)),
+      clientExceptions(c, later, { furnishers: seededBook() }).map((e) => exceptionMessage({ ...c, locale: undefined }, e)),
     );
     expect(drafts.length).toBeGreaterThanOrEqual(EXCEPTION_KINDS.length);
+    // A client with no saved language is written to in English; the same clients in Spanish below.
     for (const text of drafts) {
+      expect(checkClaimGuardrails(text)).toEqual([]);
+      expect(text).toMatch(/^Hi \p{L}+, this is the Credalti team\./u);
+      expect(text).not.toMatch(/guarantee|you should mark|mark (it|this) as/i);
+    }
+    const spanish = demoClientsWithMail(clients, NOW).flatMap((c) =>
+      clientExceptions(c, later, { furnishers: seededBook() }).map((e) => exceptionMessage({ ...c, locale: "es" }, e)),
+    );
+    for (const text of spanish) {
       expect(checkClaimGuardrails(text)).toEqual([]);
       expect(text).toMatch(/^Hola \p{L}+, te escribe el equipo de Credalti\./u);
       expect(text).not.toMatch(/garantiz|te conviene|deber[ií]as marcar|marca (como|este|esta)|puntos? en \d/i);
@@ -627,7 +640,7 @@ describe("staff: what the console says", () => {
 
   it("stage lines, exception sentences and buttons promise nothing and choose nothing for the client", () => {
     const lines = [
-      ...STAGE_ORDER.flatMap((s) => [STAGES[s].label, STAGES[s].description]),
+      ...STAGE_ORDER.flatMap((s) => [STAGE_TEXT.es[s].label, STAGE_TEXT.es[s].description]),
       ...clients.flatMap((c) => clientExceptions(c, later).flatMap((e) => [e.sentence, e.actionLabel])),
       ...clients.map((c) => nextStep(c, later).text),
       ...STAFF_MESSAGE_RULES,
@@ -726,7 +739,10 @@ describe("staff: access control", () => {
     const layout = readFileSync("src/app/equipo/layout.tsx", "utf8");
     expect(layout).toMatch(/robots: \{ index: false, follow: false \}/);
     expect(layout).toMatch(/getStaffAccess\(\)/);
-    expect(layout).toMatch(/No tienes acceso/);
+    expect(layout).toMatch(/access === "denied"[\s\S]*SHELL_TEXT\[browser\][\s\S]*t\.deniedTitle/);
+    const shell = readFileSync("src/lib/staff/i18n/ui/shell.ts", "utf8");
+    expect(shell).toMatch(/No tienes acceso/);
+    expect(shell).toMatch(/You don't have access/);
     const access = readFileSync("src/lib/staff/access.ts", "utf8");
     expect(access).toMatch(/if \(!supabase\) return "demo"/);
     expect(access).toMatch(/rpc\("is_staff"\)/);

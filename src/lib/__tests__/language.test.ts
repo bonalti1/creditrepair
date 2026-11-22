@@ -166,7 +166,11 @@ describe("the salesperson's invitation carries the language", () => {
   it("the invite form offers the language, English first", () => {
     const form = readFileSync("src/app/equipo/invitar/page.tsx", "utf8");
     expect(form).toMatch(/useState<"en" \| "es">\("en"\)/);
-    expect(form).toContain('<option value="en">Inglés</option>');
+    // English is the first option, labelled in the member's console language.
+    const en = form.indexOf('<option value="en">{t("Inglés", "English")}</option>');
+    const es = form.indexOf('<option value="es">{t("Español", "Spanish")}</option>');
+    expect(en).toBeGreaterThan(-1);
+    expect(es).toBeGreaterThan(en);
     expect(form).toMatch(/buildInvitePath\(\{[^}]*lang/);
   });
 });

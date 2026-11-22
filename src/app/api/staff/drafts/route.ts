@@ -7,7 +7,8 @@ import { requireCapability } from "@/lib/staff/access";
 import { DEMO_SAVED_ANSWERS } from "@/lib/staff/answers";
 import { loadApprovedAnswers } from "@/lib/staff/answersServer";
 import { callDraftModel } from "@/lib/staff/draftModel";
-import { draftReply } from "@/lib/staff/drafts";
+import { demoDraftCaller, draftReply } from "@/lib/staff/drafts";
+import { STAFF_LOCALES } from "@/lib/staff/i18n/locale";
 import { buildDemoClients } from "@/lib/staff/demoClients";
 import { loadStaffClients } from "@/lib/staff/load";
 import { isStaffRole } from "@/lib/staff/permissions";
@@ -27,13 +28,20 @@ import { getServerSupabase } from "@/lib/supabase/server";
 // In the demo: the invented client is rebuilt on the server (nothing from the
 // browser is trusted as the case), and "Ver como" picks the role.
 //
-// Without ANTHROPIC_API_KEY: 200 with no draft and the reason.
+// Without ANTHROPIC_API_KEY: 200 with no draft and the reason; in the demo, a
+// short stand-in reply in the client's language (drafts.ts: demoDraftCaller),
+// marked as such.
+//
+// The draft is in the CLIENT's language. `locale` is the teammate's console
+// language, for the words about the draft (why there is none).
 
 const bodySchema = z
   .object({
     clientId: z.string().min(1).max(64),
     /** Demo only: the role "Ver como" shows. Ignored with a database. */
     viewAs: z.enum(["admin", "specialist", "sales"]).optional(),
+    /** The console's language, for the messages about the draft. */
+    locale: z.enum(STAFF_LOCALES).optional(),
   })
   .strict();
 
@@ -52,8 +60,8 @@ export async function POST(req: Request) {
     const client = buildDemoClients(now).find((c) => c.id === parsed.data.clientId);
     if (!client) return NextResponse.json({ error: "No encontramos a este cliente." }, { status: 404 });
     const role = isStaffRole(parsed.data.viewAs) ? parsed.data.viewAs : "admin";
-    const outcome = await draftReply({ client, role, now, savedAnswers: DEMO_SAVED_ANSWERS }, caller);
-    return NextResponse.json({ ...outcome, configured: Boolean(caller) });
+    const outcome = await draftReply({ client, role, now, savedAnswers: DEMO_SAVED_ANSWERS, locale: parsed.data.locale }, caller ?? demoDraftCaller);
+    return NextResponse.json({ ...outcome, configured: Boolean(caller), demoDraft: !caller });
   }
 
   const allowed = await requireCapability("clients.reply");
@@ -63,7 +71,7 @@ export async function POST(req: Request) {
   try {
     const [client] = await loadStaffClients(reader, { clientId: parsed.data.clientId });
     if (!client) return NextResponse.json({ error: "Este cliente no está entre los tuyos." }, { status: 404 });
-    const outcome = await draftReply({ client, role: allowed.member.role, now, savedAnswers: await loadApprovedAnswers(allowed.db) }, caller);
+    const outcome = await draftReply({ client, role: allowed.member.role, now, savedAnswers: await loadApprovedAnswers(allowed.db), locale: parsed.data.locale }, caller);
     return NextResponse.json({ ...outcome, configured: Boolean(caller) });
   } catch (error) {
     await reportError(error, { where: "api/staff/drafts", userId: allowed.member.userId });

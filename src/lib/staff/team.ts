@@ -1,7 +1,8 @@
 import { ALL_STATES } from "../compliance/states";
 import { NO_BILLING } from "../billing/types";
 import { GOALS, toRefSlug } from "../sales/invite";
-import { isStaffRole, ROLE_LABEL } from "./permissions";
+import { isStaffRole, ROLE_LABELS } from "./permissions";
+import { type StaffLocale, staffLocaleFallback } from "./i18n/locale";
 import type { ClientAssignment, StaffClient, StaffRole } from "./types";
 
 // The team: who is on it, with which role, and the rules for changing that.
@@ -76,9 +77,9 @@ export function findMember(members: TeamMember[], handle: string | null | undefi
 }
 
 /** A member's name, or the handle as recorded when nobody on the team has it (an old record). */
-export function memberName(members: TeamMember[], handle: string | null | undefined): string {
+export function memberName(members: TeamMember[], handle: string | null | undefined, locale: StaffLocale = staffLocaleFallback()): string {
   if (!handle) return "";
-  if (handle === SYSTEM_ACTOR) return "El sistema";
+  if (handle === SYSTEM_ACTOR) return locale === "es" ? "El sistema" : "The system";
   return findMember(members, handle)?.name ?? handle;
 }
 
@@ -228,10 +229,25 @@ export function setAutoAssign(state: TeamState, on: boolean, by: string, now: Da
   };
 }
 
-/** "Carmen cambió el rol de Luis: Ventas → Especialista." */
-export function teamEventText(event: TeamEvent, members: TeamMember[]): string {
-  const who = memberName(members, event.by);
-  const whom = memberName(members, event.member);
+/** "Carmen changed Luis's role: Sales → Specialist" / "Carmen cambió el rol de Luis: Ventas → Especialista." */
+export function teamEventText(event: TeamEvent, members: TeamMember[], locale: StaffLocale = staffLocaleFallback()): string {
+  const who = memberName(members, event.by, locale);
+  const whom = memberName(members, event.member, locale);
+  const ROLE_LABEL = ROLE_LABELS[locale];
+  if (locale === "en") {
+    switch (event.kind) {
+      case "member_added":
+        return `${who} added ${whom} to the team as ${event.to ? ROLE_LABEL[event.to].toLowerCase() : "a member"}`;
+      case "role_changed":
+        return `${who} changed ${whom}'s role: ${event.from ? ROLE_LABEL[event.from] : "?"} → ${event.to ? ROLE_LABEL[event.to] : "?"}`;
+      case "member_deactivated":
+        return `${who} deactivated ${whom}. They can't sign in to the console anymore; their name stays on their work`;
+      case "member_reactivated":
+        return `${who} reactivated ${whom}`;
+      case "auto_assign_changed":
+        return `${who} turned ${event.on ? "on" : "off"} automatic assignment of new clients`;
+    }
+  }
   switch (event.kind) {
     case "member_added":
       return `${who} agregó a ${whom} al equipo como ${event.to ? ROLE_LABEL[event.to].toLowerCase() : "miembro"}`;

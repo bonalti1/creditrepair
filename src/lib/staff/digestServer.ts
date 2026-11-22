@@ -6,7 +6,8 @@ import { sendEmail } from "../integrations/email";
 import { sendWhatsAppTemplate, sendWhatsAppText } from "../integrations/whatsapp";
 import { furnisherFromRow } from "../mail/server";
 import { reportError } from "../observability/errors";
-import { DIGEST_TEMPLATE, digestChannel, digestDue, morningSummary, type DigestChoice, type MorningSummary } from "./digest";
+import { DIGEST_TEMPLATE, digestChannel, digestDue, digestSubject, morningSummary, type DigestChoice, type MorningSummary } from "./digest";
+import { DEFAULT_STAFF_LOCALE } from "./i18n/locale";
 import { clientsFromRows } from "./fromRows";
 import { loadStaffRows } from "./load";
 import { isStaffRole } from "./permissions";
@@ -45,7 +46,7 @@ export const deliverDigest: DigestDeliver = async (member, summary, choice, idem
       const result = await sendWhatsAppText(to, summary.text, "staff:digest");
       return result.sent ? { ok: true } : { ok: false, note: "not_configured" };
     }
-    const result = await sendWhatsAppTemplate(to, { name: DIGEST_TEMPLATE, locale: "es", params: summary.params, rendered: summary.text }, "staff:digest");
+    const result = await sendWhatsAppTemplate(to, { name: DIGEST_TEMPLATE, locale: summary.locale, params: summary.params, rendered: summary.text }, "staff:digest");
     return result.sent ? { ok: true } : { ok: false, note: "not_configured" };
   }
   if (choice.channel === "email" && member.email) {
@@ -54,7 +55,7 @@ export const deliverDigest: DigestDeliver = async (member, summary, choice, idem
     if (!base || !address) return { ok: false, note: "email_not_ready" };
     const result = await sendEmail({
       to: member.email,
-      subject: `Hoy: ${summary.count} ${summary.count === 1 ? "cosa" : "cosas"} · ~${summary.minutes} minutos`,
+      subject: digestSubject(summary),
       text: summary.text,
       // A member turns it off on their own profile: that page is the "unsubscribe" link.
       unsubscribeUrl: `${base}/equipo/perfil#resumen`,
@@ -143,7 +144,8 @@ export async function runStaffDigests(db: SupabaseClient, now: Date = new Date()
 
   for (const { member, prefs, day } of due) {
     const viewer = { handle: member.handle, name: member.name, role: member.role as "admin" | "specialist" | "sales" };
-    const text = morningSummary(viewer, clients, now, { furnishers, autopilot: { settings, channels } }, base);
+    // In the member's language: their saved choice, else English (the cron has no browser to ask).
+    const text = morningSummary(viewer, clients, now, { furnishers, autopilot: { settings, channels } }, base, prefs.locale ?? DEFAULT_STAFF_LOCALE);
     const choice = digestChannel(prefs.digestChannel, member, channels, now);
     if (!choice.channel) {
       summary.noChannel += 1;

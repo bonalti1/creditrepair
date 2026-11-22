@@ -7,6 +7,8 @@ import { assignableMembers, memberName, type TeamMember } from "@/lib/staff/team
 import type { TeamData } from "@/lib/staff/teamData";
 import type { StaffClient } from "@/lib/staff/types";
 import { DeniedNote, SectionTitle } from "@/components/staff/ui";
+import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
+import { staffMessage } from "@/lib/staff/i18n/messages";
 
 // Who works this client, and the way to give the case to someone else
 // (administrators). Every change is kept in the client's activity.
@@ -26,6 +28,8 @@ export default function AssignmentCard({
   canAssign: boolean;
   onChanged: () => Promise<void> | void;
 }) {
+  const { locale } = useStaffLocale();
+  const t = useTx();
   const [to, setTo] = useState(client.assignedTo ?? "none");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -37,28 +41,30 @@ export default function AssignmentCard({
     setBusy(true);
     const result = await team.assignClients([client.id], to === "none" ? null : to, viewer);
     setBusy(false);
-    setMessage(result.ok ? "Guardado." : result.message);
+    setMessage(result.ok ? t("Guardado.", "Saved.") : staffMessage(result.message, locale));
     if (result.ok) await onChanged();
   };
 
   return (
     <section aria-labelledby="asignado" data-testid="assignment">
       <SectionTitle>
-        <span id="asignado">Quién lo trabaja</span>
+        <span id="asignado">{t("Quién lo trabaja", "Who works it")}</span>
       </SectionTitle>
       <div className="card px-5 py-4">
         <p className="text-[15px] font-medium text-slate-900">
-          {client.assignedTo ? memberName(members, client.assignedTo) : <span className="text-slate-500">Sin asignar</span>}
+          {client.assignedTo ? memberName(members, client.assignedTo, locale) : <span className="text-slate-500">{t("Sin asignar", "Unassigned")}</span>}
         </p>
         {last && (
           <p className="text-[13px] text-slate-500">
-            {last.auto ? "Por turno" : `Lo asignó ${memberName(members, last.by)}`} el {shortDay(last.at)}
+            {last.auto
+              ? t(`Por turno el ${shortDay(last.at, "es")}`, `By rotation on ${shortDay(last.at, "en")}`)
+              : t(`Lo asignó ${memberName(members, last.by, "es")} el ${shortDay(last.at, "es")}`, `Assigned by ${memberName(members, last.by, "en")} on ${shortDay(last.at, "en")}`)}
           </p>
         )}
         {canAssign ? (
           <div className="mt-3 flex gap-2 border-t hairline pt-3">
             <label htmlFor="asignar-a" className="sr-only">
-              Asignar a
+              {t("Asignar a", "Assign to")}
             </label>
             <select
               id="asignar-a"
@@ -72,7 +78,7 @@ export default function AssignmentCard({
               {options.map((m) => (
                 <option key={m.handle} value={m.handle}>{m.name}</option>
               ))}
-              <option value="none">Nadie (sin asignar)</option>
+              <option value="none">{t("Nadie (sin asignar)", "Nobody (unassigned)")}</option>
             </select>
             <button
               type="button"
@@ -80,12 +86,12 @@ export default function AssignmentCard({
               disabled={busy || to === (client.assignedTo ?? "none")}
               className="pressable h-11 shrink-0 rounded-full bg-blue-50 px-4 text-[14px] font-semibold text-blue-700 hover:bg-blue-100 disabled:bg-slate-100 disabled:text-slate-400"
             >
-              Asignar
+              {t("Asignar", "Assign")}
             </button>
           </div>
         ) : (
           <div className="mt-3 border-t hairline pt-3">
-            <DeniedNote>{deniedReason("clients.assign")}</DeniedNote>
+            <DeniedNote>{deniedReason("clients.assign", locale)}</DeniedNote>
           </div>
         )}
         {message && (

@@ -11,6 +11,10 @@ import { isFullService, SERVICE_MODE, type ServiceMode } from "@/lib/service/mod
 import { HUMAN_HELP } from "@/lib/ux/humanHelp";
 import { LETTERS_OUT_LINE, reviewCompleteLine, reviewFinishedLine, reviewIntroLine } from "@/lib/ux/reviewChatCopy";
 import { roundMailedDate, teamRoundStatus } from "@/lib/ux/teamRound";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // The business is full service: the client says what is inaccurate, the team
 // prepares and mails the letters. These tests hold the two halves of that
@@ -565,8 +569,9 @@ describe("what sales says", () => {
 
   it("shows both lists on the invite page", () => {
     const page = readFileSync("src/app/equipo/invitar/page.tsx", "utf8");
-    expect(page).toContain("SALES_MAY_SAY.map");
-    expect(page).toContain("SALES_MAY_NOT_SAY.map");
+    // In the member's language: the Spanish lists or their English twins.
+    expect(page).toContain("t(SALES_MAY_SAY, SALES_MAY_SAY_EN).map");
+    expect(page).toContain("t(SALES_MAY_NOT_SAY, SALES_MAY_NOT_SAY_EN).map");
     expect(page).not.toMatch(/[uú]nico costo|aprueba todo/);
   });
 });

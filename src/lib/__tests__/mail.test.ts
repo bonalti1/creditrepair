@@ -46,6 +46,10 @@ import { buildDemoClients } from "../staff/demoClients";
 import { exceptionMessage } from "../staff/messages";
 import { clientBilling, clientExceptions, clientStage, nextAutomaticStep, sendableRound, sendBlockReason } from "../staff/stage";
 import type { StaffClient } from "../staff/types";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // Noon in Texas on 5 December 2026, so calendar dates are unambiguous.
 const NOW = new Date("2026-12-05T18:00:00.000Z");

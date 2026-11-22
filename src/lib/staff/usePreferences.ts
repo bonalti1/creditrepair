@@ -18,6 +18,23 @@ function readDemo(): Record<string, StaffPreferences> {
   }
 }
 
+/** One demo member's preferences, as stored in this browser. */
+export function readDemoPreferences(handle: string): StaffPreferences {
+  return normalizePreferences(readDemo()[handle]);
+}
+
+/** Change one demo member's preferences in this browser; returns them as saved. */
+export function writeDemoPreferences(handle: string, change: PreferencesUpdate): StaffPreferences {
+  const all = readDemo();
+  const next = applyPreferencesUpdate(normalizePreferences(all[handle]), change, new Date());
+  try {
+    window.localStorage.setItem(KEY, JSON.stringify({ ...all, [handle]: next }));
+  } catch {
+    // This visit only.
+  }
+  return next;
+}
+
 export function resetDemoPreferences(): void {
   try {
     window.localStorage.removeItem(KEY);
@@ -58,14 +75,7 @@ export function usePreferences(viewer: Viewer | null) {
     async (change: PreferencesUpdate): Promise<boolean> => {
       if (!handle) return false;
       if (demo) {
-        const all = readDemo();
-        const next = applyPreferencesUpdate(normalizePreferences(all[handle]), change, new Date());
-        try {
-          window.localStorage.setItem(KEY, JSON.stringify({ ...all, [handle]: next }));
-        } catch {
-          // This visit only.
-        }
-        setPrefs(next);
+        setPrefs(writeDemoPreferences(handle, change));
         return true;
       }
       try {

@@ -1,6 +1,7 @@
 import type { BillingActionResult, RoundRef, StaffData } from "./data";
 import { can, canSeeClient, deniedReason, exceptionVisibleTo, visibleClients, type Capability, type Viewer } from "./permissions";
 import type { ExceptionKind } from "./stage";
+import { type StaffLocale, staffLocaleFallback } from "./i18n/locale";
 
 // The console's data, as one member of the team may use it.
 //
@@ -10,7 +11,7 @@ import type { ExceptionKind } from "./stage";
 // showed. It is the same check the server routes make (requireCapability in
 // access.ts), applied again where the demo keeps its records.
 
-/** Thrown by an action the viewer's role may not take. The message is the reason, in Spanish. */
+/** Thrown by an action the viewer's role may not take. The message is the reason, in the member's language. */
 export class PermissionError extends Error {
   constructor(message: string) {
     super(message);
@@ -21,7 +22,15 @@ export class PermissionError extends Error {
 export interface GuardHooks {
   /** Called with the rounds that were sent and who sent them (the demo records the sender). */
   onRoundsSent?: (rounds: RoundRef[], by: string) => void | Promise<void>;
+  /** The language refusals are written in (the console's). English when left out. */
+  locale?: StaffLocale;
 }
+
+const NOT_YOURS: Record<StaffLocale, string> = { en: "This client isn't one of yours.", es: "Este cliente no está entre los tuyos." };
+const NOT_YOUR_NOTICE: Record<StaffLocale, string> = {
+  en: "This notice is for the team working the case.",
+  es: "Este aviso lo atiende el equipo que trabaja el caso.",
+};
 
 /** "question:c04-q1" → "question_waiting"; "payment_past_due:ch1" → "payment_past_due". */
 export function exceptionKindOfKey(key: string): ExceptionKind {
@@ -30,9 +39,10 @@ export function exceptionKindOfKey(key: string): ExceptionKind {
 }
 
 export function guardStaffData(data: StaffData, viewer: Viewer | null, hooks: GuardHooks = {}): StaffData {
+  const locale = hooks.locale ?? staffLocaleFallback();
   const allowed = (capability: Capability) => can(viewer?.role, capability);
   const need = (capability: Capability) => {
-    if (!allowed(capability)) throw new PermissionError(deniedReason(capability));
+    if (!allowed(capability)) throw new PermissionError(deniedReason(capability, locale));
   };
   const visible = async (clientId: string) => {
     const client = await data.getClient(clientId);
@@ -40,13 +50,13 @@ export function guardStaffData(data: StaffData, viewer: Viewer | null, hooks: Gu
   };
   const mustSee = async (clientId: string) => {
     const client = await visible(clientId);
-    if (!client) throw new PermissionError("Este cliente no está entre los tuyos.");
+    if (!client) throw new PermissionError(NOT_YOURS[locale]);
     return client;
   };
   /** The same checks, answered the way the billing actions answer. */
   const money = async (capability: Capability, clientId: string): Promise<BillingActionResult | null> => {
-    if (!allowed(capability)) return { ok: false, message: deniedReason(capability) };
-    if (!(await visible(clientId))) return { ok: false, message: "Este cliente no está entre los tuyos." };
+    if (!allowed(capability)) return { ok: false, message: deniedReason(capability, locale) };
+    if (!(await visible(clientId))) return { ok: false, message: NOT_YOURS[locale] };
     return null;
   };
 
@@ -79,7 +89,7 @@ export function guardStaffData(data: StaffData, viewer: Viewer | null, hooks: Gu
       need("clients.followup");
       await mustSee(clientId);
       if (!exceptionVisibleTo(viewer?.role, exceptionKindOfKey(exceptionKey))) {
-        throw new PermissionError("Este aviso lo atiende el equipo que trabaja el caso.");
+        throw new PermissionError(NOT_YOUR_NOTICE[locale]);
       }
       return data.resolveException(clientId, exceptionKey);
     },

@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTx } from "@/lib/staff/i18n/StaffLocale";
 
 // "Cómo se cuenta": the definition of a number, one tap or hover away. Every
 // number on the business dashboard has one, so nobody has to guess what was
@@ -13,6 +14,7 @@ const WIDTH = 256;
 const MARGIN = 12;
 
 export default function Definition({ label, text }: { label: string; text: string }) {
+  const t = useTx();
   const [pinned, setPinned] = useState(false);
   const [hover, setHover] = useState(false);
   const [at, setAt] = useState<{ top: number; left: number } | null>(null);
@@ -63,7 +65,7 @@ export default function Definition({ label, text }: { label: string; text: strin
         onMouseLeave={() => setHover(false)}
         aria-expanded={open}
         aria-describedby={open ? id : undefined}
-        aria-label={`Cómo se cuenta: ${label}`}
+        aria-label={`${t("Cómo se cuenta", "How it's counted")}: ${label}`}
         // A 44-pixel target around the small circle, for a finger; the negative margin keeps the layout.
         className="group -m-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
       >
@@ -78,7 +80,7 @@ export default function Definition({ label, text }: { label: string; text: strin
           style={{ top: at.top, left: at.left, width: WIDTH, maxWidth: `calc(100vw - ${2 * MARGIN}px)` }}
           className="fixed z-50 rounded-2xl bg-slate-900 px-3.5 py-2.5 text-left text-[12.5px] font-normal normal-case leading-snug tracking-normal text-white shadow-lg"
         >
-          <span className="block font-semibold">Cómo se cuenta</span>
+          <span className="block font-semibold">{t("Cómo se cuenta", "How it's counted")}</span>
           {text}
         </span>,
           document.body,

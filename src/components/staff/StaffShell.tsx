@@ -5,7 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import { getStaffData, resetDemo } from "@/lib/staff/data";
-import { can, ROLE_LABEL, STAFF_ROLES, type Capability, type Viewer } from "@/lib/staff/permissions";
+import { can, ROLE_LABELS, STAFF_ROLES, type Capability, type Viewer } from "@/lib/staff/permissions";
+import { StaffLocaleProvider, useStaffLocale, useText } from "@/lib/staff/i18n/StaffLocale";
+import { LANGUAGE_SELF_NAME, STAFF_LOCALES, type StaffLocale } from "@/lib/staff/i18n/locale";
+import { SHELL_TEXT } from "@/lib/staff/i18n/ui/shell";
 import { demoViewAs } from "@/lib/staff/teamData";
 import { resetDemoAnswers } from "@/lib/staff/useSavedAnswers";
 import { resetDemoPreferences } from "@/lib/staff/usePreferences";
@@ -19,8 +22,8 @@ import TourBar from "@/components/staff/TourBar";
 //
 // Navigation is built for one person who works from a laptop or a phone:
 //   - From 768 pixels: one compact top bar. The everyday destinations as tabs
-//     (Inicio, Clientes, Respuestas), everything else under «Más», then
-//     «¿Qué hago aquí?» and the member's initial. It stays on one line from
+//     (Home, Clients, Answers), everything else under "More", then
+//     "What do I do here?" and the member's initial. It stays on one line from
 //     768 to any desktop width, whatever the role, because only three tabs
 //     are ever on it.
 //   - On a phone: the logo, help and the initial on top, and a bottom tab bar
@@ -28,40 +31,69 @@ import TourBar from "@/components/staff/TourBar";
 //     a sheet with the rest.
 // Each destination shows only if the member's role may open it.
 //
-// «¿Qué hago aquí?» opens the help for the screen you are on, with the
-// «Cómo se resuelve» cards that matter there (src/lib/staff/playbook.ts).
+// "What do I do here?" opens the help for the screen you are on, with the
+// "How to handle it" cards that matter there (src/lib/staff/playbook.ts).
+//
+// The console speaks the member's language (src/lib/staff/i18n): English
+// unless they choose Spanish, from the menu under their initial or on their
+// profile.
 //
 // In the demo nobody is signed in, so a bar under the header lets the owner
 // look at the console as each role sees it ("Ver como"). It exists only in the
 // demo: with a database the role comes from the signed-in member's own row.
 
+type NavKey = keyof (typeof SHELL_TEXT)["en"]["nav"];
+
 interface NavItem {
   href: string;
-  label: string;
+  label: NavKey;
   icon: IconName;
   needs?: Capability;
 }
 
 /** The everyday destinations: tabs on the top bar and on the phone's bottom bar. */
 const PRIMARY: NavItem[] = [
-  { href: "/equipo", label: "Inicio", icon: "home" },
-  { href: "/equipo/clientes", label: "Clientes", icon: "person" },
-  { href: "/equipo/respuestas", label: "Respuestas", icon: "chat", needs: "clients.reply" },
+  { href: "/equipo", label: "home", icon: "home" },
+  { href: "/equipo/clientes", label: "clients", icon: "person" },
+  { href: "/equipo/respuestas", label: "answers", icon: "chat", needs: "clients.reply" },
 ];
 
-/** Everything else, under «Más». */
+/** Everything else, under "More". */
 const MORE: NavItem[] = [
-  { href: "/equipo/invitar", label: "Invitar", icon: "mail", needs: "clients.invite" },
-  { href: "/equipo/acreedores", label: "Acreedores", icon: "doc", needs: "rounds.send" },
-  { href: "/equipo/actividad", label: "Actividad", icon: "clock" },
-  { href: "/equipo/piloto", label: "Piloto automático", icon: "sparkle", needs: "rounds.send" },
-  { href: "/equipo/negocio", label: "Negocio", icon: "chart", needs: "business.view" },
-  { href: "/equipo/socios", label: "Socios", icon: "link", needs: "partners.view" },
-  { href: "/equipo/equipo", label: "Equipo", icon: "team", needs: "team.manage" },
-  { href: "/equipo/cartas", label: "Cartas", icon: "clipboard", needs: "letters.edit" },
-  { href: "/equipo/perfil", label: "Mi perfil", icon: "person" },
-  { href: "/equipo/bienvenida", label: "Bienvenida", icon: "book" },
+  { href: "/equipo/invitar", label: "invite", icon: "mail", needs: "clients.invite" },
+  { href: "/equipo/acreedores", label: "creditors", icon: "doc", needs: "rounds.send" },
+  { href: "/equipo/actividad", label: "activity", icon: "clock" },
+  { href: "/equipo/piloto", label: "autopilot", icon: "sparkle", needs: "rounds.send" },
+  { href: "/equipo/negocio", label: "business", icon: "chart", needs: "business.view" },
+  { href: "/equipo/socios", label: "partners", icon: "link", needs: "partners.view" },
+  { href: "/equipo/equipo", label: "team", icon: "team", needs: "team.manage" },
+  { href: "/equipo/cartas", label: "letters", icon: "clipboard", needs: "letters.edit" },
+  { href: "/equipo/perfil", label: "profile", icon: "person" },
+  { href: "/equipo/bienvenida", label: "welcome", icon: "book" },
 ];
+
+/** The two languages, side by side: the quick switch in the member's menu and on the profile. */
+export function LanguageSwitch({ className = "" }: { className?: string }) {
+  const { locale, setLocale } = useStaffLocale();
+  const t = useText(SHELL_TEXT);
+  return (
+    <div className={`flex gap-1 rounded-xl bg-slate-100 p-1 ${className}`} role="group" aria-label={t.language} data-testid="language-switch">
+      {STAFF_LOCALES.map((option: StaffLocale) => (
+        <button
+          key={option}
+          type="button"
+          lang={option}
+          onClick={() => setLocale(option)}
+          aria-pressed={locale === option}
+          data-locale={option}
+          className={`pressable h-9 flex-1 rounded-lg px-3 text-[13px] font-semibold ${locale === option ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+        >
+          {LANGUAGE_SELF_NAME[option]}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 /** "Carmen Ruiz" → "CR"; one name → its first letter. */
 export function initials(name: string): string {
@@ -90,13 +122,16 @@ function useDismiss(open: boolean, setOpen: (open: boolean) => void) {
 function MemberMenu({ viewer, demo }: { viewer: Viewer; demo: boolean }) {
   const [open, setOpen] = useState(false);
   const box = useDismiss(open, setOpen);
+  const t = useText(SHELL_TEXT);
+  const { locale } = useStaffLocale();
+  const roleLabel = ROLE_LABELS[locale][viewer.role];
 
   const signOut = async () => {
     await getBrowserSupabase()?.auth.signOut();
     window.location.assign("/login");
   };
 
-  const label = `${viewer.name.split(" ")[0]} · ${ROLE_LABEL[viewer.role]}`;
+  const label = `${viewer.name.split(" ")[0]} · ${roleLabel}`;
   return (
     <div className="relative" ref={box}>
       <button
@@ -115,16 +150,20 @@ function MemberMenu({ viewer, demo }: { viewer: Viewer; demo: boolean }) {
         <div role="menu" className="absolute right-0 top-12 z-40 w-64 rounded-2xl border hairline bg-white p-2 shadow-lg">
           <p className="px-3 pb-2 pt-1.5">
             <span className="block text-[15px] font-semibold text-slate-900">{viewer.name}</span>
-            <span className="block text-[13px] text-slate-500">{ROLE_LABEL[viewer.role]}</span>
+            <span className="block text-[13px] text-slate-500">{roleLabel}</span>
           </p>
+          <div className="px-3 pb-2">
+            <span className="mb-1 block text-[12px] font-semibold uppercase tracking-wide text-slate-400">{t.language}</span>
+            <LanguageSwitch />
+          </div>
           <Link href="/equipo/perfil" role="menuitem" onClick={() => setOpen(false)} className="flex h-11 items-center rounded-xl px-3 text-[14px] font-medium text-slate-800 hover:bg-slate-50">
-            Mi perfil y resumen de la mañana
+            {t.profileLink}
           </Link>
           {demo ? (
-            <p className="border-t hairline px-3 pb-1 pt-2 text-[12px] leading-snug text-slate-500">En la demo nadie inicia sesión: cambia de rol con «Ver como».</p>
+            <p className="border-t hairline px-3 pb-1 pt-2 text-[12px] leading-snug text-slate-500">{t.demoNoSignIn}</p>
           ) : (
             <button type="button" role="menuitem" onClick={signOut} className="flex h-11 w-full items-center rounded-xl px-3 text-left text-[14px] font-medium text-blue-700 hover:bg-slate-50">
-              Cerrar sesión
+              {t.signOut}
             </button>
           )}
         </div>
@@ -133,10 +172,11 @@ function MemberMenu({ viewer, demo }: { viewer: Viewer; demo: boolean }) {
   );
 }
 
-/** «Más» on the top bar: a menu of the other destinations. */
+/** "More" on the top bar: a menu of the other destinations. */
 function MoreMenu({ items, active, isActive }: { items: NavItem[]; active: boolean; isActive: (href: string) => boolean }) {
   const [open, setOpen] = useState(false);
   const box = useDismiss(open, setOpen);
+  const t = useText(SHELL_TEXT);
   const current = items.find((n) => isActive(n.href));
   return (
     <div className="relative" ref={box}>
@@ -149,7 +189,7 @@ function MoreMenu({ items, active, isActive }: { items: NavItem[]; active: boole
         className={`pressable flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-sm font-medium ${active ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
       >
         <Icon name="grid" size={16} />
-        {current ? current.label : "Más"}
+        {current ? t.nav[current.label] : t.more}
         <Icon name="chevron" size={14} className={open ? "-rotate-90" : "rotate-90"} />
       </button>
       {open && (
@@ -164,7 +204,7 @@ function MoreMenu({ items, active, isActive }: { items: NavItem[]; active: boole
               className={`flex h-11 items-center gap-2.5 rounded-xl px-3 text-[14px] font-medium ${isActive(n.href) ? "bg-slate-100 text-slate-900" : "text-slate-700 hover:bg-slate-50"}`}
             >
               <Icon name={n.icon} size={18} />
-              {n.label}
+              {t.nav[n.label]}
             </Link>
           ))}
         </div>
@@ -173,15 +213,16 @@ function MoreMenu({ items, active, isActive }: { items: NavItem[]; active: boole
   );
 }
 
-/** The phone's «Más»: a sheet over the bottom bar. */
+/** The phone's "More": a sheet over the bottom bar. */
 function MoreSheet({ items, isActive, onClose }: { items: NavItem[]; isActive: (href: string) => boolean; onClose: () => void }) {
+  const t = useText(SHELL_TEXT);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-40 bg-slate-900/40 md:hidden" onClick={onClose} role="dialog" aria-modal="true" aria-label="Más">
+    <div className="fixed inset-0 z-40 bg-slate-900/40 md:hidden" onClick={onClose} role="dialog" aria-modal="true" aria-label={t.more}>
       <div
         className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-white px-3 pb-3 pt-2 shadow-lg"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 76px)" }}
@@ -199,7 +240,7 @@ function MoreSheet({ items, isActive, onClose }: { items: NavItem[]; isActive: (
                 className={`flex h-12 items-center gap-2.5 rounded-2xl px-3 text-[15px] font-medium ${isActive(n.href) ? "bg-slate-100 text-slate-900" : "text-slate-700"}`}
               >
                 <Icon name={n.icon} size={20} />
-                {n.label}
+                {t.nav[n.label]}
               </Link>
             </li>
           ))}
@@ -213,6 +254,8 @@ function Frame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const demo = getStaffData().demo;
   const { viewer, ready } = useViewer();
+  const t = useText(SHELL_TEXT);
+  const { locale } = useStaffLocale();
   const [help, setHelp] = useState(false);
   const [sheet, setSheet] = useState(false);
   const isActive = (href: string) => (href === "/equipo" ? pathname === "/equipo" : pathname === href || pathname.startsWith(`${href}/`));
@@ -237,12 +280,12 @@ function Frame({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh print:min-h-0">
       <header className="sticky top-0 z-30 border-b hairline bg-white/80 backdrop-blur-xl print:hidden">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:px-6 md:gap-4" data-testid="staff-topbar">
-          <Link href="/equipo" aria-label="Inicio del equipo" className="flex h-11 shrink-0 items-center gap-2.5">
+          <Link href="/equipo" aria-label={t.homeAria} className="flex h-11 shrink-0 items-center gap-2.5">
             <Logo size={24} priority />
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">Equipo</span>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">{t.teamPill}</span>
           </Link>
 
-          <nav className="hidden min-w-0 items-center gap-1 md:flex" aria-label="Equipo">
+          <nav className="hidden min-w-0 items-center gap-1 md:flex" aria-label={t.navAria}>
             {ready &&
               primary.map((n) => (
                 <Link
@@ -254,7 +297,7 @@ function Frame({ children }: { children: React.ReactNode }) {
                   }`}
                 >
                   <Icon name={n.icon} size={16} />
-                  {n.label}
+                  {t.nav[n.label]}
                 </Link>
               ))}
             {ready && more.length > 0 && <MoreMenu items={more} active={moreActive} isActive={isActive} />}
@@ -262,19 +305,19 @@ function Frame({ children }: { children: React.ReactNode }) {
 
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
             {demo && (
-              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-blue-900" title="Clientes inventados. Nada se envía.">
-                Demo
+              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-blue-900" title={t.demoPillTitle}>
+                {t.demoPill}
               </span>
             )}
             <button
               type="button"
               onClick={() => setHelp(true)}
               className="pressable flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-2 text-sm font-medium text-blue-700 hover:bg-slate-100 lg:px-3"
-              aria-label="¿Qué hago aquí?"
+              aria-label={t.help}
               data-testid="help-button"
             >
               <Icon name="info" size={20} />
-              <span className="hidden whitespace-nowrap lg:inline">¿Qué hago aquí?</span>
+              <span className="hidden whitespace-nowrap lg:inline">{t.help}</span>
             </button>
             {/* Who is signed in, as a round initial that opens a small menu: the name, the role, the profile, the way out. */}
             {viewer && <MemberMenu viewer={viewer} demo={demo} />}
@@ -290,8 +333,8 @@ function Frame({ children }: { children: React.ReactNode }) {
       {demo && viewer && (
         <div className="border-b border-amber-200/70 bg-amber-50 print:hidden" data-testid="view-as">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-1.5 sm:px-6">
-            <span className="text-[12px] font-semibold uppercase tracking-wide text-blue-900">Solo en la demo · Ver como</span>
-            <div className="flex gap-1" role="group" aria-label="Ver la consola como">
+            <span className="text-[12px] font-semibold uppercase tracking-wide text-blue-900">{t.viewAsLabel}</span>
+            <div className="flex gap-1" role="group" aria-label={t.viewAsAria}>
               {STAFF_ROLES.map((role) => (
                 <button
                   key={role}
@@ -302,13 +345,11 @@ function Frame({ children }: { children: React.ReactNode }) {
                     viewer.role === role ? "bg-blue-900 text-white" : "bg-white text-blue-900 hover:bg-amber-100"
                   }`}
                 >
-                  {ROLE_LABEL[role]}
+                  {ROLE_LABELS[locale][role]}
                 </button>
               ))}
             </div>
-            <span className="hidden text-[12px] text-blue-900/80 lg:inline">
-              Estás viendo lo que ve {viewer.name}. Con la base de datos, el rol sale de la cuenta de cada persona.
-            </span>
+            <span className="hidden text-[12px] text-blue-900/80 lg:inline">{t.viewAsNote(viewer.name)}</span>
           </div>
         </div>
       )}
@@ -318,8 +359,7 @@ function Frame({ children }: { children: React.ReactNode }) {
       {demo && (
         <footer className="mx-auto max-w-6xl px-4 pb-28 sm:px-6 md:pb-10 print:hidden">
           <p className="border-t hairline pt-4 text-xs leading-relaxed text-slate-500">
-            Demostración: los clientes son inventados y nada se envía por correo. Lo que hagas aquí se guarda solo en
-            este navegador.{" "}
+            {t.demoFooter}{" "}
             <button
               type="button"
               onClick={() => {
@@ -330,7 +370,7 @@ function Frame({ children }: { children: React.ReactNode }) {
               }}
               className="inline-flex min-h-11 items-center font-medium text-blue-700 underline-offset-2 hover:underline md:min-h-0"
             >
-              Reiniciar la demo
+              {t.resetDemo}
             </button>
           </p>
         </footer>
@@ -341,7 +381,7 @@ function Frame({ children }: { children: React.ReactNode }) {
         <nav
           className="fixed inset-x-0 bottom-0 z-30 border-t hairline bg-white/90 backdrop-blur-xl md:hidden print:hidden"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-          aria-label="Equipo"
+          aria-label={t.navAria}
           data-testid="bottom-bar"
         >
           <div className="mx-auto flex max-w-md">
@@ -355,7 +395,7 @@ function Frame({ children }: { children: React.ReactNode }) {
                 }`}
               >
                 <Icon name={n.icon} size={24} strokeWidth={isActive(n.href) ? 2 : 1.6} />
-                {n.label}
+                {t.nav[n.label]}
               </Link>
             ))}
             {more.length > 0 && (
@@ -368,7 +408,7 @@ function Frame({ children }: { children: React.ReactNode }) {
                 }`}
               >
                 <Icon name="grid" size={24} strokeWidth={moreActive ? 2 : 1.6} />
-                Más
+                {t.more}
               </button>
             )}
           </div>
@@ -380,10 +420,24 @@ function Frame({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function StaffShell({ viewer, children }: { viewer?: Viewer | null; children: React.ReactNode }) {
+export default function StaffShell({
+  viewer,
+  locale = "en",
+  localeSaved = false,
+  children,
+}: {
+  viewer?: Viewer | null;
+  /** The console's language for the first paint (the layout works it out on the server). */
+  locale?: StaffLocale;
+  /** True when that is the member's saved choice, not a guess from the browser. */
+  localeSaved?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <StaffViewerContext.Provider value={viewer ?? null}>
-      <Frame>{children}</Frame>
+      <StaffLocaleProvider initial={locale} saved={localeSaved}>
+        <Frame>{children}</Frame>
+      </StaffLocaleProvider>
     </StaffViewerContext.Provider>
   );
 }

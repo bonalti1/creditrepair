@@ -7,6 +7,7 @@ import { can, visibleClients, type Capability, type Viewer } from "./permissions
 import type { TeamState } from "./team";
 import { demoViewer, getTeamData } from "./teamData";
 import { loadTeamActions, saveTeamActions } from "./teamStore";
+import { useStaffLocale } from "./i18n/StaffLocale";
 import type { StaffClient } from "./types";
 
 // The console's clients for a page, loaded in the browser. `now` is taken
@@ -64,6 +65,7 @@ export function useStaff() {
   const raw = getStaffData();
   const teamData = getTeamData();
   const signedIn = useContext(StaffViewerContext);
+  const { locale } = useStaffLocale();
   const [state, setState] = useState<{ all: StaffClient[]; team: TeamState; viewer: Viewer | null; now: Date } | null>(null);
 
   const reload = useCallback(async () => {
@@ -85,6 +87,7 @@ export function useStaff() {
   const data = useMemo(
     () =>
       guardStaffData(raw, viewer, {
+        locale,
         // The demo records who sent each round; the database route records it on the server.
         onRoundsSent: (rounds, by) => {
           if (!raw.demo) return;
@@ -94,7 +97,7 @@ export function useStaff() {
           saveTeamActions({ ...actions, sentBy });
         },
       }),
-    [raw, viewer],
+    [raw, viewer, locale],
   );
   const clients = useMemo(() => visibleClients(viewer, state?.all ?? []), [viewer, state]);
 
@@ -111,6 +114,8 @@ export function useStaff() {
     settings: state?.team.settings ?? { autoAssign: false, lastAutoAssigned: null },
     teamEvents: state?.team.events ?? [],
     can: (capability: Capability) => can(viewer?.role, capability),
+    /** The console's language (i18n/StaffLocale.tsx). */
+    locale,
   };
 }
 

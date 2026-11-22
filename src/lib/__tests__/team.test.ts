@@ -17,7 +17,7 @@ import {
   formatPercent,
   inRange,
   isActiveClient,
-  METRIC_INFO,
+  METRIC_INFOS,
   monthlySeries,
   periodRange,
   PERIODS,
@@ -27,15 +27,15 @@ import {
   can,
   canSeeClient,
   CAPABILITIES,
-  CAPABILITY_LABEL,
+  CAPABILITY_LABELS,
   defaultsToMine,
   deniedReason,
   exceptionVisibleTo,
   isMine,
   isStaffRole,
-  ROLE_LABEL,
+  ROLE_LABELS,
   ROLE_PERMISSIONS,
-  ROLE_SUMMARY,
+  ROLE_SUMMARIES,
   rolesThatCan,
   scopeOf,
   STAFF_ROLES,
@@ -68,6 +68,10 @@ import {
 import { applyTeamActions, EMPTY_TEAM_ACTIONS } from "../staff/teamStore";
 import { clientTimeline } from "../staff/timeline";
 import type { StaffClient, StaffRole, StaffRound } from "../staff/types";
+import { setStaffLocaleFallback } from "../staff/i18n/locale";
+
+// Written against the Spanish console: the sentences these tests pin are the Spanish ones.
+setStaffLocaleFallback("es");
 
 // Noon in Texas on Saturday 5 December 2026, as in the other staff tests.
 const NOW = new Date("2026-12-05T18:00:00.000Z");
@@ -105,10 +109,10 @@ describe("team: the permission matrix", () => {
   it("decides every capability for every role, with a label", () => {
     for (const role of STAFF_ROLES) {
       expect(Object.keys(ROLE_PERMISSIONS[role].can).sort()).toEqual([...CAPABILITIES].sort());
-      expect(ROLE_LABEL[role].length).toBeGreaterThan(3);
-      expect(ROLE_SUMMARY[role].length).toBeGreaterThan(20);
+      expect(ROLE_LABELS.es[role].length).toBeGreaterThan(3);
+      expect(ROLE_SUMMARIES.es[role].length).toBeGreaterThan(20);
     }
-    for (const capability of CAPABILITIES) expect(CAPABILITY_LABEL[capability].length).toBeGreaterThan(5);
+    for (const capability of CAPABILITIES) expect(CAPABILITY_LABELS.es[capability].length).toBeGreaterThan(5);
   });
 
   it("gives an administrator everything and every client", () => {
@@ -567,8 +571,10 @@ describe("team: adding a person by hand", () => {
 
   it("produces the invite page's own link and message, not a copy of it", () => {
     const add = readFileSync("src/components/staff/AddClient.tsx", "utf8");
-    expect(add).toMatch(/import \{ buildInvitePath, GOALS, inviteMessageEs, type GoalKey \} from "@\/lib\/sales\/invite"/);
-    expect(add).toMatch(/inviteMessageEs\(\{ name: added\.firstName \}, url\)/);
+    expect(add).toMatch(/import \{ buildInvitePath, GOALS, inviteMessage, type GoalKey \} from "@\/lib\/sales\/invite"/);
+    // In the client's language, chosen on the panel: the link carries it and the message is written in it.
+    expect(add).toMatch(/buildInvitePath\(\{[^}]*\blang \}\)/);
+    expect(add).toMatch(/inviteMessage\(\{ name: added\.firstName \}, url, lang\)/);
     expect(add).not.toMatch(/Aquí está tu enlace/);
   });
 });
@@ -872,7 +878,7 @@ describe("team: business metrics", () => {
   });
 
   it("every number has a written definition, and none claims a result or a success rate", () => {
-    for (const [key, info] of Object.entries(METRIC_INFO)) {
+    for (const [key, info] of Object.entries(METRIC_INFOS.es)) {
       expect(info.label.length, key).toBeGreaterThan(3);
       expect(info.definition.length, key).toBeGreaterThan(30);
       for (const text of [info.label, info.definition]) {
@@ -880,7 +886,7 @@ describe("team: business metrics", () => {
         expect(text, text).not.toMatch(/éxito|exito|success|puntaje|score|puntos ganados|eliminad|borrad|removed|tasa de/i);
       }
     }
-    expect(METRIC_INFO.itemsNoLongerReported.label).toBe("Puntos que ya no aparecen en el reporte");
+    expect(METRIC_INFOS.es.itemsNoLongerReported.label).toBe("Puntos que ya no aparecen en el reporte");
     const page = readFileSync("src/app/equipo/negocio/page.tsx", "utf8");
     expect(page).not.toMatch(/éxito|success|puntaje|eliminad/i);
     expect(page).toMatch(/<Definition /);
@@ -987,14 +993,17 @@ describe("team: wording", () => {
   });
 
   it("the role descriptions and labels promise nothing", () => {
-    for (const text of [...Object.values(ROLE_SUMMARY), ...Object.values(CAPABILITY_LABEL), ...Object.values(ROLE_LABEL)]) {
+    for (const text of [...Object.values(ROLE_SUMMARIES.es), ...Object.values(CAPABILITY_LABELS.es), ...Object.values(ROLE_LABELS.es)]) {
       expect(checkClaimGuardrails(text), text).toEqual([]);
     }
   });
 
   it("labels the role switcher as demo-only", () => {
     const shell = readFileSync("src/components/staff/StaffShell.tsx", "utf8");
-    expect(shell).toMatch(/Solo en la demo · Ver como/);
+    const text = readFileSync("src/lib/staff/i18n/ui/shell.ts", "utf8");
+    expect(text).toMatch(/Solo en la demo · Ver como/);
+    expect(text).toMatch(/Demo only · View as/);
+    expect(shell).toMatch(/\{t\.viewAsLabel\}/);
     expect(shell).toMatch(/\{demo && viewer && \(/);
   });
 });

@@ -39,28 +39,37 @@ export interface AutoSendState {
   text: string;
 }
 
-function hourOf(date: Date): string {
-  return date.toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", timeZone: STAFF_TIME_ZONE }).replace(/\s/g, " ");
+function hourOf(date: Date, locale: "es" | "en"): string {
+  return date.toLocaleTimeString(locale === "es" ? "es-MX" : "en-US", { hour: "numeric", minute: "2-digit", timeZone: STAFF_TIME_ZONE }).replace(/\s/g, " ");
 }
 
-function whenText(at: Date, now: Date): string {
+function whenText(at: Date, now: Date, locale: "es" | "en"): string {
   const today = now.toLocaleDateString("en-CA", { timeZone: STAFF_TIME_ZONE });
   const that = at.toLocaleDateString("en-CA", { timeZone: STAFF_TIME_ZONE });
   const tomorrow = new Date(now.getTime() + 24 * HOUR_MS).toLocaleDateString("en-CA", { timeZone: STAFF_TIME_ZONE });
-  if (that === today) return `hoy a las ${hourOf(at)}`;
-  if (that === tomorrow) return `mañana a las ${hourOf(at)}`;
-  return `el ${formatDay(at)} a las ${hourOf(at)}`;
+  if (locale === "en") {
+    if (that === today) return `today at ${hourOf(at, "en")}`;
+    if (that === tomorrow) return `tomorrow at ${hourOf(at, "en")}`;
+    return `on ${formatDay(at, "en")} at ${hourOf(at, "en")}`;
+  }
+  if (that === today) return `hoy a las ${hourOf(at, "es")}`;
+  if (that === tomorrow) return `mañana a las ${hourOf(at, "es")}`;
+  return `el ${formatDay(at)} a las ${hourOf(at, "es")}`;
 }
 
-/** Where a sendable round stands with the autopilot. `readyAt` null: the system has not seen it yet. */
-export function autoSendState(client: StaffClient, round: StaffRound, now: Date, settings: AutopilotSettings): AutoSendState {
-  if (!settings.roundsEnabled) return { status: "off", at: null, text: "Envío automático apagado: la envía una persona." };
+/** Where a sendable round stands with the autopilot. `readyAt` null: the system has not seen it yet. `text` is for the console, in `locale`. */
+export function autoSendState(client: StaffClient, round: StaffRound, now: Date, settings: AutopilotSettings, locale: "es" | "en" = "es"): AutoSendState {
+  const en = locale === "en";
+  if (!settings.roundsEnabled) return { status: "off", at: null, text: en ? "Automatic sending off: a person sends it." : "Envío automático apagado: la envía una persona." };
   const hold = openHold(client);
-  if (hold) return { status: "held", at: null, text: `Detenida por ${hold.by}: «${hold.reason}»` };
+  if (hold) return { status: "held", at: null, text: en ? `On hold by ${hold.by}: “${hold.reason}”` : `Detenida por ${hold.by}: «${hold.reason}»` };
   const ready = round.readyAt ? new Date(round.readyAt) : now;
   const at = new Date(ready.getTime() + settings.reviewWindowHours * HOUR_MS);
-  if (at.getTime() > now.getTime()) return { status: "waiting", at: at.toISOString(), text: `Sale sola ${whenText(at, now)} si nadie la detiene.` };
-  return { status: "due", at: at.toISOString(), text: "Sale sola en la próxima vuelta del sistema (cada hora)." };
+  if (at.getTime() > now.getTime()) {
+    const when = whenText(at, now, locale);
+    return { status: "waiting", at: at.toISOString(), text: en ? `Goes out on its own ${when} unless someone holds it.` : `Sale sola ${when} si nadie la detiene.` };
+  }
+  return { status: "due", at: at.toISOString(), text: en ? "Goes out on the system's next run (every hour)." : "Sale sola en la próxima vuelta del sistema (cada hora)." };
 }
 
 export interface AutoSendCandidate {

@@ -19,6 +19,16 @@ export const RESOLUTION_LABEL: Record<ResolutionKind, string> = {
   furnisher_matched: "Acreedores encontrados en la libreta",
 };
 
+/** The same, for the staff console in English. */
+export const RESOLUTION_LABEL_EN: Record<ResolutionKind, string> = {
+  address_corrected: "Addresses corrected with the post office's data",
+  address_confirmed: "Addresses confirmed by the client",
+  letter_remailed: "Returned letters mailed again",
+  payment_fixed: "Payments fixed by the client",
+  document_reuploaded: "Documents uploaded again",
+  furnisher_matched: "Creditors found in the address book",
+};
+
 type Detail = Record<string, unknown>;
 const s = (v: unknown) => (typeof v === "string" ? v : typeof v === "number" ? String(v) : "");
 
