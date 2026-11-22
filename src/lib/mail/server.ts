@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { queueStatus } from "../autopilot/store";
 import type { FurnisherChange, FurnisherEntry, FurnisherField } from "./furnishers";
 import { eventRecord, mailState, type LobWebhookEvent } from "./tracking";
 import type { MailClass, MailEventKind, MailEventRecord, MailStatus } from "./types";
@@ -106,6 +107,8 @@ export interface MailStore {
   updateLetter(letterId: string, update: LetterMailUpdate): Promise<void>;
   /** Writes the "letter returned" record staff are alerted from. Called once per letter. */
   recordReturned(letter: TrackedLetter, update: LetterMailUpdate): Promise<void>;
+  /** A certified letter was delivered: tell the client (the autopilot's status message, once per letter). */
+  recordDelivered?(letter: TrackedLetter, update: LetterMailUpdate): Promise<void>;
 }
 
 export type RecordOutcome =
@@ -154,6 +157,7 @@ export async function recordLobEvent(store: MailStore, event: LobWebhookEvent): 
   const back = (s: MailStatus) => s === "returned" || s === "undeliverable";
   const returnedNow = back(state.status) && !back(letter.mailStatus);
   if (returnedNow) await store.recordReturned(letter, update);
+  if (state.status === "delivered" && letter.mailClass !== "first_class" && store.recordDelivered) await store.recordDelivered(letter, update);
   return { outcome: inserted === "inserted" ? "recorded" : "duplicate", status: state.status, returnedNow };
 }
 
@@ -239,6 +243,12 @@ export function supabaseMailStore(db: SupabaseClient): MailStore {
         payload: { letterId: letter.id, status: update.mailStatus, reason: update.returnReason, at: update.returnedAt },
       });
       if (error) throw new Error(`events: ${error.message}`);
+    },
+    async recordDelivered(letter, update) {
+      const { data } = await db.from("letters").select("target_name").eq("id", letter.id).maybeSingle();
+      const recipient = text((data as Row | null)?.target_name) || "el destinatario";
+      // Queued once per letter (its dedupe key), whatever Lob repeats.
+      await queueStatus(db, letter.userId, { kind: "certified_delivered", letterId: letter.id, recipient, deliveredAt: update.deliveredAt ?? new Date().toISOString() });
     },
   };
 }

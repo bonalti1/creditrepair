@@ -14,7 +14,8 @@
     "content:variants": "tsx content/pipeline/variants.ts",
     "content:rank": "tsx content/pipeline/rank.ts",
     "letters:packet": "tsx scripts/letters-packet.ts",
-    "db:setup-sql": "node scripts/setup-sql.mjs"
+    "db:setup-sql": "node scripts/setup-sql.mjs",
+    "intake:fixtures": "tsx scripts/intake-fixtures.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.56.0",

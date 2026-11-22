@@ -16,7 +16,11 @@ import {
 } from "@/lib/staff/metrics";
 import { ROLE_LABEL, deniedReason } from "@/lib/staff/permissions";
 import { useStaff } from "@/lib/staff/useStaff";
+import { useAutopilot } from "@/lib/autopilot/useAutopilot";
+import { useMail } from "@/lib/mail/useMail";
 import Definition from "@/components/staff/Definition";
+import PartnerStats from "@/components/partners/PartnerStats";
+import { DashboardPulse } from "@/components/staff/PulseCards";
 import { NoAccess, SectionTitle } from "@/components/staff/ui";
 
 // The numbers an owner checks, from the same records the console shows.
@@ -80,7 +84,7 @@ function Bars({ title, points, value, format, definition }: { title: string; poi
         ))}
       </div>
       <details className="mt-3">
-        <summary className="cursor-pointer text-[12.5px] font-medium text-blue-700">Ver como tabla</summary>
+        <summary className="flex min-h-11 cursor-pointer items-center text-[12.5px] font-medium text-blue-700 md:min-h-0">Ver como tabla</summary>
         <table className="mt-2 w-full text-[13px] tabular-nums">
           <tbody>
             {points.map((p) => (
@@ -136,7 +140,7 @@ function PhoneRows({ rows, columns }: { rows: Array<{ key: string; name: string;
 function HowCounted({ keys }: { keys: MetricKey[] }) {
   return (
     <details className="px-1 pt-2">
-      <summary className="cursor-pointer text-[12.5px] font-medium text-blue-700">Cómo se cuenta</summary>
+      <summary className="flex min-h-11 cursor-pointer items-center text-[12.5px] font-medium text-blue-700 md:min-h-0">Cómo se cuenta</summary>
       <dl className="mt-1.5 space-y-1 text-[12.5px] leading-snug text-slate-600">
         {keys.map((k) => (
           <div key={k}>
@@ -157,10 +161,12 @@ function Dashboard() {
   const periodParam = params.get("periodo") ?? "";
   const period: Period = (PERIODS as readonly string[]).includes(periodParam) ? (periodParam as Period) : "month";
 
-  const m = useMemo(() => businessMetrics(clients, members, period, now), [clients, members, period, now]);
+  const { env, ready: autopilotReady } = useAutopilot();
+  const { furnishers, ready: bookReady } = useMail();
+  const m = useMemo(() => businessMetrics(clients, members, period, now, env, furnishers), [clients, members, period, now, env, furnishers]);
   const series = useMemo(() => monthlySeries(clients, now, 6), [clients, now]);
 
-  if (!ready) return null;
+  if (!ready || !autopilotReady || !bookReady) return null;
   if (!can("business.view")) return <NoAccess title="Negocio" reason={deniedReason("business.view")} />;
 
   const days = (n: number | null) => (n === null ? "—" : `${Math.round(n)} días`);
@@ -180,7 +186,7 @@ function Dashboard() {
               type="button"
               aria-pressed={period === p}
               onClick={() => router.replace(p === "month" ? pathname : `${pathname}?periodo=${p}`, { scroll: false })}
-              className={`pressable h-8 whitespace-nowrap rounded-full px-3 text-[13px] font-semibold ${period === p ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
+              className={`pressable h-11 whitespace-nowrap rounded-full px-3 text-[13px] font-semibold sm:h-8 ${period === p ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
             >
               {PERIOD_LABEL[p]}
             </button>
@@ -215,6 +221,11 @@ function Dashboard() {
           <Stat metric="itemsNoLongerReported" value={String(m.work.itemsNoLongerReported)} />
           <Stat metric="daysToFirstRound" value={days(m.work.daysToFirstRound)} />
           <Stat metric="roundsOverdue" value={`${m.work.roundsOverdue} de ${m.work.inCycle}`} note="clientes con rondas enviadas" />
+          <Stat
+            metric="humanMinutesPerActive"
+            value={m.work.humanMinutesPerActive === null ? "—" : `${m.work.humanMinutesPerActive.toFixed(1)} min`}
+            note={`${m.work.humanMinutes} min estimados entre ${m.clients.active} activos`}
+          />
         </StatGrid>
       </section>
 
@@ -235,6 +246,10 @@ function Dashboard() {
           Se cobra solo por rondas ya enviadas, a la cuota del acuerdo firmado. Lo programado no incluye rondas que todavía no salen.
         </p>
       </section>
+
+      <DashboardPulse pulse={m.pulse} clients={clients} />
+
+      <PartnerStats clients={clients} period={period} now={now} />
 
       <section className="mt-7 grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2" aria-label="Por mes">
         <Bars title="Rondas enviadas por mes" points={series} value={(p) => p.roundsMailed} format={(n) => String(n)} definition={`${METRIC_INFO.roundsMailed.definition} El mes actual va hasta hoy.`} />

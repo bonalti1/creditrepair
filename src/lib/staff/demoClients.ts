@@ -1,3 +1,4 @@
+import { attachDemoAutopilot } from "../autopilot/demo";
 import { BRAND } from "../brand";
 import { cancellationDeadline } from "../agreement/businessDays";
 import { AGREEMENT_VERSION } from "../agreement/documents";
@@ -10,6 +11,7 @@ import { parseReport, type RawReport } from "../domain/parser";
 import type { ItemFlag, NormalizedReport, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
 import { DEMO_RAW_REPORT } from "../demo";
+import { attachDemoIntake } from "../intake/demo";
 import { paidCharge, sampleMethod } from "./billing";
 import type {
   ItemAnswer,
@@ -899,5 +901,11 @@ export function buildDemoClients(now: Date): StaffClient[] {
   for (const client of clients) if (goals[client.id]) client.goal = goals[client.id];
   mariana.email = "mariana.robles@ejemplo.com";
 
-  return clients;
+  // What the AI intake recorded for a few of them (src/lib/intake/demo.ts).
+  attachDemoIntake(clients, ago);
+
+  // What the autopilot did for them: messages sent, a hold, an opt-out, a
+  // round mailed by itself, when each prepared round was first seen
+  // (autopilot/demo.ts). Nothing in the cases above changes.
+  return attachDemoAutopilot(clients, now);
 }

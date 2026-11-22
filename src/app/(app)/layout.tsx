@@ -6,7 +6,7 @@ import { LocaleProvider } from "@/lib/i18n";
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <LocaleProvider>
-      <div className="min-h-dvh pb-24 sm:pb-8">
+      <div className="client-scale min-h-dvh pb-24 sm:pb-8">
         <AppNav />
         <OnboardingSync />
         <BillingSync />

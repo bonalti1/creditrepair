@@ -19,6 +19,19 @@ async function rows(query: PromiseLike<{ data: unknown; error: { message: string
   return (data as Row[] | null) ?? [];
 }
 
+/**
+ * Rows of a table added by a later migration (0015, the autopilot): a
+ * database that does not have it yet reads as empty there, not as an error.
+ */
+async function optionalRows(query: PromiseLike<{ data: unknown; error: { message: string; code?: string } | null }>, what: string): Promise<Row[]> {
+  const { data, error } = await query;
+  if (error) {
+    if (error.code === "42P01" || /does not exist/i.test(error.message)) return [];
+    throw new Error(`${what}: ${error.message}`);
+  }
+  return (data as Row[] | null) ?? [];
+}
+
 const PULL_COLUMNS = "id, user_id, source, pulled_at, created_at, imported_by, imported_by_name, reader_key, import_summary";
 
 /**
@@ -57,6 +70,7 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     samples,
     assignments,
     audit,
+    intake,
   ] = await Promise.all([
     rows(sel("profiles", "*", "id"), "profiles"),
     rows(one ? db.from("prospects").select("*").or(`id.eq.${one},converted_user_id.eq.${one}`) : db.from("prospects").select("*"), "prospects"),
@@ -85,7 +99,25 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
         : db.from("team_audit").select("*").eq("kind", "client_assigned"),
       "team_audit",
     ),
+    // AI intake records (migration 0016): status and reasons, not the report readings.
+    rows(sel("intake_documents", "id, user_id, kind, status, simulated, reasons, created_at, cost_usd, result").neq("kind", "credit_report"), "intake_documents"),
   ]);
+
+  // Piloto automático (migration 0015): what the system sent, opt-outs, holds,
+  // rounds it saw ready, and the client's last WhatsApp messages (the 24-hour window).
+  const [outbound, optOuts, holds, readyRounds, inbound] = await Promise.all([
+    optionalRows(sel("outbound_messages", "*"), "outbound_messages"),
+    optionalRows(sel("message_opt_outs", "*"), "message_opt_outs"),
+    optionalRows(sel("autopilot_holds", "*"), "autopilot_holds"),
+    optionalRows(sel("autopilot_ready_rounds", "*"), "autopilot_ready_rounds"),
+    optionalRows(sel("chat_messages", "user_id, created_at").eq("channel", "whatsapp").eq("role", "user").order("created_at", { ascending: false }).limit(2000), "chat_messages"),
+  ]);
+
+  // "¿Cómo vamos?" answers (migration 0018): the "staff read pulses" policy decides (admin, assigned specialist).
+  const pulses = await optionalRows(sel("client_pulses", "user_id, moment, rating, comment, created_at"), "client_pulses");
+
+  // Referral partners' names and codes, for a lead's source (migration 0017). A role that may not read them gets none.
+  const partners = await rows(db.from("partners").select("id, name, referral_code"), "partners");
 
   // letter_items has no user_id: read those of the letters this member can see.
   const letterIds = letters.map((l) => String(l.id));
@@ -128,6 +160,14 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     samples,
     assignments,
     audit,
+    outbound,
+    optOuts,
+    holds,
+    readyRounds,
+    inbound,
+    intake,
+    partners,
+    pulses,
   };
 }
 

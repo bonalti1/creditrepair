@@ -15,6 +15,9 @@ import { GOALS, parseInvite, type Invite } from "@/lib/sales/invite";
 import { BRAND } from "@/lib/brand";
 import { isFullService } from "@/lib/service/mode";
 import { readStoredAgreement } from "@/lib/ux/agreementLocal";
+import { isFullName } from "@/lib/agreement/signature";
+import { markMilestone, readMilestones, resumeStep, type FirstWeekStep } from "@/lib/ux/firstWeek";
+import FirstWeekProgress from "@/components/FirstWeekProgress";
 
 // Onboarding: goal (feeds the mortgage track) → state gate (v1 is TX-only;
 // other states join the waitlist, since expansion is a legal project, not a
@@ -33,6 +36,11 @@ import { readStoredAgreement } from "@/lib/ux/agreementLocal";
 // link opens on a welcome screen with the answers already filled in, so the
 // customer confirms instead of re-answering, then goes to monitoring and in.
 // The state gate and every later decision still apply.
+//
+// First week: the same four steps everywhere ("Paso 1 de 4 · Tus datos · 1
+// minuto", src/lib/ux/firstWeek.ts). A client who comes back through their link
+// after signing picks up where they left off, without the welcome again. The
+// time each step took is kept on the device only, to find friction.
 //
 // Language: Spanish first, with the same ES/EN switch as the app. The choice is
 // kept on the device, so it carries into the app. The words live in
@@ -77,10 +85,9 @@ function Onboarding() {
 
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER;
   const invited = invite !== null;
-  const totalSteps = invited ? 2 : 4;
-  const stepIndex = invited
-    ? step === "monitoring" ? 2 : 1
-    : step === "goal" ? 1 : step === "state" ? 2 : step === "monitoring" ? 3 : 4;
+  /** True when the client came back and was taken to where they left off. */
+  const [resumed, setResumed] = useState(false);
+  const weekStep: FirstWeekStep = step === "monitoring" ? "monitoring" : step === "assist" ? "review" : "details";
 
   // Read the invite link once, on arrival.
   useEffect(() => {
@@ -104,7 +111,26 @@ function Onboarding() {
       return;
     }
     const parsed = parseInvite(query);
+    // Back again after signing: straight to the first step not done (no welcome a second time).
+    const signed = Boolean(readStoredAgreement()?.signedAt);
+    if (isFullService && signed) {
+      const next = resumeStep(readMilestones(), true);
+      if (next === "monitoring") {
+        if (parsed) setInvite(parsed);
+        setResumed(true);
+        setStep("monitoring");
+        setReady(true);
+        return;
+      }
+      if (next === "review") {
+        router.replace("/asistente");
+        return;
+      }
+    }
+    markMilestone("invite_opened");
     if (parsed) {
+      // A full name on the link fills in the signature field later; the client checks it there.
+      if (parsed.name && isFullName(parsed.name)) save("bonalti.inviteName", parsed.name);
       setInvite(parsed);
       if (parsed.goal) {
         setGoal(parsed.goal);
@@ -112,6 +138,8 @@ function Onboarding() {
       }
       if (parsed.state) setState(parsed.state);
       if (parsed.ref) save("bonalti.ref", parsed.ref);
+      // A partner's referral code (migration 0017): sent with the profile at first sign-in, credited only to an approved partner.
+      if (parsed.partner) save("bonalti.partner", parsed.partner);
       setStep("welcome");
     }
     setReady(true);
@@ -123,6 +151,7 @@ function Onboarding() {
    * comes back here afterwards (see /acuerdo).
    */
   const toMonitoring = () => {
+    markMilestone("details_done");
     if (isFullService && !readStoredAgreement()?.signedAt) {
       save(RETURN_KEY, window.location.search);
       router.push("/acuerdo?desde=inicio");
@@ -143,6 +172,7 @@ function Onboarding() {
 
   /** After monitoring: an invited customer already has their person; go straight in. */
   const afterMonitoring = () => {
+    markMilestone("monitoring_done");
     if (!invited) return setStep("assist");
     save("bonalti.assisted", "1");
     router.push("/asistente");
@@ -162,6 +192,7 @@ function Onboarding() {
   };
 
   const finish = (assisted: boolean) => {
+    markMilestone("monitoring_done");
     save("bonalti.assisted", assisted ? "1" : "0");
     if (assisted && whatsappNumber) {
       window.open(
@@ -177,22 +208,16 @@ function Onboarding() {
   if (!ready) return null;
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-10 pt-6">
+    <main className="client-scale mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-10 pt-6">
       <div className="flex items-center justify-between gap-3">
         <Link href="/" aria-label={BRAND.name} className="flex h-11 items-center">
           <Logo size={24} priority />
         </Link>
         <div className="flex items-center gap-3">
-          {step !== "waitlist-done" && (
-            <div className="flex gap-1.5" role="img" aria-label={c.stepOf(stepIndex, totalSteps)}>
-              {Array.from({ length: totalSteps }, (_, i) => i + 1).map((n) => (
-                <span key={n} className={`h-1.5 rounded-full ${n <= stepIndex ? "w-6 bg-blue-700" : "w-1.5 bg-slate-300"}`} />
-              ))}
-            </div>
-          )}
           <LocaleToggle />
         </div>
       </div>
+      {step !== "waitlist-done" && <FirstWeekProgress step={weekStep} className="mt-4" />}
 
       {step === "welcome" && invite && (
         <div className="animate-rise flex flex-1 flex-col pt-10">
@@ -344,6 +369,11 @@ function Onboarding() {
 
       {step === "monitoring" && (
         <div className="animate-rise flex flex-1 flex-col pt-12">
+          {resumed && (
+            <p className="mb-3 rounded-2xl bg-blue-50 px-4 py-3 text-[15px] leading-snug text-blue-900" data-testid="resumed">
+              {locale === "es" ? "Ya firmaste tu acuerdo. Sigue donde te quedaste." : "You already signed your agreement. Pick up where you left off."}
+            </p>
+          )}
           <h1 className="font-display text-[34px] font-bold leading-tight text-blue-700">{c.monitoringTitle}</h1>
           <p className="mt-3 text-[17px] text-slate-500">{c.monitoringSub}</p>
           <div className="card mt-8 overflow-hidden">

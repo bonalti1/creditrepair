@@ -8,9 +8,12 @@ import LocaleToggle from "@/components/LocaleToggle";
 import Logo from "@/components/Logo";
 import { BRAND } from "@/lib/brand";
 import { isDemoMode } from "@/lib/supabase/config";
+import WhatsHappening from "@/components/case/WhatsHappening";
 
 // Three destinations, like a good phone app: where you stand, your assistant,
 // and everything else. Translucent bars keep the content feeling continuous.
+// The header carries "¿Qué está pasando?" (WhatsHappening): the case's status
+// in one tap from every screen.
 
 const NAV: Array<{ href: string; key: "home" | "assistant" | "more"; icon: IconName }> = [
   { href: "/dashboard", key: "home", icon: "home" },
@@ -18,7 +21,7 @@ const NAV: Array<{ href: string; key: "home" | "assistant" | "more"; icon: IconN
   { href: "/mas", key: "more", icon: "grid" },
 ];
 
-const MORE_PATHS = ["/mas", "/audit", "/items", "/attack", "/rounds", "/goal"];
+const MORE_PATHS = ["/mas", "/audit", "/items", "/attack", "/rounds", "/goal", "/caso", "/aprende", "/pagos", "/acuerdo"];
 
 export default function AppNav() {
   const pathname = usePathname();
@@ -57,6 +60,7 @@ export default function AppNav() {
                 {d.nav.demo}
               </span>
             )}
+            <WhatsHappening />
             <LocaleToggle />
           </div>
         </div>
@@ -73,7 +77,7 @@ export default function AppNav() {
               href={n.href}
               aria-current={isActive(n.href) ? "page" : undefined}
               className={`pressable flex flex-1 flex-col items-center gap-1 pb-2 pt-2.5 text-[11px] font-medium ${
-                isActive(n.href) ? "text-blue-700" : "text-slate-400"
+                isActive(n.href) ? "text-blue-700" : "text-slate-500"
               }`}
             >
               <Icon name={n.icon} size={26} strokeWidth={isActive(n.href) ? 2 : 1.6} />

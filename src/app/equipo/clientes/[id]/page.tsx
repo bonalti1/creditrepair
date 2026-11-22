@@ -8,17 +8,21 @@ import { readerLabel } from "@/lib/reports/readers";
 import { demoClientUploads } from "@/lib/staff/data";
 import { count, formatBytes, formatPhone, longDay, relativeDay, shortDateTime, shortDay } from "@/lib/staff/format";
 import { staffLetterText } from "@/lib/staff/letters";
+import type { LetterVersion } from "@/lib/letters/versions/versions";
+import { useLetterVersions } from "@/lib/letters/versions/useLetterVersions";
 import { exceptionMessage, STAFF_MESSAGE_RULES, whatsappHref } from "@/lib/staff/messages";
 import { roundRefsHref, sendRefsHref } from "@/lib/staff/printBatch";
 import type { FurnisherEntry } from "@/lib/mail/furnishers";
 import { addressBookHref, chosenMailClass, letterAsItWillGo, letterDestination } from "@/lib/mail/sendPlan";
 import { returnReasonEs } from "@/lib/mail/tracking";
 import { useMail } from "@/lib/mail/useMail";
+import { personExceptions } from "@/lib/autopilot/queue";
+import { useAutopilot } from "@/lib/autopilot/useAutopilot";
+import AutopilotCard from "@/components/staff/AutopilotCard";
 import { MailClassChip, MailTimeline, SimulatedPill, TrackingLink } from "@/components/staff/MailBits";
 import {
   agreementLine,
   clientAgreement,
-  clientExceptions,
   clientStage,
   formatDay,
   handledExceptions,
@@ -54,9 +58,12 @@ import Icon from "@/components/Icon";
 import ItemFacts from "@/components/ItemFacts";
 import ActivityList from "@/components/staff/ActivityList";
 import AssignmentCard from "@/components/staff/AssignmentCard";
+import LeadSourceCard from "@/components/staff/LeadSourceCard";
 import BillingCard from "@/components/staff/BillingCard";
 import Conversation from "@/components/staff/Conversation";
+import { ClientPulse } from "@/components/staff/PulseCards";
 import ReportImport from "@/components/staff/ReportImport";
+import IntakeChecks from "@/components/staff/IntakeChecks";
 import {
   ActorTag,
   Chip,
@@ -203,18 +210,21 @@ function Letter({
   letter: recorded,
   now,
   furnishers,
+  letterVersions,
 }: {
   client: StaffClient;
   round: StaffRound;
   letter: StaffLetter;
   now: Date;
   furnishers: readonly FurnisherEntry[];
+  letterVersions: readonly LetterVersion[];
 }) {
   // A creditor's or collector's letter shows the address it will go to (the address book's), never the report's.
   const letter = useMemo(() => letterAsItWillGo(recorded, round, furnishers), [recorded, round, furnishers]);
   // The text as it is mailed, with the reason the client gave after each item.
   // Letters are in English: that is the language the bureaus work in.
-  const body = useMemo(() => staffLetterText(client, round, letter, now), [client, round, letter, now]);
+  // With the attorney-approved text of the letter (letters/versions), the one the server mails.
+  const body = useMemo(() => staffLetterText(client, round, letter, now, letterVersions), [client, round, letter, now, letterVersions]);
   const current = new Set(client.report?.items.map((i) => i.fingerprint));
   const answered = round.status === "responded";
   // What an imported report already showed for this round's items, even while the round is still open.
@@ -278,7 +288,11 @@ export default function ClientePage() {
   const { data, team, ready: clientsReady, clients, now, reload, viewer, members, can } = useStaff();
   // The furnisher address book: letters to creditors and collectors go only to a checked address in it.
   const { furnishers, ready: bookReady } = useMail();
-  const ready = clientsReady && bookReady;
+  // The approved letter texts: the letters below read as they are mailed.
+  const { versions: letterVersions } = useLetterVersions({ approvedOnly: true });
+  // The autopilot: a notice its follow-ups are still working on is not a person's yet.
+  const { autopilot, env, ready: autopilotReady, reload: reloadAutopilot } = useAutopilot();
+  const ready = clientsReady && bookReady && autopilotReady;
   const [note, setNote] = useState("");
   const [importing, setImporting] = useState(false);
   const [importNote, setImportNote] = useState<string | null>(null);
@@ -308,7 +322,9 @@ export default function ClientePage() {
   const step = nextStepFor(client, now, viewer);
   // What this member's role is shown and may do (permissions.ts; the data layer checks again).
   const caseView = can("case.view");
-  const exceptions = clientExceptions(client, now, { furnishers }).filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
+  const exceptions = personExceptions(client, now, { furnishers, autopilot: env })
+    .map((p) => p.exception)
+    .filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
   const handled = handledExceptions(client, now, { furnishers }).filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
   const prepared = sendableRound(client, now, { furnishers });
   const round = can("rounds.send") ? prepared : null;
@@ -369,7 +385,7 @@ export default function ClientePage() {
 
   return (
     <main className="animate-rise">
-      <Link href="/equipo/clientes" className="inline-flex items-center gap-1 text-[14px] font-medium text-blue-700">
+      <Link href="/equipo/clientes" className="inline-flex min-h-11 items-center gap-1 text-[14px] font-medium text-blue-700">
         <Icon name="chevron" size={16} className="rotate-180" />
         Clientes
       </Link>
@@ -477,6 +493,22 @@ export default function ClientePage() {
             </section>
           )}
 
+          {(caseView || can("clients.followup")) && client.signedUpAt && (
+            <AutopilotCard
+              client={client}
+              now={now}
+              env={env}
+              autopilot={autopilot}
+              by={staffAuthor()}
+              canHold={can("rounds.send") && caseView}
+              canOptOut={can("clients.followup")}
+              holdDenied={deniedReason("rounds.send")}
+              onChanged={async () => {
+                await Promise.all([reload(), reloadAutopilot()]);
+              }}
+            />
+          )}
+
           {!caseView && (
             <p className="card px-5 py-4 text-[14px] leading-snug text-slate-600" data-testid="case-hidden">
               {deniedReason("case.view")} Aquí ves su etapa, su acuerdo, sus documentos y sus notas.
@@ -484,8 +516,10 @@ export default function ClientePage() {
           )}
 
           {caseView && (
-            <Conversation client={client} data={data} now={now} onSent={reload} replyDenied={can("clients.reply") ? null : deniedReason("clients.reply")} />
+            <Conversation client={client} data={data} now={now} onSent={reload} viewer={viewer} replyDenied={can("clients.reply") ? null : deniedReason("clients.reply")} />
           )}
+
+          {caseView && client.pulses && client.pulses.length > 0 && <ClientPulse client={client} />}
 
           {caseView && (
           <section aria-labelledby="reporte">
@@ -502,7 +536,7 @@ export default function ClientePage() {
                         setImporting(true);
                         setImportNote(null);
                       }}
-                      className="pressable inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-blue-50 px-3.5 text-[13px] font-semibold text-blue-700 hover:bg-blue-100"
+                      className="pressable inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full bg-blue-50 px-3.5 md:h-9 text-[13px] font-semibold text-blue-700 hover:bg-blue-100"
                     >
                       <Icon name="arrowUp" size={15} strokeWidth={2.25} />
                       Importar reporte
@@ -584,7 +618,7 @@ export default function ClientePage() {
                         )}
                         {facts.length > 0 && (
                           <details className="group mt-1.5">
-                            <summary className="cursor-pointer list-none text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden">
+                            <summary className="flex min-h-11 cursor-pointer list-none items-center text-[13px] md:min-h-0 font-medium text-blue-700 underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden">
                               <span className="group-open:hidden">Lo que dice el reporte</span>
                               <span className="hidden group-open:inline">Ocultar</span>
                             </summary>
@@ -666,7 +700,7 @@ export default function ClientePage() {
                     </div>
                     <ul>
                       {r.letters.map((letter) => (
-                        <Letter key={letter.id} client={client} round={r} letter={letter} now={now} furnishers={furnishers} />
+                        <Letter key={letter.id} client={client} round={r} letter={letter} now={now} furnishers={furnishers} letterVersions={letterVersions} />
                       ))}
                     </ul>
                   </div>
@@ -718,6 +752,8 @@ export default function ClientePage() {
               )}
             </div>
           </section>
+
+          <LeadSourceCard source={client.leadSource} />
 
           <AssignmentCard client={client} viewer={viewer} members={members} team={team} canAssign={can("clients.assign")} onChanged={reload} />
 
@@ -802,6 +838,7 @@ export default function ClientePage() {
                 .
               </p>
             )}
+            <IntakeChecks client={client} demo={data.demo} canUpload={can("reports.import")} onChanged={reload} />
           </section>
 
           <section aria-labelledby="historia">
@@ -838,7 +875,7 @@ export default function ClientePage() {
           <section aria-labelledby="actividad" data-testid="client-activity">
             <SectionTitle
               aside={
-                <Link href={`/equipo/actividad?cliente=${client.id}`} className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
+                <Link href={`/equipo/actividad?cliente=${client.id}`} className="inline-flex min-h-11 items-center md:min-h-0 text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
                   Ver todo
                 </Link>
               }
@@ -885,7 +922,7 @@ export default function ClientePage() {
                 type="button"
                 onClick={saveNote}
                 disabled={!note.trim()}
-                className="pressable mt-2 flex h-10 w-full items-center justify-center rounded-full bg-slate-100 text-[14px] font-medium text-slate-900 hover:bg-slate-200 disabled:text-slate-400"
+                className="pressable mt-2 flex h-11 w-full items-center justify-center rounded-full bg-slate-100 text-[14px] font-medium text-slate-900 hover:bg-slate-200 disabled:text-slate-400"
               >
                 Guardar nota
               </button>

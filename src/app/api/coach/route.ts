@@ -3,6 +3,9 @@ import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { COACH_SYSTEM_PROMPT } from "@/lib/coach/systemPrompt";
 import { checkClaimGuardrails } from "@/lib/compliance/guardrails";
+import { DEMO_SAVED_ANSWERS, libraryReplyFor, libraryReplyText, type SavedAnswer } from "@/lib/staff/answers";
+import { loadApprovedAnswers } from "@/lib/staff/answersServer";
+import { isDemoMode } from "@/lib/supabase/config";
 import { storeMessage } from "@/lib/chat/history";
 import { reportError } from "@/lib/observability/errors";
 import { readJsonBody } from "@/lib/security/body";
@@ -17,6 +20,11 @@ import { getSessionUser } from "@/lib/supabase/server";
 // When the caller is signed in, the question and the reply are stored
 // server-side (chat_messages, source "coach") so there is a record of what the
 // AI said that the browser cannot alter.
+//
+// Before the model: the team's saved answers (src/lib/staff/answers.ts). An
+// answer an ADMINISTRATOR approved that matches the question closely is sent
+// as the reply, after the claim rules pass on it again (libraryReplyFor); it
+// works with or without a model key. Anything else goes on exactly as before.
 
 const bodySchema = z.object({
   messages: z
@@ -43,6 +51,18 @@ export async function POST(req: Request) {
   const question = messages[messages.length - 1]!;
   if (question.role !== "user" || messages[0]!.role !== "user") {
     return NextResponse.json({ error: "Conversation must start and end with a user message" }, { status: 400 });
+  }
+
+  // The team's approved answers first: a close match is answered without the model and without a person.
+  const library = await approvedLibrary();
+  const fromLibrary = libraryReplyFor(question.content, library);
+  if (fromLibrary) {
+    const reply = libraryReplyText(fromLibrary);
+    // Checked once more as the exact words that go out.
+    if (checkClaimGuardrails(reply).length === 0) {
+      const stored = await storeExchange(question.content, reply);
+      return NextResponse.json({ reply, stored, source: "saved_answer", savedAnswerId: fromLibrary.answer.id });
+    }
   }
 
   // No key means the coach is switched off here (the demo), which is a normal
@@ -79,14 +99,24 @@ export async function POST(req: Request) {
     reply = SAFE_FALLBACK;
   }
 
-  let stored = false;
-  const db = user ? getAdminClient() : null;
-  if (user && db) {
-    const base = { userId: user.id, channel: "app" as const, source: "coach" as const };
-    const savedQuestion = await storeMessage(db, { ...base, role: "user", text: question.content });
-    const savedReply = await storeMessage(db, { ...base, role: "assistant", text: reply });
-    stored = savedQuestion && savedReply;
-  }
-
+  const stored = await storeExchange(question.content, reply, user);
   return NextResponse.json({ reply, stored });
+}
+
+/** The approved saved answers: the demo's invented ones, or the database's (service role; approved rows only). */
+async function approvedLibrary(): Promise<readonly SavedAnswer[]> {
+  if (isDemoMode()) return DEMO_SAVED_ANSWERS.filter((a) => a.status === "approved");
+  const db = getAdminClient();
+  return db ? loadApprovedAnswers(db) : [];
+}
+
+/** Store the question and the reply for a signed-in client. False when nothing was stored. */
+async function storeExchange(question: string, reply: string, known?: { id: string } | null): Promise<boolean> {
+  const user = known === undefined ? await getSessionUser().catch(() => null) : known;
+  const db = user ? getAdminClient() : null;
+  if (!user || !db) return false;
+  const base = { userId: user.id, channel: "app" as const, source: "coach" as const };
+  const savedQuestion = await storeMessage(db, { ...base, role: "user", text: question });
+  const savedReply = await storeMessage(db, { ...base, role: "assistant", text: reply });
+  return savedQuestion && savedReply;
 }

@@ -49,6 +49,9 @@ export const config = {
     "/attack/:path*",
     "/rounds/:path*",
     "/goal/:path*",
+    // "Mi caso" and "Aprende" (the client app's timeline and lessons).
+    "/caso/:path*",
+    "/aprende/:path*",
     // The service agreement: read, signed and cancelled only by the signed-in client.
     "/acuerdo/:path*",
     // "Mis pagos": the client's charges, receipts and payment method.
@@ -56,5 +59,7 @@ export const config = {
     // The staff console. Signed in is the first check; being an active member
     // of staff is the second, in src/app/equipo/layout.tsx.
     "/equipo/:path*",
+    // The partner portal (migration 0017): signed in first; the portal's routes check the partner.
+    "/socios/portal/:path*",
   ],
 };

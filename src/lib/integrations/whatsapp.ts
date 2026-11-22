@@ -102,3 +102,39 @@ export async function sendWhatsAppText(
   if (!res.ok) throw new Error(`WhatsApp error ${res.status}: ${await res.text()}`);
   return { sent: true };
 }
+
+/**
+ * A message template approved in Meta (src/lib/autopilot/templates.ts): the
+ * only way to write to a client more than 24 hours after their last message.
+ * `rendered` is the same words with the parameters filled in; it is checked
+ * against the claim rules before anything is sent.
+ */
+export async function sendWhatsAppTemplate(
+  toPhoneE164: string,
+  template: { name: string; locale: "es" | "en"; params: readonly string[]; rendered: string },
+  context = "whatsapp:template",
+): Promise<{ sent: boolean; id: string | null }> {
+  assertClaimGuardrails(template.rendered, context);
+
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!token || !phoneId) return { sent: false, id: null };
+
+  const res = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: toPhoneE164,
+      type: "template",
+      template: {
+        name: template.name,
+        language: { code: template.locale === "es" ? "es_MX" : "en_US" },
+        components: [{ type: "body", parameters: template.params.map((text) => ({ type: "text", text })) }],
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(`WhatsApp error ${res.status}: ${await res.text()}`);
+  const data = (await res.json().catch(() => ({}))) as { messages?: Array<{ id?: string }> };
+  return { sent: true, id: data.messages?.[0]?.id ?? null };
+}

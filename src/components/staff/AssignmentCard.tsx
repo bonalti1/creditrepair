@@ -67,7 +67,7 @@ export default function AssignmentCard({
                 setTo(e.target.value);
                 setMessage(null);
               }}
-              className="h-10 min-w-0 flex-1 rounded-2xl bg-white px-3 text-[14px] text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] outline-none focus:ring-2 focus:ring-blue-300"
+              className="h-11 min-w-0 flex-1 rounded-2xl bg-white px-3 text-[14px] text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] outline-none focus:ring-2 focus:ring-blue-300"
             >
               {options.map((m) => (
                 <option key={m.handle} value={m.handle}>{m.name}</option>
@@ -78,7 +78,7 @@ export default function AssignmentCard({
               type="button"
               onClick={save}
               disabled={busy || to === (client.assignedTo ?? "none")}
-              className="pressable h-10 shrink-0 rounded-full bg-blue-50 px-4 text-[14px] font-semibold text-blue-700 hover:bg-blue-100 disabled:bg-slate-100 disabled:text-slate-400"
+              className="pressable h-11 shrink-0 rounded-full bg-blue-50 px-4 text-[14px] font-semibold text-blue-700 hover:bg-blue-100 disabled:bg-slate-100 disabled:text-slate-400"
             >
               Asignar
             </button>

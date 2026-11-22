@@ -115,8 +115,9 @@ describe("colour tokens", () => {
         } else if (/\.tsx$/.test(entry.name)) {
           for (const line of readFileSync(path, "utf8").split("\n")) {
             // Gold text is allowed only on navy: the hero headlines' accent
-            // (marketing) and the label of the navy summary card in /acuerdo.
-            if (/\btext-amber-(300|400|500)\b/.test(line) && !/headlineAccent|id="simple"/.test(line)) {
+            // (marketing), the label of the navy summary card in /acuerdo, and
+            // labels marked data-on-navy (the navy status and result cards).
+            if (/\btext-amber-(300|400|500)\b/.test(line) && !/headlineAccent|id="simple"|data-on-navy/.test(line)) {
               offenders.push(`${path}: ${line.trim()}`);
             }
           }

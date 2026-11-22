@@ -397,7 +397,7 @@ export default function PagosPage() {
                   </>
                 )}
                 {account.paymentMethod && (
-                  <button type="button" onClick={() => setRemoving(true)} data-testid="method-remove" className={`mt-3 block w-full text-center ${TEXT_LINK}`}>
+                  <button type="button" onClick={() => setRemoving(true)} data-testid="method-remove" className={`mt-1 block min-h-11 w-full text-center ${TEXT_LINK}`}>
                     {c.methodRemove}
                   </button>
                 )}

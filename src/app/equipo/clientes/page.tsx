@@ -9,6 +9,8 @@ import { defaultsToMine, deniedReason, scopeOf } from "@/lib/staff/permissions";
 import { EXCEPTION_KINDS, EXCEPTION_LABEL, RESPONSE_WINDOW_DAYS, sendableRound, STAGE_ORDER, STAGES, type Stage } from "@/lib/staff/stage";
 import { assignableMembers, memberName } from "@/lib/staff/team";
 import { fullName } from "@/lib/staff/types";
+import { useAutopilot } from "@/lib/autopilot/useAutopilot";
+import { sourceLine } from "@/lib/leads/source";
 import { useStaff } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
 import AddClient from "@/components/staff/AddClient";
@@ -26,10 +28,12 @@ import { ActorTag, DeniedNote, SeverityDot, StageChip } from "@/components/staff
 
 const control =
   "h-11 w-full min-w-0 rounded-2xl bg-white px-3.5 text-[15px] text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] outline-none focus:ring-2 focus:ring-blue-300";
-const SMALL = "pressable inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[14px] font-semibold";
+const SMALL = "pressable inline-flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[14px] font-semibold";
 
 function ClientList() {
   const { data, team, ready, clients, now, reload, viewer, members, can } = useStaff();
+  // The automatic follow-ups: a notice they are still working on is not listed as a person's.
+  const { env } = useAutopilot();
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -71,10 +75,10 @@ function ClientList() {
 
   const rows = useMemo(
     () =>
-      clientRows(clients, viewer, now).sort(
+      clientRows(clients, viewer, now, env).sort(
         (a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage) || fullName(a.client).localeCompare(fullName(b.client), "es"),
       ),
-    [clients, viewer, now],
+    [clients, viewer, now, env],
   );
   const sellers = useMemo(() => [...new Set(clients.map((c) => c.salesperson))].sort(), [clients]);
   const states = useMemo(() => [...new Set(clients.map((c) => c.state))].sort(), [clients]);
@@ -190,7 +194,7 @@ function ClientList() {
               type="button"
               aria-pressed={(params.get("vista") ?? "") === value}
               onClick={() => setParam("vista", value)}
-              className={`pressable h-8 rounded-full px-3.5 text-[13px] font-semibold ${
+              className={`pressable h-11 rounded-full px-3.5 text-[13px] font-semibold md:h-8 ${
                 (params.get("vista") ?? "") === value ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
               }`}
             >
@@ -302,7 +306,7 @@ function ClientList() {
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <select
                 aria-label="Asignar a"
-                className="h-10 w-48 min-w-0 rounded-2xl bg-white px-3 text-[14px] text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] outline-none focus:ring-2 focus:ring-blue-300"
+                className="h-11 w-48 min-w-0 rounded-2xl bg-white px-3 text-[14px] text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] outline-none focus:ring-2 focus:ring-blue-300"
                 value={assignTo} onChange={(e) => setAssignTo(e.target.value)}>
                 <option value="">Asignar a…</option>
                 {assignable.map((m) => (
@@ -391,6 +395,11 @@ function ClientList() {
                       <span className="block text-[13px] text-slate-500 lg:truncate">
                         {formatPhone(client.phone)} · ventas: {memberName(members, client.salesperson).split(" ")[0]}
                       </span>
+                      {sourceLine(client.leadSource) && (
+                        <span className="block text-[12.5px] font-medium text-blue-700 lg:truncate" data-testid="lead-source">
+                          {sourceLine(client.leadSource)}
+                        </span>
+                      )}
                     </span>
                   </span>
                   <span className="justify-self-end lg:justify-self-start">

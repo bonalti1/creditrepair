@@ -3,6 +3,9 @@ import { BRAND } from "@/lib/brand";
 import { agreementReadiness } from "@/lib/agreement/readiness";
 import { billingReadiness } from "@/lib/billing/readiness";
 import { MONITORING_OFFER } from "@/lib/monitoring/offer";
+import { ORIGINAL_TEMPLATE_KEYS } from "@/lib/letters/templates";
+import { listLetterVersions } from "@/lib/letters/versions/server";
+import { lettersMayBeMailed, unapprovedLettersAllowed, type LetterVersion } from "@/lib/letters/versions/versions";
 import { hasSharedSecret } from "@/lib/security/signatures";
 import { getAdminClient } from "@/lib/supabase/admin";
 
@@ -22,6 +25,8 @@ const TABLES = [
   // The team (0007, 0012) and the console's own records (0014).
   "staff_members", "staff_invitations", "client_assignments", "team_settings", "prospects", "team_audit",
   "staff_notes", "exception_marks", "report_samples",
+  // Letter versions and the attorney's approvals (0019).
+  "letter_template_versions",
 ];
 
 export async function GET(req: Request) {
@@ -66,6 +71,25 @@ export async function GET(req: Request) {
     );
     const { data: bucket } = await db.storage.getBucket("identity-docs");
     add("ID photo storage", Boolean(bucket) && bucket?.public === false, "required", bucket ? (bucket.public ? "Bucket identity-docs must be private." : "Private bucket present.") : "Bucket identity-docs is missing (migration 0003).");
+    // Only attorney-approved letter text is mailed (docs/LETTERS-EDITOR.md): the letters the rounds use must be approved in /equipo/cartas.
+    let approvedLetters: LetterVersion[] = [];
+    try {
+      approvedLetters = await listLetterVersions(db, { approvedOnly: true });
+    } catch {
+      // The table is missing: reported under "Database tables"; nothing counts as approved.
+    }
+    const letters = lettersMayBeMailed(ORIGINAL_TEMPLATE_KEYS, approvedLetters, {});
+    const allowUnapproved = unapprovedLettersAllowed();
+    add(
+      "Letters approved by the attorney",
+      letters.ok && !allowUnapproved,
+      "required",
+      allowUnapproved
+        ? "LETTERS_ALLOW_UNAPPROVED=1 is set: unapproved letters are mailed. Remove it before serving clients."
+        : letters.ok
+          ? `All ${ORIGINAL_TEMPLATE_KEYS.length} letters the rounds use have an approved version.`
+          : `Not yet approved in /equipo/cartas: ${letters.unapproved.join(", ")}. A round that uses one is not mailed.`,
+    );
   }
 
   add(`${BRAND.assistant} (Anthropic)`, set("ANTHROPIC_API_KEY"), "required", set("ANTHROPIC_API_KEY") ? "Key is set." : `Without it ${BRAND.assistant} answers with a fixed fallback and letters are not reworded.`);
@@ -86,6 +110,18 @@ export async function GET(req: Request) {
     "required",
     "WHATSAPP_APP_SECRET and WHATSAPP_WEBHOOK_VERIFY_TOKEN must both be set once WhatsApp is live.",
   );
+  // Piloto automático (docs/AUTOPILOT.md): recommended, since without it the team reminds clients by hand as before.
+  const templates = (process.env.WHATSAPP_APPROVED_TEMPLATES ?? "").split(",").filter((t) => t.trim()).length;
+  add(
+    "Automatic messages: WhatsApp templates",
+    templates > 0,
+    "recommended",
+    templates > 0
+      ? `${templates} approved template(s) listed. Outside the 24-hour window only these go on WhatsApp.`
+      : "WHATSAPP_APPROVED_TEMPLATES is empty: outside the 24-hour window no automatic WhatsApp message goes (docs/AUTOPILOT.md lists the templates to approve in Meta).",
+  );
+  const email = set("EMAIL_API_KEY") && set("EMAIL_FROM") && set("UNSUBSCRIBE_SECRET") && set("NEXT_PUBLIC_COMPANY_ADDRESS") && set("NEXT_PUBLIC_APP_URL");
+  add("Automatic messages: email", email, "recommended", email ? "Email is configured, with the unsubscribe link and the postal address." : "EMAIL_API_KEY, EMAIL_FROM, UNSUBSCRIBE_SECRET, NEXT_PUBLIC_COMPANY_ADDRESS and NEXT_PUBLIC_APP_URL are all needed for automatic email.");
   add("App address", set("NEXT_PUBLIC_APP_URL"), "required", "NEXT_PUBLIC_APP_URL is used for the links in WhatsApp messages.");
   add("Sales number on the ad page", set("NEXT_PUBLIC_WHATSAPP_NUMBER"), "required", "NEXT_PUBLIC_WHATSAPP_NUMBER sends the ad page's button to WhatsApp.");
   add("Monitoring signup link", Boolean(MONITORING_OFFER.signupUrl), "required", MONITORING_OFFER.signupUrl ? `Set. Price shown: ${MONITORING_OFFER.priceLabel}.` : "NEXT_PUBLIC_MONITORING_SIGNUP_URL is not set; customers cannot subscribe from the app.");
@@ -124,6 +160,8 @@ export async function GET(req: Request) {
   add("Team alerts", set("TEAM_WEBHOOK_URL") || set("SALES_WEBHOOK_URL"), "recommended", "TEAM_WEBHOOK_URL tells the team when a client cancels or asks to end the service.");
   add("Error alerts", set("ERROR_WEBHOOK_URL"), "recommended", "ERROR_WEBHOOK_URL sends failures to Slack or n8n.");
   add("New-lead alerts", set("SALES_WEBHOOK_URL"), "recommended", "SALES_WEBHOOK_URL pings sales when a lead writes in.");
+  add("HighLevel leads", set("HIGHLEVEL_WEBHOOK_SECRET"), "recommended", "HIGHLEVEL_WEBHOOK_SECRET lets HighLevel workflows hand leads to /api/webhooks/highlevel (docs/HIGHLEVEL.md).");
+  add("HighLevel stages", set("HIGHLEVEL_INBOUND_WEBHOOK_URL") || set("SALES_WEBHOOK_URL"), "recommended", "HIGHLEVEL_INBOUND_WEBHOOK_URL receives stage changes from /api/cron/highlevel.");
 
   const blocking = checks.filter((c) => !c.ok && c.needed === "required").map((c) => c.name);
   return NextResponse.json({ ok: true, readyForCustomers: blocking.length === 0, blocking, checks });

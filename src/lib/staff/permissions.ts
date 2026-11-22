@@ -23,7 +23,7 @@ export const ROLE_LABEL: Record<StaffRole, string> = {
 
 /** One line on the team screen: what the role is for. */
 export const ROLE_SUMMARY: Record<StaffRole, string> = {
-  admin: "Todo: clientes, cartas, cobros, números del negocio y el equipo.",
+  admin: "Todo: clientes, cartas, cobros, números del negocio, el equipo y el piloto automático.",
   specialist: "Trabaja los clientes que tiene asignados: reportes, cartas y respuestas. Sin cobros ni equipo.",
   sales: "Agrega prospectos e invita. Ve solo a los clientes que trajo. Sin cartas ni cobros.",
 };
@@ -43,6 +43,12 @@ export const CAPABILITIES = [
   "billing.refund",
   "business.view",
   "team.manage",
+  "autopilot.manage",
+  // Referral partners (src/lib/partners, migration 0017): see the list, and approve them and set commissions.
+  "partners.view",
+  "partners.manage",
+  // The letter editor (src/lib/letters/versions, migration 0019): change a letter and record the attorney's approval.
+  "letters.edit",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -71,6 +77,10 @@ export const CAPABILITY_LABEL: Record<Capability, string> = {
   "billing.refund": "Devolver cobros",
   "business.view": "Ver los números del negocio",
   "team.manage": "Administrar el equipo",
+  "autopilot.manage": "Configurar el piloto automático",
+  "partners.view": "Ver los socios que refieren clientes",
+  "partners.manage": "Aprobar socios y fijar sus comisiones",
+  "letters.edit": "Editar las cartas y registrar la aprobación del abogado",
 };
 
 export interface RolePermissions {
@@ -101,6 +111,11 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "billing.refund": false,
       "business.view": false,
       "team.manage": false,
+      // Specialists hold a client (with rounds.send); turning the autopilot on or off is the owner's.
+      "autopilot.manage": false,
+      "partners.view": false,
+      "partners.manage": false,
+      "letters.edit": false,
     },
   },
   sales: {
@@ -120,6 +135,11 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "billing.refund": false,
       "business.view": false,
       "team.manage": false,
+      "autopilot.manage": false,
+      // Sales follows up the people partners refer, so they see who the partners are. Only an administrator approves.
+      "partners.view": true,
+      "partners.manage": false,
+      "letters.edit": false,
     },
   },
 };

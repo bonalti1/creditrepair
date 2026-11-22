@@ -71,13 +71,16 @@ export const SECONDARY_BUTTON = `${SECONDARY_LOOK} h-12 px-5 text-[15px]`;
 export const PRIMARY_BUTTON_COMPACT = `${PRIMARY_LOOK} h-12 whitespace-nowrap px-3 text-[14px]`;
 export const SECONDARY_BUTTON_COMPACT = `${SECONDARY_LOOK} h-12 whitespace-nowrap px-3 text-[14px]`;
 
-/** The fix for one row: clear, but not competing with the gold button. */
+/** The fix for one row: clear, but not competing with the gold button. 44 px tall: a finger, not a mouse. */
 export const ROW_BUTTON =
-  "pressable inline-flex h-10 items-center justify-center whitespace-nowrap rounded-full bg-blue-50 px-4 text-[14px] font-semibold text-blue-700 hover:bg-blue-100";
+  "pressable inline-flex h-11 items-center justify-center whitespace-nowrap rounded-full bg-blue-50 px-4 text-[14px] font-semibold text-blue-700 hover:bg-blue-100";
+
+/** A text link or button that stands alone: 44 px tall on a phone, its own height on a laptop. */
+export const TAP = "inline-flex min-h-11 items-center md:min-h-0";
 
 /** Everything else. */
 export const QUIET_BUTTON =
-  "pressable inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[14px] font-medium text-slate-600 hover:bg-slate-100";
+  "pressable inline-flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[14px] font-medium text-slate-600 hover:bg-slate-100";
 
 /** A whole screen the viewer's role may not open, with the reason. */
 export function NoAccess({ title, reason }: { title: string; reason: string }) {

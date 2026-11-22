@@ -12,6 +12,8 @@ Each letter is written in the consumer's own name and over the consumer's own si
 
 How the letters are sent is the point we most need your advice on: see the first item under "What we are asking you to check".
 
+This packet shows each letter as it is in the software (version 1). The owner can change a letter's wording in the software's letter editor; every change is a new version that comes to you in a separate, shorter packet showing exactly what changed. The software mails a letter to a real client only after your approval of that exact text has been recorded, with your name and the date; until then, a round of letters that uses it is not sent.
+
 ### The rules these drafts were written to
 
 The new drafts follow the rules below. The original letters were written before these rules and are reproduced unchanged; where an original departs from a rule, its note says so.
@@ -39,7 +41,7 @@ Each entry gives the letter's title, its key in the software, who it is sent to,
 
 The sample consumer, accounts, creditor and collector are fictional and the same throughout. The enclosure list under each signature shows the suggested enclosures; a real letter lists only what is actually attached. A paragraph in [square brackets] marks where the client's own words are inserted; when the client gives none, that paragraph is left out.
 
-One more thing to know: before mailing, the software may reword the prose of a letter so that no two letters are word-for-word identical. The rewording is checked automatically. The list of items, the header, the signature and every legal citation must be unchanged, or the original wording is used.
+One more thing to know: the software has two features, both switched off, that would make letters look less alike: automatic rewording of the prose, and rotating print and handwriting-style fonts. While they are off, every letter is mailed exactly as approved, in one plain print font. They stay off unless you advise that they are appropriate.
 
 Please mark each entry on its last line: "Attorney decision: ☐ approve ☐ approve with changes ☐ do not use — notes:"
 

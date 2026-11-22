@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseReport } from "./parser";
 import { diffReports, diffSummary } from "./diff";
-import { sendWhatsApp } from "../integrations/whatsapp";
+import { queueStatus } from "../autopilot/store";
 import { recordReportAsProof } from "../monitoring/subscription";
 
 // Shared import pipeline (spec §4.1): store raw snapshot → upsert canonical
-// items → diff against previous pull → mark deletions → celebrate via WhatsApp.
+// items → diff against previous pull → mark deletions → queue a factual status
+// message for the client (autopilot/status.ts).
 // Called from the manual import route, the adapter pull route, and the round
 // cron — one code path for all three.
 
@@ -55,10 +56,12 @@ export async function importReportForUser(
   if (upsertError) throw new Error(upsertError.message);
 
   let summary: ImportResult["summary"] = null;
+  let deletedFingerprints: string[] = [];
   if (prevPull) {
     const diff = diffReports(parseReport(prevPull.raw), normalized);
     summary = diffSummary(diff);
 
+    deletedFingerprints = diff.deleted.map((i) => i.fingerprint);
     if (diff.deleted.length > 0) {
       const now = new Date().toISOString();
       await db
@@ -66,23 +69,15 @@ export async function importReportForUser(
         .update({ status: "deleted", deleted_detected_at: now })
         .eq("user_id", userId)
         .in("fingerprint", diff.deleted.map((i) => i.fingerprint));
-
-      // Deletion celebration (spec §4.4 churn defense).
-      if (summary.deletedCount > 0) {
-        const { data: profile } = await db
-          .from("profiles")
-          .select("phone_e164")
-          .eq("id", userId)
-          .maybeSingle();
-        if (profile?.phone_e164) {
-          await sendWhatsApp(profile.phone_e164, {
-            kind: "items_deleted",
-            deletedCount: summary.deletedCount,
-            remainingCount: summary.remainingNegative,
-          }).catch(() => undefined);
-        }
-      }
     }
+  }
+
+  // A report after an earlier one: tell the client it arrived and, only as a
+  // fact, how many of the items they disputed it no longer lists. Through the
+  // autopilot's outbound log, so opt-out, quiet hours and the daily cap apply
+  // (autopilot/status.ts). Never a score, never a promise.
+  if (prevPull) {
+    await queueStatus(db, userId, { kind: "report_changes", pullId: String(pull.id), goneCount: await disputedGone(db, userId, deletedFingerprints) });
   }
 
   // A report that just arrived proves the monitoring subscription works.
@@ -93,4 +88,14 @@ export async function importReportForUser(
     .insert({ user_id: userId, kind: "report_imported", payload: { pullId: pull.id, summary } });
 
   return { pullId: pull.id, itemCount: normalized.items.length, summary };
+}
+
+/** How many of these items the client had confirmed as inaccurate (attested): the ones they disputed. */
+async function disputedGone(db: SupabaseClient, userId: string, fingerprints: string[]): Promise<number> {
+  if (fingerprints.length === 0) return 0;
+  const { data: items } = await db.from("report_items").select("id").eq("user_id", userId).in("fingerprint", fingerprints);
+  const ids = ((items as Array<{ id: string }> | null) ?? []).map((i) => i.id);
+  if (ids.length === 0) return 0;
+  const { data: flags } = await db.from("item_flags").select("item_id").eq("user_id", userId).eq("attested", true).in("item_id", ids);
+  return new Set(((flags as Array<{ item_id: string }> | null) ?? []).map((f) => f.item_id)).size;
 }

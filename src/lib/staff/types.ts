@@ -1,8 +1,12 @@
+import type { ClientHold, OptOutRecord, OutboundMessage } from "../autopilot/types";
 import type { BillingAccount } from "../billing/types";
 import type { ChatRole, ChatSource } from "../chat/history";
 import type { EscalationStage, ItemCategory, LetterTarget, NormalizedReport, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
 import type { LetterMail, MailClass } from "../mail/types";
+import type { IntakeRecord } from "../intake/types";
+import type { LeadSource } from "../leads/source";
+import type { PulseRow } from "../pulse/pulse";
 
 // The staff-side view of one client: everything the console needs to say where
 // a person is and why, in one object. It mirrors what the database already
@@ -298,5 +302,71 @@ export interface StaffRoundTeamFields {
 // Declaration merging keeps the additions apart from the original fields.
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StaffClient extends StaffClientTeamFields {}
+
+// ── AI intake (src/lib/intake, migration 0016) ──────────────────────────
+
+/** What the AI intake recorded about this client's documents. */
+export interface StaffClientIntakeFields {
+  /** ID and proof-of-address checks, bureau letters, report readings; oldest first. Absent: none. */
+  intake?: IntakeRecord[];
+}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientIntakeFields {}
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StaffRound extends StaffRoundTeamFields {}
+
+// ── Piloto automático ───────────────────────────────────────────────────
+//
+// What the system did and may do by itself for a client (src/lib/autopilot,
+// migration 0015). All optional: a record without them reads as "nothing sent,
+// no hold, no opt-out".
+
+/** Fields the autopilot adds to a client. */
+export interface StaffClientAutopilotFields {
+  /** The client's language for messages (profiles.locale). Absent: Spanish. */
+  locale?: "es" | "en";
+  /** Every automatic message, oldest first (outbound_messages). */
+  outbound?: OutboundMessage[];
+  /** Set while the client has asked for no automatic messages (BAJA / STOP / unsubscribe). */
+  optOut?: OptOutRecord | null;
+  /** Every hold placed on the client, oldest first; the open one has no releasedAt. */
+  holds?: ClientHold[];
+  /** The client's last WhatsApp message to us: inside 24 hours, plain text may be sent. */
+  lastInboundAt?: string | null;
+}
+
+/** Fields the autopilot adds to a round. */
+export interface StaffRoundAutopilotFields {
+  /**
+   * When the system first saw this round ready to send, with these letters
+   * (autopilot_ready_rounds). The review window counts from here.
+   */
+  readyAt?: string | null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientAutopilotFields {}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffRound extends StaffRoundAutopilotFields {}
+
+// ── Where the person came from (migration 0017) ─────────────────────────
+
+/** Fields lead sources add to a client: HighLevel, a referral partner, or added by hand. */
+export interface StaffClientSourceFields {
+  /** Absent: nothing on record (an older record, or someone who came straight to the app). */
+  leadSource?: LeadSource | null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientSourceFields {}
+
+// ── "¿Cómo vamos?" (migration 0018) ──────────────────────────────────────
+
+/** The client's answers to the satisfaction pulse, as this member may read them (admin; the assigned specialist). */
+export interface StaffClientPulseFields {
+  /** Absent: none, or a role that may not read them (sales). */
+  pulses?: PulseRow[];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientPulseFields {}

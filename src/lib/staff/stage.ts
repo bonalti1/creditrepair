@@ -9,9 +9,11 @@ import { FRESH_REPORT_DAYS } from "../monitoring/subscription";
 import { RESPONSE_WINDOW_DAYS } from "../ux/journey";
 import { itemLabel } from "../ux/itemDisplay";
 import type { FurnisherEntry } from "../mail/furnishers";
+import type { LetterVersion } from "../letters/versions/versions";
 import { addressBookHref, missingFurnisherAddresses } from "../mail/sendPlan";
 import { responseWindowStart, returnReasonEs } from "../mail/tracking";
 import { billingContextFor } from "./billing";
+import { intakeExceptions } from "../intake/exceptions";
 import { REQUIRED_DOCUMENTS, type DocumentKind, type StaffClient, type StaffLetter, type StaffRound } from "./types";
 
 // Where is this client, what is wrong, and what happens next.
@@ -353,6 +355,9 @@ export const EXCEPTION_KINDS = [
   "identity_theft_report_missing",
   "service_end_requested",
   "furnisher_address_missing",
+  // AI intake (src/lib/intake/exceptions.ts): only what the automatic check was not sure about.
+  "document_check_needs_person",
+  "bureau_letter_needs_person",
 ] as const;
 
 export type ExceptionKind = (typeof EXCEPTION_KINDS)[number];
@@ -372,6 +377,8 @@ export const EXCEPTION_LABEL: Record<ExceptionKind, string> = {
   identity_theft_report_missing: "Robo de identidad sin reporte",
   service_end_requested: "Pidió terminar el servicio",
   furnisher_address_missing: "Falta la dirección de un acreedor",
+  document_check_needs_person: "Documento para revisar",
+  bureau_letter_needs_person: "Carta de un buró para revisar",
 };
 
 export interface StaffException {
@@ -398,6 +405,8 @@ export interface StaffException {
  */
 export interface StaffContext {
   furnishers?: readonly FurnisherEntry[];
+  /** The approved letter texts (letters/versions): printed and previewed letters use them. */
+  letterVersions?: readonly LetterVersion[];
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
@@ -448,6 +457,14 @@ function responseOverdue(client: StaffClient, now: Date): StaffRound | null {
   const windowEnd = addDays(start, RESPONSE_WINDOW_DAYS);
   if (client.report && new Date(client.report.pulledAt).getTime() >= windowEnd.getTime()) return null;
   return latest;
+}
+
+/**
+ * The mailed round whose answers are overdue (no new report after the response
+ * window), or null. The automatic follow-ups (autopilot/followups.ts) read it.
+ */
+export function overdueResponseRound(client: StaffClient, now: Date): StaffRound | null {
+  return responseOverdue(client, now);
 }
 
 /** Every exception that applies right now, whether or not someone marked it handled. */
@@ -647,6 +664,8 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
       since: addDays(overdueRound.mailedAt, RESPONSE_WINDOW_DAYS).toISOString(),
     });
   }
+
+  found.push(...intakeExceptions(client.intake, client.id));
 
   return found.sort((a, b) => {
     const bySeverity = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];

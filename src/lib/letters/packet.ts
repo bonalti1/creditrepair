@@ -4,6 +4,7 @@ import {
   LETTER_CATALOGUE,
   ORIGINAL_TEMPLATE_KEYS,
   renderLetter,
+  type LetterContext,
   type LetterCategory,
   type LetterMeta,
   type LetterRecipient,
@@ -80,14 +81,14 @@ const SAMPLE_BY_CATEGORY: Record<ItemCategory, ReportItem> = {
   personal_info: sampleItem("personal_info", "Address: 77 Other Road, Dallas, TX 75201", {}),
 };
 
-const RECIPIENT_LABELS: Record<LetterRecipient, string> = {
+export const RECIPIENT_LABELS: Record<LetterRecipient, string> = {
   bureau: "Credit bureau (Equifax, Experian or TransUnion)",
   secondary_bureau: "Secondary or specialty reporting agency",
   furnisher: "Creditor or other furnisher",
   collector: "Debt collector",
 };
 
-const STAGE_LABELS: Record<NonNullable<LetterMeta["stageHint"]>, string> = {
+export const STAGE_LABELS: Record<NonNullable<LetterMeta["stageHint"]>, string> = {
   dispute: "First dispute",
   mov: "After the bureau says 'verified'",
   furnisher_direct: "Direct to the furnisher",
@@ -101,17 +102,30 @@ export function sampleItemsFor(meta: LetterMeta): ReportItem[] {
   return [SAMPLE_BY_CATEGORY[meta.appliesTo[0]]];
 }
 
-/** The letter exactly as it would be sent for the sample consumer. */
-export function renderSampleLetter(meta: LetterMeta): string {
-  return renderLetter(meta.key, {
+/**
+ * The fictional consumer's letter context for this template: the packet's,
+ * and the letter editor's preview (with the parts it can switch off).
+ */
+export function sampleLetterContext(
+  meta: LetterMeta,
+  options: { details?: string | null; enclosures?: boolean; reasonCode?: string | null } = {},
+): LetterContext {
+  const items = sampleItemsFor(meta);
+  return {
     user: SAMPLE_CONSUMER,
     target: SAMPLE_TARGETS[meta.recipient],
-    items: sampleItemsFor(meta),
+    items,
     date: PACKET_DATE,
     roundNumber: 1,
-    enclosures: meta.enclosures,
-    details: PACKET_DETAILS,
-  });
+    enclosures: options.enclosures === false ? [] : meta.enclosures,
+    ...(options.details === null ? {} : { details: options.details ?? PACKET_DETAILS }),
+    ...(options.reasonCode ? { itemReasons: Object.fromEntries(items.map((i) => [i.fingerprint, options.reasonCode!])) } : {}),
+  };
+}
+
+/** The letter exactly as it would be sent for the sample consumer. */
+export function renderSampleLetter(meta: LetterMeta): string {
+  return renderLetter(meta.key, sampleLetterContext(meta));
 }
 
 export interface PacketEntry {
@@ -125,7 +139,7 @@ export interface PacketEntry {
   letter: string;
 }
 
-const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS) as LetterCategory[];
+export const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS) as LetterCategory[];
 
 /** Every template, grouped by category in a fixed order and numbered. */
 export function packetEntries(): PacketEntry[] {
@@ -156,6 +170,7 @@ export function coverNote(entries: PacketEntry[]): Array<{ heading: string; para
         `This packet contains all ${entries.length} letter templates in the Credalti letter library. Every one is a DRAFT pending attorney review; each is marked "attorney_pending" in the software. ${entries.filter((e) => e.original).length} of them, marked "${ORIGINAL_STATUS}", are the letters the software already sends. The rest are new and are not used anywhere yet.`,
         "Each letter is written in the consumer's own name and over the consumer's own signature, and no letter mentions Credalti. Credalti is a credit repair company. The client tells us which items are wrong and why, and that statement is recorded with a date before any letter is prepared. Credalti then prepares each letter and mails it for the client, under the client's written authorization.",
         "How the letters are sent is the point we most need your advice on: see the first item under \"What we are asking you to check\".",
+        "This packet shows each letter as it is in the software (version 1). The owner can change a letter's wording in the software's letter editor; every change is a new version that comes to you in a separate, shorter packet showing exactly what changed. The software mails a letter to a real client only after your approval of that exact text has been recorded, with your name and the date; until then, a round of letters that uses it is not sent.",
       ],
     },
     {
@@ -189,7 +204,7 @@ export function coverNote(entries: PacketEntry[]): Array<{ heading: string; para
       paragraphs: [
         "Each entry gives the letter's title, its key in the software, who it is sent to, when staff may use it, the facts the client must have provided, the statutes it relies on, any note for you or for staff, and then the full letter as it would be mailed.",
         "The sample consumer, accounts, creditor and collector are fictional and the same throughout. The enclosure list under each signature shows the suggested enclosures; a real letter lists only what is actually attached. A paragraph in [square brackets] marks where the client's own words are inserted; when the client gives none, that paragraph is left out.",
-        "One more thing to know: before mailing, the software may reword the prose of a letter so that no two letters are word-for-word identical. The rewording is checked automatically. The list of items, the header, the signature and every legal citation must be unchanged, or the original wording is used.",
+        "One more thing to know: the software has two features, both switched off, that would make letters look less alike: automatic rewording of the prose, and rotating print and handwriting-style fonts. While they are off, every letter is mailed exactly as approved, in one plain print font. They stay off unless you advise that they are appropriate.",
         `Please mark each entry on its last line: "${DECISION_LINE}"`,
       ],
     },

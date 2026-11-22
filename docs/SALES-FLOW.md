@@ -22,6 +22,23 @@ that order.
 
 Someone who arrives without a link gets the ordinary four-question onboarding.
 
+Two more ways in, both ending at step 4 with the same invitation:
+
+- **HighLevel.** A lead form or ad in HighLevel hands the lead to the app
+  (`POST /api/webhooks/highlevel`). It appears in `/equipo` as a prospect with
+  its source ("HighLevel · <campaign>"), credited to a salesperson (the one
+  HighLevel assigned, else the next in turn). **Preparar su invitación** on the
+  prospect fills in the invite page. The app then reports each stage back to
+  HighLevel's pipeline (Invitado, Firmó acuerdo… with no credit data). Setup:
+  `docs/HIGHLEVEL.md`.
+- **Referral partners** (realtors, loan officers, tax preparers). A partner's
+  link or their portal brings the person in, credited to the partner; the
+  invitation carries the partner's code through to the client. Partners see
+  only a coarse status, never credit data. `docs/PARTNERS.md`.
+
+Neither changes the rules below: the conversation is still in WhatsApp chat,
+never a call, and never an SMS offer.
+
 ## Who decides what
 
 - **The client decides what is inaccurate.** Each answer, and the reason for
@@ -117,6 +134,9 @@ both.
   the Telemarketing Sales Rule.
 - How salespeople may be paid (per signup, per active client) without
   creating an incentive that conflicts with the no-promises rule.
+- Referral fees to partners (RESPA Section 8 for realtors and loan officers,
+  Texas CSO rules, FTC endorsement disclosure): `docs/PARTNERS.md`.
+- The consent text HighLevel lead forms show: `docs/HIGHLEVEL.md`.
 - Whether Credalti may still be paid a commission by the monitoring service
   now that it also charges a service fee, and how to disclose it.
 

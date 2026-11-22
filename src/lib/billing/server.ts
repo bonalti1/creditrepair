@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadAgreementRow, notifyTeam } from "../agreement/server";
 import { agreementFromRow, type AgreementState } from "../agreement/record";
 import { BRAND } from "../brand";
+import { isOptedOut, queueStatus } from "../autopilot/store";
 import { sendWhatsAppText } from "../integrations/whatsapp";
 import { reportError } from "../observability/errors";
 import type { AuthorizationTerms } from "./authorization";
@@ -232,14 +233,19 @@ export function databaseChargeStore(db: SupabaseClient, userId: string, roundIds
 
 // ── Telling people ──────────────────────────────────────────────────────
 
-/** A notice to the client: WhatsApp when there is a number, and a line in their in-app thread. */
-async function tellClient(db: SupabaseClient, userId: string, message: { es: string; en: string }, context: string): Promise<void> {
+/**
+ * A notice to the client: a line in their in-app thread, and WhatsApp when
+ * there is a number and the client has not opted out of automatic messages.
+ * `whatsapp: false` when the message goes through the autopilot's outbound
+ * log instead (the receipt).
+ */
+async function tellClient(db: SupabaseClient, userId: string, message: { es: string; en: string }, context: string, options: { whatsapp?: boolean } = {}): Promise<void> {
   try {
     const { data: profile } = await db.from("profiles").select("phone_e164, locale").eq("id", userId).maybeSingle();
     const locale: L = profile?.locale === "en" ? "en" : "es";
     const body = message[locale];
     await db.from("chat_messages").insert({ user_id: userId, channel: "app", role: "assistant", source: "journey", body });
-    if (profile?.phone_e164) await sendWhatsAppText(profile.phone_e164 as string, body, context);
+    if (options.whatsapp !== false && profile?.phone_e164 && !(await isOptedOut(db, userId))) await sendWhatsAppText(profile.phone_e164 as string, body, context);
   } catch (error) {
     // A notice that could not be sent must not undo a recorded charge.
     await reportError(error, { where: context, userId });
@@ -305,7 +311,18 @@ export async function runBillingForUser(db: SupabaseClient, gateway: PaymentGate
         payload: { chargeId: charge.id, roundNumber: charge.roundNumber, amountCents: charge.amountCents },
       });
       const receipt = receiptFor(charge, roundOf(charge));
-      if (receipt) await tellClient(db, userId, receiptMessage(receipt), "billing:receipt");
+      if (receipt) {
+        // In the app at once; on WhatsApp or email through the autopilot's outbound log (opt-out, quiet hours, cap).
+        await tellClient(db, userId, receiptMessage(receipt), "billing:receipt", { whatsapp: false });
+        await queueStatus(db, userId, {
+          kind: "payment_receipt",
+          chargeId: charge.id,
+          receiptNumber: receipt.number,
+          amount: receipt.amount,
+          date: receipt.date,
+          work: receipt.work,
+        });
+      }
     } else if (attempt.outcome === "declined" || attempt.outcome === "exhausted") {
       summary[attempt.outcome] += 1;
       await db.from("events").insert({

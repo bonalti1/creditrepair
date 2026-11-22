@@ -1,3 +1,4 @@
+import { applyAutopilotDemoActions, loadAutopilotDemo, resetAutopilotDemo } from "../autopilot/data";
 import { PAUSE_REASON_MIN_CHARS } from "../billing/api";
 import { createMemoryChargeStore, runClientBilling } from "../billing/collect";
 import { rearmAfterNewPaymentMethod } from "../billing/dunning";
@@ -8,8 +9,11 @@ import type { RawReport } from "../domain/parser";
 import { mergeReport, planImport } from "../reports/merge";
 import { checkStaffReply, MAX_REPLY_CHARS, openQuestions, type ReplyProblem } from "./conversation";
 import { buildDemoClients } from "./demoClients";
+import { withDemoLeadSources } from "../partners/demo";
+import { withDemoPulses } from "../pulse/demo";
 import { sampleMethod } from "./billing";
 import { applyDemoSends, demoFurnisherBook, loadDemoSends, recordDemoSend, resetDemoMail } from "../mail/data";
+import { resetDemoLetterVersions } from "../letters/versions/data";
 import { demoClientsWithMail } from "../mail/demo";
 import { roundMailPlan } from "../mail/sendPlan";
 import type { MailClass } from "../mail/types";
@@ -327,7 +331,9 @@ function createDemoData(): StaffData & {
     if (!base) {
       const now = new Date();
       // The invented clients, with what a mail service would have reported for their letters (mail/demo.ts).
-      base = demoClientsWithMail(buildDemoClients(now), now);
+      // Plus where some of them came from: partners' referrals and leads from HighLevel (partners/demo.ts).
+      // And a few invented answers to "¿Cómo vamos?" (pulse/demo.ts).
+      base = withDemoPulses(withDemoLeadSources(demoClientsWithMail(buildDemoClients(now), now), now), now);
     }
     actions ??= loadActions();
     return { base, actions };
@@ -338,7 +344,8 @@ function createDemoData(): StaffData & {
     // invented ones first, then assignments and senders are applied, then the
     // rounds sent from the send screen (mail/demo.ts).
     const team = loadTeamActions();
-    return applyDemoSends(applyTeamActions(applyDemoActions([...s.base, ...team.added], s.actions), team), loadDemoSends());
+    // Last, the holds and opt-outs a person recorded on the autopilot (autopilot/data.ts).
+    return applyAutopilotDemoActions(applyDemoSends(applyTeamActions(applyDemoActions([...s.base, ...team.added], s.actions), team), loadDemoSends()), loadAutopilotDemo());
   };
 
   return {
@@ -496,8 +503,10 @@ const demoData = createDemoData();
 /** Demo only: forget everything done in this browser and start again. */
 export function resetDemo(): void {
   demoData.reset();
+  resetAutopilotDemo();
   resetTeamActions();
   resetDemoMail();
+  resetDemoLetterVersions();
 }
 
 /**

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getMonitoringAdapter } from "@/lib/monitoring";
 import { importReportForUser } from "@/lib/domain/importReport";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { sendWhatsApp } from "@/lib/integrations/whatsapp";
 import { hasSharedSecret } from "@/lib/security/signatures";
 import { workMayStart } from "@/lib/agreement/gate";
 import { loadAgreement } from "@/lib/agreement/server";
@@ -11,9 +10,8 @@ import { isFullService } from "@/lib/service/mode";
 // The ~40-day round loop (spec §4.4), as one idempotent endpoint that n8n (or
 // any cron) hits hourly with the shared secret:
 //   find mailed rounds past next_round_due_at → re-pull via the monitoring
-//   adapter → import + diff (deletion celebration fires inside the import
-//   pipeline) → mark the round complete → day-40 re-engagement message with a
-//   deep link into the next step.
+//   adapter → import + diff (the import pipeline queues the client's factual
+//   status message) → mark the round complete.
 
 export async function POST(req: Request) {
   if (!hasSharedSecret(req, process.env.N8N_WEBHOOK_SECRET)) {
@@ -58,18 +56,9 @@ export async function POST(req: Request) {
 
       await db.from("attack_rounds").update({ status: "complete" }).eq("id", round.id);
 
-      const { data: profile } = await db
-        .from("profiles")
-        .select("phone_e164")
-        .eq("id", round.user_id)
-        .maybeSingle();
-      if (profile?.phone_e164) {
-        await sendWhatsApp(profile.phone_e164, {
-          kind: "day40_reengage",
-          deletedCount: result.summary?.deletedCount ?? 0,
-          remainingCount: result.summary?.remainingNegative ?? 0,
-        }).catch(() => undefined);
-      }
+      // The client hears about the new report from the import itself: a factual
+      // status message through the autopilot's outbound log (opt-out, quiet
+      // hours, daily cap), sent by /api/cron/autopilot.
 
       await db.from("events").insert({
         user_id: round.user_id,

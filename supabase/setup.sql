@@ -1943,3 +1943,1133 @@ alter table public.attack_rounds
   -- round a later report no longer lists. Only what a report proves by itself.
   add column results jsonb not null default '[]' check (jsonb_typeof(results) = 'array'),
   add constraint attack_rounds_responded_after_mailing check (responded_at is null or (mailed_at is not null and responded_at >= mailed_at));
+
+-- ===== 0015_autopilot.sql =====
+-- Piloto automático: what the system does by itself, and its record.
+--
+-- The console used to ask a person to remind clients (sign the agreement,
+-- upload documents, finish the review, check the monitoring, add a payment
+-- method) and to mail every prepared round by hand. With these tables the
+-- system writes the reminders on a short schedule, tells the client what
+-- happened (letters mailed, delivered, a new report, a receipt) and mails a
+-- round that passed every gate after a review window, unless a person holds
+-- it (src/lib/autopilot, docs/AUTOPILOT.md).
+--
+--   autopilot_settings      the team's switches. One row. Everything new
+--                           starts OFF: automatic sending of rounds and
+--                           automatic reminders run only once an
+--                           administrator turns them on.
+--   outbound_messages       every automatic message: one row per message,
+--                           with a unique dedupe key, so a run that repeats
+--                           (a retry, two runs at once) never writes or sends
+--                           the same message twice. Append-only: the words
+--                           never change; only the delivery result is filled
+--                           in, once (queued → sending → sent | failed, or
+--                           queued → cancelled).
+--   message_opt_outs        "BAJA" / "STOP" / an unsubscribe link, and "ALTA"
+--                           / "START" to come back. Append-only; the newest
+--                           record of a client decides.
+--   autopilot_holds         a teammate stops the automatic sending and the
+--                           reminders for one client, with a reason. Released
+--                           once, never deleted.
+--   autopilot_ready_rounds  when the system first saw a round ready to send,
+--                           with those letters (plan_key). The review window
+--                           counts from here; different letters, a new window.
+--
+-- Who writes: only the server, with the service role (the autopilot run
+-- /api/cron/autopilot, the inbound WhatsApp webhook, the unsubscribe link and
+-- the staff routes after checking the caller's role). Nobody gets an insert,
+-- update or delete policy. Staff read by role (the scopes of migration 0012);
+-- a client reads their own messages and opt-outs.
+
+-- ── Settings ───────────────────────────────────────────────────────────
+
+create table public.autopilot_settings (
+  id boolean primary key default true check (id),
+  rounds_enabled boolean not null default false,
+  review_window_hours integer not null default 24 check (review_window_hours between 1 and 168),
+  followups_enabled boolean not null default false,
+  -- {"agreement_unsigned": true, ...}: each situation on or off. A missing key is on.
+  followups jsonb not null default '{}' check (jsonb_typeof(followups) = 'object'),
+  status_enabled boolean not null default true,
+  quiet_start_hour smallint not null default 21 check (quiet_start_hour between 0 and 23),
+  quiet_end_hour smallint not null default 8 check (quiet_end_hour between 0 and 23),
+  daily_cap smallint not null default 2 check (daily_cap between 1 and 5),
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users (id) on delete set null,
+  updated_by_name text check (updated_by_name is null or char_length(updated_by_name) between 1 and 80)
+);
+
+insert into public.autopilot_settings (id) values (true);
+
+alter table public.autopilot_settings enable row level security;
+
+create policy "staff read autopilot settings" on public.autopilot_settings
+  for select using (public.is_staff());
+
+-- A change to the switches is recorded in the team's audit (admin-only read).
+alter table public.team_audit drop constraint team_audit_kind_check;
+alter table public.team_audit add constraint team_audit_kind_check check (kind in (
+  'member_invited', 'member_joined', 'role_changed', 'member_deactivated', 'member_reactivated',
+  'auto_assign_changed', 'client_assigned', 'prospect_added', 'autopilot_changed'
+));
+
+-- ── Outbound messages ──────────────────────────────────────────────────
+
+create table public.outbound_messages (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  -- "followup:<client>:<situation>:<step>" or "status:<client>:<what>:<which>".
+  dedupe_key text not null unique check (char_length(dedupe_key) between 8 and 240),
+  kind text not null check (kind in ('followup', 'status')),
+  topic text not null check (topic ~ '^[a-z_]{2,40}$'),
+  step smallint check (step is null or step between 1 and 10),
+  -- Never 'sms': text messages are only for login codes (docs/AUTOPILOT.md).
+  channel text check (channel is null or channel in ('whatsapp', 'email')),
+  template text check (template is null or template ~ '^[a-z0-9_]{2,120}$'),
+  params jsonb not null default '[]' check (jsonb_typeof(params) = 'array'),
+  locale text not null default 'es' check (locale in ('es', 'en')),
+  body text not null check (char_length(body) between 1 and 4000),
+  link text check (link is null or char_length(link) <= 500),
+  status text not null check (status in ('queued', 'sending', 'sent', 'failed', 'cancelled')),
+  queued_at timestamptz not null default now(),
+  sent_at timestamptz,
+  provider_ref text check (provider_ref is null or char_length(provider_ref) <= 200),
+  note text check (note is null or char_length(note) <= 300),
+  constraint outbound_step_matches_kind check ((kind = 'followup') = (step is not null)),
+  constraint outbound_channel_once_claimed check (status in ('queued', 'cancelled') or channel is not null)
+);
+
+create index outbound_messages_user_idx on public.outbound_messages (user_id, queued_at);
+create index outbound_messages_queued_idx on public.outbound_messages (status, queued_at) where status = 'queued';
+
+alter table public.outbound_messages enable row level security;
+
+create policy "staff read outbound messages" on public.outbound_messages
+  for select using (public.staff_can_see_case(user_id));
+
+create policy "own outbound messages" on public.outbound_messages
+  for select using (auth.uid() = user_id);
+
+-- The words, the client, the key and the kind never change. The delivery
+-- result moves forward once: queued → sending | cancelled, sending → sent | failed.
+create function public.outbound_messages_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    if exists (select 1 from auth.users u where u.id = old.user_id) then
+      raise exception 'outbound_messages: a message record cannot be deleted';
+    end if;
+    return old;
+  end if;
+  if new.user_id <> old.user_id or new.dedupe_key <> old.dedupe_key or new.kind <> old.kind or new.topic <> old.topic
+     or new.step is distinct from old.step or new.body <> old.body or new.locale <> old.locale
+     or new.link is distinct from old.link or new.params <> old.params or new.queued_at <> old.queued_at then
+    raise exception 'outbound_messages: a message cannot be rewritten';
+  end if;
+  if not (
+       (old.status = 'queued' and new.status in ('sending', 'cancelled'))
+    or (old.status = 'sending' and new.status in ('sent', 'failed'))
+  ) then
+    raise exception 'outbound_messages: % cannot become %', old.status, new.status;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.outbound_messages_guard() from public;
+
+create trigger outbound_messages_guard
+  before update or delete on public.outbound_messages
+  for each row execute function public.outbound_messages_guard();
+
+-- ── Opt-outs ───────────────────────────────────────────────────────────
+
+create table public.message_opt_outs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users (id) on delete cascade,
+  -- For a number with no account yet.
+  phone_e164 text check (phone_e164 is null or phone_e164 ~ '^\+[1-9][0-9]{7,14}$'),
+  kind text not null check (kind in ('opt_out', 'opt_in')),
+  -- How it arrived: a WhatsApp keyword, the email unsubscribe link, or a teammate who heard it from the client.
+  channel text not null check (channel in ('whatsapp', 'email', 'staff')),
+  keyword text check (keyword is null or char_length(keyword) between 1 and 40),
+  recorded_by uuid references auth.users (id) on delete set null,
+  recorded_by_name text check (recorded_by_name is null or char_length(recorded_by_name) between 1 and 80),
+  at timestamptz not null default now(),
+  constraint message_opt_outs_subject check (user_id is not null or phone_e164 is not null)
+);
+
+create index message_opt_outs_user_idx on public.message_opt_outs (user_id, at) where user_id is not null;
+
+alter table public.message_opt_outs enable row level security;
+
+-- Sales follows people before the work starts: they see an opt-out too.
+create policy "staff read opt-outs" on public.message_opt_outs
+  for select using (user_id is not null and public.staff_can_see_client(user_id));
+
+create policy "own opt-outs" on public.message_opt_outs
+  for select using (auth.uid() = user_id);
+
+-- ── Holds ──────────────────────────────────────────────────────────────
+
+create table public.autopilot_holds (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  reason text not null check (char_length(btrim(reason)) between 3 and 500),
+  held_at timestamptz not null default now(),
+  held_by uuid references auth.users (id) on delete set null,
+  held_by_name text not null check (char_length(held_by_name) between 1 and 80),
+  released_at timestamptz,
+  released_by uuid references auth.users (id) on delete set null,
+  released_by_name text check (released_by_name is null or char_length(released_by_name) between 1 and 80),
+  constraint autopilot_holds_release_pair check ((released_at is null) = (released_by_name is null)),
+  constraint autopilot_holds_release_after check (released_at is null or released_at >= held_at)
+);
+
+-- One open hold per client.
+create unique index autopilot_holds_open on public.autopilot_holds (user_id) where released_at is null;
+
+alter table public.autopilot_holds enable row level security;
+
+create policy "staff read holds" on public.autopilot_holds
+  for select using (public.staff_can_see_case(user_id));
+
+-- A hold is released once and is otherwise never edited or deleted.
+create function public.autopilot_holds_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    if exists (select 1 from auth.users u where u.id = old.user_id) then
+      raise exception 'autopilot_holds: a hold cannot be deleted';
+    end if;
+    return old;
+  end if;
+  if old.released_at is not null then
+    raise exception 'autopilot_holds: a released hold cannot be changed';
+  end if;
+  if new.user_id <> old.user_id or new.reason <> old.reason or new.held_at <> old.held_at
+     or new.held_by is distinct from old.held_by or new.held_by_name <> old.held_by_name then
+    raise exception 'autopilot_holds: only the release can be recorded';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.autopilot_holds_guard() from public;
+
+create trigger autopilot_holds_guard
+  before update or delete on public.autopilot_holds
+  for each row execute function public.autopilot_holds_guard();
+
+-- ── Rounds seen ready ──────────────────────────────────────────────────
+
+create table public.autopilot_ready_rounds (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  round_number integer not null check (round_number between 1 and 100),
+  -- A short key of the round's letters (src/lib/autopilot/sending.ts: roundPlanKey).
+  plan_key text not null check (plan_key ~ '^p[0-9a-f]{8}[0-9]{1,3}$'),
+  first_ready_at timestamptz not null default now(),
+  primary key (user_id, round_number, plan_key)
+);
+
+alter table public.autopilot_ready_rounds enable row level security;
+
+create policy "staff read ready rounds" on public.autopilot_ready_rounds
+  for select using (public.staff_can_see_case(user_id));
+
+-- Opt-outs and rounds seen ready are records: never edited, deleted only with the account.
+create function public.autopilot_append_only()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'UPDATE' then
+    raise exception '%: a record cannot be changed', tg_table_name;
+  end if;
+  if old.user_id is not null and exists (select 1 from auth.users u where u.id = old.user_id) then
+    raise exception '%: a record cannot be deleted', tg_table_name;
+  end if;
+  if old.user_id is null and tg_table_name = 'message_opt_outs' then
+    raise exception '%: a record cannot be deleted', tg_table_name;
+  end if;
+  return old;
+end;
+$$;
+
+revoke all on function public.autopilot_append_only() from public;
+
+create trigger message_opt_outs_append_only
+  before update or delete on public.message_opt_outs
+  for each row execute function public.autopilot_append_only();
+
+create trigger autopilot_ready_rounds_append_only
+  before update or delete on public.autopilot_ready_rounds
+  for each row execute function public.autopilot_append_only();
+
+-- ===== 0016_intake.sql =====
+-- AI intake (src/lib/intake, docs/INTAKE.md): what Claude read from a
+-- client's documents and what the checks in code decided.
+--
+--   intake_documents   one row per document read: a credit report staff
+--                      uploaded (PDF or saved page), a photo ID or proof of
+--                      address the client uploaded, or a bureau's letter
+--                      (optional: round results come from the next report).
+--                      Kept: the status, the reasons in plain Spanish, the
+--                      letter's per-item results, the report reading (to save
+--                      it after review), and the tokens and estimated cost.
+--                      Never kept: an ID number, a date of birth, a Social
+--                      Security number, or the name/address read off an ID.
+--   intake-files       a private storage bucket for report PDFs and bureau
+--                      letters. ID photos stay in 'identity-docs' (0003).
+--
+-- Who writes: only the server, with the service role, after checking who is
+-- asking (src/app/api/intake/*, src/app/api/staff/intake/*). Nobody gets an
+-- insert, update or delete policy. A record is not edited: a new upload is a
+-- new row.
+--
+-- Who reads: the client their own ID/address checks and letters (not the
+-- report readings, which are staff work in progress); staff by role, with the
+-- same scopes as the documents (staff_can_see_client) and the case
+-- (staff_can_see_case) of migration 0012.
+
+create table public.intake_documents (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  kind text not null check (kind in ('credit_report', 'government_id', 'proof_of_address', 'bureau_letter')),
+  status text not null check (status in ('accepted', 'needs_person', 'read', 'failed')),
+  -- True when no AI read it (no API key configured): never counts as a check.
+  simulated boolean not null default false,
+  reasons text[] not null default '{}',
+  -- Bureau letters: { bureau, letterDate, items: [{ creditor, account (last 4), outcome, fingerprint, citation }] }.
+  -- Credit reports: the reading (src/lib/intake/report/envelope.ts) and the validation summary.
+  result jsonb,
+  storage_bucket text check (storage_bucket is null or storage_bucket in ('identity-docs', 'intake-files')),
+  storage_path text,
+  file_kind text check (file_kind is null or file_kind in ('pdf', 'jpeg', 'png', 'html', 'text')),
+  file_bytes integer check (file_bytes is null or file_bytes >= 0),
+  model text,
+  input_tokens integer not null default 0,
+  output_tokens integer not null default 0,
+  cache_read_tokens integer not null default 0,
+  cache_write_tokens integer not null default 0,
+  cost_usd numeric(10, 4) not null default 0,
+  uploaded_by uuid references auth.users (id) on delete set null,
+  uploaded_by_role text not null check (uploaded_by_role in ('client', 'staff')),
+  created_at timestamptz not null default now(),
+  constraint intake_reasons_short check (array_length(reasons, 1) is null or array_length(reasons, 1) <= 40)
+);
+
+create index intake_documents_user_idx on public.intake_documents (user_id, created_at);
+
+alter table public.intake_documents enable row level security;
+
+create policy "own intake read" on public.intake_documents
+  for select using (auth.uid() = user_id and kind <> 'credit_report');
+
+create policy "staff read intake documents" on public.intake_documents
+  for select using (
+    (kind in ('government_id', 'proof_of_address') and public.staff_can_see_client(user_id))
+    or (kind in ('credit_report', 'bureau_letter') and public.staff_can_see_case(user_id))
+  );
+
+-- A record of what was read: not edited, not deleted (except with the account).
+create function public.intake_documents_append_only()
+returns trigger
+language plpgsql
+as $$
+begin
+  raise exception 'intake_documents rows are records and cannot be changed';
+end;
+$$;
+
+create trigger intake_documents_no_update
+  before update on public.intake_documents
+  for each row execute function public.intake_documents_append_only();
+
+-- Storage for report PDFs and bureau letters. Private, and no policy: only the
+-- server (service role) writes and reads it, and hands out short-lived links.
+insert into storage.buckets (id, name, public) values ('intake-files', 'intake-files', false)
+  on conflict (id) do nothing;
+
+-- ===== 0017_partners_highlevel.sql =====
+-- Leads from HighLevel, stage updates back to HighLevel, and referral partners.
+--
+-- Marketing and the lead CRM run in HighLevel; the app owns the person once
+-- sales starts working them. This migration adds what that handoff needs, and
+-- the records for referral partners (realtors, loan officers, tax preparers):
+--
+--   partners             a referral partner: who they are, their status
+--                        (pending → approved, or declined / suspended), their
+--                        referral code, the salesperson who looks after them,
+--                        and the commission terms an administrator set. No
+--                        payout is ever made by the app: payments are recorded
+--                        by hand in partner_commissions.
+--   partner_members      the sign-in (auth user) of an approved partner. A
+--                        partner is NOT staff: is_staff() and staff_role() stay
+--                        false/null for them, so no "staff read" policy applies.
+--   partner_commissions  an administrator's record of commission owed or paid.
+--                        Append-only.
+--   prospects            + where the person came from (manual, highlevel,
+--                        partner), the HighLevel contact id, the campaign and
+--                        UTM tags, the partner, the consent the lead gave, when
+--                        the invitation went out, and when sales closed them as
+--                        lost. A prospect from HighLevel or a partner has no
+--                        teammate as its creator (created_by may be null then).
+--   profiles             + the partner a client came through, and their
+--                        HighLevel contact id. Written by the server only: a
+--                        client's own connection cannot set or change either.
+--   integration_outbox   stage changes waiting to be sent to HighLevel. Each
+--                        event once (dedupe_key), retried with backoff. Rows
+--                        are never deleted; only the delivery columns change,
+--                        and never after the event was sent or given up.
+--   webhook_receipts     one row per HighLevel delivery, keyed by a hash of the
+--                        exact body, so a redelivery does nothing twice. Holds
+--                        no personal data: never the body, and never the value
+--                        of a field that was dropped (only its name).
+--
+-- Never stored, anywhere here: a Social Security number or a date of birth.
+-- There is no column for either; the webhook drops such a field before
+-- anything is written and records only that it did.
+--
+-- Who writes: only the server, with the service role. Nobody (client, staff
+-- member or partner) gets an insert, update or delete policy here.
+-- Who reads:
+--   administrators   everything here;
+--   sales            the partner list (to know who referred whom);
+--   specialists      nothing new (they see a client's source on the client);
+--   a partner        their own partner row, their own commission records, and
+--                    their referrals through partner_referrals(): first name,
+--                    last initial, date and a coarse status. Never a report,
+--                    an item, a letter, a score, an agreement or a payment.
+
+-- ── Partners ────────────────────────────────────────────────────────────
+
+create table public.partners (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(name) between 2 and 80),
+  company text check (company is null or char_length(company) between 2 and 120),
+  kind text not null check (kind in ('realtor', 'loan_officer', 'tax_preparer', 'other')),
+  phone_e164 text not null check (phone_e164 ~ '^\+1[2-9][0-9]{2}[2-9][0-9]{6}$'),
+  email text check (email is null or email ~ '^[^@ ]+@[^@ ]+\.[a-z]{2,24}$'),
+  state text check (state is null or state ~ '^[A-Z]{2}$'),
+  status text not null default 'pending' check (status in ('pending', 'approved', 'declined', 'suspended')),
+  -- The code in their link (/r/<code>). Given when an administrator approves them.
+  referral_code text unique check (referral_code is null or referral_code ~ '^[a-z0-9-]{3,30}$'),
+  -- The salesperson who works the people this partner refers (staff_members.handle).
+  salesperson text check (salesperson is null or salesperson ~ '^[a-z0-9-]{2,30}$'),
+  -- Commission terms, as an administrator set them. Paid per person who signs
+  -- or per active client, never per result on a report: there is no such option.
+  commission_basis text not null default 'none' check (commission_basis in ('none', 'signed_client', 'active_client')),
+  commission_cents integer not null default 0 check (commission_cents between 0 and 100000),
+  commission_note text check (commission_note is null or char_length(commission_note) <= 500),
+  -- The partner terms they accepted when applying (src/lib/partners/copy.ts PARTNER_TERMS_VERSION).
+  terms_version text not null check (char_length(terms_version) between 4 and 40),
+  terms_accepted_at timestamptz not null,
+  applied_at timestamptz not null default now(),
+  decided_at timestamptz,
+  decided_by uuid references auth.users (id) on delete set null,
+  constraint partners_code_when_approved check (status <> 'approved' or referral_code is not null),
+  constraint partners_commission_pair check ((commission_basis = 'none') = (commission_cents = 0))
+);
+
+-- One open application or partnership per phone.
+create unique index partners_open_phone on public.partners (phone_e164) where status in ('pending', 'approved');
+
+alter table public.partners enable row level security;
+
+-- A partner is declined or suspended, never deleted: their name stays on their referrals.
+create function public.partners_no_delete()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception 'partners: a partner is declined or suspended, never deleted';
+end;
+$$;
+
+revoke all on function public.partners_no_delete() from public;
+
+create trigger partners_no_delete
+  before delete on public.partners
+  for each row execute function public.partners_no_delete();
+
+create table public.partner_members (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  partner_id uuid not null unique references public.partners (id) on delete restrict,
+  joined_at timestamptz not null default now()
+);
+
+alter table public.partner_members enable row level security;
+
+-- Plain ids, no foreign keys to rows that could change: rows here are never edited.
+create table public.partner_commissions (
+  id uuid primary key default gen_random_uuid(),
+  partner_id uuid not null references public.partners (id) on delete restrict,
+  kind text not null check (kind in ('owed', 'paid')),
+  amount_cents integer not null check (amount_cents between 1 and 1000000),
+  -- The referral it is for, when it is for one (a prospect id).
+  referral_id uuid,
+  note text check (note is null or char_length(note) <= 300),
+  recorded_by uuid,
+  recorded_by_name text not null default '' check (char_length(recorded_by_name) <= 80),
+  recorded_at timestamptz not null default now()
+);
+
+create index partner_commissions_partner_idx on public.partner_commissions (partner_id, recorded_at);
+
+alter table public.partner_commissions enable row level security;
+
+create function public.partner_records_append_only()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception '%: a record cannot be changed or deleted', tg_table_name;
+end;
+$$;
+
+revoke all on function public.partner_records_append_only() from public;
+
+create trigger partner_commissions_append_only
+  before update or delete on public.partner_commissions
+  for each row execute function public.partner_records_append_only();
+
+-- ── Where a person came from ────────────────────────────────────────────
+
+alter table public.prospects
+  alter column created_by drop not null,
+  add column source text not null default 'manual' check (source in ('manual', 'highlevel', 'partner')),
+  -- {"campaign": "...", "utm": {"source": "...", ...}, "form": "...", "lastTouchAt": "..."}: marketing tags only.
+  add column source_detail jsonb not null default '{}' check (jsonb_typeof(source_detail) = 'object' and octet_length(source_detail::text) <= 4000),
+  add column highlevel_contact_id text check (highlevel_contact_id is null or highlevel_contact_id ~ '^[A-Za-z0-9_-]{4,64}$'),
+  add column partner_id uuid references public.partners (id) on delete restrict,
+  -- The words the lead agreed to (the form's consent text), and when.
+  add column consent_text text check (consent_text is null or char_length(consent_text) between 10 and 1000),
+  add column consent_at timestamptz,
+  add column invited_at timestamptz,
+  add column last_touch_at timestamptz,
+  add column lost_at timestamptz,
+  add constraint prospects_creator check (created_by is not null or source <> 'manual');
+
+-- One open prospect per phone (0012), where "open" now also means sales has not
+-- closed them: a lead who comes back long after being closed is a new lead.
+drop index public.prospects_open_phone;
+create unique index prospects_open_phone on public.prospects (phone_e164) where converted_user_id is null and lost_at is null;
+
+-- A HighLevel contact is one prospect.
+create unique index prospects_highlevel_contact on public.prospects (highlevel_contact_id) where highlevel_contact_id is not null;
+create index prospects_partner_idx on public.prospects (partner_id) where partner_id is not null;
+
+alter table public.profiles
+  add column referred_partner_id uuid references public.partners (id) on delete restrict,
+  add column highlevel_contact_id text check (highlevel_contact_id is null or highlevel_contact_id ~ '^[A-Za-z0-9_-]{4,64}$');
+
+-- The client's own connection may write their profile ("own profile", 0001),
+-- but never who referred them to a partner or their HighLevel contact: those
+-- decide commissions and are the server's to write. auth.uid() is set on a
+-- signed-in person's connection and empty for the service role.
+create function public.profiles_attribution_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null then
+    return new;
+  end if;
+  if tg_op = 'INSERT' and (new.referred_partner_id is not null or new.highlevel_contact_id is not null) then
+    raise exception 'profiles: partner and HighLevel attribution are written by the server only';
+  end if;
+  if tg_op = 'UPDATE' and (
+    new.referred_partner_id is distinct from old.referred_partner_id
+    or new.highlevel_contact_id is distinct from old.highlevel_contact_id
+  ) then
+    raise exception 'profiles: partner and HighLevel attribution are written by the server only';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.profiles_attribution_guard() from public;
+
+create trigger profiles_attribution_guard
+  before insert or update on public.profiles
+  for each row execute function public.profiles_attribution_guard();
+
+-- The round-robin for leads that arrive with no salesperson: the last
+-- salesperson who got one (team_settings.last_auto_assigned is the specialists').
+alter table public.team_settings
+  add column last_sales_assigned uuid references public.staff_members (user_id) on delete set null;
+
+-- New kinds in the team's record.
+alter table public.team_audit drop constraint team_audit_kind_check;
+alter table public.team_audit add constraint team_audit_kind_check check (kind in (
+  'member_invited', 'member_joined', 'role_changed', 'member_deactivated', 'member_reactivated',
+  'auto_assign_changed', 'client_assigned', 'prospect_added',
+  -- Kept from 0015 (the autopilot's switches); this list replaces the whole constraint.
+  'autopilot_changed',
+  'prospect_updated', 'prospect_invited', 'partner_applied', 'partner_status_changed',
+  'partner_commission_set', 'partner_commission_recorded'
+));
+
+-- ── Stage updates for HighLevel ─────────────────────────────────────────
+
+create table public.integration_outbox (
+  id uuid primary key default gen_random_uuid(),
+  -- "<client or prospect id>:<stage>": the same stage of the same person is sent once.
+  dedupe_key text not null unique check (char_length(dedupe_key) between 3 and 200),
+  destination text not null default 'highlevel' check (destination in ('highlevel')),
+  stage text not null check (stage in (
+    'invited', 'agreement_signed', 'cancelled_in_window', 'documents_complete',
+    'first_round_mailed', 'paused_for_payment', 'service_ended'
+  )),
+  payload jsonb not null check (jsonb_typeof(payload) = 'object' and octet_length(payload::text) <= 2000),
+  created_at timestamptz not null default now(),
+  attempts integer not null default 0 check (attempts between 0 and 50),
+  next_attempt_at timestamptz not null default now(),
+  last_error text check (last_error is null or char_length(last_error) <= 300),
+  sent_at timestamptz,
+  gave_up_at timestamptz
+);
+
+create index integration_outbox_due_idx on public.integration_outbox (next_attempt_at) where sent_at is null and gave_up_at is null;
+
+alter table public.integration_outbox enable row level security;
+
+-- What an event may carry: the HighLevel contact, the phone, the stage and its
+-- date, and the event's own id. Nothing about the credit file, ever. Checked on
+-- the way in, whatever the server code does.
+create function public.integration_outbox_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  key text;
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'integration_outbox: an event is never deleted';
+  end if;
+  if tg_op = 'INSERT' then
+    for key in select jsonb_object_keys(new.payload) loop
+      if key not in ('event', 'eventId', 'contactId', 'phone', 'stage', 'stageLabel', 'occurredAt', 'source', 'text') then
+        raise exception 'integration_outbox: % may not be sent to HighLevel', key;
+      end if;
+    end loop;
+    return new;
+  end if;
+  if new.id is distinct from old.id
+    or new.dedupe_key is distinct from old.dedupe_key
+    or new.destination is distinct from old.destination
+    or new.stage is distinct from old.stage
+    or new.payload is distinct from old.payload
+    or new.created_at is distinct from old.created_at
+  then
+    raise exception 'integration_outbox: an event cannot be changed';
+  end if;
+  if old.sent_at is not null or old.gave_up_at is not null then
+    raise exception 'integration_outbox: a delivered or abandoned event cannot be changed';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.integration_outbox_guard() from public;
+
+create trigger integration_outbox_guard
+  before insert or update or delete on public.integration_outbox
+  for each row execute function public.integration_outbox_guard();
+
+create table public.webhook_receipts (
+  id uuid primary key default gen_random_uuid(),
+  source text not null check (source in ('highlevel')),
+  -- sha256 of the exact body received.
+  delivery_key text not null check (delivery_key ~ '^[0-9a-f]{64}$'),
+  received_at timestamptz not null default now(),
+  outcome text not null check (outcome in ('created', 'updated', 'existing_client', 'rejected')),
+  prospect_id uuid,
+  -- The names of fields that were dropped without being stored (an SSN, a date of birth). Never their values.
+  dropped_fields text[] not null default '{}',
+  unique (source, delivery_key)
+);
+
+alter table public.webhook_receipts enable row level security;
+
+create trigger webhook_receipts_append_only
+  before update or delete on public.webhook_receipts
+  for each row execute function public.partner_records_append_only();
+
+-- ── Who is a partner ────────────────────────────────────────────────────
+
+-- The approved partner the signed-in person signs in for, or null.
+create function public.partner_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select m.partner_id from public.partner_members m
+  join public.partners p on p.id = m.partner_id
+  where m.user_id = auth.uid() and p.status = 'approved';
+$$;
+
+-- The signed-in partner's referrals, with only a coarse status:
+--   contacted      sales is talking with them, or they have an account but no signed agreement;
+--   signed         they signed the service agreement and no round has been mailed yet;
+--   active         at least one round of letters has been mailed and the service goes on;
+--   not_continued  they cancelled, asked to end the service, or sales closed them.
+-- First name and last initial only. Nothing from the credit file, the letters,
+-- the agreement's terms or the payments.
+create function public.partner_referrals()
+returns table (referral_id uuid, first_name text, last_initial text, referred_at timestamptz, status text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with me as (select public.partner_id() as pid),
+  people as (
+    -- Referred as a prospect (the partner's form, or a HighLevel lead carrying their code).
+    select p.id as referral_id, p.first_name, left(p.last_name, 1) as last_initial, p.created_at as referred_at,
+           p.converted_user_id as user_id, p.lost_at
+    from public.prospects p, me
+    where me.pid is not null and p.partner_id = me.pid
+    union all
+    -- Came by the partner's link and signed up by themselves (no prospect row of this partner).
+    select pr.id, split_part(btrim(pr.full_name), ' ', 1), left(split_part(btrim(pr.full_name), ' ', 2), 1), pr.created_at,
+           pr.id, null::timestamptz
+    from public.profiles pr, me
+    where me.pid is not null and pr.referred_partner_id = me.pid
+      and not exists (select 1 from public.prospects p2 where p2.converted_user_id = pr.id and p2.partner_id = me.pid)
+  )
+  select x.referral_id, x.first_name, x.last_initial, x.referred_at,
+    case
+      when x.lost_at is not null then 'not_continued'
+      when a.cancelled_at is not null or a.service_end_requested_at is not null then 'not_continued'
+      when a.signed_at is not null and exists (
+        select 1 from public.attack_rounds r where r.user_id = x.user_id and r.mailed_at is not null
+      ) then 'active'
+      when a.signed_at is not null then 'signed'
+      else 'contacted'
+    end as status
+  from people x
+  left join lateral (
+    select s.signed_at, s.cancelled_at, s.service_end_requested_at
+    from public.service_agreements s
+    where x.user_id is not null and s.user_id = x.user_id
+    order by s.created_at desc
+    limit 1
+  ) a on true
+  order by x.referred_at desc;
+$$;
+
+revoke all on function public.partner_id() from public;
+revoke all on function public.partner_referrals() from public;
+grant execute on function public.partner_id() to authenticated;
+grant execute on function public.partner_referrals() to authenticated;
+
+-- ── Read policies ───────────────────────────────────────────────────────
+
+create policy "staff read partners" on public.partners
+  for select using (public.staff_role() in ('admin', 'sales'));
+
+create policy "partner reads own partner row" on public.partners
+  for select using (id = public.partner_id());
+
+create policy "partner reads own membership" on public.partner_members
+  for select using (user_id = auth.uid());
+
+create policy "admin read partner members" on public.partner_members
+  for select using (public.staff_role() = 'admin');
+
+create policy "admin read partner commissions" on public.partner_commissions
+  for select using (public.staff_role() = 'admin');
+
+create policy "partner reads own commissions" on public.partner_commissions
+  for select using (partner_id = public.partner_id());
+
+create policy "admin read outbox" on public.integration_outbox
+  for select using (public.staff_role() = 'admin');
+
+create policy "admin read webhook receipts" on public.webhook_receipts
+  for select using (public.staff_role() = 'admin');
+
+-- ===== 0018_client_experience.sql =====
+-- Client experience: the satisfaction pulse ("¿Cómo vamos?").
+--
+-- After a few key moments (agreement signed, first round mailed, first answer
+-- from a bureau) the client app asks once, with three faces and an optional
+-- comment. One row per client per moment.
+--
+--   Written:  only by the server (POST /api/pulse), after validating the body,
+--             for the signed-in client and nobody else. No insert policy: a
+--             client cannot write a row by talking to the database directly.
+--   Read:     the client reads their own rows; staff read them by role through
+--             the 0012 scope functions (admin: everyone; specialist: assigned
+--             clients; sales: none, like the rest of the case).
+--   Changed:  only one way: a comment the client adds right after tapping a
+--             face, once, where there was none (POST /api/pulse again). A
+--             trigger refuses every other change, even from the service role.
+--             No update or delete policy for anyone: staff can never write,
+--             edit or remove a client's answer.
+
+create table public.client_pulses (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  moment text not null check (moment in ('agreement_signed', 'first_round_mailed', 'first_answer')),
+  -- 1 = not well, 2 = so-so, 3 = well.
+  rating smallint not null check (rating between 1 and 3),
+  comment text check (comment is null or char_length(btrim(comment)) between 1 and 500),
+  locale text not null default 'es' check (locale in ('es', 'en')),
+  created_at timestamptz not null default now(),
+  unique (user_id, moment)
+);
+
+create index client_pulses_created_idx on public.client_pulses (created_at desc);
+
+alter table public.client_pulses enable row level security;
+
+create policy "own pulses read" on public.client_pulses
+  for select using (auth.uid() = user_id);
+
+create policy "staff read pulses" on public.client_pulses
+  for select using (public.staff_can_see_case(user_id));
+
+create function public.client_pulses_unchangeable()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  -- The one change allowed: a first comment on an answer that had none.
+  if old.comment is null and new.comment is not null
+     and new.id = old.id and new.user_id = old.user_id and new.moment = old.moment
+     and new.rating = old.rating and new.locale = old.locale and new.created_at = old.created_at then
+    return new;
+  end if;
+  raise exception 'client_pulses rows cannot be changed';
+end;
+$$;
+
+create trigger client_pulses_no_update
+  before update on public.client_pulses
+  for each row execute function public.client_pulses_unchangeable();
+
+-- ===== 0019_letter_versions.sql =====
+-- Letter versions (src/lib/letters/versions, docs/LETTERS-EDITOR.md): the
+-- owner changes a dispute letter in /equipo/cartas without a developer, and
+-- only text an attorney approved is mailed.
+--
+--   letter_template_versions   one row per version of a letter template.
+--       Version 1 is the text in code ("incluida"); it gets a row only when
+--       it is sent to the attorney. Versions 2+ are edits. A version is a
+--       draft while it is written, then "sent" to the attorney, then
+--       approved or rejected with the attorney's name (text: the attorney is
+--       not a user), the date and a note.
+--   letters.template_version, letters.template_hash
+--       which version, and which exact text (sha-256), a letter was rendered
+--       from (src/lib/rounds/send.ts).
+--
+-- Who writes: only the server, with the service role, after
+-- requireCapability('letters.edit') (administrators): POST /api/staff/letters.
+-- Nobody gets an insert, update or delete policy.
+--
+-- Who reads: administrators every version; specialists the approved ones (the
+-- console prints and previews letters with the approved text). Sales and
+-- clients: none.
+--
+-- What cannot change, even for the server (trigger below): once a version is
+-- sent to the attorney its text, key, number and author are frozen; it can
+-- only move sent → approved or sent → rejected, once, and a decided version
+-- does not change at all. Only a draft can be deleted. A change is a new
+-- version.
+
+create table public.letter_template_versions (
+  id uuid primary key default gen_random_uuid(),
+  template_key text not null check (template_key ~ '^[a-z0-9_]{1,80}$'),
+  version integer not null check (version >= 1),
+  origin text not null check (origin in ('builtin', 'edited')),
+  -- Letters mail in English (the bureaus' language). Kept as a column so a
+  -- Spanish version could be added without changing what a row means.
+  locale text not null default 'en' check (locale = 'en'),
+  subject text not null check (char_length(subject) between 1 and 200),
+  body text not null check (char_length(body) between 1 and 20000),
+  variables text[] not null default '{}',
+  based_on integer check (based_on is null or based_on >= 1),
+  content_hash text not null check (content_hash ~ '^[0-9a-f]{64}$'),
+  status text not null default 'draft' check (status in ('draft', 'sent', 'approved', 'rejected')),
+  author_id uuid references auth.users (id) on delete set null,
+  author_name text not null check (char_length(author_name) between 1 and 120),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  sent_at timestamptz,
+  sent_by_name text,
+  approved_by text check (approved_by is null or char_length(btrim(approved_by)) between 3 and 120),
+  approved_at date,
+  approval_note text check (approval_note is null or char_length(approval_note) <= 2000),
+  rejected_by text check (rejected_by is null or char_length(btrim(rejected_by)) between 3 and 120),
+  rejected_at date,
+  rejection_note text check (rejection_note is null or char_length(rejection_note) <= 2000),
+  recorded_by uuid references auth.users (id) on delete set null,
+  recorded_by_name text,
+  recorded_at timestamptz,
+  unique (template_key, version),
+  constraint letter_versions_origin check ((version = 1) = (origin = 'builtin')),
+  constraint letter_versions_sent check ((status = 'draft') = (sent_at is null)),
+  constraint letter_versions_approved check (
+    (status = 'approved') = (approved_by is not null and approved_at is not null)
+  ),
+  constraint letter_versions_rejected check (
+    (status = 'rejected') = (rejected_by is not null and rejected_at is not null and rejection_note is not null)
+  ),
+  constraint letter_versions_recorded check ((status in ('approved', 'rejected')) = (recorded_at is not null))
+);
+
+-- One open draft per letter.
+create unique index letter_versions_one_draft on public.letter_template_versions (template_key) where status = 'draft';
+create index letter_versions_status_idx on public.letter_template_versions (status, template_key);
+
+alter table public.letter_template_versions enable row level security;
+
+create policy "admin read letter versions" on public.letter_template_versions
+  for select to authenticated using (public.staff_role() = 'admin');
+
+create policy "specialist read approved letter versions" on public.letter_template_versions
+  for select to authenticated using (status = 'approved' and public.staff_role() = 'specialist');
+
+create function public.letter_template_versions_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    if old.status = 'draft' then
+      return old;
+    end if;
+    raise exception 'letter_template_versions: a version sent to the attorney is a record and cannot be deleted';
+  end if;
+
+  if new.id <> old.id or new.template_key <> old.template_key or new.version <> old.version
+     or new.origin <> old.origin or new.created_at <> old.created_at then
+    raise exception 'letter_template_versions: a version keeps its letter and number';
+  end if;
+
+  if old.status = 'draft' then
+    -- A draft may be rewritten, and may be sent.
+    if new.status not in ('draft', 'sent') then
+      raise exception 'letter_template_versions: a draft goes to the attorney before it is decided';
+    end if;
+    return new;
+  end if;
+
+  -- Sent or decided: the text is frozen.
+  if new.subject <> old.subject or new.body <> old.body or new.variables <> old.variables
+     or new.content_hash <> old.content_hash or new.locale <> old.locale
+     or new.based_on is distinct from old.based_on
+     or new.author_id is distinct from old.author_id or new.author_name <> old.author_name
+     or new.sent_at is distinct from old.sent_at or new.sent_by_name is distinct from old.sent_by_name then
+    raise exception 'letter_template_versions: the text of a version sent to the attorney cannot be changed; make a new version';
+  end if;
+
+  if old.status = 'sent' and new.status in ('approved', 'rejected') then
+    return new;
+  end if;
+
+  raise exception 'letter_template_versions: the attorney''s decision cannot be changed';
+end;
+$$;
+
+create trigger letter_template_versions_guard
+  before update or delete on public.letter_template_versions
+  for each row execute function public.letter_template_versions_guard();
+
+-- Which version, and which exact text, each letter was rendered from.
+alter table public.letters
+  add column template_version integer check (template_version is null or template_version >= 1),
+  add column template_hash text check (template_hash is null or template_hash ~ '^[0-9a-f]{64}$');
+
+-- ===== 0020_staff_assist.sql =====
+-- The one-person console: saved answers, the morning summary, and each
+-- member's own preferences (docs/STAFF.md).
+--
+--   saved_answers          the library of approved answers to questions
+--                          clients keep asking. Written only by the server
+--                          (POST /api/staff/answers), after the role check:
+--                          an administrator's goes in approved; a specialist's
+--                          goes in proposed until an administrator approves it.
+--                          AltiBot (/api/coach) may send an APPROVED answer to
+--                          a client by itself, and checks the claim rules again
+--                          first. Read by admins and specialists; a proposal
+--                          only by admins and the person who proposed it.
+--   saved_answer_events    every save, edit, approval and deletion, with the
+--                          words as they were. Append-only: what AltiBot could
+--                          say on a given day can always be traced.
+--   staff_preferences      one row per member: the morning summary (on/off,
+--                          channel, time, time zone) and the first-day
+--                          checklist. Read by the member; written by the server.
+--   staff_digests          one row per member per local day: the morning
+--                          summary claimed before it is sent (the unique key
+--                          is what makes it go once). Never SMS.
+--
+-- Staff have no write policy on any of these: every write is a server route
+-- that checked the member's role first.
+
+-- ── Saved answers ───────────────────────────────────────────────────────
+
+create table public.saved_answers (
+  id uuid primary key default gen_random_uuid(),
+  question text not null check (char_length(btrim(question)) between 8 and 500),
+  answer text not null check (char_length(btrim(answer)) between 20 and 4000),
+  status text not null default 'proposed' check (status in ('proposed', 'approved')),
+  created_by uuid references auth.users (id) on delete set null,
+  created_by_name text not null check (char_length(created_by_name) between 1 and 80),
+  approved_by uuid references auth.users (id) on delete set null,
+  approved_by_name text check (approved_by_name is null or char_length(approved_by_name) between 1 and 80),
+  approved_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  -- Approved means an administrator's name and the moment are on record; proposed means neither.
+  constraint saved_answers_approval check ((status = 'approved') = (approved_at is not null and approved_by_name is not null))
+);
+
+create index saved_answers_status_idx on public.saved_answers (status, updated_at desc);
+
+alter table public.saved_answers enable row level security;
+
+create policy "staff read approved answers" on public.saved_answers
+  for select using (status = 'approved' and public.staff_role() in ('admin', 'specialist'));
+
+create policy "staff read proposed answers" on public.saved_answers
+  for select using (status = 'proposed' and (public.staff_role() = 'admin' or created_by = auth.uid()));
+
+create function public.saved_answers_touch()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at := now();
+  new.created_at := old.created_at;
+  new.created_by := old.created_by;
+  new.created_by_name := old.created_by_name;
+  return new;
+end;
+$$;
+
+create trigger saved_answers_touch
+  before update on public.saved_answers
+  for each row execute function public.saved_answers_touch();
+
+create table public.saved_answer_events (
+  id uuid primary key default gen_random_uuid(),
+  answer_id uuid not null,
+  kind text not null check (kind in ('saved', 'edited', 'approved', 'deleted')),
+  actor uuid references auth.users (id) on delete set null,
+  actor_name text not null,
+  question text not null,
+  answer text not null,
+  status text not null check (status in ('proposed', 'approved')),
+  created_at timestamptz not null default now()
+);
+
+create index saved_answer_events_answer_idx on public.saved_answer_events (answer_id, created_at);
+
+alter table public.saved_answer_events enable row level security;
+
+create policy "admins read answer history" on public.saved_answer_events
+  for select using (public.staff_role() = 'admin');
+
+create function public.saved_answer_events_append_only()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception 'saved_answer_events: a record cannot be changed or deleted';
+end;
+$$;
+
+create trigger saved_answer_events_append_only
+  before update or delete on public.saved_answer_events
+  for each row execute function public.saved_answer_events_append_only();
+
+-- ── Each member's preferences ───────────────────────────────────────────
+
+create table public.staff_preferences (
+  user_id uuid primary key references public.staff_members (user_id) on delete cascade,
+  digest_enabled boolean not null default false,
+  digest_channel text not null default 'whatsapp' check (digest_channel in ('whatsapp', 'email')),
+  digest_time text not null default '08:30' check (digest_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'),
+  time_zone text not null default 'America/Chicago' check (time_zone ~ '^[A-Za-z_]+/[A-Za-z_]+$'),
+  checklist_dismissed_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.staff_preferences enable row level security;
+
+create policy "own staff preferences read" on public.staff_preferences
+  for select using (auth.uid() = user_id);
+
+-- ── The morning summary, once per member per day ────────────────────────
+
+create table public.staff_digests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.staff_members (user_id) on delete cascade,
+  local_day date not null,
+  -- Never 'sms': text messages are only for login codes.
+  channel text check (channel in ('whatsapp', 'email')),
+  status text not null check (status in ('sending', 'sent', 'failed')),
+  body text not null,
+  note text,
+  created_at timestamptz not null default now(),
+  sent_at timestamptz,
+  unique (user_id, local_day)
+);
+
+alter table public.staff_digests enable row level security;
+
+create policy "own staff digests read" on public.staff_digests
+  for select using (auth.uid() = user_id or public.staff_role() = 'admin');
+
+-- The words are what was sent: only the status moves forward, from sending.
+create function public.staff_digests_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    if exists (select 1 from public.staff_members m where m.user_id = old.user_id) then
+      raise exception 'staff_digests: a record cannot be deleted';
+    end if;
+    return old;
+  end if;
+  if new.body is distinct from old.body or new.user_id <> old.user_id or new.local_day <> old.local_day or new.created_at <> old.created_at then
+    raise exception 'staff_digests: what was sent cannot be changed';
+  end if;
+  if old.status <> 'sending' then
+    raise exception 'staff_digests: a finished record cannot be changed';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger staff_digests_guard
+  before update or delete on public.staff_digests
+  for each row execute function public.staff_digests_guard();
+
+revoke all on function public.saved_answers_touch() from public;
+revoke all on function public.saved_answer_events_append_only() from public;
+revoke all on function public.staff_digests_guard() from public;

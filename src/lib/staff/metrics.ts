@@ -1,7 +1,12 @@
+import { MINUTES_BY_KIND, workQueue } from "../autopilot/queue";
+import { DEFAULT_AUTOPILOT, NO_CHANNELS, type AutopilotEnv } from "../autopilot/types";
 import { unpaidCharge } from "../billing/dunning";
+import type { FurnisherEntry } from "../mail/furnishers";
+import { exceptionKindOfKey } from "./guard";
 import { feeToCents } from "../billing/rules";
 import { ROUND_CYCLE_DAYS } from "../domain/attack";
 import { actorHandle } from "./activity";
+import { pulseSummary, type PulseSummary } from "../pulse/pulse";
 import { clientBillingOutlook, clientExceptions, clientStage, daysSince, roundItemCount, STAFF_TIME_ZONE } from "./stage";
 import { memberName, type TeamMember } from "./team";
 import type { StaffClient, StaffRole, StaffRound } from "./types";
@@ -100,6 +105,9 @@ export type MetricKey =
   | "recoveredPayments"
   | "scheduled30"
   | "revenuePerActive"
+  | "humanMinutesPerActive"
+  | "pulse"
+  | "pulseAnswers"
   | "memberAssigned"
   | "memberRounds"
   | "memberReplies"
@@ -156,6 +164,20 @@ export const METRIC_INFO: Record<MetricKey, { label: string; definition: string 
       "Cobros y reintentos que el sistema ya tiene con fecha en los próximos 30 días, solo por rondas ya enviadas y por la cuota del acuerdo firmado. No cuenta rondas que todavía no salen.",
   },
   revenuePerActive: { label: "Neto por cliente activo", definition: "El neto del periodo dividido entre los clientes activos de hoy." },
+  humanMinutesPerActive: {
+    label: "Minutos de trabajo humano por cliente activo",
+    definition:
+      "Los avisos de «Necesita una persona» que el equipo marcó como atendidos en el periodo, más los que esperan hoy, cada uno con sus minutos estimados (Piloto automático), divididos entre los clientes activos de hoy. Lo que el sistema hace solo (recordatorios, avisos, envíos) no cuenta. Es un estimado, no un registro de horas.",
+  },
+  pulse: {
+    label: "¿Cómo vamos? (promedio)",
+    definition:
+      "Promedio de las respuestas a «¿Cómo vamos?» dadas en el periodo: 1 = no muy bien, 2 = más o menos, 3 = bien. Una respuesta por cliente por momento (firmó su acuerdo, salieron sus primeras cartas, llegó la primera respuesta). Las preguntas que el cliente saltó no cuentan. Pregunta por el servicio, nunca por resultados.",
+  },
+  pulseAnswers: {
+    label: "Respuestas a «¿Cómo vamos?»",
+    definition: "Cuántas respuestas dieron los clientes en el periodo, y cuántas de cada cara. Solo de los clientes que tu rol puede ver.",
+  },
   memberAssigned: { label: "Clientes", definition: "Hoy: clientes asignados a la persona, sin contar los que terminaron." },
   memberRounds: { label: "Rondas", definition: "Rondas que la persona envió en el periodo." },
   memberReplies: { label: "Respuestas", definition: "Mensajes que la persona escribió al cliente en la app en el periodo." },
@@ -239,6 +261,10 @@ export interface BusinessMetrics {
     roundsOverdue: number;
     /** Clients with work in progress who have a mailed round: the base for "overdue". */
     inCycle: number;
+    /** Estimated minutes of a person's work: notices handled in the period plus those open today. */
+    humanMinutes: number;
+    /** Null when there is no active client. */
+    humanMinutesPerActive: number | null;
   };
   money: {
     chargedCents: number;
@@ -255,11 +281,22 @@ export interface BusinessMetrics {
   };
   team: MemberMetrics[];
   sales: SalesMetrics[];
+  /** "¿Cómo vamos?" over the answers given in the period (src/lib/pulse/pulse.ts: pulseSummary). */
+  pulse: PulseSummary;
 }
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
-export function businessMetrics(clients: StaffClient[], members: TeamMember[], period: Period, now: Date): BusinessMetrics {
+export function businessMetrics(
+  clients: StaffClient[],
+  members: TeamMember[],
+  period: Period,
+  now: Date,
+  /** The autopilot's switches: what it handles is not a person's work. Left out: everything off. */
+  autopilot: AutopilotEnv = { settings: DEFAULT_AUTOPILOT, channels: NO_CHANNELS },
+  /** The furnisher address book, so a round waiting for an address counts as it does on the home screen. */
+  furnishers?: readonly FurnisherEntry[],
+): BusinessMetrics {
   const range = periodRange(period, now);
   const within = (iso: string | null | undefined) => inRange(iso, range);
   const mailedInRange = clients.flatMap((client) => client.rounds.filter((r) => isMailed(r) && within(r.mailedAt)).map((round) => ({ client, round })));
@@ -284,6 +321,12 @@ export function businessMetrics(clients: StaffClient[], members: TeamMember[], p
     client.rounds.flatMap((round) => (round.results ?? []).filter((r) => r.outcome === "removed" && within(r.reportDate)).map((r) => `${client.id}:${r.fingerprint}`)),
   );
   const working = active.filter((c) => lastMailed(c));
+  // A person's work, in estimated minutes: what was marked handled in the period, plus what waits today.
+  const handledMinutes = sum(
+    clients.flatMap((c) => Object.entries(c.handled).filter(([, at]) => within(at)).map(([key]) => MINUTES_BY_KIND[exceptionKindOfKey(key)] ?? 0)),
+  );
+  const openMinutes = sum(workQueue(clients, now, { autopilot, furnishers }).map((item) => item.minutes));
+  const humanMinutes = handledMinutes + openMinutes;
 
   // Money: the billing records as they are.
   const charges = clients.flatMap((c) => c.billing.charges);
@@ -357,6 +400,8 @@ export function businessMetrics(clients: StaffClient[], members: TeamMember[], p
       daysToFirstRound: firstRounds.length === 0 ? null : sum(firstRounds) / firstRounds.length,
       roundsOverdue: working.filter((c) => behindCycle(c, now)).length,
       inCycle: working.length,
+      humanMinutes,
+      humanMinutesPerActive: active.length === 0 ? null : humanMinutes / active.length,
     },
     money: {
       chargedCents,
@@ -372,6 +417,7 @@ export function businessMetrics(clients: StaffClient[], members: TeamMember[], p
     },
     team,
     sales,
+    pulse: pulseSummary(clients.flatMap((c) => (c.pulses ?? []).filter((p) => within(p.createdAt)))),
   };
 }
 

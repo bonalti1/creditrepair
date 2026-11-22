@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { optReply, parseOptKeyword } from "@/lib/autopilot/optout";
+import { recordOptChange } from "@/lib/autopilot/store";
 import { BRAND } from "@/lib/brand";
 import { COACH_SYSTEM_PROMPT } from "@/lib/coach/systemPrompt";
 import { checkClaimGuardrails } from "@/lib/compliance/guardrails";
@@ -148,6 +150,24 @@ export async function POST(req: Request) {
         .from("events")
         .insert({ user_id: userId, kind: "whatsapp_inbound", payload: { from: msg.from } })
         .then(() => undefined, () => undefined);
+    }
+
+    // "BAJA" / "STOP" (or "ALTA" / "START"): recorded and answered once, and
+    // nothing else is done with the message (autopilot/optout.ts). Honored by
+    // every automatic message from the next run on.
+    const opt = parseOptKeyword(question);
+    if (opt) {
+      try {
+        if (db) {
+          await recordOptChange(db, { userId, phone, kind: opt.kind, channel: "whatsapp", keyword: opt.keyword });
+        }
+        const locale = opt.keyword === "STOP" || opt.keyword === "START" || opt.keyword === "UNSUBSCRIBE" ? "en" : "es";
+        await sendWhatsAppText(phone.slice(1), optReply(opt.kind, locale), "whatsapp:opt-keyword");
+        handled += 1;
+      } catch (error) {
+        await reportError(error, { where: "api/webhooks/whatsapp:opt", userId });
+      }
+      continue;
     }
 
     if (!checkRateLimit(`whatsapp:${phone}`, SENDER_LIMIT, SENDER_WINDOW_MS).allowed) continue;

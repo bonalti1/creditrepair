@@ -28,12 +28,12 @@ export interface StoredFlag {
 
 export type FlagsMap = Record<string, StoredFlag>;
 
-const STORAGE_KEY = "bonalti.review.v1";
-const APPROVED_KEY = "bonalti.roundApproved.v1";
+export const STORAGE_KEY = "bonalti.review.v1";
+export const APPROVED_KEY = "bonalti.roundApproved.v1";
 /** The answers as they were when the round was approved: what the mailed letters were built from. */
-const MAILED_KEY = "bonalti.roundMailed.v1";
+export const MAILED_KEY = "bonalti.roundMailed.v1";
 /** When the round was approved (ISO). Missing on a round approved before dates were kept. */
-const MAILED_AT_KEY = "bonalti.roundMailedAt.v1";
+export const MAILED_AT_KEY = "bonalti.roundMailedAt.v1";
 
 function load<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
