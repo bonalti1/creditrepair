@@ -1,3 +1,5 @@
+import { personExceptions } from "../autopilot/queue";
+import type { AutopilotEnv } from "../autopilot/types";
 import { accountStanding } from "../billing/dunning";
 import { stateName } from "./format";
 import { NO_BILLING } from "../billing/types";
@@ -79,11 +81,17 @@ export interface ClientRow {
   billing: BillingState;
 }
 
-export function clientRows(clients: StaffClient[], viewer: Viewer | null, now: Date): ClientRow[] {
+/**
+ * With `autopilot`, a notice the automatic follow-ups are still working on is
+ * not listed (autopilot/queue.ts: personExceptions); without it, every notice.
+ */
+export function clientRows(clients: StaffClient[], viewer: Viewer | null, now: Date, autopilot?: AutopilotEnv): ClientRow[] {
   return clients.map((client) => ({
     client,
     stage: clientStage(client, now),
-    exceptions: clientExceptions(client, now).filter((e) => exceptionVisibleTo(viewer?.role, e.kind)),
+    exceptions: (autopilot ? personExceptions(client, now, { autopilot }).map((p) => p.exception) : clientExceptions(client, now)).filter((e) =>
+      exceptionVisibleTo(viewer?.role, e.kind),
+    ),
     step: nextStepFor(client, now, viewer),
     billing: billingState(client, now),
   }));

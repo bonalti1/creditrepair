@@ -86,6 +86,18 @@ export async function GET(req: Request) {
     "required",
     "WHATSAPP_APP_SECRET and WHATSAPP_WEBHOOK_VERIFY_TOKEN must both be set once WhatsApp is live.",
   );
+  // Piloto automático (docs/AUTOPILOT.md): recommended, since without it the team reminds clients by hand as before.
+  const templates = (process.env.WHATSAPP_APPROVED_TEMPLATES ?? "").split(",").filter((t) => t.trim()).length;
+  add(
+    "Automatic messages: WhatsApp templates",
+    templates > 0,
+    "recommended",
+    templates > 0
+      ? `${templates} approved template(s) listed. Outside the 24-hour window only these go on WhatsApp.`
+      : "WHATSAPP_APPROVED_TEMPLATES is empty: outside the 24-hour window no automatic WhatsApp message goes (docs/AUTOPILOT.md lists the templates to approve in Meta).",
+  );
+  const email = set("EMAIL_API_KEY") && set("EMAIL_FROM") && set("UNSUBSCRIBE_SECRET") && set("NEXT_PUBLIC_COMPANY_ADDRESS") && set("NEXT_PUBLIC_APP_URL");
+  add("Automatic messages: email", email, "recommended", email ? "Email is configured, with the unsubscribe link and the postal address." : "EMAIL_API_KEY, EMAIL_FROM, UNSUBSCRIBE_SECRET, NEXT_PUBLIC_COMPANY_ADDRESS and NEXT_PUBLIC_APP_URL are all needed for automatic email.");
   add("App address", set("NEXT_PUBLIC_APP_URL"), "required", "NEXT_PUBLIC_APP_URL is used for the links in WhatsApp messages.");
   add("Sales number on the ad page", set("NEXT_PUBLIC_WHATSAPP_NUMBER"), "required", "NEXT_PUBLIC_WHATSAPP_NUMBER sends the ad page's button to WhatsApp.");
   add("Monitoring signup link", Boolean(MONITORING_OFFER.signupUrl), "required", MONITORING_OFFER.signupUrl ? `Set. Price shown: ${MONITORING_OFFER.priceLabel}.` : "NEXT_PUBLIC_MONITORING_SIGNUP_URL is not set; customers cannot subscribe from the app.");

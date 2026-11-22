@@ -524,7 +524,8 @@ describe("team: assignment", () => {
   it("the demo's clients: leads and the unsigned are nobody's; every mailed round says who sent it", () => {
     for (const c of demo()) {
       if (clientStage(c, later) === "lead") expect(c.assignedTo ?? null).toBeNull();
-      for (const r of c.rounds) if (r.mailedAt) expect(["carmen", "marta"]).toContain(r.sentBy);
+      // "sistema": a round the autopilot mailed by itself after its review window (autopilot/demo.ts: Joaquín's).
+      for (const r of c.rounds) if (r.mailedAt) expect(["carmen", "marta", "sistema"]).toContain(r.sentBy);
       if (c.assignedTo) expect(c.assignments?.at(-1)?.to).toBe(c.assignedTo);
     }
   });
@@ -631,8 +632,9 @@ describe("team: what the staff routes accept", () => {
     const staffRoutes = sourceFiles("src/app/api").filter((f) => /getStaffAccess|requireCapability/.test(read(f)));
     for (const route of staffRoutes) expect(read(route), route).toMatch(/requireCapability\(/);
     expect(read("src/app/api/furnishers/route.ts")).toMatch(/requireCapability\("rounds\.send"\)/);
-    // team, clients, case, reports, rounds, mail, refund, pause, furnishers.
-    expect(staffRoutes.length).toBe(9);
+    // team, clients, case, reports, rounds, mail, refund, pause, furnishers, autopilot (holds, opt-outs, settings).
+    expect(read("src/app/api/staff/autopilot/route.ts")).toMatch(/requireCapability\(CAPABILITY\[input\.action\]\)/);
+    expect(staffRoutes.length).toBe(10);
   });
 });
 

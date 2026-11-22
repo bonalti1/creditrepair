@@ -1,3 +1,4 @@
+import { attachDemoAutopilot } from "../autopilot/demo";
 import { BRAND } from "../brand";
 import { cancellationDeadline } from "../agreement/businessDays";
 import { AGREEMENT_VERSION } from "../agreement/documents";
@@ -899,5 +900,8 @@ export function buildDemoClients(now: Date): StaffClient[] {
   for (const client of clients) if (goals[client.id]) client.goal = goals[client.id];
   mariana.email = "mariana.robles@ejemplo.com";
 
-  return clients;
+  // What the autopilot did for them: messages sent, a hold, an opt-out, a
+  // round mailed by itself, when each prepared round was first seen
+  // (autopilot/demo.ts). Nothing in the cases above changes.
+  return attachDemoAutopilot(clients, now);
 }

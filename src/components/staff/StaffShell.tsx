@@ -28,6 +28,7 @@ const NAV: Array<{ href: string; label: string; icon: IconName; needs?: Capabili
   { href: "/equipo/invitar", label: "Invitar", icon: "mail", needs: "clients.invite" },
   { href: "/equipo/acreedores", label: "Acreedores", icon: "doc", needs: "rounds.send" },
   { href: "/equipo/actividad", label: "Actividad", icon: "clock" },
+  { href: "/equipo/piloto", label: "Piloto", icon: "sparkle", needs: "rounds.send" },
   { href: "/equipo/negocio", label: "Negocio", icon: "chart", needs: "business.view" },
   { href: "/equipo/equipo", label: "Equipo", icon: "team", needs: "team.manage" },
 ];

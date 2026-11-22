@@ -14,11 +14,13 @@ import type { FurnisherEntry } from "@/lib/mail/furnishers";
 import { addressBookHref, chosenMailClass, letterAsItWillGo, letterDestination } from "@/lib/mail/sendPlan";
 import { returnReasonEs } from "@/lib/mail/tracking";
 import { useMail } from "@/lib/mail/useMail";
+import { personExceptions } from "@/lib/autopilot/queue";
+import { useAutopilot } from "@/lib/autopilot/useAutopilot";
+import AutopilotCard from "@/components/staff/AutopilotCard";
 import { MailClassChip, MailTimeline, SimulatedPill, TrackingLink } from "@/components/staff/MailBits";
 import {
   agreementLine,
   clientAgreement,
-  clientExceptions,
   clientStage,
   formatDay,
   handledExceptions,
@@ -278,7 +280,9 @@ export default function ClientePage() {
   const { data, team, ready: clientsReady, clients, now, reload, viewer, members, can } = useStaff();
   // The furnisher address book: letters to creditors and collectors go only to a checked address in it.
   const { furnishers, ready: bookReady } = useMail();
-  const ready = clientsReady && bookReady;
+  // The autopilot: a notice its follow-ups are still working on is not a person's yet.
+  const { autopilot, env, ready: autopilotReady, reload: reloadAutopilot } = useAutopilot();
+  const ready = clientsReady && bookReady && autopilotReady;
   const [note, setNote] = useState("");
   const [importing, setImporting] = useState(false);
   const [importNote, setImportNote] = useState<string | null>(null);
@@ -308,7 +312,9 @@ export default function ClientePage() {
   const step = nextStepFor(client, now, viewer);
   // What this member's role is shown and may do (permissions.ts; the data layer checks again).
   const caseView = can("case.view");
-  const exceptions = clientExceptions(client, now, { furnishers }).filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
+  const exceptions = personExceptions(client, now, { furnishers, autopilot: env })
+    .map((p) => p.exception)
+    .filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
   const handled = handledExceptions(client, now, { furnishers }).filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
   const prepared = sendableRound(client, now, { furnishers });
   const round = can("rounds.send") ? prepared : null;
@@ -475,6 +481,22 @@ export default function ClientePage() {
                 ))}
               </ul>
             </section>
+          )}
+
+          {(caseView || can("clients.followup")) && client.signedUpAt && (
+            <AutopilotCard
+              client={client}
+              now={now}
+              env={env}
+              autopilot={autopilot}
+              by={staffAuthor()}
+              canHold={can("rounds.send") && caseView}
+              canOptOut={can("clients.followup")}
+              holdDenied={deniedReason("rounds.send")}
+              onChanged={async () => {
+                await Promise.all([reload(), reloadAutopilot()]);
+              }}
+            />
           )}
 
           {!caseView && (

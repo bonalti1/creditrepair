@@ -16,6 +16,8 @@ import {
 } from "@/lib/staff/metrics";
 import { ROLE_LABEL, deniedReason } from "@/lib/staff/permissions";
 import { useStaff } from "@/lib/staff/useStaff";
+import { useAutopilot } from "@/lib/autopilot/useAutopilot";
+import { useMail } from "@/lib/mail/useMail";
 import Definition from "@/components/staff/Definition";
 import { NoAccess, SectionTitle } from "@/components/staff/ui";
 
@@ -157,10 +159,12 @@ function Dashboard() {
   const periodParam = params.get("periodo") ?? "";
   const period: Period = (PERIODS as readonly string[]).includes(periodParam) ? (periodParam as Period) : "month";
 
-  const m = useMemo(() => businessMetrics(clients, members, period, now), [clients, members, period, now]);
+  const { env, ready: autopilotReady } = useAutopilot();
+  const { furnishers, ready: bookReady } = useMail();
+  const m = useMemo(() => businessMetrics(clients, members, period, now, env, furnishers), [clients, members, period, now, env, furnishers]);
   const series = useMemo(() => monthlySeries(clients, now, 6), [clients, now]);
 
-  if (!ready) return null;
+  if (!ready || !autopilotReady || !bookReady) return null;
   if (!can("business.view")) return <NoAccess title="Negocio" reason={deniedReason("business.view")} />;
 
   const days = (n: number | null) => (n === null ? "—" : `${Math.round(n)} días`);
@@ -215,6 +219,11 @@ function Dashboard() {
           <Stat metric="itemsNoLongerReported" value={String(m.work.itemsNoLongerReported)} />
           <Stat metric="daysToFirstRound" value={days(m.work.daysToFirstRound)} />
           <Stat metric="roundsOverdue" value={`${m.work.roundsOverdue} de ${m.work.inCycle}`} note="clientes con rondas enviadas" />
+          <Stat
+            metric="humanMinutesPerActive"
+            value={m.work.humanMinutesPerActive === null ? "—" : `${m.work.humanMinutesPerActive.toFixed(1)} min`}
+            note={`${m.work.humanMinutes} min estimados entre ${m.clients.active} activos`}
+          />
         </StatGrid>
       </section>
 

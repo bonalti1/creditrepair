@@ -9,6 +9,7 @@ import { defaultsToMine, deniedReason, scopeOf } from "@/lib/staff/permissions";
 import { EXCEPTION_KINDS, EXCEPTION_LABEL, RESPONSE_WINDOW_DAYS, sendableRound, STAGE_ORDER, STAGES, type Stage } from "@/lib/staff/stage";
 import { assignableMembers, memberName } from "@/lib/staff/team";
 import { fullName } from "@/lib/staff/types";
+import { useAutopilot } from "@/lib/autopilot/useAutopilot";
 import { useStaff } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
 import AddClient from "@/components/staff/AddClient";
@@ -30,6 +31,8 @@ const SMALL = "pressable inline-flex h-10 items-center justify-center gap-1.5 wh
 
 function ClientList() {
   const { data, team, ready, clients, now, reload, viewer, members, can } = useStaff();
+  // The automatic follow-ups: a notice they are still working on is not listed as a person's.
+  const { env } = useAutopilot();
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -71,10 +74,10 @@ function ClientList() {
 
   const rows = useMemo(
     () =>
-      clientRows(clients, viewer, now).sort(
+      clientRows(clients, viewer, now, env).sort(
         (a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage) || fullName(a.client).localeCompare(fullName(b.client), "es"),
       ),
-    [clients, viewer, now],
+    [clients, viewer, now, env],
   );
   const sellers = useMemo(() => [...new Set(clients.map((c) => c.salesperson))].sort(), [clients]);
   const states = useMemo(() => [...new Set(clients.map((c) => c.state))].sort(), [clients]);

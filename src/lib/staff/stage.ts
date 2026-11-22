@@ -450,6 +450,14 @@ function responseOverdue(client: StaffClient, now: Date): StaffRound | null {
   return latest;
 }
 
+/**
+ * The mailed round whose answers are overdue (no new report after the response
+ * window), or null. The automatic follow-ups (autopilot/followups.ts) read it.
+ */
+export function overdueResponseRound(client: StaffClient, now: Date): StaffRound | null {
+  return responseOverdue(client, now);
+}
+
 /** Every exception that applies right now, whether or not someone marked it handled. */
 function openExceptions(client: StaffClient, now: Date, context: StaffContext = {}): StaffException[] {
   // A cancelled client has nothing in flight, so nothing can be wrong with it.

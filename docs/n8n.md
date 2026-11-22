@@ -8,13 +8,33 @@ The app exposes everything n8n needs; n8n only provides the clock.
 - **Node:** HTTP Request → `POST {APP_URL}/api/cron/rounds`
   - Header `x-webhook-secret: {N8N_WEBHOOK_SECRET}`
 - The endpoint is idempotent: it finds rounds past `next_round_due_at`,
-  re-pulls via the monitoring adapter, imports + diffs (deletion celebration
-  fires inside), marks rounds complete, and sends the day-40 WhatsApp
-  re-engagement with a deep link. Response lists what it processed.
+  re-pulls via the monitoring adapter, imports + diffs, and marks rounds
+  complete. The client hears about the new report from the import itself: a
+  factual status message queued in the outbound log and sent by Workflow 3.
+  Response lists what it processed.
+
+## Workflow 3: the autopilot (hourly)
+
+- **Trigger:** Cron, every hour (any minute; staggering it from Workflow 1 by
+  15 minutes lets a report imported by the round check be announced in the
+  same hour).
+- **Node:** HTTP Request → `POST {APP_URL}/api/cron/autopilot`, header
+  `x-webhook-secret: {N8N_WEBHOOK_SECRET}`.
+- Notes rounds ready for the first time, mails those whose review window is
+  over (only when "Enviar solas las rondas listas" is on), and sends the
+  automatic messages that are due. Running it twice sends nothing twice.
+  See `docs/AUTOPILOT.md`.
+
+## Workflow 4: billing (hourly)
+
+- `POST {APP_URL}/api/cron/billing`, same header. See `docs/BILLING.md`.
 
 ## Workflow 2 (optional): notification relays
 
 For ad-hoc messages (e.g. manual "attack ready" nudges), call
+(these go straight to WhatsApp, outside the autopilot's outbound log, so they
+do not check opt-outs or quiet hours: prefer the autopilot for anything
+recurring),
 `POST {APP_URL}/api/webhooks/n8n` with the same secret header and body
 `{ "action": "attack_ready" | "day40_reengage", "userId": "...", ... }`.
 

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { storeMessage } from "../chat/history";
+import { queueingWhatsApp } from "../autopilot/store";
 import { importReportForUser } from "../domain/importReport";
 import { furnisherFromRow } from "../mail/server";
 import { roundMailPlan } from "../mail/sendPlan";
@@ -291,7 +292,8 @@ export async function sendStaffRounds(
       via: input.via,
       mailClasses: classes,
       now,
-      deps: options.deps,
+      // "Letters mailed" goes through the autopilot's outbound log (opt-out, quiet hours, the daily cap).
+      deps: { ...options.deps, sendWhatsApp: options.deps?.sendWhatsApp ?? queueingWhatsApp(db, ref.clientId) },
     });
     if (result.ok) outcomes.push({ ...ref, sent: true, letters: result.letters.length });
     else held(result.error, result.code ?? `http_${result.status}`);

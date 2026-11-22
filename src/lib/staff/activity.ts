@@ -1,3 +1,4 @@
+import { outboundLine } from "../autopilot/queue";
 import { formatCents } from "../billing/rules";
 import { displayName } from "./conversation";
 import { count } from "./format";
@@ -26,6 +27,8 @@ export const ACTIVITY_TYPES = [
   "assigned",
   "note",
   "team",
+  "auto_message",
+  "autopilot_hold",
 ] as const;
 
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
@@ -43,6 +46,8 @@ export const ACTIVITY_LABEL: Record<ActivityType, string> = {
   assigned: "Asignación",
   note: "Nota",
   team: "Cambio en el equipo",
+  auto_message: "Mensaje automático",
+  autopilot_hold: "Piloto automático detenido",
 };
 
 export interface ActivityEntry {
@@ -172,6 +177,20 @@ export function clientActivity(client: StaffClient, members: TeamMember[]): Acti
         : `${who(by)} ${i === 0 ? "asignó" : "pasó"} el caso de ${name} a ${to}${entry.auto ? " (por turno)" : ""}`;
     add(`assigned-${i}`, entry.at, "assigned", by, text);
   });
+
+  // What the autopilot did: every automatic message that went out, and each hold.
+  for (const message of client.outbound ?? []) {
+    if (message.status !== "sent" && message.status !== "simulated") continue;
+    add(`out-${message.id}`, message.sentAt, "auto_message", SYSTEM_ACTOR_KEY, `El sistema le escribió a ${name}: ${outboundLine(message)}`);
+  }
+  for (const hold of client.holds ?? []) {
+    const by = actorHandle(members, hold.by);
+    add(`hold-${hold.id}`, hold.at, "autopilot_hold", by, `${who(by)} detuvo el piloto automático para ${name}: «${hold.reason}»`);
+    if (hold.releasedAt) {
+      const releasedBy = actorHandle(members, hold.releasedBy ?? "equipo");
+      add(`release-${hold.id}`, hold.releasedAt, "autopilot_hold", releasedBy, `${who(releasedBy)} soltó el piloto automático para ${name}`);
+    }
+  }
 
   for (const note of client.notes) {
     const by = actorHandle(members, note.author);

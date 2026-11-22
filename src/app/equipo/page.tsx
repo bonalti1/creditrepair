@@ -1,17 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { count, shortDay } from "@/lib/staff/format";
-import { exceptionMessage, whatsappHref } from "@/lib/staff/messages";
-import { exceptionVisibleTo } from "@/lib/staff/permissions";
+import { followupsInProgress, sentBetween, workQueue, workSummary, type QueueItem } from "@/lib/autopilot/queue";
+import { autoSendState } from "@/lib/autopilot/sending";
+import { useAutopilot } from "@/lib/autopilot/useAutopilot";
+import type { AutopilotSettings } from "@/lib/autopilot/types";
 import { nextStepFor } from "@/lib/staff/clientList";
 import { roundRefsHref, sendRefsHref } from "@/lib/staff/printBatch";
 import { useMail } from "@/lib/mail/useMail";
 import {
   ACTOR_LABEL,
-  clientExceptions,
   clientStage,
+  formatDay,
   HANDLED_QUIET_DAYS,
   RESPONSE_WINDOW_DAYS,
   roundItemCount,
@@ -20,31 +22,32 @@ import {
   STAGE_ORDER,
   STAGES,
   type Stage,
-  type StaffException,
 } from "@/lib/staff/stage";
 import { fullName, type StaffClient, type StaffRound } from "@/lib/staff/types";
-import { useStaff } from "@/lib/staff/useStaff";
+import { staffAuthor, useStaff } from "@/lib/staff/useStaff";
+import { FOLLOWUP_SCHEDULES } from "@/lib/autopilot/followups";
+import { FocusMode, QueueList } from "@/components/staff/WorkQueue";
 import Icon from "@/components/Icon";
 import {
+  PRIMARY_BUTTON,
   PRIMARY_BUTTON_COMPACT,
   QUIET_BUTTON,
-  ROW_BUTTON,
   SECONDARY_BUTTON_COMPACT,
   SectionTitle,
-  SeverityDot,
 } from "@/components/staff/ui";
 
-// The team's home. One list of what needs a person, each with the one button
-// that fixes it. One block to mail every prepared round at once. Everything
-// else is shown as status, because it moves on its own.
+// The team's home. One queue of what truly needs a person, in the order to
+// do it, each with why, what the system already tried, roughly how long it
+// takes, how long it has waited and when it is due, and the one button that
+// fixes it; "Siguiente" walks it one item at a time. The routine follow-up
+// and, when the owner turns it on, the sending run by themselves
+// (src/lib/autopilot): the right column shows what the system is doing.
 //
 // Billing is in the last group. The system charges each round after it is
 // mailed and retries a declined payment by itself; nothing on this page asks
 // anyone to charge a client. Money reaches the first list only when it needs
 // a person: the retries are used up, or a charge is due and there is no
 // payment method on file.
-
-const SEVERITY_RANK = { high: 0, medium: 1, low: 2 } as const;
 
 function greeting(now: Date): string {
   const hour = now.getHours();
@@ -61,40 +64,44 @@ export default function EquipoHome() {
   const { furnishers, ready: bookReady } = useMail();
   const ready = clientsReady && bookReady;
   const [selected, setSelected] = useState<Set<string> | null>(null);
+  // The autopilot's switches and channels (src/lib/autopilot).
+  const { autopilot, env, ready: autopilotReady, reload: reloadAutopilot } = useAutopilot();
+  const [focus, setFocus] = useState<number | null>(null);
+  const [holding, setHolding] = useState<string | null>(null);
+  const [holdReason, setHoldReason] = useState("");
+  const [holdError, setHoldError] = useState<string | null>(null);
 
   const view = useMemo(() => {
-    const exceptions: Array<{ client: StaffClient; exception: StaffException }> = [];
+    const queue: QueueItem[] = workQueue(clients, now, { furnishers, autopilot: env }, viewer?.role ?? null);
     const sendable: Array<{ client: StaffClient; round: StaffRound }> = [];
     const quiet: StaffClient[] = [];
     const byStage = Object.fromEntries(STAGE_ORDER.map((s) => [s, 0])) as Record<Stage, number>;
+    const withItems = new Set(queue.map((item) => item.client.id));
 
     for (const client of clients) {
       const stage = clientStage(client, now);
       byStage[stage] += 1;
-      const own = clientExceptions(client, now, { furnishers }).filter((e) => exceptionVisibleTo(viewer?.role, e.kind));
-      own.forEach((exception) => exceptions.push({ client, exception }));
       const round = sends ? sendableRound(client, now, { furnishers }) : null;
       if (round) sendable.push({ client, round });
       // A client who cancelled is not moving along on their own: they are out.
-      if (own.length === 0 && !round && stage !== "cancelled") quiet.push(client);
+      if (!withItems.has(client.id) && !round && stage !== "cancelled") quiet.push(client);
     }
-    exceptions.sort(
-      (a, b) =>
-        SEVERITY_RANK[a.exception.severity] - SEVERITY_RANK[b.exception.severity] ||
-        (a.exception.since ?? "").localeCompare(b.exception.since ?? ""),
-    );
     // What the system does soonest comes first (a charge tomorrow, a retry), then whoever a person is waited on.
     const when = (client: StaffClient) => nextStepFor(client, now, viewer).at ?? "9999";
     quiet.sort((a, b) => when(a).localeCompare(when(b)));
-    return { exceptions, sendable, quiet, byStage };
-  }, [clients, now, viewer, sends, furnishers]);
+    // What the system is doing: reminders in progress, and what it sent in the last day.
+    const working = clients.flatMap((client) => followupsInProgress(client, now, env).map((state) => ({ client, state })));
+    working.sort((a, b) => (a.state.next?.dueAt ?? "").localeCompare(b.state.next?.dueAt ?? ""));
+    const sentToday = sentBetween(clients, new Date(now.getTime() - 24 * 60 * 60 * 1000), now);
+    return { queue, sendable, quiet, byStage, working, sentToday };
+  }, [clients, now, viewer, sends, furnishers, env]);
 
   // Every prepared round starts selected: sending them all is the routine.
   useEffect(() => {
     if (ready && selected === null) setSelected(new Set(view.sendable.map((s) => s.client.id)));
   }, [ready, selected, view.sendable]);
 
-  if (!ready) return null;
+  if (!ready || !autopilotReady) return null;
 
   const chosen = view.sendable.filter((s) => selected?.has(s.client.id));
   const allChosen = view.sendable.length > 0 && chosen.length === view.sendable.length;
@@ -106,17 +113,32 @@ export default function EquipoHome() {
     setSelected(next);
   };
 
-  const markHandled = async (clientId: string, key: string) => {
-    await data.resolveException(clientId, key);
+  const markHandled = async (item: QueueItem) => {
+    await data.resolveException(item.client.id, item.exception.key);
     await reload();
   };
+
+  const hold = async (clientId: string) => {
+    const result = await autopilot.hold(clientId, holdReason, staffAuthor());
+    if (!result.ok) {
+      setHoldError(result.message);
+      return;
+    }
+    setHolding(null);
+    setHoldReason("");
+    setHoldError(null);
+    await Promise.all([reload(), reloadAutopilot()]);
+  };
+  const release = async (clientId: string) => {
+    await autopilot.release(clientId, staffAuthor());
+    await Promise.all([reload(), reloadAutopilot()]);
+  };
+
+  const work = workSummary(view.queue);
 
   const weekday = now.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
   const today = weekday.charAt(0).toUpperCase() + weekday.slice(1);
   const summary = [
-    view.exceptions.length === 0
-      ? "nada necesita una persona"
-      : `${count(view.exceptions.length, "cosa necesita", "cosas necesitan")} una persona`,
     ...(sends
       ? [
           view.sendable.length === 0
@@ -135,18 +157,53 @@ export default function EquipoHome() {
         {viewer ? `, ${viewer.name.split(" ")[0]}` : ""}
       </h1>
       <p className="mt-1 text-[15px] leading-relaxed text-slate-500">
-        {today}. Hoy: {summary.join(" · ")}.
+        {today}. {summary.join(" · ")}.
       </p>
+
+      <section className="card mt-5 flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="hoy" data-testid="today-work">
+        <div className="min-w-0">
+          <h2 id="hoy" className="text-[22px] font-semibold leading-tight tracking-tight text-slate-900 tabular-nums">
+            Trabajo de hoy: {count(work.count, "cosa", "cosas")} · ~{work.minutes} minutos
+          </h2>
+          <p className="mt-1 text-[14px] leading-snug text-slate-600">
+            {work.count === 0
+              ? "Nada necesita una persona ahora."
+              : work.overdue > 0
+                ? `${count(work.overdue, "ya pasó su plazo", "ya pasaron su plazo")}. Empieza por arriba.`
+                : "Todo dentro de su plazo."}{" "}
+            {env.settings.followupsEnabled
+              ? `El sistema sigue ${count(view.working.length, "recordatorio", "recordatorios")} por su cuenta y envió ${count(view.sentToday.length, "mensaje", "mensajes")} en las últimas 24 horas.`
+              : "Los recordatorios automáticos están apagados: los avisos llegan aquí como antes."}
+          </p>
+        </div>
+        {work.count > 0 && (
+          <button type="button" onClick={() => setFocus(0)} className={`${PRIMARY_BUTTON} shrink-0 gap-2`} data-testid="focus-start">
+            Siguiente
+            <Icon name="chevron" size={18} />
+          </button>
+        )}
+      </section>
+
+      {focus !== null && (
+        <FocusMode
+          items={view.queue}
+          index={focus}
+          now={now}
+          onIndex={setFocus}
+          onHandled={async (item) => {
+            await markHandled(item);
+          }}
+          onClose={() => setFocus(null)}
+        />
+      )}
 
       <div className="mt-7 grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_23rem]">
         <section aria-labelledby="necesita">
-          <SectionTitle
-            aside={<span className="text-[13px] tabular-nums text-slate-500">{view.exceptions.length}</span>}
-          >
+          <SectionTitle aside={<span className="text-[13px] tabular-nums text-slate-500">{view.queue.length}</span>}>
             <span id="necesita">Necesita una persona</span>
           </SectionTitle>
 
-          {view.exceptions.length === 0 ? (
+          {view.queue.length === 0 ? (
             <div className="card flex items-center gap-3 px-5 py-6 text-[15px] text-slate-600">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-50 text-green-700">
                 <Icon name="check" size={18} />
@@ -154,57 +211,12 @@ export default function EquipoHome() {
               Nada necesita una persona ahora.
             </div>
           ) : (
-            <ul className="card overflow-hidden">
-              {view.exceptions.map(({ client, exception }, index) => (
-                <li
-                  key={`${client.id}:${exception.key}`}
-                  className={`flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:gap-5 ${index > 0 ? "border-t hairline" : ""}`}
-                >
-                  <div className="flex min-w-0 flex-1 gap-3">
-                    <SeverityDot severity={exception.severity} />
-                    <div className="min-w-0">
-                      <Link
-                        href={`/equipo/clientes/${client.id}`}
-                        className="text-[16px] font-semibold text-slate-900 underline-offset-2 hover:underline"
-                      >
-                        {fullName(client)}
-                      </Link>
-                      <p className="mt-0.5 text-[14px] leading-snug text-slate-600">{exception.sentence}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1 pl-[22px] sm:shrink-0 sm:flex-nowrap sm:pl-0">
-                    {exception.action === "whatsapp" ? (
-                      <a
-                        href={whatsappHref(client.phone, exceptionMessage(client, exception))}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={ROW_BUTTON}
-                      >
-                        {exception.actionLabel}
-                      </a>
-                    ) : (
-                      <Link href={exception.href ?? `/equipo/clientes/${client.id}#cartas`} className={ROW_BUTTON}>
-                        {exception.actionLabel}
-                      </Link>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => markHandled(client.id, exception.key)}
-                      className={QUIET_BUTTON}
-                      aria-label={`Marcar como atendido: ${fullName(client)}`}
-                    >
-                      <Icon name="check" size={16} />
-                      Atendido
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <QueueList items={view.queue} now={now} onHandled={markHandled} />
           )}
-          {view.exceptions.length > 0 && (
+          {view.queue.length > 0 && (
             <p className="px-1 pt-2 text-xs leading-relaxed text-slate-500">
-              «Atendido» quita el aviso de la lista. Si en {HANDLED_QUIET_DAYS} días la situación sigue igual, vuelve a
-              aparecer.
+              En orden: lo vencido primero, luego por plazo. Los minutos son estimados. «Atendido» quita el aviso de la lista; si en{" "}
+              {HANDLED_QUIET_DAYS} días la situación sigue igual, vuelve a aparecer.
             </p>
           )}
         </section>
@@ -259,6 +271,18 @@ export default function EquipoHome() {
             </SectionTitle>
 
             <div className="card overflow-hidden">
+              <p className="border-b hairline px-5 py-2.5 text-[13px] leading-snug text-slate-600" data-testid="autosend-line">
+                {env.settings.roundsEnabled ? (
+                  <>
+                    <span className="font-semibold text-green-700">Envío automático encendido.</span> Cada ronda espera{" "}
+                    {env.settings.reviewWindowHours} h aquí y sale sola si nadie la detiene.
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold text-slate-700">Envío automático apagado.</span> Las envía una persona.
+                  </>
+                )}
+              </p>
 
               {view.sendable.length === 0 ? (
                 <p className="px-5 py-5 text-[14px] leading-snug text-slate-500">
@@ -268,7 +292,8 @@ export default function EquipoHome() {
                 <>
                   <ul>
                     {view.sendable.map(({ client, round }, index) => (
-                      <li key={client.id} className={`flex items-center gap-3 px-5 py-3 ${index > 0 ? "border-t hairline" : ""}`}>
+                      <Fragment key={client.id}>
+                      <li className={`flex items-center gap-3 px-5 py-3 ${index > 0 ? "border-t hairline" : ""}`}>
                         <input
                           id={`send-${client.id}`}
                           type="checkbox"
@@ -288,14 +313,60 @@ export default function EquipoHome() {
                               Todavía sin método de pago
                             </span>
                           )}
+                          <AutoSendLine client={client} round={round} now={now} settings={env.settings} />
                         </label>
-                        <Link
-                          href={`/equipo/clientes/${client.id}#cartas`}
-                          className="shrink-0 text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline"
-                        >
-                          Ver cartas
-                        </Link>
+                        <span className="flex shrink-0 flex-col items-end gap-1">
+                          <Link
+                            href={`/equipo/clientes/${client.id}#cartas`}
+                            className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline"
+                          >
+                            Ver cartas
+                          </Link>
+                          {env.settings.roundsEnabled &&
+                            (client.holds ?? []).some((h) => !h.releasedAt) ? (
+                              <button type="button" onClick={() => release(client.id)} className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
+                                Soltar
+                              </button>
+                            ) : env.settings.roundsEnabled ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setHolding(holding === client.id ? null : client.id);
+                                  setHoldError(null);
+                                }}
+                                className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline"
+                                data-testid="hold-button"
+                              >
+                                Detener
+                              </button>
+                            ) : null}
+                        </span>
                       </li>
+                      {holding === client.id && (
+                        <li className="border-t hairline bg-slate-50 px-5 py-3">
+                          <label htmlFor={`hold-${client.id}`} className="block text-[13px] font-medium text-slate-700">
+                            ¿Por qué se detiene? Queda en el registro.
+                          </label>
+                          <textarea
+                            id={`hold-${client.id}`}
+                            value={holdReason}
+                            onChange={(e) => setHoldReason(e.target.value)}
+                            rows={2}
+                            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-[14px]"
+                            placeholder="Por ejemplo: quiere revisar una carta antes de que salga"
+                          />
+                          {holdError && <p className="mt-1 text-[13px] text-red-700">{holdError}</p>}
+                          <div className="mt-2 flex gap-2">
+                            <button type="button" onClick={() => hold(client.id)} className={SECONDARY_BUTTON_COMPACT}>
+                              Detener el piloto automático
+                            </button>
+                            <button type="button" onClick={() => setHolding(null)} className={QUIET_BUTTON}>
+                              Cancelar
+                            </button>
+                          </div>
+                        </li>
+                      )}
+                      </Fragment>
                     ))}
                   </ul>
                   <div className="border-t hairline px-5 py-4">
@@ -337,6 +408,48 @@ export default function EquipoHome() {
             </div>
           </section>
           )}
+
+          <section aria-labelledby="sistema">
+            <SectionTitle
+              aside={
+                <Link href="/equipo/piloto" className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
+                  Piloto automático
+                </Link>
+              }
+            >
+              <span id="sistema">El sistema está trabajando</span>
+            </SectionTitle>
+            <div className="card px-5 py-4" data-testid="system-work">
+              {!env.settings.followupsEnabled && view.sentToday.length === 0 ? (
+                <p className="text-[14px] leading-snug text-slate-600">Los recordatorios automáticos están apagados. Se encienden en Piloto automático.</p>
+              ) : (
+                <>
+                  <p className="text-[14px] leading-snug text-slate-600">
+                    {count(view.working.length, "recordatorio en curso", "recordatorios en curso")} ·{" "}
+                    {count(view.sentToday.length, "mensaje enviado", "mensajes enviados")} en 24 h
+                    {autopilot.demo ? " (simulados en la demo)" : ""}.
+                  </p>
+                  {view.working.length > 0 && (
+                    <ul className="mt-3 space-y-2.5">
+                      {view.working.slice(0, 5).map(({ client, state }) => (
+                        <li key={`${client.id}:${state.situation.key}`} className="text-[13px] leading-snug">
+                          <Link href={`/equipo/clientes/${client.id}`} className="font-medium text-slate-900 underline-offset-2 hover:underline">
+                            {fullName(client)}
+                          </Link>
+                          <span className="block text-slate-500">
+                            {FOLLOWUP_SCHEDULES[state.situation.kind].label} ·{" "}
+                            {state.sent.length === 0
+                              ? `el primer recordatorio sale el ${formatDay(new Date(state.next!.dueAt))}`
+                              : `${state.sent.length} de 3 enviados${state.next ? `; el siguiente, el ${formatDay(new Date(state.next.dueAt))}` : ""}`}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
 
           <section aria-labelledby="solo">
             <SectionTitle>
@@ -420,5 +533,16 @@ export default function EquipoHome() {
         )}
       </section>
     </main>
+  );
+}
+
+/** Where a prepared round stands with the autopilot: off, held, or when it goes by itself. */
+function AutoSendLine({ client, round, now, settings }: { client: StaffClient; round: StaffRound; now: Date; settings: AutopilotSettings }) {
+  const state = autoSendState(client, round, now, settings);
+  if (state.status === "off") return null;
+  return (
+    <span className={`block text-[13px] ${state.status === "held" ? "text-amber-700" : "text-green-700"}`} data-testid="autosend-state">
+      {state.text}
+    </span>
   );
 }

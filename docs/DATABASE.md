@@ -26,9 +26,12 @@ or into Supabase's own settings. Never paste a key into a chat or an email.
 1. In Supabase: **SQL Editor → New query**.
 2. Open `supabase/setup.sql` from this repository, copy **all** of it, paste,
    and press **Run**. It is every migration (`supabase/migrations/0001` to
-   `0014`) in order. It should finish with "Success. No rows returned".
+   `0015`) in order. It should finish with "Success. No rows returned".
 3. Run it **once**. If you run it a second time it stops at the first table
    that already exists; that is harmless, nothing is changed.
+4. A database set up before the autopilot (migrations up to `0014`): run only
+   `supabase/migrations/0015_autopilot.sql`, the same way. Everything it adds
+   starts off (`docs/AUTOPILOT.md`).
 
 ## 3. Check the storage bucket
 
@@ -145,7 +148,9 @@ record, the client's answers (with reason and attestation), reports imported
 by staff (read again on the server), the staff console's lists, client pages,
 notes, handled notices, replies, report samples, team and assignments, the
 send (Lob or "simulado") and printing, the furnisher address book, Lob
-tracking, billing records, refunds and pauses.
+tracking, billing records, refunds and pauses, and the autopilot: its
+switches, the outbound message log, opt-outs, holds, and the automatic send
+through `/api/cron/autopilot` (`docs/AUTOPILOT.md`).
 
 Not yet, and why:
 
@@ -170,7 +175,9 @@ in-process Postgres) with stand-ins for Supabase's roles, `auth.uid()` and
 storage, and an adapter that runs the app's supabase-js calls as SQL under the
 chosen person, so row level security, triggers and constraints really apply.
 It covers what each role reads, that staff and clients cannot write directly,
-each staff route's checks, and the whole path from invitation to charge. The
+each staff route's checks, the whole path from invitation to charge, and the
+autopilot (`db/autopilot.test.ts`: off sends nothing, quiet hours, a run twice
+sends once, an opted-out client gets nothing, the review window and holds). The
 top of `pg.ts` lists what the adapter does not emulate (PostgREST's own
 behaviour, Auth sessions and cookies, storage files). Change a migration →
 `npm run db:setup-sql` rebuilds `setup.sql`.

@@ -1,3 +1,6 @@
+import { currentOptOut } from "../autopilot/optout";
+import { roundPlanKey } from "../autopilot/planKey";
+import type { OptOutRecord, OutboundMessage } from "../autopilot/types";
 import { chargeFromRow, paymentMethodFromRow } from "../billing/server";
 import type { BillingAccount, BillingPause } from "../billing/types";
 import type { ChatRole, ChatSource } from "../chat/history";
@@ -78,6 +81,17 @@ export interface StaffRows {
   samples: Row[];
   assignments: Row[];
   audit: Row[];
+  // Piloto automático (migration 0015). Empty on a database without it.
+  /** outbound_messages. */
+  outbound?: Row[];
+  /** message_opt_outs. */
+  optOuts?: Row[];
+  /** autopilot_holds. */
+  holds?: Row[];
+  /** autopilot_ready_rounds. */
+  readyRounds?: Row[];
+  /** The client's own WhatsApp messages (chat_messages: user_id, created_at), newest first. */
+  inbound?: Row[];
 }
 
 export const EMPTY_STAFF_ROWS: StaffRows = {
@@ -105,6 +119,11 @@ export const EMPTY_STAFF_ROWS: StaffRows = {
   samples: [],
   assignments: [],
   audit: [],
+  outbound: [],
+  optOuts: [],
+  holds: [],
+  readyRounds: [],
+  inbound: [],
 };
 
 // ── Small readers ───────────────────────────────────────────────────────
@@ -220,6 +239,30 @@ function handle(context: MapContext, userId: unknown, fallback: string | null = 
 }
 
 /** Every client the rows describe, newest activity first is NOT applied: callers sort as they need. */
+const OUTBOUND_STATUSES: readonly OutboundMessage["status"][] = ["queued", "sending", "sent", "simulated", "failed", "cancelled"];
+
+/** One outbound_messages row as the console reads it. */
+export function outboundFromRow(row: Row): OutboundMessage {
+  const channel = text(row.channel);
+  return {
+    id: text(row.id),
+    dedupeKey: text(row.dedupe_key),
+    kind: row.kind === "status" ? "status" : "followup",
+    topic: text(row.topic) as OutboundMessage["topic"],
+    step: row.step === null || row.step === undefined ? null : Number(row.step),
+    channel: channel === "whatsapp" || channel === "email" ? channel : null,
+    template: textOrNull(row.template),
+    params: Array.isArray(row.params) ? row.params.map(text) : [],
+    locale: row.locale === "en" ? "en" : "es",
+    body: text(row.body),
+    link: textOrNull(row.link),
+    status: OUTBOUND_STATUSES.find((s) => s === row.status) ?? "queued",
+    queuedAt: iso(row.queued_at) ?? "",
+    sentAt: iso(row.sent_at),
+    note: textOrNull(row.note),
+  };
+}
+
 export function clientsFromRows(rows: StaffRows): StaffClient[] {
   const context: MapContext = {
     handleOf: new Map(rows.staffMembers.map((m) => [text(m.user_id), text(m.handle) || text(m.user_id).slice(0, 8)])),
@@ -246,6 +289,11 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
   const marksBy = groupBy(rows.marks, "user_id");
   const samplesBy = groupBy(rows.samples, "user_id");
   const assignmentBy = new Map(rows.assignments.map((a) => [text(a.user_id), a]));
+  const outboundBy = groupBy(rows.outbound ?? [], "user_id");
+  const optOutsBy = groupBy(rows.optOuts ?? [], "user_id");
+  const holdsBy = groupBy(rows.holds ?? [], "user_id");
+  const readyBy = groupBy(rows.readyRounds ?? [], "user_id");
+  const inboundBy = groupBy(rows.inbound ?? [], "user_id");
   const auditByClient = groupBy(rows.audit.filter((a) => a.kind === "client_assigned" && a.client_id), "client_id");
   const auditByProspect = groupBy(rows.audit.filter((a) => a.kind === "client_assigned" && a.prospect_id), "prospect_id");
 
@@ -266,6 +314,28 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
         auto: detail.auto === true,
       };
     });
+  };
+
+  // What the autopilot recorded for one client (migration 0015).
+  const autopilotFields = (id: string, profile: Row): Partial<StaffClient> => {
+    const outbound = [...(outboundBy.get(id) ?? [])].sort(byTime("queued_at")).map(outboundFromRow);
+    const optOut = currentOptOut((optOutsBy.get(id) ?? []).map((r) => ({ kind: r.kind === "opt_in" ? ("opt_in" as const) : ("opt_out" as const), at: iso(r.at) ?? "", row: r })));
+    const holds = [...(holdsBy.get(id) ?? [])].sort(byTime("held_at")).map((h) => ({
+      id: text(h.id),
+      at: iso(h.held_at) ?? "",
+      by: text(h.held_by_name) || "equipo",
+      reason: text(h.reason),
+      releasedAt: iso(h.released_at),
+      releasedBy: textOrNull(h.released_by_name),
+    }));
+    const lastInbound = (inboundBy.get(id) ?? []).map((r) => iso(r.created_at)).reduce<string | null>((max, v) => (v && (!max || v > max) ? v : max), null);
+    return {
+      ...(profile.locale === "en" ? { locale: "en" as const } : {}),
+      ...(outbound.length > 0 ? { outbound } : {}),
+      ...(optOut ? { optOut: { at: optOut.at, keyword: text(optOut.row.keyword) || "BAJA", channel: (["whatsapp", "email", "staff"].includes(text(optOut.row.channel)) ? text(optOut.row.channel) : "staff") as OptOutRecord["channel"] } } : {}),
+      ...(holds.length > 0 ? { holds } : {}),
+      ...(lastInbound ? { lastInboundAt: lastInbound } : {}),
+    };
   };
 
   const clients: StaffClient[] = profiles.map((profile) => {
@@ -370,9 +440,9 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
         letterRows.filter((l) => next.roundId && text(l.round_id) === next.roundId).map((l) => [letterKey(text(l.target_type), text(l.target_key), text(l.template_key)), l]),
       );
       const itemByFp = new Map(next.items.map((i) => [i.fingerprint, i]));
-      rounds.push({
+      const draft = {
         number: next.roundNumber,
-        status: "ready",
+        status: "ready" as const,
         mailedAt: null,
         respondedAt: null,
         letters: next.plan.letters.map((planned) => {
@@ -391,7 +461,11 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
             mailStatus: already && already.status !== "draft" ? (MAIL_STATUSES.find((s) => s === already.mail_status) ?? "in_transit") : "not_sent",
           };
         }),
-      });
+      };
+      // When the system first saw these letters ready (the autopilot's review window counts from here).
+      const planKey = roundPlanKey(draft);
+      const seen = (readyBy.get(id) ?? []).find((r) => Number(r.round_number) === draft.number && text(r.plan_key) === planKey);
+      rounds.push(seen ? { ...draft, readyAt: iso(seen.first_ready_at) } : draft);
     }
 
     // Billing.
@@ -525,6 +599,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       email: textOrNull(prospect?.email),
       goal: textOrNull(profile.goal) ?? textOrNull(prospect?.goal),
       ...(prospect ? { addedBy: handle(context, prospect.created_by) } : {}),
+      ...autopilotFields(id, profile),
     };
     return client;
   });

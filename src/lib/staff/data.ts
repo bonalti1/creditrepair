@@ -1,3 +1,4 @@
+import { applyAutopilotDemoActions, loadAutopilotDemo, resetAutopilotDemo } from "../autopilot/data";
 import { PAUSE_REASON_MIN_CHARS } from "../billing/api";
 import { createMemoryChargeStore, runClientBilling } from "../billing/collect";
 import { rearmAfterNewPaymentMethod } from "../billing/dunning";
@@ -338,7 +339,8 @@ function createDemoData(): StaffData & {
     // invented ones first, then assignments and senders are applied, then the
     // rounds sent from the send screen (mail/demo.ts).
     const team = loadTeamActions();
-    return applyDemoSends(applyTeamActions(applyDemoActions([...s.base, ...team.added], s.actions), team), loadDemoSends());
+    // Last, the holds and opt-outs a person recorded on the autopilot (autopilot/data.ts).
+    return applyAutopilotDemoActions(applyDemoSends(applyTeamActions(applyDemoActions([...s.base, ...team.added], s.actions), team), loadDemoSends()), loadAutopilotDemo());
   };
 
   return {
@@ -496,6 +498,7 @@ const demoData = createDemoData();
 /** Demo only: forget everything done in this browser and start again. */
 export function resetDemo(): void {
   demoData.reset();
+  resetAutopilotDemo();
   resetTeamActions();
   resetDemoMail();
 }

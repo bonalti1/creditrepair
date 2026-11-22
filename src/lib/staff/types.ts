@@ -1,3 +1,4 @@
+import type { ClientHold, OptOutRecord, OutboundMessage } from "../autopilot/types";
 import type { BillingAccount } from "../billing/types";
 import type { ChatRole, ChatSource } from "../chat/history";
 import type { EscalationStage, ItemCategory, LetterTarget, NormalizedReport, ReportItem } from "../domain/types";
@@ -300,3 +301,37 @@ export interface StaffRoundTeamFields {
 export interface StaffClient extends StaffClientTeamFields {}
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StaffRound extends StaffRoundTeamFields {}
+
+// ── Piloto automático ───────────────────────────────────────────────────
+//
+// What the system did and may do by itself for a client (src/lib/autopilot,
+// migration 0015). All optional: a record without them reads as "nothing sent,
+// no hold, no opt-out".
+
+/** Fields the autopilot adds to a client. */
+export interface StaffClientAutopilotFields {
+  /** The client's language for messages (profiles.locale). Absent: Spanish. */
+  locale?: "es" | "en";
+  /** Every automatic message, oldest first (outbound_messages). */
+  outbound?: OutboundMessage[];
+  /** Set while the client has asked for no automatic messages (BAJA / STOP / unsubscribe). */
+  optOut?: OptOutRecord | null;
+  /** Every hold placed on the client, oldest first; the open one has no releasedAt. */
+  holds?: ClientHold[];
+  /** The client's last WhatsApp message to us: inside 24 hours, plain text may be sent. */
+  lastInboundAt?: string | null;
+}
+
+/** Fields the autopilot adds to a round. */
+export interface StaffRoundAutopilotFields {
+  /**
+   * When the system first saw this round ready to send, with these letters
+   * (autopilot_ready_rounds). The review window counts from here.
+   */
+  readyAt?: string | null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientAutopilotFields {}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffRound extends StaffRoundAutopilotFields {}
