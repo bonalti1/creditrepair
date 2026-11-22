@@ -20,6 +20,7 @@ import { useAutopilot } from "@/lib/autopilot/useAutopilot";
 import { useMail } from "@/lib/mail/useMail";
 import Definition from "@/components/staff/Definition";
 import PartnerStats from "@/components/partners/PartnerStats";
+import OutcomesLearning from "@/components/staff/OutcomesLearning";
 import { DashboardPulse } from "@/components/staff/PulseCards";
 import { NoAccess, SectionTitle } from "@/components/staff/ui";
 
@@ -250,6 +251,9 @@ function Dashboard() {
       <DashboardPulse pulse={m.pulse} clients={clients} />
 
       <PartnerStats clients={clients} period={period} now={now} />
+
+      {/* Internal operations data: what happened to past disputes (lib/staff/learning.ts). Never client-facing. */}
+      <OutcomesLearning clients={clients} now={now} />
 
       <section className="mt-7 grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2" aria-label="Por mes">
         <Bars title="Rondas enviadas por mes" points={series} value={(p) => p.roundsMailed} format={(n) => String(n)} definition={`${METRIC_INFO.roundsMailed.definition} El mes actual va hasta hoy.`} />

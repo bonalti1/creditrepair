@@ -36,7 +36,18 @@ export const REQUIRED_DOCUMENTS: readonly DocumentKind[] = ["government_id", "pr
 export type ItemAnswer =
   | { status: "pending" }
   | { status: "correct"; answeredAt: string }
-  | { status: "inaccurate"; reason: string; reasonCode?: DisputeReasonCode; confirmedAt: string };
+  | {
+      status: "inaccurate";
+      reason: string;
+      reasonCode?: DisputeReasonCode;
+      confirmedAt: string;
+      /**
+       * The data checks (domain/checks.ts) whose facts the client chose to put
+       * in their letter (item_flags.check_ids, migration 0021). Staff read it;
+       * only the client sets it. Absent: none.
+       */
+      checkIds?: string[];
+    };
 
 export type RoundStatus = "draft" | "ready" | "mailed" | "responded";
 
@@ -61,6 +72,12 @@ export interface StaffLetter {
    * existed; absent on a letter written before then.
    */
   itemReasons?: Record<string, DisputeReasonCode>;
+  /**
+   * The report facts the client chose to include for each item, by
+   * fingerprint (LetterContext.itemDetails). Printed after the item's reason.
+   * Absent: none.
+   */
+  itemDetails?: Record<string, string>;
   mailStatus: MailStatus;
   /**
    * How this letter is to be mailed, chosen on the send screen; absent means

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEMO_RAW_REPORT, DEMO_REPORT, DEMO_SCORE_HISTORY } from "../demo";
+import { DEMO_CLIENT_REPORT, DEMO_RAW_REPORT, DEMO_REPORT, DEMO_SCORE_HISTORY } from "../demo";
 import { parseReport } from "../domain/parser";
 import { getMailData } from "../mail/data";
 import { attestedFlagsFromRows, historyFromRows, letterKey, nextRoundNumber, planNextRound } from "../rounds/plan";
@@ -390,7 +390,7 @@ describe("one demo rule, and the stores switch on it", () => {
   });
 
   it("the client's report: the sample in the demo; their own, or 'waiting', with a database", () => {
-    expect(reportView({ authenticated: false })).toMatchObject({ live: false, ready: true, waiting: false, report: DEMO_REPORT, scoreHistory: DEMO_SCORE_HISTORY });
+    expect(reportView({ authenticated: false })).toMatchObject({ live: false, ready: true, waiting: false, report: DEMO_CLIENT_REPORT, scoreHistory: DEMO_SCORE_HISTORY });
     expect(reportView(null)).toMatchObject({ live: true, ready: false });
     const waiting = reportView({ authenticated: true, report: null, scoreHistory: [], profile: { fullName: "Rosa", addressLines: [] } });
     expect(waiting).toMatchObject({ live: true, ready: true, waiting: true, items: [] });

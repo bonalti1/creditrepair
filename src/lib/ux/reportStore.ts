@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DEMO_REPORT, DEMO_SCORE_HISTORY } from "../demo";
+import { DEMO_CLIENT_REPORT, DEMO_SCORE_HISTORY } from "../demo";
 import type { NormalizedReport, ReportItem } from "../domain/types";
 import { isSupabaseConfigured } from "../supabase/config";
 import { fetchClientReport, type ReportAnswer } from "./caseApi";
@@ -33,8 +33,8 @@ export interface ClientReportView {
 }
 
 const DEMO_VIEW: ClientReportView = {
-  report: DEMO_REPORT,
-  items: DEMO_REPORT.items,
+  report: DEMO_CLIENT_REPORT,
+  items: DEMO_CLIENT_REPORT.items,
   scoreHistory: DEMO_SCORE_HISTORY,
   profile: null,
   live: false,

@@ -7,7 +7,7 @@ import { useClientReport } from "@/lib/ux/reportStore";
 import ReportPending from "@/components/ReportPending";
 import { renderLetter } from "@/lib/letters/templates";
 import type { PlannedLetter } from "@/lib/domain/types";
-import type { ItemReasons } from "@/lib/letters/parts";
+import type { ItemDetails, ItemReasons } from "@/lib/letters/parts";
 import SpeakButton from "@/components/SpeakButton";
 import { getStageExplainers } from "@/lib/ux/explainers";
 import { countByState, useFlags } from "@/lib/ux/flagsStore";
@@ -57,8 +57,8 @@ export default function Attack() {
   // The sample report in the demo; the client's own with a database (lib/ux/reportStore.ts).
   const view = useClientReport();
   const reportItems = view.items;
-  const session = useMemo(() => sessionPlan(reportItems, roundFlags), [reportItems, roundFlags]);
-  const { attestedFlags, roundNumber, plan, inRound, itemReasons } = session;
+  const session = useMemo(() => sessionPlan(reportItems, roundFlags, view.report.pulledAt), [reportItems, roundFlags, view.report.pulledAt]);
+  const { attestedFlags, roundNumber, plan, inRound, itemReasons, itemDetails } = session;
   // Confirmed items that are not in these letters, said plainly.
   const waiting = waitingNote(session, locale);
 
@@ -190,6 +190,7 @@ export default function Attack() {
             onToggle={() => setOpenLetter(openLetter === idx ? null : idx)}
             roundNumber={roundNumber}
             itemReasons={itemReasons}
+            itemDetails={itemDetails}
             reportItems={reportItems}
             sender={sender}
             first={idx === 0}
@@ -285,6 +286,7 @@ function LetterCard({
   onToggle,
   roundNumber,
   itemReasons,
+  itemDetails,
   reportItems,
   sender,
   first,
@@ -299,6 +301,8 @@ function LetterCard({
   roundNumber: number;
   /** The reason the customer gave for each confirmed item: the letter prints its sentence after the item. */
   itemReasons: ItemReasons;
+  /** The report facts the customer chose to include for an item: printed after its reason. */
+  itemDetails: ItemDetails;
   first: boolean;
   /** The date the letter carries: the day it was mailed, or today while it has not been. */
   date: Date | null;
@@ -320,8 +324,9 @@ function LetterCard({
       date: (date ?? new Date()).toISOString(),
       roundNumber,
       itemReasons,
+      itemDetails,
     });
-  }, [letter, roundNumber, itemReasons, date, reportItems, sender]);
+  }, [letter, roundNumber, itemReasons, itemDetails, date, reportItems, sender]);
 
   return (
     <div className={first ? "" : "border-t hairline"}>

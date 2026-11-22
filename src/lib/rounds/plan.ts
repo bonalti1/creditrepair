@@ -2,6 +2,7 @@ import { buildAttackPlan, type ItemHistory } from "../domain/attack";
 import type { AttackPlan, EscalationStage, ItemFlag, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
 import { itemReasonsFrom } from "../ux/disputeReason";
+import { dataChecks, letterFacts } from "../domain/checks";
 
 // The next round of letters, worked out from database rows. Pure: the same
 // rows give the same plan wherever it runs, so the staff console's "ready"
@@ -62,6 +63,36 @@ export function attestedFlagsFromRows(
 }
 
 /**
+ * The report facts each confirmed item's letter line carries
+ * (LetterContext.itemDetails): only the data checks the client chose to
+ * include (item_flags.check_ids, migration 0021) that are still on the report
+ * and relate to the reason the client picked. Recomputed here from the
+ * report's own rows; nothing written by a browser is printed.
+ * `reportDate` is the report's date (report_pulls.pulled_at).
+ */
+export function itemDetailsFromRows(
+  items: readonly ReportItem[],
+  flagRows: readonly Row[],
+  itemIdToFp: ReadonlyMap<string, string>,
+  reportDate: string,
+): Record<string, string> {
+  const answers: Record<string, { state: string; reasonCode: string | null; attestedAt: string | null; checkIds: string[] }> = {};
+  for (const f of flagRows) {
+    const fp = itemIdToFp.get(String(f.item_id));
+    if (!fp) continue;
+    const attested = f.attested === true && typeof f.attested_at === "string" && Boolean(f.attestation_text);
+    if (!attested) continue;
+    answers[fp] = {
+      state: "attested",
+      reasonCode: (f.reason_code as string | null) ?? null,
+      attestedAt: f.attested_at as string,
+      checkIds: Array.isArray(f.check_ids) ? (f.check_ids as unknown[]).filter((id): id is string => typeof id === "string") : [],
+    };
+  }
+  return letterFacts(dataChecks(items, reportDate), answers);
+}
+
+/**
  * The highest stage already mailed per item, from earlier rounds' letters.
  * Letters of `excludeRoundId` (the round being sent, on a retry) do not count:
  * they must not push their own items up the ladder.
@@ -114,6 +145,8 @@ export interface RoundPlanInput {
   roundRows: readonly Row[];
   letterRows: readonly Row[];
   letterItemRows: readonly Row[];
+  /** The report's date (report_pulls.pulled_at), for the data checks. Without it the plan carries no report facts. */
+  reportDate?: string | null;
 }
 
 export interface NextRoundPlan {
@@ -123,6 +156,8 @@ export interface NextRoundPlan {
   plan: AttackPlan;
   items: ReportItem[];
   itemReasons: Record<string, DisputeReasonCode>;
+  /** The report facts the client chose to include, by fingerprint (itemDetailsFromRows). */
+  itemDetails: Record<string, string>;
   /** Fingerprints the client confirmed, with the attestation on record. */
   attested: Set<string>;
 }
@@ -144,5 +179,6 @@ export function planNextRound(input: RoundPlanInput): NextRoundPlan | null {
   const roundId = existing ? String(existing.id) : null;
   const history = historyFromRows(input.letterRows, input.letterItemRows, itemIdToFp, roundId);
   const plan = buildAttackPlan({ roundNumber, items, flags, history });
-  return { roundNumber, roundId, plan, items, itemReasons, attested };
+  const itemDetails = input.reportDate ? itemDetailsFromRows(items, input.flagRows, itemIdToFp, input.reportDate) : {};
+  return { roundNumber, roundId, plan, items, itemReasons, itemDetails, attested };
 }

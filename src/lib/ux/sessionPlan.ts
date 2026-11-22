@@ -1,4 +1,5 @@
 import { buildAttackPlan } from "../domain/attack";
+import { dataChecks, letterFacts } from "../domain/checks";
 import type { AttackPlan, ItemFlag, PlannedLetter, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
 import { isDisputeReasonCode } from "./disputeReason";
@@ -27,6 +28,12 @@ export interface SessionPlan {
    * before reasons existed has no entry and is listed with no reason.
    */
   itemReasons: Record<string, DisputeReasonCode>;
+  /**
+   * The facts from the report each confirmed item's letter line carries: only
+   * those the customer chose to include, for the reason they picked
+   * (domain/checks.ts: letterFacts). Empty without the report's date.
+   */
+  itemDetails: Record<string, string>;
 }
 
 /** The report items one letter covers, in report order. A file request covers none. */
@@ -37,7 +44,9 @@ export function letterItems(letter: PlannedLetter, items: ReportItem[]): ReportI
 
 export function sessionPlan(
   items: ReportItem[],
-  flags: Readonly<Record<string, { state: string; reason?: string; reasonCode?: string; attestedAt?: string } | undefined>>,
+  flags: Readonly<Record<string, { state: string; reason?: string; reasonCode?: string; attestedAt?: string; checkIds?: string[] } | undefined>>,
+  /** The report's date (NormalizedReport.pulledAt): the data checks are measured against it. */
+  reportDate?: string,
 ): SessionPlan {
   const attestedFlags: ItemFlag[] = [];
   const itemReasons: Record<string, DisputeReasonCode> = {};
@@ -65,5 +74,6 @@ export function sessionPlan(
     inRound: confirmedItems.filter((i) => mailed.has(i.fingerprint)),
     waiting: confirmedItems.filter((i) => !mailed.has(i.fingerprint)),
     itemReasons,
+    itemDetails: reportDate ? letterFacts(dataChecks(items, reportDate), flags) : {},
   };
 }

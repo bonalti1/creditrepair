@@ -24,6 +24,12 @@ export interface StoredFlag {
    */
   reasonCode?: DisputeReasonCode;
   attestedAt?: string;
+  /**
+   * The data checks (domain/checks.ts) whose facts the customer chose to
+   * include in their letter, by check id. Only ever set by the customer ticking
+   * "include" after picking a reason those checks relate to. Missing: none.
+   */
+  checkIds?: string[];
 }
 
 export type FlagsMap = Record<string, StoredFlag>;
@@ -64,6 +70,10 @@ export function normalizeFlags(raw: unknown): FlagsMap {
     if (typeof v.reason === "string") flag.reason = v.reason;
     if (isDisputeReasonCode(v.reasonCode)) flag.reasonCode = v.reasonCode;
     if (typeof v.attestedAt === "string") flag.attestedAt = v.attestedAt;
+    if (Array.isArray(v.checkIds)) {
+      const ids = v.checkIds.filter((id): id is string => typeof id === "string" && id.length > 0 && id.length <= 200).slice(0, 20);
+      if (ids.length > 0) flag.checkIds = ids;
+    }
     flags[fingerprint] = flag;
   }
   return flags;
@@ -157,12 +167,12 @@ export function useFlags() {
   }, []);
 
   const writeThrough = useCallback(
-    (fingerprint: string, state: ReviewState | null, reason?: string, reasonCode?: DisputeReasonCode) => {
+    (fingerprint: string, state: ReviewState | null, reason?: string, reasonCode?: DisputeReasonCode, checkIds?: string[]) => {
       if (!synced) return;
       fetch("/api/flags", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fingerprint, state, reason, reasonCode, locale: "es" }),
+        body: JSON.stringify({ fingerprint, state, reason, reasonCode, checkIds, locale: "es" }),
       }).catch(() => undefined);
     },
     [synced],
@@ -171,7 +181,7 @@ export function useFlags() {
   const review = useCallback(
     (fingerprint: string, state: ReviewState, extra?: Partial<StoredFlag>) => {
       persist({ ...flags, [fingerprint]: { state, ...extra } });
-      writeThrough(fingerprint, state, extra?.reason, extra?.reasonCode);
+      writeThrough(fingerprint, state, extra?.reason, extra?.reasonCode, extra?.checkIds);
     },
     [flags, persist, writeThrough],
   );

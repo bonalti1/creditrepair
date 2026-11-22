@@ -381,6 +381,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
           reason: text(flag.reason),
           ...(isDisputeReasonCode(flag.reason_code) ? { reasonCode: flag.reason_code } : {}),
           confirmedAt: iso(flag.attested_at)!,
+          ...(Array.isArray(flag.check_ids) && flag.check_ids.length > 0 ? { checkIds: (flag.check_ids as unknown[]).map(String) } : {}),
         };
       } else if (flag.state === "correct") {
         answers[fp] = { status: "correct", answeredAt: iso(flag.created_at) ?? "" };
@@ -448,7 +449,14 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
     // The next round, as the engine would write it now. The first one only
     // once the review of the report on file is finished.
     const pending = report ? report.items.some((item) => !answers[item.fingerprint]) : true;
-    const next = planNextRound({ itemRows, flagRows, roundRows, letterRows, letterItemRows: rows.letterItems.filter((li) => letterRows.some((l) => text(l.id) === text(li.letter_id))) });
+    const next = planNextRound({
+      itemRows,
+      flagRows,
+      roundRows,
+      letterRows,
+      letterItemRows: rows.letterItems.filter((li) => letterRows.some((l) => text(l.id) === text(li.letter_id))),
+      reportDate: report?.pulledAt ?? null,
+    });
     if (next && next.plan.letters.length > 0 && (rounds.length > 0 || !pending)) {
       const prior = new Map(
         letterRows.filter((l) => next.roundId && text(l.round_id) === next.roundId).map((l) => [letterKey(text(l.target_type), text(l.target_key), text(l.template_key)), l]),
@@ -464,6 +472,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
           const already = prior.get(key);
           const covered = planned.itemFingerprints.flatMap((fp) => itemByFp.get(fp) ?? []);
           const itemReasons = Object.fromEntries(planned.itemFingerprints.flatMap((fp) => (next.itemReasons[fp] ? [[fp, next.itemReasons[fp]!]] : [])));
+          const itemDetails = Object.fromEntries(planned.itemFingerprints.flatMap((fp) => (next.itemDetails[fp] ? [[fp, next.itemDetails[fp]!]] : [])));
           return {
             id: plannedLetterId(id, next.roundNumber, key),
             recipient: planned.target,
@@ -472,6 +481,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
             stage: planned.stage,
             items: covered,
             ...(Object.keys(itemReasons).length > 0 ? { itemReasons } : {}),
+            ...(Object.keys(itemDetails).length > 0 ? { itemDetails } : {}),
             mailStatus: already && already.status !== "draft" ? (MAIL_STATUSES.find((s) => s === already.mail_status) ?? "in_transit") : "not_sent",
           };
         }),

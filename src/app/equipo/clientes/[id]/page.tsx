@@ -56,6 +56,8 @@ import { reasonLabel } from "@/lib/ux/disputeReason";
 import { itemFacts, itemTitle } from "@/lib/ux/itemDisplay";
 import Icon from "@/components/Icon";
 import ItemFacts from "@/components/ItemFacts";
+import DataChecks from "@/components/DataChecks";
+import { checksForItem, dataChecks } from "@/lib/domain/checks";
 import ActivityList from "@/components/staff/ActivityList";
 import AssignmentCard from "@/components/staff/AssignmentCard";
 import LeadSourceCard from "@/components/staff/LeadSourceCard";
@@ -371,6 +373,9 @@ export default function ClientePage() {
     ...(theftReportMissing ? (["identity_theft_report"] as const) : []),
   ];
   const samples = client.reportSamples ?? [];
+  // What the report's own data shows, per item (domain/checks.ts). Read-only:
+  // for answering the client's questions. Nothing on this page can apply it.
+  const checks = client.report ? dataChecks(client.report.items, client.report.pulledAt) : [];
 
   const markHandled = async (key: string) => {
     await data.resolveException(client.id, key);
@@ -625,6 +630,14 @@ export default function ClientePage() {
                             <ItemFacts facts={facts} variant="list" className="mt-2 max-w-md" />
                           </details>
                         )}
+                        <DataChecks
+                          checks={checksForItem(checks, item.fingerprint)}
+                          category={item.category}
+                          locale="es"
+                          variant="staff"
+                          included={answer?.status === "inaccurate" ? answer.checkIds : undefined}
+                          className="mt-2 max-w-2xl"
+                        />
                       </li>
                     );
                   })}

@@ -49,8 +49,8 @@ export const CHIPS: Record<ChipKey, ChipInfo> = {
   partidas: {
     key: "partidas",
     label: "Lista de partidas",
-    help: "Las cuentas o datos que el cliente marcó, una por línea, cada una con el motivo que el cliente eligió. Va sola en su párrafo.",
-    attorneyLabel: "[the items the client disputed, one per line, each followed by the reason the client chose]",
+    help: "Las cuentas o datos que el cliente marcó, una por línea, cada una con el motivo que el cliente eligió y, si el cliente decidió incluirlos, los datos de su reporte que tienen que ver con ese motivo. Va sola en su párrafo.",
+    attorneyLabel: "[the items the client disputed, one per line, each followed by the reason the client chose and, only where the client chose to include them, the facts from the client's own report that relate to that reason]",
     optional: false,
   },
   detalles: {
@@ -147,7 +147,7 @@ export function renderSource(templateKey: string, source: LetterSource, ctx: Let
   const value = (key: string): string => {
     switch (key) {
       case "partidas":
-        return itemLines(ctx.items, letterPrintsReasons(templateKey) ? ctx.itemReasons : undefined);
+        return letterPrintsReasons(templateKey) ? itemLines(ctx.items, ctx.itemReasons, ctx.itemDetails) : itemLines(ctx.items);
       case "detalles":
         return details;
       case "sin_detalles":

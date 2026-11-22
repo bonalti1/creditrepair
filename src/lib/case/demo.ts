@@ -4,7 +4,7 @@ import { EMPTY_AGREEMENT, type AgreementState } from "../agreement/record";
 import { resolveTerms } from "../agreement/terms";
 import { feeToCents } from "../billing/rules";
 import type { BillingCharge } from "../billing/types";
-import { DEMO_REPORT } from "../demo";
+import { DEMO_CLIENT_REPORT } from "../demo";
 import type { ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
 import { defaultMailClass } from "../mail/classes";
@@ -146,7 +146,7 @@ export function loadExampleCase(now: Date = new Date()): void {
   };
   writeStoredAgreement(agreement);
 
-  const items = DEMO_REPORT.items;
+  const items = DEMO_CLIENT_REPORT.items;
   const flags = exampleFlags(items, d.reviewFinished.toISOString());
   const mailedAt = d.mailed.toISOString();
   write(STORAGE_KEY, flags);

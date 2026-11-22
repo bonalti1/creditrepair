@@ -19,6 +19,13 @@ export const flagPutSchema = z
     state: z.enum(["correct", "flagged", "attested"]).nullable(),
     reason: z.string().max(500).optional(),
     reasonCode: z.enum(CODES).optional(),
+    /**
+     * The data checks whose facts the customer chose to include in the letter.
+     * Ids only: the route recomputes the checks from the customer's own report
+     * rows and keeps an id only if that check is on this item and relates to
+     * the reason picked (see storedCheckIds). The text is never taken from here.
+     */
+    checkIds: z.array(z.string().min(1).max(200)).max(20).optional(),
     locale: z.enum(["es", "en"]).default("es"),
   })
   .superRefine((value, ctx) => {
@@ -36,6 +43,20 @@ export type FlagPut = z.infer<typeof flagPutSchema>;
  * The reason code to store with an answer. Only an answer that says the item
  * is inaccurate keeps one; "looks correct" has no reason.
  */
+/**
+ * The check ids to store with an answer: only on a confirmed answer, only ids
+ * of checks that are on this item (`onItem`, recomputed by the server from the
+ * report) and that relate to the reason picked. Anything else is dropped.
+ */
+export function storedCheckIds(
+  put: Pick<FlagPut, "state" | "reasonCode" | "checkIds">,
+  onItem: ReadonlyArray<{ id: string; suggestedReasons: readonly string[] }>,
+): string[] {
+  if (put.state !== "attested" || !put.reasonCode || !put.checkIds) return [];
+  const supporting = new Set(onItem.filter((c) => c.suggestedReasons.includes(put.reasonCode!)).map((c) => c.id));
+  return [...new Set(put.checkIds)].filter((id) => supporting.has(id));
+}
+
 export function storedReasonCode(put: Pick<FlagPut, "state" | "reasonCode">): DisputeReasonCode | null {
   return put.state === "flagged" || put.state === "attested" ? (put.reasonCode ?? null) : null;
 }

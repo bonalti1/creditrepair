@@ -7,7 +7,8 @@ import { useClientReport, withReport } from "@/lib/ux/reportStore";
 import ReportPending from "@/components/ReportPending";
 import { getCategoryExplainers, getTermGlossary } from "@/lib/ux/explainers";
 import { crossBureauNote } from "@/lib/ux/crossBureau";
-import { canConfirmDispute, reasonLabel } from "@/lib/ux/disputeReason";
+import { canConfirmDispute, includedCheckIds, reasonLabel } from "@/lib/ux/disputeReason";
+import { checksForItem, dataChecks, type DataCheck } from "@/lib/domain/checks";
 import type { DisputeReasonCode } from "@/lib/letters/reasons";
 import { useFlags } from "@/lib/ux/flagsStore";
 import { useAgreement } from "@/lib/ux/agreementStore";
@@ -20,6 +21,7 @@ import SpeakButton from "@/components/SpeakButton";
 import Icon from "@/components/Icon";
 import ItemFacts from "@/components/ItemFacts";
 import { InfoNote } from "@/components/RoundNotes";
+import DataChecks from "@/components/DataChecks";
 
 // Guided review wizard — the anti-Dispute-Beast item experience. Instead of a
 // wall of rows, ONE item at a time: what it is in plain language, what to
@@ -72,6 +74,8 @@ export default function Items() {
   const [focus, setFocus] = useState<string | null>(null);
 
   const pending = useMemo(() => items.filter((i) => !flags[i.fingerprint]), [items, flags]);
+  // What the report's own data shows (domain/checks.ts), measured against the report's date.
+  const checks = useMemo(() => dataChecks(items, view.report.pulledAt), [items, view.report.pulledAt]);
   const current = pending.find((i) => i.fingerprint === focus) ?? pending[0];
   const done = pending.length === 0;
   const progressPct = Math.round(((items.length - pending.length) / items.length) * 100);
@@ -126,16 +130,19 @@ export default function Items() {
           item={current}
           remaining={pending.length}
           otherBureaus={crossBureauNote(current, items, flags, locale)?.text ?? null}
+          checks={checksForItem(checks, current.fingerprint)}
           lettersOut={roundApproved}
           onCorrect={() => {
             review(current.fingerprint, "correct");
             setFocus(null);
           }}
-          onAttest={(reasonCode, reason) => {
+          onAttest={(reasonCode, reason, checkIds) => {
             review(current.fingerprint, "attested", {
               reason,
               reasonCode,
               attestedAt: new Date().toISOString(),
+              // Only the facts the customer ticked "include" for, for the reason they picked.
+              ...(checkIds.length > 0 ? { checkIds } : {}),
             });
             setFocus(null);
           }}
@@ -239,6 +246,7 @@ function WizardCard({
   item,
   remaining,
   otherBureaus,
+  checks,
   lettersOut,
   onCorrect,
   onAttest,
@@ -247,11 +255,13 @@ function WizardCard({
   remaining: number;
   /** A neutral note when the same account is also on another bureau. */
   otherBureaus: string | null;
+  /** What the data shows about this item (domain/checks.ts). Shown; never applied. */
+  checks: DataCheck[];
   /** True when this round's letters were already approved: a changed answer counts from the next round. */
   lettersOut: boolean;
   onCorrect: () => void;
-  /** The customer confirmed: the standard reason they picked and their own words (may be empty). */
-  onAttest: (reasonCode: DisputeReasonCode, note: string) => void;
+  /** The customer confirmed: the standard reason they picked, their own words (may be empty) and the facts they chose to include. */
+  onAttest: (reasonCode: DisputeReasonCode, note: string, checkIds: string[]) => void;
 }) {
   const { locale, d } = useLocale();
   const [flagging, setFlagging] = useState(false);
@@ -296,6 +306,7 @@ function WizardCard({
             {otherBureaus}
           </InfoNote>
         )}
+        <DataChecks checks={checks} category={item.category} locale={locale} className="mt-3" />
         {lettersOut && (
           <InfoNote testId="after-mailed-note" className="mt-3">
             {d.items.afterMailedCard}
@@ -354,11 +365,11 @@ function WizardCard({
         </div>
       ) : (
         <div className="border-t hairline px-5 py-5">
-          <DisputeFields category={item.category} draft={draft} onChange={setDraft} />
+          <DisputeFields category={item.category} draft={draft} onChange={setDraft} checks={checks} fingerprint={item.fingerprint} />
           <div className="mt-4 grid gap-2.5">
             <button
               onClick={() => {
-                if (canConfirm) onAttest(draft.reasonCode as DisputeReasonCode, draft.note.trim());
+                if (canConfirm) onAttest(draft.reasonCode as DisputeReasonCode, draft.note.trim(), includedCheckIds(checks, item.fingerprint, draft));
               }}
               disabled={!canConfirm}
               className="pressable h-14 rounded-full bg-amber-400 px-5 text-[17px] font-semibold text-blue-900 enabled:hover:bg-amber-500 disabled:bg-slate-200 disabled:text-slate-500"

@@ -4,6 +4,8 @@ import { useId } from "react";
 import type { ItemCategory } from "@/lib/domain/types";
 import { ATTESTATION_TEXT } from "@/lib/compliance/attestation";
 import { confirmBlockers, EMPTY_DRAFT, reasonChoices, type DisputeDraft } from "@/lib/ux/disputeReason";
+import { checksSupporting, relatedReasonsForItem, type DataCheck } from "@/lib/domain/checks";
+import { CHECKS_COPY } from "@/lib/ux/checksCopy";
 import { useLocale } from "@/lib/i18n";
 import { InfoNote } from "@/components/RoundNotes";
 
@@ -16,6 +18,12 @@ import { InfoNote } from "@/components/RoundNotes";
 // states the reason, the screen does not suggest one. The attestation text is
 // the legal one, unchanged, and still gates the confirm button (see
 // canConfirmDispute, which the screens use for the button).
+//
+// With `checks` (the data checks on this item, domain/checks.ts), a reason
+// that has to do with one of them carries a small tag saying so. The tag is
+// information only: it selects nothing and every reason is still offered.
+// When the reason picked relates to a check, an unticked box offers to put
+// the check's facts in the letter, showing the exact sentence it would add.
 
 export { EMPTY_DRAFT };
 
@@ -23,14 +31,23 @@ export default function DisputeFields({
   category,
   draft,
   onChange,
+  checks = [],
+  fingerprint = "",
 }: {
   category: ItemCategory;
   draft: DisputeDraft;
   onChange: (next: DisputeDraft) => void;
+  /** The data checks on this item. */
+  checks?: readonly DataCheck[];
+  /** The item's fingerprint, to match the checks to it. */
+  fingerprint?: string;
 }) {
   const { locale, d } = useLocale();
   const id = useId();
   const choices = reasonChoices(category);
+  const copy = CHECKS_COPY[locale];
+  const related = new Set<string>(relatedReasonsForItem(checks, category));
+  const supporting = checksSupporting(checks, fingerprint, draft.reasonCode);
   const blockers = confirmBlockers(category, draft);
   const other = draft.reasonCode === "other";
   const hint = blockers.includes("reason") ? d.items.reasonRequired : blockers.includes("note") ? d.items.otherNeedsNote : null;
@@ -61,11 +78,39 @@ export default function DisputeFields({
               >
                 <span className="h-2.5 w-2.5 rounded-full bg-blue-700" />
               </span>
-              <span className="min-w-0 break-words">{choice.label[locale]}</span>
+              <span className="min-w-0 break-words">
+                {choice.label[locale]}
+                {related.has(choice.code) && (
+                  <span data-testid="reason-related" className="mt-0.5 block text-[12.5px] font-medium text-blue-800">
+                    {copy.reasonTag}
+                  </span>
+                )}
+              </span>
             </label>
           ))}
         </div>
       </fieldset>
+
+      {supporting.length > 0 && (
+        <label data-testid="include-facts" className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl border border-blue-100 bg-white p-4 text-[15px] leading-snug text-slate-900">
+          <input
+            type="checkbox"
+            checked={Boolean(draft.includeFacts)}
+            onChange={(e) => onChange({ ...draft, includeFacts: e.target.checked })}
+            className="mt-0.5 h-5 w-5 shrink-0 accent-blue-700"
+          />
+          <span className="min-w-0">
+            <span className="block font-medium">{copy.includeTitle}</span>
+            <span className="mt-1 block text-[13px] text-slate-600">{copy.includeHelp}</span>
+            <span className="mt-2 block text-[12.5px] font-semibold uppercase tracking-wide text-slate-500">{copy.includeLetterLabel}</span>
+            {supporting.map((check) => (
+              <span key={check.id} lang="en" className="mt-1 block break-words rounded-xl bg-slate-50 px-3 py-2 font-serif text-[13.5px] text-slate-800">
+                {check.letterFact}
+              </span>
+            ))}
+          </span>
+        </label>
+      )}
 
       {draft.reasonCode === "identity_theft" && (
         <InfoNote testId="identity-theft-note" className="mt-3">

@@ -13,7 +13,7 @@ import { contextText, messageText, messageVoice } from "@/lib/ux/chatMessages";
 import { HUMAN_HELP, humanHelpHref } from "@/lib/ux/humanHelp";
 import { itemCheckHints, itemFacts, itemKindLine, itemLabel, itemReadAloud, itemTitle } from "@/lib/ux/itemDisplay";
 import { approvedMessage, letterCoverageRows, waitingNote } from "@/lib/ux/roundCopy";
-import { canConfirmDispute, reasonLabel } from "@/lib/ux/disputeReason";
+import { canConfirmDispute, includedCheckIds, reasonLabel } from "@/lib/ux/disputeReason";
 import type { DisputeReasonCode } from "@/lib/letters/reasons";
 import { sessionPlan } from "@/lib/ux/sessionPlan";
 import { LETTERS_OUT_LINE, reviewCompleteLine, reviewFinishedLine, reviewIntroLine } from "@/lib/ux/reviewChatCopy";
@@ -21,6 +21,8 @@ import { isFullService, SERVICE_MODE } from "@/lib/service/mode";
 import { useLocale } from "@/lib/i18n";
 import { DICTS } from "@/lib/i18n/dictionaries";
 import DisputeFields, { EMPTY_DRAFT } from "@/components/DisputeFields";
+import DataChecks from "@/components/DataChecks";
+import { checksForItem, checksReadAloud, dataChecks } from "@/lib/domain/checks";
 import ItemFacts from "@/components/ItemFacts";
 import SpeakButton from "@/components/SpeakButton";
 import Icon from "@/components/Icon";
@@ -86,7 +88,10 @@ export default function Asistente() {
   const negatives = items.filter((i) => i.negative).length;
   const humanHref = humanHelpHref(locale);
 
-  const session = useMemo(() => sessionPlan(items, flags), [items, flags]);
+  const session = useMemo(() => sessionPlan(items, flags, view.report.pulledAt), [items, flags, view.report.pulledAt]);
+  // What the report's own data shows (domain/checks.ts). Shown on the item; never applied.
+  const checks = useMemo(() => dataChecks(items, view.report.pulledAt), [items, view.report.pulledAt]);
+  const currentChecks = current ? checksForItem(checks, current.fingerprint) : [];
   const { plan, roundNumber, attestedFlags } = session;
   const confirmedCount = attestedFlags.length;
   // Confirmed items that are not in this round's letters, said plainly above the approve button.
@@ -246,12 +251,15 @@ export default function Asistente() {
       `${itemLabel(current, "en")}\n${DICTS.en.items.reasonOf(reasonLabel(reasonCode, "en") ?? "")}\n${ATTESTATION_TEXT.en}`,
     );
     const attestedAt = new Date().toISOString();
-    review(current.fingerprint, "attested", { reason, reasonCode, attestedAt });
+    // Only the facts the customer ticked "include" for, for the reason they picked.
+    const checkIds = includedCheckIds(currentChecks, current.fingerprint, draft);
+    const extra = checkIds.length > 0 ? { checkIds } : {};
+    review(current.fingerprint, "attested", { reason, reasonCode, attestedAt, ...extra });
     setFlagging(false);
     setDraft(EMPTY_DRAFT);
     afterDecision(confirmedCount + 1, {
       ...flags,
-      [current.fingerprint]: { state: "attested", reason, reasonCode, attestedAt },
+      [current.fingerprint]: { state: "attested", reason, reasonCode, attestedAt, ...extra },
     });
   };
 
@@ -454,7 +462,7 @@ export default function Asistente() {
                   </span>
                 )}
               </p>
-              <SpeakButton text={`${itemReadAloud(current, locale)} ${hints.join(" ")}`} />
+              <SpeakButton text={[itemReadAloud(current, locale), hints.join(" "), checksReadAloud(currentChecks, locale)].filter(Boolean).join(" ")} />
             </div>
             {heading.kicker && <p className="mt-2 text-[14px] font-semibold text-slate-500">{heading.kicker}</p>}
             <p className={`break-words text-[22px] font-semibold leading-tight text-slate-900 ${heading.kicker ? "mt-0.5" : "mt-2"}`}>
@@ -467,6 +475,7 @@ export default function Asistente() {
                 {otherBureaus.text}
               </InfoNote>
             )}
+            <DataChecks checks={currentChecks} category={current.category} locale={locale} className="mt-3" />
             {roundApproved && (
               <InfoNote testId="after-mailed-note" className="mt-3">
                 {d.items.afterMailedCard}
@@ -501,7 +510,7 @@ export default function Asistente() {
               </div>
             ) : (
               <div ref={flagFormRef} className="mt-5 border-t hairline pt-5">
-                <DisputeFields category={current.category} draft={draft} onChange={setDraft} />
+                <DisputeFields category={current.category} draft={draft} onChange={setDraft} checks={currentChecks} fingerprint={current.fingerprint} />
                 <div className="mt-3 grid grid-cols-[1fr_auto] gap-2.5">
                   <button
                     onClick={confirmFlag}

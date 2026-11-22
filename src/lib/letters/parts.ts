@@ -30,10 +30,26 @@ export interface LetterContext {
    * before reasons existed. Nobody but the consumer chooses a reason.
    */
   itemReasons?: ItemReasons;
+  /**
+   * Facts from the consumer's own report that the consumer CHOSE to include
+   * for an item, by fingerprint: one or more English sentences from the data
+   * checks (domain/checks.ts: letterFacts), for example "The balance reported
+   * for this account is not the same at every credit bureau: Equifax reports
+   * $1,250 and Experian reports $900." They print right after the item's
+   * reason sentence, so they reach every letter that prints reasons (the
+   * round's own letters have no {detalles} paragraph; see docs/DATA-CHECKS.md).
+   * An item gets facts only when the consumer picked a reason the check relates
+   * to and ticked "include"; nothing here is generated for them or guessed.
+   * A letter that does not print reasons does not print these either.
+   */
+  itemDetails?: ItemDetails;
 }
 
 /** Item fingerprint → dispute reason code. */
 export type ItemReasons = Readonly<Record<string, string | undefined>>;
+
+/** Item fingerprint → the report facts the consumer chose to include (English). */
+export type ItemDetails = Readonly<Record<string, string | undefined>>;
 
 export type LetterTemplate = (ctx: LetterContext) => string;
 
@@ -42,10 +58,12 @@ export type LetterTemplate = (ctx: LetterContext) => string;
  * reason for ends with that reason's sentence, on the same line, so the line is
  * still one item line for the wording checks:
  *   - Midland Credit Management (****8821 · collection): This account is not mine; …
- * Every template passes `ctx.itemReasons`; templates.ts decides which letters
- * receive them (see TEMPLATES_WITHOUT_REASONS).
+ * With `details` as well, the facts the consumer chose to include follow the
+ * reason sentence, still on the same line. Facts never print without a reason.
+ * Every template passes `ctx.itemReasons` and `ctx.itemDetails`; templates.ts
+ * decides which letters receive them (see TEMPLATES_WITHOUT_REASONS).
  */
-export function itemLines(items: ReportItem[], reasons?: ItemReasons): string {
+export function itemLines(items: ReportItem[], reasons?: ItemReasons, details?: ItemDetails): string {
   return items
     .map((i) => {
       const d = i.data as Record<string, unknown>;
@@ -53,7 +71,10 @@ export function itemLines(items: ReportItem[], reasons?: ItemReasons): string {
       const line = `- ${i.name}${detail ? ` (${detail})` : ""}`;
       const code = reasons?.[i.fingerprint];
       const reason = code ? getDisputeReason(code) : undefined;
-      return reason ? `${line}: ${reason.sentence}` : line;
+      if (!reason) return line;
+      // One line per item: a fact never adds a line break.
+      const facts = details?.[i.fingerprint]?.replace(/\s+/g, " ").trim();
+      return facts ? `${line}: ${reason.sentence} ${facts}` : `${line}: ${reason.sentence}`;
     })
     .join("\n");
 }
