@@ -12,6 +12,7 @@ import type { FurnisherEntry } from "../mail/furnishers";
 import { addressBookHref, missingFurnisherAddresses } from "../mail/sendPlan";
 import { responseWindowStart, returnReasonEs } from "../mail/tracking";
 import { billingContextFor } from "./billing";
+import { intakeExceptions } from "../intake/exceptions";
 import { REQUIRED_DOCUMENTS, type DocumentKind, type StaffClient, type StaffLetter, type StaffRound } from "./types";
 
 // Where is this client, what is wrong, and what happens next.
@@ -353,6 +354,9 @@ export const EXCEPTION_KINDS = [
   "identity_theft_report_missing",
   "service_end_requested",
   "furnisher_address_missing",
+  // AI intake (src/lib/intake/exceptions.ts): only what the automatic check was not sure about.
+  "document_check_needs_person",
+  "bureau_letter_needs_person",
 ] as const;
 
 export type ExceptionKind = (typeof EXCEPTION_KINDS)[number];
@@ -372,6 +376,8 @@ export const EXCEPTION_LABEL: Record<ExceptionKind, string> = {
   identity_theft_report_missing: "Robo de identidad sin reporte",
   service_end_requested: "Pidió terminar el servicio",
   furnisher_address_missing: "Falta la dirección de un acreedor",
+  document_check_needs_person: "Documento para revisar",
+  bureau_letter_needs_person: "Carta de un buró para revisar",
 };
 
 export interface StaffException {
@@ -655,6 +661,8 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
       since: addDays(overdueRound.mailedAt, RESPONSE_WINDOW_DAYS).toISOString(),
     });
   }
+
+  found.push(...intakeExceptions(client.intake, client.id));
 
   return found.sort((a, b) => {
     const bySeverity = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];

@@ -4,6 +4,7 @@ import type { ChatRole, ChatSource } from "../chat/history";
 import type { EscalationStage, ItemCategory, LetterTarget, NormalizedReport, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
 import type { LetterMail, MailClass } from "../mail/types";
+import type { IntakeRecord } from "../intake/types";
 
 // The staff-side view of one client: everything the console needs to say where
 // a person is and why, in one object. It mirrors what the database already
@@ -299,6 +300,16 @@ export interface StaffRoundTeamFields {
 // Declaration merging keeps the additions apart from the original fields.
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StaffClient extends StaffClientTeamFields {}
+
+// ── AI intake (src/lib/intake, migration 0016) ──────────────────────────
+
+/** What the AI intake recorded about this client's documents. */
+export interface StaffClientIntakeFields {
+  /** ID and proof-of-address checks, bureau letters, report readings; oldest first. Absent: none. */
+  intake?: IntakeRecord[];
+}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientIntakeFields {}
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StaffRound extends StaffRoundTeamFields {}
 

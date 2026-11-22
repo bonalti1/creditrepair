@@ -11,6 +11,7 @@ import { parseReport, type RawReport } from "../domain/parser";
 import type { ItemFlag, NormalizedReport, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
 import { DEMO_RAW_REPORT } from "../demo";
+import { attachDemoIntake } from "../intake/demo";
 import { paidCharge, sampleMethod } from "./billing";
 import type {
   ItemAnswer,
@@ -899,6 +900,9 @@ export function buildDemoClients(now: Date): StaffClient[] {
   const goals: Record<string, string> = { c01: "mortgage", c02: "auto", c03: "card", c04: "general", c31: "mortgage", c32: "card" };
   for (const client of clients) if (goals[client.id]) client.goal = goals[client.id];
   mariana.email = "mariana.robles@ejemplo.com";
+
+  // What the AI intake recorded for a few of them (src/lib/intake/demo.ts).
+  attachDemoIntake(clients, ago);
 
   // What the autopilot did for them: messages sent, a hold, an opt-out, a
   // round mailed by itself, when each prepared round was first seen

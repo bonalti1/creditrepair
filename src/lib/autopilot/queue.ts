@@ -32,6 +32,9 @@ export const MINUTES_BY_KIND: Record<ExceptionKind, number> = {
   identity_theft_report_missing: 12,
   service_end_requested: 10,
   furnisher_address_missing: 8,
+  // AI intake (src/lib/intake): look at a document the AI could not accept, or a bureau letter that asks for something.
+  document_check_needs_person: 4,
+  bureau_letter_needs_person: 10,
 };
 
 /** The severity each kind of notice carries (as stage.ts writes them), for the settings screen. */
@@ -48,6 +51,8 @@ export const SEVERITY_BY_KIND: Record<ExceptionKind, Severity> = {
   identity_theft_report_missing: "high",
   service_end_requested: "high",
   furnisher_address_missing: "high",
+  document_check_needs_person: "medium",
+  bureau_letter_needs_person: "high",
 };
 
 /** How soon a notice should be handled once it is a person's (hours). */

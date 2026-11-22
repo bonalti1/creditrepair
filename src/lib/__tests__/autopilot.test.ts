@@ -451,12 +451,15 @@ describe("autopilot: the one-person work queue", () => {
   const env: AutopilotEnv = { settings: DEMO_SETTINGS, channels: DEMO_CHANNELS };
   const queue = workQueue(demo, later, { furnishers: seededBook(), autopilot: env });
 
-  it("shrinks the demo's list to what only a person can decide (12 notices → 8)", () => {
+  it("shrinks the demo's list to what only a person can decide (14 notices → 10)", () => {
     const raw = demo.flatMap((c) => clientExceptions(c, later, { furnishers: seededBook() }).map((e) => ({ ...e, id: `${c.id}:${e.key}` })));
-    expect(raw).toHaveLength(12);
-    expect(queue).toHaveLength(8);
+    // 12 from the console's own rules, plus 2 from the AI intake demo (a document
+    // the AI could not accept, a bureau letter that asks for something): both
+    // are a person's by nature, so both stay in the queue.
+    expect(raw).toHaveLength(14);
+    expect(queue).toHaveLength(10);
     expect(queue.map((i) => i.exception.kind).sort()).toEqual(
-      ["agreement_unsigned", "furnisher_address_missing", "identity_theft_report_missing", "letter_returned", "payment_past_due", "question_waiting", "response_overdue", "service_end_requested"].sort(),
+      ["agreement_unsigned", "bureau_letter_needs_person", "document_check_needs_person", "furnisher_address_missing", "identity_theft_report_missing", "letter_returned", "payment_past_due", "question_waiting", "response_overdue", "service_end_requested"].sort(),
     );
     // Left to the system: documents, a review, monitoring, a payment method.
     const off = raw.filter((e) => !queue.some((i) => i.id === e.id)).map((e) => e.kind).sort();
@@ -479,7 +482,7 @@ describe("autopilot: the one-person work queue", () => {
     expect(heriberto.triedSummary).toMatch(/BAJA/);
     const dolores = queue.find((i) => i.client.id === "c16")!;
     expect(dolores.tried.length).toBeGreaterThan(0);
-    expect(workSummary(queue)).toEqual({ count: 8, minutes: queue.reduce((n, i) => n + i.minutes, 0), overdue: queue.filter((i) => i.overdue).length });
+    expect(workSummary(queue)).toEqual({ count: 10, minutes: queue.reduce((n, i) => n + i.minutes, 0), overdue: queue.filter((i) => i.overdue).length });
   });
 
   it("a role sees only its own kinds of notice", () => {

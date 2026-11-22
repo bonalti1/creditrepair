@@ -59,6 +59,7 @@ import AssignmentCard from "@/components/staff/AssignmentCard";
 import BillingCard from "@/components/staff/BillingCard";
 import Conversation from "@/components/staff/Conversation";
 import ReportImport from "@/components/staff/ReportImport";
+import IntakeChecks from "@/components/staff/IntakeChecks";
 import {
   ActorTag,
   Chip,
@@ -824,6 +825,7 @@ export default function ClientePage() {
                 .
               </p>
             )}
+            <IntakeChecks client={client} demo={data.demo} canUpload={can("reports.import")} onChanged={reload} />
           </section>
 
           <section aria-labelledby="historia">

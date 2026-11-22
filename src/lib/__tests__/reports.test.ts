@@ -117,9 +117,10 @@ const reimport = (daysAgo: number) =>
   });
 
 describe("report readers: the registry", () => {
-  it("has exactly one reader that reads, and five providers waiting for a sample", () => {
+  it("has the app's own format, the AI reader (simulated without an API key), and five providers waiting for a sample", () => {
     expect(REPORT_READERS.map((r) => [r.key, r.status])).toEqual([
       ["credalti_json", "ready"],
+      ["ai_document", "simulated"],
       ["identityiq", "needs_sample"],
       ["smartcredit", "needs_sample"],
       ["myfreescorenow", "needs_sample"],

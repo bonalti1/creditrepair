@@ -21,16 +21,19 @@ import { staffAuthor } from "@/lib/staff/useStaff";
 import { itemLabel } from "@/lib/ux/itemDisplay";
 import { Chip, PRIMARY_BUTTON, QUIET_BUTTON, ROW_BUTTON, SECONDARY_BUTTON } from "@/components/staff/ui";
 import Icon from "@/components/Icon";
+import { AiReportUpload, AiReviewPanel, flaggedItems, type AiReading } from "@/components/staff/AiReportReview";
 
 // Bringing a client's report in. Staff choose where it comes from, paste the
 // text or pick a file, and press "Revisar": the report is read and shown
 // (what it holds, what changed against the one on file, what saving would do)
 // before anything is saved. Only then is there a "Guardar reporte" button.
 //
-// One source can be read today: the app's own JSON format. For a monitoring
-// provider there is no reader yet, and this screen says so instead of
-// guessing: the page can be kept as a sample, on request, and nothing else
-// happens.
+// Two sources can be read: the app's own JSON format, and any provider's PDF
+// or saved page through the AI reader ("Subir PDF del reporte", src/lib/intake):
+// the AI transcribes it with a citation per item, deterministic checks mark
+// what is doubtful, and the preview lists those first for a person to compare
+// with the document. For a provider's page pasted as text there is still no
+// reader of its own: the page can be kept as a sample.
 //
 // Nothing here writes what a client said about an item.
 
@@ -61,7 +64,7 @@ function download(fileName: string, text: string) {
   URL.revokeObjectURL(url);
 }
 
-function ItemRow({ item, children }: { item: ReportItem; children?: React.ReactNode }) {
+function ItemRow({ item, children, flagged }: { item: ReportItem; children?: React.ReactNode; flagged?: boolean }) {
   return (
     <li className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-2">
       <div className="min-w-0 flex-1 basis-56">
@@ -71,7 +74,10 @@ function ItemRow({ item, children }: { item: ReportItem; children?: React.ReactN
         </p>
         {children}
       </div>
-      {item.negative && <Chip tone="bg-slate-100 text-slate-600">Se ve negativo</Chip>}
+      <span className="flex shrink-0 flex-wrap gap-1.5">
+        {flagged && <Chip tone="bg-amber-100 text-blue-900">Revisar</Chip>}
+        {item.negative && <Chip tone="bg-slate-100 text-slate-600">Se ve negativo</Chip>}
+      </span>
     </li>
   );
 }
@@ -87,7 +93,7 @@ function Group({ title, n, children }: { title: string; n: number; children?: Re
   );
 }
 
-function Preview({ preview }: { preview: ImportPreview }) {
+function Preview({ preview, flagged }: { preview: ImportPreview; flagged?: ReadonlySet<string> }) {
   const comparison = preview.comparison;
   return (
     <div data-testid="import-preview">
@@ -142,7 +148,7 @@ function Preview({ preview }: { preview: ImportPreview }) {
           <div className="mt-2">
             <Group title="Ya no aparecen" n={comparison.removed.length}>
               {comparison.removed.map(({ item, inRound }) => (
-                <ItemRow key={item.fingerprint} item={item}>
+                <ItemRow key={item.fingerprint} item={item} flagged={flagged?.has(item.fingerprint)}>
                   {inRound !== null && (
                     <p className="text-[13px] leading-snug text-green-700">Se disputó en la ronda {inRound}.</p>
                   )}
@@ -151,14 +157,14 @@ function Preview({ preview }: { preview: ImportPreview }) {
             </Group>
             <Group title="Nuevos" n={comparison.added.length}>
               {comparison.added.map((item) => (
-                <ItemRow key={item.fingerprint} item={item}>
+                <ItemRow key={item.fingerprint} item={item} flagged={flagged?.has(item.fingerprint)}>
                   <p className="text-[13px] leading-snug text-slate-500">Queda pendiente de la revisión del cliente.</p>
                 </ItemRow>
               ))}
             </Group>
             <Group title="Cambiaron" n={comparison.changed.length}>
               {comparison.changed.map(({ item, differences }) => (
-                <ItemRow key={item.fingerprint} item={item}>
+                <ItemRow key={item.fingerprint} item={item} flagged={flagged?.has(item.fingerprint)}>
                   {differences.map((line) => (
                     <p key={line} className="break-words text-[13px] leading-snug text-slate-600">
                       {line}
@@ -252,7 +258,9 @@ export default function ReportImport({
   const [pasted, setPasted] = useState("");
   const [file, setFile] = useState<{ name: string; size: number; text: string } | null>(null);
   const [problems, setProblems] = useState<string[] | null>(null);
-  const [reviewed, setReviewed] = useState<{ raw: RawReport; preview: ImportPreview } | null>(null);
+  const [reviewed, setReviewed] = useState<{ raw: RawReport; preview: ImportPreview; ai?: AiReading } | null>(null);
+  // An AI reading with anything marked: the person confirms they compared it with the document.
+  const [checkedAgainstDocument, setCheckedAgainstDocument] = useState(false);
   const [sampleNote, setSampleNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -267,7 +275,17 @@ export default function ReportImport({
     setProblems(null);
     setReviewed(null);
     setSampleNote(null);
+    setCheckedAgainstDocument(false);
   };
+
+  const aiRead = (reading: AiReading) => {
+    setProblems(null);
+    setCheckedAgainstDocument(false);
+    setReviewed({ raw: reading.raw, preview: importPreview(client, reading.raw, new Date().toISOString()), ai: reading });
+  };
+  const ai = reviewed?.ai ?? null;
+  const needsCheck = ai ? flaggedItems(ai.validation).length > 0 || ai.validation.warnings.length > 0 : false;
+  const flaggedSet = ai ? new Set(flaggedItems(ai.validation).map((i) => i.fingerprint)) : undefined;
 
   const chooseFile = async (chosen: File | undefined) => {
     if (!chosen) return;
@@ -309,9 +327,13 @@ export default function ReportImport({
 
   const save = async () => {
     if (!reviewed || reviewed.preview.blocked || busy) return;
+    if (needsCheck && !checkedAgainstDocument) return;
     setBusy(true);
     try {
-      await data.saveReport(client.id, { readerKey: reader.key, report: reviewed.raw, by: staffAuthor(), source });
+      // An AI reading travels as its envelope: the server reads (validates) it again before saving.
+      await data.saveReport(client.id, reviewed.ai
+        ? { readerKey: "ai_document", report: reviewed.raw, by: staffAuthor(), source: reviewed.ai.source }
+        : { readerKey: reader.key, report: reviewed.raw, by: staffAuthor(), source });
       const p = reviewed.preview;
       await onSaved(
         `Reporte del ${longDay(p.reportDate)} guardado: ${count(p.total, "punto", "puntos")}.${
@@ -367,10 +389,25 @@ export default function ReportImport({
 
       {reviewed ? (
         <div className="mt-3">
-          <Preview preview={reviewed.preview} />
+          {ai && <AiReviewPanel reading={ai} demo={data.demo} />}
+          <Preview preview={reviewed.preview} flagged={flaggedSet} />
+          {ai && needsCheck && !reviewed.preview.blocked && (
+            <label className="mt-5 flex items-start gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-[14px] leading-snug text-slate-800" data-testid="ai-confirm">
+              <input
+                type="checkbox"
+                checked={checkedAgainstDocument}
+                onChange={(e) => setCheckedAgainstDocument(e.target.checked)}
+                className="mt-0.5 h-5 w-5 shrink-0 accent-blue-700"
+              />
+              <span>
+                Comparé con el documento los puntos marcados «Revisar» y los avisos de arriba. Lo que dice «No se guarda» queda
+                fuera.
+              </span>
+            </label>
+          )}
           <div className="mt-5 flex flex-col gap-2 border-t hairline pt-4 sm:flex-row sm:items-center">
             {!reviewed.preview.blocked && (
-              <button type="button" onClick={save} disabled={busy} className={PRIMARY_BUTTON}>
+              <button type="button" onClick={save} disabled={busy || (needsCheck && !checkedAgainstDocument)} className={PRIMARY_BUTTON}>
                 Guardar reporte
               </button>
             )}
@@ -387,6 +424,25 @@ export default function ReportImport({
         </div>
       ) : (
         <div className="mt-3">
+          {reader.upload !== "ai" && (
+            <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-blue-50 px-4 py-3">
+              <p className="min-w-0 flex-1 basis-60 text-[14px] leading-snug text-blue-900">
+                ¿Tienes el reporte en PDF o la página guardada del monitoreo? La IA lo lee y te marca lo que no está claro.
+              </p>
+              <button
+                type="button"
+                data-testid="ai-upload-option"
+                onClick={() => {
+                  setReaderKey("ai_document");
+                  edited();
+                }}
+                className={`${ROW_BUTTON} gap-2 bg-white`}
+              >
+                <Icon name="arrowUp" size={15} strokeWidth={2.25} />
+                Subir PDF del reporte
+              </button>
+            </div>
+          )}
           <label htmlFor={`${id}-source`} className="block text-[14px] font-medium text-slate-900">
             De dónde viene
           </label>
@@ -407,6 +463,10 @@ export default function ReportImport({
             ))}
           </select>
 
+          {reader.upload === "ai" ? (
+            <AiReportUpload clientId={client.id} onRead={aiRead} />
+          ) : (
+          <>
           {reader.status === "ready" ? (
             <p className="mt-2 text-[13px] leading-snug text-slate-500">
               Es el formato propio de Credalti.{" "}
@@ -564,6 +624,8 @@ export default function ReportImport({
               </button>
             )}
           </div>
+          </>
+          )}
         </div>
       )}
     </div>

@@ -7,6 +7,8 @@ import type { ChatRole, ChatSource } from "../chat/history";
 import { parseReport } from "../domain/parser";
 import type { ItemCategory, LetterTarget, NormalizedReport, ReportItem } from "../domain/types";
 import type { DisputeReasonCode } from "../letters/reasons";
+import { intakeRecordFromRow } from "../intake/rows";
+import type { IntakeRecord } from "../intake/types";
 import type { LetterMail, MailClass, MailEventKind, MailEventRecord, MailProvider } from "../mail/types";
 import { itemFromRow, letterKey, planNextRound } from "../rounds/plan";
 import { isDisputeReasonCode } from "../ux/disputeReason";
@@ -92,6 +94,8 @@ export interface StaffRows {
   readyRounds?: Row[];
   /** The client's own WhatsApp messages (chat_messages: user_id, created_at), newest first. */
   inbound?: Row[];
+  /** intake_documents (migration 0016), without the report readings. Absent: none read. */
+  intake?: Row[];
 }
 
 export const EMPTY_STAFF_ROWS: StaffRows = {
@@ -288,6 +292,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
   const prospectNotesBy = groupBy(rows.notes.filter((n) => n.prospect_id), "prospect_id");
   const marksBy = groupBy(rows.marks, "user_id");
   const samplesBy = groupBy(rows.samples, "user_id");
+  const intakeBy = groupBy(rows.intake ?? [], "user_id");
   const assignmentBy = new Map(rows.assignments.map((a) => [text(a.user_id), a]));
   const outboundBy = groupBy(rows.outbound ?? [], "user_id");
   const optOutsBy = groupBy(rows.optOuts ?? [], "user_id");
@@ -544,6 +549,11 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       text: text(s.body),
     }));
 
+    const intake = [...(intakeBy.get(id) ?? [])]
+      .sort(byTime("created_at"))
+      .map(intakeRecordFromRow)
+      .filter((r): r is IntakeRecord => r !== null);
+
     const documents = DOCUMENT_KINDS.filter((kind) => (documentsBy.get(id) ?? []).some((d) => d.kind === kind));
     const assignment = assignmentBy.get(id);
     const createdAt = iso(prospect?.created_at) ?? iso(profile.created_at) ?? "";
@@ -594,6 +604,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       ...(conversation.length > 0 ? { conversation } : {}),
       ...(reportImports.length > 0 ? { reportImports } : {}),
       ...(reportSamples.length > 0 ? { reportSamples } : {}),
+      ...(intake.length > 0 ? { intake } : {}),
       assignedTo: assignment ? handle(context, assignment.staff_user_id) : null,
       ...(assignmentsFrom(auditByClient.get(id)) ? { assignments: assignmentsFrom(auditByClient.get(id)) } : {}),
       email: textOrNull(prospect?.email),

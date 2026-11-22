@@ -24,7 +24,7 @@ Legend: ✅ have it · 🟡 partly · ❌ missing · — not planned here
 | Client portal, mobile app, Spanish | Phone-first app, Spanish first with English, chat assistant, one next step on every screen. No app-store app | ✅ |
 | Agreement with e-signature record, Spanish | Disclosures, contract, cancellation notice, authorization, typed signature with a fingerprint of the exact text, printable copy, cancellation window enforced. Text pending attorney | ✅ |
 | Document storage (ID, address, SSN, power of attorney) | ID, proof of address, identity theft report; staff see what is on file. No SSN card or power of attorney (a limited authorization in the contract instead, pending attorney) | 🟡 |
-| Report import from 6 providers, manual paste, sample | Staff import with a "what changed" preview, but only our own file format reads. A page from another provider can be kept as a sample. IdentityIQ and the other 5 need a real saved report page to build | ❌ |
+| Report import from 6 providers, manual paste, sample | Staff import with a "what changed" preview. Our own file format reads, and any provider's PDF or saved page reads through the AI reader (Claude, a citation per item, doubtful items marked for a person; `docs/INTAKE.md`). Not yet tried on a real provider report | 🟡 |
 | Credit audit for the client | Audit page, Spanish, printable, plain words | ✅ |
 | Tag items with reasons, bulk tag | The client marks each item with one of 14 reasons and confirms it. Staff cannot tag, on purpose; no bulk tag | ✅ different |
 | Round 1 / Round 2+ letters | Built automatically: personal info first, then disputes, method-of-verification, furnisher and collector letters | ✅ |
@@ -47,7 +47,7 @@ Legend: ✅ have it · 🟡 partly · ❌ missing · — not planned here
 | Zapier / API | n8n webhooks, hourly runs (rounds, billing, autopilot) and a health endpoint; no public API | 🟡 |
 | Monitoring partner and commissions | IdentityIQ link with disclosure; no commission tracking | 🟡 |
 
-**Count:** 14 ✅ · 8 🟡 · 4 ❌ · 1 not planned, out of 27 (counted again row by row on Nov 22).
+**Count:** 14 ✅ · 9 🟡 · 3 ❌ · 1 not planned, out of 27 (counted again row by row on Nov 22, with the AI report reader).
 
 ## Where Credalti is built to be better
 

@@ -66,7 +66,8 @@ export const rawReportSchema = z.object({
 
 export type RawReport = z.infer<typeof rawReportSchema>;
 
-function fingerprint(bureau: Bureau, category: ItemCategory, identity: string): string {
+/** The stable identity of one item (also used by AI intake to point at items before they are saved). */
+export function fingerprint(bureau: Bureau, category: ItemCategory, identity: string): string {
   return createHash("sha256")
     .update(`${bureau}|${category}|${identity.toLowerCase().trim()}`)
     .digest("hex")
