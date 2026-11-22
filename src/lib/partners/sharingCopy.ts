@@ -3,8 +3,8 @@ import { CASE_RESPONSE_DAYS } from "../case/timeline";
 
 // Every word of partner sharing that a client, a partner or a prospect reads:
 // the client's choice ("Quién puede ver tu progreso"), the partner's "Mis
-// clientes", and the "Cómo funciona" page a partner shares. Spanish is the
-// source; English is a faithful translation. The test suite runs every string
+// clientes", and the "Cómo funciona" page a partner shares. In English and
+// Spanish (English first; the two say the same thing). The test suite runs every string
 // through the advertising claim rules (checkMarketingCopy): the process and its
 // dates, never an outcome. The consent text itself is in sharing.ts (hashed).
 
@@ -129,7 +129,7 @@ export const PARTNER_SHARING_COPY = {
     upload: "Subir logo",
     remove: "Quitar",
     howTitle: "Cómo funciona Credalti",
-    howHelp: "Una página con tu nombre para compartir con las personas que refieres. En español y en inglés.",
+    howHelp: "Una página con tu nombre para compartir con las personas que refieres. En inglés y en español.",
     howOpen: "Abrir la página",
     demoNote: "Demostración: los clientes son inventados.",
   },
@@ -171,7 +171,7 @@ export const PARTNER_SHARING_COPY = {
     upload: "Upload logo",
     remove: "Take it down",
     howTitle: "How Credalti works",
-    howHelp: "A page with your name to share with the people you refer. In Spanish and in English.",
+    howHelp: "A page with your name to share with the people you refer. In English and in Spanish.",
     howOpen: "Open the page",
     demoNote: "Demo: the clients are invented.",
   },
@@ -185,7 +185,7 @@ export function howItWorksCopy(locale: "es" | "en", partner: { name: string; com
     return {
       eyebrow: `Shared by ${who}`,
       title: `How ${brand} works`,
-      lead: `A service in Spanish and English to review your credit report and dispute what you say is wrong. Our team prepares and mails your letters.`,
+      lead: `A service in English and Spanish to review your credit report and dispute what you say is wrong. Our team prepares and mails your letters.`,
       stepsTitle: "Step by step",
       steps: [
         { title: "You talk with the team on WhatsApp", body: "A person explains the plan and its price, in writing, before you sign anything." },
@@ -209,7 +209,7 @@ export function howItWorksCopy(locale: "es" | "en", partner: { name: string; com
   return {
     eyebrow: `Te lo comparte ${who}`,
     title: `Cómo funciona ${brand}`,
-    lead: "Un servicio en español y en inglés para revisar tu reporte de crédito y disputar lo que tú digas que está mal. Nuestro equipo prepara y envía tus cartas.",
+    lead: "Un servicio en inglés y en español para revisar tu reporte de crédito y disputar lo que tú digas que está mal. Nuestro equipo prepara y envía tus cartas.",
     stepsTitle: "Paso a paso",
     steps: [
       { title: "Hablas con el equipo por WhatsApp", body: "Una persona te explica el plan y su precio, por escrito, antes de que firmes nada." },

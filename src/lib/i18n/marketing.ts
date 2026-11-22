@@ -3,10 +3,12 @@ import { AFFILIATE_DISCLOSURE, MONITORING_OFFER, monitoringName } from "../monit
 import type { Locale } from "./dictionaries";
 
 // Copy for the pages a visitor sees before the app: the landing page, the
-// /empezar funnel page and onboarding. Spanish is the source of truth. English
-// is a faithful translation of it: the same claims, the same disclaimers and
-// the same commission disclosure, with nothing added. Every string, in both
-// languages, is run through the advertising claim rules in the test suite.
+// /empezar funnel page and onboarding. English first, Spanish if needed
+// (src/lib/i18n/detect.ts): a visitor sees English unless their browser
+// prefers Spanish or they chose it. The two say the same thing: the same
+// claims, the same disclaimers and the same commission disclosure, with
+// nothing added in either. Every string, in both languages, is run through the
+// advertising claim rules and the plain-language check in the test suite.
 //
 // What the pages describe is full service: the client says what is wrong on
 // their report, and the team prepares and mails the letters. Sales comes first,
@@ -131,8 +133,8 @@ const es: MarketingCopy = {
         "Nuestro equipo prepara las cartas, las envía por correo y te avisa cómo va cada ronda.",
       ],
       [
-        "En español y por escrito",
-        "La app y nuestro equipo te atienden en español. Antes de que firmes, el equipo te explica el plan.",
+        "En inglés o en español, y por escrito",
+        "La app y nuestro equipo te atienden en inglés o en español, como prefieras. Antes de que firmes, el equipo te explica el plan.",
       ],
     ],
     footer: `${brand} es una empresa de servicios de crédito. Tú decides qué es inexacto en tu reporte; nuestro equipo prepara y envía las cartas por ti. No garantizamos resultados: los burós de crédito deciden, y los resultados varían según cada caso. ${assistant} es un asistente de inteligencia artificial. Disponible en Texas. Esto no es asesoría legal.`,
@@ -179,7 +181,7 @@ const es: MarketingCopy = {
       ],
       [
         "En tu idioma",
-        "Todo en español: la app, las explicaciones y el equipo. Si prefieres inglés, lo eliges dentro de la app.",
+        "En inglés o en español: la app, las explicaciones y el equipo. Cambias de idioma con un toque, cuando quieras.",
       ],
       [
         "Sin promesas",
@@ -296,10 +298,8 @@ const en: MarketingCopy = {
       ],
       ["We mail the letters", "Our team prepares the letters, mails them and tells you how each round is going."],
       [
-        // "in Spanish or English": the Spanish page says "en español"; both are true
-        // of the app, and a reader of this page is reading it in English.
-        "In your language and in writing",
-        "The app and our team work with you in Spanish or English. Before you sign, the team explains the plan to you.",
+        "In English or Spanish, and in writing",
+        "The app and our team work with you in English or Spanish, whichever you prefer. Before you sign, the team explains the plan.",
       ],
     ],
     footer: `${brand} is a credit services company. You decide what is inaccurate on your report; our team prepares and mails the letters for you. We do not guarantee results: the credit bureaus decide, and results vary case by case. ${assistant} is an artificial intelligence assistant. Available in Texas. This is not legal advice.`,
@@ -346,7 +346,7 @@ const en: MarketingCopy = {
       ],
       [
         "In your language",
-        "Everything in Spanish: the app, the explanations and the team. If you prefer English, you choose it inside the app.",
+        "In English or Spanish: the app, the explanations and the team. Switch languages with one tap, any time.",
       ],
       [
         "No promises",

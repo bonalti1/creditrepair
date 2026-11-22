@@ -8,7 +8,7 @@ import Icon from "@/components/Icon";
 import LocaleToggle from "@/components/LocaleToggle";
 import Logo from "@/components/Logo";
 import { CharacterAvatar, CharacterFigure } from "@/components/Character";
-import { LocaleProvider, useLocale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n";
 import { MARKETING } from "@/lib/i18n/marketing";
 import { MONITORING_OFFER } from "@/lib/monitoring/offer";
 import { GOALS, parseInvite, type Invite } from "@/lib/sales/invite";
@@ -57,8 +57,10 @@ import { isDemoMode } from "@/lib/supabase/config";
 // OnboardingSync records it once the client is signed in, through
 // /api/sharing, which checks the text's hash like any other choice.
 //
-// Language: Spanish first, with the same ES/EN switch as the app. The choice is
-// kept on the device, so it carries into the app. The words live in
+// Language: English first, Spanish if needed (src/lib/i18n/detect.ts): a
+// Spanish browser starts in Spanish, and a salesperson's link can carry
+// `lang=es`. The same ES/EN switch as the app; the choice is kept on the
+// device, so it carries into the app. The words live in
 // src/lib/i18n/marketing.ts.
 
 const STATES = ["TX", ...ALL_STATES.filter((s) => s !== "TX")];
@@ -80,12 +82,9 @@ function save(key: string, value: string) {
 const primaryButton =
   "pressable flex h-14 w-full items-center justify-center rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500 disabled:bg-slate-200 disabled:text-slate-500";
 
+// The language provider is in ./layout.tsx (the server's choice for the first render).
 export default function OnboardingPage() {
-  return (
-    <LocaleProvider>
-      <Onboarding />
-    </LocaleProvider>
-  );
+  return <Onboarding />;
 }
 
 function Onboarding() {

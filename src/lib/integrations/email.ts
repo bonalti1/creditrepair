@@ -38,7 +38,7 @@ export interface EmailResult {
 }
 
 /** The email's text with the footer the law requires. */
-export function emailBody(message: Pick<EmailMessage, "text" | "unsubscribeUrl" | "postalAddress">, locale: "es" | "en" = "es"): string {
+export function emailBody(message: Pick<EmailMessage, "text" | "unsubscribeUrl" | "postalAddress">, locale: "es" | "en" = "en"): string {
   const footer =
     locale === "es"
       ? `—\n${BRAND.name} · ${message.postalAddress}\nPara dejar de recibir estos correos: ${message.unsubscribeUrl}`
@@ -46,7 +46,7 @@ export function emailBody(message: Pick<EmailMessage, "text" | "unsubscribeUrl" 
   return `${message.text.trim()}\n\n${footer}\n`;
 }
 
-export async function sendEmail(message: EmailMessage, locale: "es" | "en" = "es", env: Record<string, string | undefined> = process.env): Promise<EmailResult> {
+export async function sendEmail(message: EmailMessage, locale: "es" | "en" = "en", env: Record<string, string | undefined> = process.env): Promise<EmailResult> {
   assertClaimGuardrails(message.text, "email:autopilot");
   if (!message.unsubscribeUrl || !message.postalAddress.trim()) throw new Error("email: an automatic email needs an unsubscribe link and a postal address");
   const key = env.EMAIL_API_KEY;

@@ -109,4 +109,12 @@ describe("legal terms come with their plain words", () => {
       expect(s, s).toMatch(/ley/i);
     }
   });
+
+  it("the same in English, the language a client starts in", () => {
+    const strings = Object.values(clientCopy("en")).flat();
+    expect(strings.filter((t) => /\bFCRA\b/.test(t)).length).toBeGreaterThan(0);
+    for (const s of strings.filter((t) => /\bFCRA\b/.test(t))) {
+      expect(s, s).toMatch(/\blaw\b/i);
+    }
+  });
 });

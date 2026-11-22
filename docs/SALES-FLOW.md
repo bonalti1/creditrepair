@@ -11,10 +11,10 @@ that order.
 | Step | Who | What happens | Where it lives |
 | --- | --- | --- | --- |
 | 1 | Lead | Sees an ad and taps the button, which opens WhatsApp | `/empezar` and the landing page (the button goes to WhatsApp when `NEXT_PUBLIC_WHATSAPP_NUMBER` is set) |
-| 2 | AltiBot (AI assistant) | Greets the lead once, says it is AI, and says a person will write | `LEAD_GREETING` in `src/lib/integrations/whatsapp.ts`, sent by `src/app/api/webhooks/whatsapp/route.ts` |
+| 2 | AltiBot (AI assistant) | Greets the lead once, in the language they wrote in (English unless Spanish), says it is AI, and says a person will write | `LEAD_GREETINGS` in `src/lib/integrations/whatsapp.ts`, sent by `src/app/api/webhooks/whatsapp/route.ts` |
 | 3 | Salesperson | Talks with the lead in WhatsApp: what they want, where they live, how the service works, the plan | WhatsApp, following the rules below |
-| 4 | Salesperson | Fills in four fields and sends the personal link | `/equipo/invitar` |
-| 5 | Client | Opens the link: a welcome screen with their name, goal and state already filled in | `/onboarding?n=…&g=…&s=…&r=…` |
+| 4 | Salesperson | Fills in a few fields, including **the client's language** (English unless they talked in Spanish), and sends the personal link with a message in that language | `/equipo/invitar` |
+| 5 | Client | Opens the link: a welcome screen in their language, with their name, goal and state already filled in | `/onboarding?n=…&g=…&s=…&r=…&lang=…` |
 | 6 | Client | Signs the service agreement, uploads ID and proof of address, activates monitoring, signs in with their phone | `/acuerdo`, `/onboarding` → `/login` |
 | 7 | Client | Reviews each item on their report with AltiBot and says which ones are inaccurate and why | `/asistente`, `/items` |
 | 8 | Team | Prepares and mails the letters, in rounds about every 40 days, and imports the report again to see what changed | `/equipo` (the staff console) |
@@ -62,10 +62,23 @@ never a call, and never an SMS offer.
 - `WHATSAPP_LEAD_REPLIES=ai` lets AltiBot answer leads too, for hours when nobody
   is on sales. AltiBot is then told the person is not a client yet.
 
+## The client's language
+
+The app is English first, Spanish if needed. On the invite page the
+salesperson picks **Idioma del cliente**: Inglés (the default) or Español, the
+language they talked with the client in. The link then carries `lang=en` or
+`lang=es`, the client lands in that language (it is saved on their device and,
+once they sign in, on their profile), and the ready message is written in it
+(`inviteMessage` in `src/lib/sales/invite.ts`). Someone who arrives without a
+link starts in English, or in Spanish when their phone's language is Spanish.
+Either way the client can switch at any time with the button at the top of
+every screen ("Español" / "English"), and their automatic messages follow the
+language they use (`src/lib/i18n/detect.ts`, migration 0024).
+
 ## What the link does and does not do
 
-- It carries a first name, a goal, a state and the salesperson's handle. No
-  phone number, no address, no account data.
+- It carries a first name, a goal, a state, the client's language and the
+  salesperson's handle. No phone number, no address, no account data.
 - Everything in it is checked again in the app. A link for a state we are not
   open in leads to the waitlist, not the app.
 - It skips questions. It does not skip what only the client can do: signing

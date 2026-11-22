@@ -1,4 +1,4 @@
-import { LocaleProvider } from "@/lib/i18n";
+import RequestLocaleProvider from "@/lib/i18n/RequestLocaleProvider";
 import LandingContent from "@/components/marketing/LandingContent";
 
 // Landing (server wrapper). The page itself is in LandingContent, a client
@@ -7,8 +7,8 @@ import LandingContent from "@/components/marketing/LandingContent";
 
 export default function Landing() {
   return (
-    <LocaleProvider>
+    <RequestLocaleProvider>
       <LandingContent />
-    </LocaleProvider>
+    </RequestLocaleProvider>
   );
 }

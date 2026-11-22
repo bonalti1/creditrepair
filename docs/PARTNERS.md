@@ -247,9 +247,12 @@ administrators see it on `/equipo/socios`. Nobody else, and not the partner.
 - **Mis clientes** (portal): each consenting client with the one-line status and
   the next date; the client page shows "Compartido por el cliente el …", the
   level, the stage, the timeline, and the counts at "Avance y resumen".
-- **Notices** (opt-in, the partner's choice): WhatsApp (approved template
-  `credalti_socio_avance`: "Hola, {{1}}. {{2}} Más detalles en tu portal de
-  socios de Credalti.") or email (the portal is the unsubscribe link); never
+- **Notices** (opt-in, the partner's choice), in the partner's language
+  (`partners.locale`, migration 0024: the language of the page they applied
+  on, then of their portal; English unless Spanish): WhatsApp (approved
+  template `credalti_socio_avance`, en_US "Hi, {{1}}. {{2}} More details in
+  your Credalti partner portal." and es_MX "Hola, {{1}}. {{2}} Más detalles en
+  tu portal de socios de Credalti.") or email (the portal is the unsubscribe link); never
   SMS; never in quiet hours (21:00–8:00 where the partner works); each
   milestone of each client once (`partner_notices`, unique dedupe key claimed
   before sending); only milestones from the last 3 days and after sharing

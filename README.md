@@ -2,8 +2,8 @@
 
 *(Company: Credalti, with the AI assistant AltiBot (a robot, renamed by the owner on 2026-11-22; see docs/BRAND.md) and Alti as the face of the human team. Called CreditCapi until November 2026; the assistant was a capybara until the brand kit of November 2026. Internal/spec name: Bonalti Credit.)*
 
-**What it is:** Credalti is a full-service credit services company,
-Spanish-first, launching in Texas. A sales team talks to the lead first and
+**What it is:** Credalti is a full-service credit services company, in
+English and Spanish (English first, Spanish if needed), launching in Texas. A sales team talks to the lead first and
 sends an invitation into the app. The client signs a service agreement,
 uploads ID and proof of address, connects credit monitoring (IdentityIQ), and
 reviews each item on their report, saying which ones are inaccurate and why.
@@ -58,7 +58,7 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/letters/templates.ts` | Merge-field letter templates (§611, MOV, §623 furnisher-direct, §609, personal-info) |
 | `src/lib/letters/variation.ts` | Claude-powered per-letter wording variation (e-OSCAR countermeasure) |
 | `src/lib/letters/fonts.ts` | Print/handwritten font rotation, deterministic per letter |
-| `src/lib/coach/systemPrompt.ts` | AltiBot's instructions (the AI assistant), Spanish-first, per service mode: explains the service, never promises a result, never picks items, never quotes a price, hands over to the team |
+| `src/lib/coach/systemPrompt.ts` | AltiBot's instructions (the AI assistant), per service mode, answering in the language the client writes in (else the app's; `src/lib/coach/language.ts`): explains the service, never promises a result, never picks items, never quotes a price, hands over to the team |
 | `src/lib/integrations/lob.ts` | Lob mail client: first class or certified (with electronic return receipt), parsed addresses, idempotency key; simulated without an API key. Which request details are verified is listed at the top |
 | `src/lib/integrations/whatsapp.ts` | WhatsApp Cloud API sender; message copy runs through guardrails |
 | `src/app/api/reports/import` | Import + parse + diff a monitoring pull; deletion celebration |

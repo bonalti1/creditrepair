@@ -385,7 +385,7 @@ export interface PlannedMessage {
 }
 
 export function clientLocale(client: StaffClient): MessageLocale {
-  return client.locale === "en" ? "en" : "es";
+  return client.locale === "es" ? "es" : "en";
 }
 
 /** The follow-up messages due now, before quiet hours and the daily cap (plan.ts applies those). */

@@ -271,7 +271,7 @@ export function outboundFromRow(row: Row): OutboundMessage {
     channel: channel === "whatsapp" || channel === "email" ? channel : null,
     template: textOrNull(row.template),
     params: Array.isArray(row.params) ? row.params.map(text) : [],
-    locale: row.locale === "en" ? "en" : "es",
+    locale: row.locale === "es" ? "es" : "en",
     body: text(row.body),
     link: textOrNull(row.link),
     status: OUTBOUND_STATUSES.find((s) => s === row.status) ?? "queued",
@@ -381,7 +381,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
     }));
     const lastInbound = (inboundBy.get(id) ?? []).map((r) => iso(r.created_at)).reduce<string | null>((max, v) => (v && (!max || v > max) ? v : max), null);
     return {
-      ...(profile.locale === "en" ? { locale: "en" as const } : {}),
+      ...(profile.locale === "es" ? { locale: "es" as const } : {}),
       ...(outbound.length > 0 ? { outbound } : {}),
       ...(optOut ? { optOut: { at: optOut.at, keyword: text(optOut.row.keyword) || "BAJA", channel: (["whatsapp", "email", "staff"].includes(text(optOut.row.channel)) ? text(optOut.row.channel) : "staff") as OptOutRecord["channel"] } } : {}),
       ...(holds.length > 0 ? { holds } : {}),

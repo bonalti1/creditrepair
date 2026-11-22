@@ -50,6 +50,8 @@ interface PortalView {
     notifyEmail: boolean;
     notifyWhatsapp: boolean;
     hasEmail: boolean;
+    /** The language their notices go out in (partners.locale). */
+    locale?: "es" | "en";
   };
   program: { commissionsEnabled: boolean };
   terms: { accepted: boolean; version: string };
@@ -201,6 +203,17 @@ export default function PortalContent() {
     setNow(new Date());
     void load();
   }, [load]);
+
+  // The language the partner reads the portal in is the one their milestone notices go out in.
+  const savedLocale = view?.partner.locale;
+  useEffect(() => {
+    if (demo || !savedLocale || savedLocale === locale) return;
+    void fetch("/api/partners/portal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "language", locale }) })
+      .then((res) => {
+        if (res.ok) setView((v) => (v ? { ...v, partner: { ...v.partner, locale } } : v));
+      })
+      .catch(() => undefined);
+  }, [demo, savedLocale, locale]);
 
   const link = view?.partner.referralCode && origin ? partnerLink(origin, view.partner.referralCode) : null;
   const qr = useMemo(() => (link ? qrSvg(link, { title: c.qrAlt }) : null), [link, c.qrAlt]);

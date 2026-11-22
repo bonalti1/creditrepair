@@ -192,7 +192,7 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
     id: userId,
     fullName: String(profileRow.full_name ?? ""),
     addressLines: (profileRow.address_lines as string[] | null) ?? [],
-    locale: profileRow.locale === "en" ? "en" : "es",
+    locale: profileRow.locale === "es" ? "es" : "en",
     goal: (profileRow.goal as string | null) ?? null,
   };
 

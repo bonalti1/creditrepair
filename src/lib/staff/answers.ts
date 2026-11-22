@@ -212,8 +212,10 @@ export function libraryReplyFor(question: string, answers: readonly SavedAnswer[
 }
 
 /** How AltiBot sends a library answer: marked as the team's approved answer, and still the AI's message. */
-export function libraryReplyText(match: AnswerMatch): string {
-  return `${match.answer.answer}\n\n(Respuesta aprobada por el equipo de ${BRAND.name}. Si necesitas algo más, pide hablar con una persona.)`;
+export function libraryReplyText(match: AnswerMatch, locale: "es" | "en" = "es"): string {
+  return locale === "en"
+    ? `${match.answer.answer}\n\n(An answer approved by the ${BRAND.name} team. If you need anything else, ask to talk to a person.)`
+    : `${match.answer.answer}\n\n(Respuesta aprobada por el equipo de ${BRAND.name}. Si necesitas algo más, pide hablar con una persona.)`;
 }
 
 // ── Rows ────────────────────────────────────────────────────────────────

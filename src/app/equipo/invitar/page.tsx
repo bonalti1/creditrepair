@@ -5,7 +5,7 @@ import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
 import {
   buildInvitePath,
   GOALS,
-  inviteMessageEs,
+  inviteMessage,
   SALES_MAY_NOT_SAY,
   SALES_MAY_SAY,
   type GoalKey,
@@ -41,6 +41,8 @@ export default function Invitar() {
   const [goal, setGoal] = useState<GoalKey>("general");
   const [state, setState] = useState("TX");
   const [phone, setPhone] = useState("");
+  // The client's language: the app opens in it and the message is written in it. English unless you talked in Spanish.
+  const [lang, setLang] = useState<"en" | "es">("en");
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState<"link" | "message" | null>(null);
   const [partner, setPartner] = useState<string | null>(null);
@@ -79,15 +81,15 @@ export default function Invitar() {
   // client's profiles.referred_by, which is what lets a salesperson see the people they brought in (migration 0012).
   const handle = !data.demo && viewer ? viewer.handle : undefined;
   const url = useMemo(
-    () => origin + buildInvitePath({ name, goal, state, refName: me, ref: handle, partner }),
-    [origin, name, goal, state, me, handle, partner],
+    () => origin + buildInvitePath({ name, goal, state, refName: me, ref: handle, partner, lang }),
+    [origin, name, goal, state, me, handle, partner, lang],
   );
   // Sending or copying the message for a prospect records when the invitation went out (HighLevel's "Invitado").
   const markInvited = () => {
     if (!clientId || data.demo) return;
     void fetch("/api/staff/prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "invited", id: clientId }) }).catch(() => undefined);
   };
-  const message = useMemo(() => inviteMessageEs({ name }, url), [name, url]);
+  const message = useMemo(() => inviteMessage({ name }, url, lang), [name, url, lang]);
   const open = stateStatus(state) === "open";
   const ready = me.trim().length >= 2 && name.trim().length >= 2;
   const digits = phone.replace(/\D/g, "");
@@ -143,6 +145,14 @@ export default function Invitar() {
               <option key={g.key} value={g.key}>{g.label}</option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className={label} htmlFor="lang">Idioma del cliente</label>
+          <select id="lang" className={field} value={lang} onChange={(e) => setLang(e.target.value === "es" ? "es" : "en")}>
+            <option value="en">Inglés</option>
+            <option value="es">Español</option>
+          </select>
+          <p className="mt-1.5 text-[13px] text-slate-500">La app y el mensaje van en este idioma. El cliente puede cambiarlo en la app.</p>
         </div>
         <div>
           <label className={label} htmlFor="state">Estado donde vive</label>

@@ -127,8 +127,13 @@ describe("autopilot: the follow-up schedules", () => {
     const due = dueFollowups(base, day1, ON);
     expect(due).toHaveLength(1);
     expect(due[0]).toMatchObject({ step: 1, topic: "agreement_unsigned", dedupeKey: expect.stringMatching(/^followup:.+:agreement_unsigned:\d{4}-\d{2}-\d{2}:1$/) });
-    expect(due[0]!.body).toContain("Hola Rosa");
+    // No saved language: English (the default since migration 0024); a client who chose Spanish gets Spanish.
+    expect(due[0]).toMatchObject({ locale: "en" });
+    expect(due[0]!.body).toContain("Hi Rosa");
     expect(due[0]!.body).toContain("/acuerdo");
+    const dueEs = dueFollowups({ ...base, locale: "es" }, day1, ON);
+    expect(dueEs[0]).toMatchObject({ locale: "es", step: 1 });
+    expect(dueEs[0]!.body).toContain("Hola Rosa");
 
     // Days later, all three went; the raw notice exists (> 3 days) but is still the system's until day 6.
     const day5 = new Date(NOW.getTime() + 5 * DAY);

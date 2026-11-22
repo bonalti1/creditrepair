@@ -1,11 +1,12 @@
 "use client";
 
 // Last-resort boundary: replaces the whole document when the root layout
-// itself fails, so it cannot rely on the app's stylesheet or fonts.
+// itself fails, so it cannot rely on the app's stylesheet or fonts, or on the
+// language setting: English first, Spanish underneath.
 // Colours are brand colors v2 (light background, gold button, navy text).
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
-    <html lang="es">
+    <html lang="en">
       <body
         style={{
           margin: 0,
@@ -20,11 +21,11 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         }}
       >
         <div style={{ maxWidth: 360, textAlign: "center" }}>
-          <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>Algo no cargó bien</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>Something didn&apos;t load</h1>
           <p style={{ fontSize: 15, lineHeight: 1.5, color: "#6e6e73" }}>
-            No perdiste nada. Intenta de nuevo en un momento.
+            Nothing was lost. Please try again in a moment.
             <br />
-            Something didn&apos;t load. Nothing was lost; please try again.
+            <span lang="es">Algo no cargó bien. No perdiste nada; intenta de nuevo.</span>
           </p>
           <button
             type="button"
@@ -42,7 +43,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               cursor: "pointer",
             }}
           >
-            Intentar de nuevo
+            Try again · <span lang="es">Intentar de nuevo</span>
           </button>
           {error.digest && <p style={{ marginTop: 16, fontSize: 12, color: "#75757a" }}>Ref. {error.digest}</p>}
         </div>

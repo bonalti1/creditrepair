@@ -22,6 +22,8 @@ import { rateLimit } from "@/lib/security/rateLimit";
 // partner check):
 //   accept_terms  the current terms, with the hash of the text they saw;
 //   settings      milestone notices by email and/or WhatsApp (never SMS);
+//   language      the language the partner reads the portal in, which their
+//                 milestone notices go out in (partners.locale, migration 0024);
 //   logo          a small image for co-branding, shown to clients only after
 //                 an administrator approves it (or null to remove it);
 //   message       "Escribir al equipo" about a client who shares with them: a
@@ -39,7 +41,7 @@ export async function GET(req: Request) {
     const [referrals, fees, own, terms] = await Promise.all([
       reader.rpc("partner_referrals"),
       commissionsEnabled(reader),
-      reader.from("partners").select("logo_status, notify_email, notify_whatsapp, email").eq("id", member.partner.id).maybeSingle(),
+      reader.from("partners").select("logo_status, notify_email, notify_whatsapp, email, locale").eq("id", member.partner.id).maybeSingle(),
       reader.from("partner_terms_acceptances").select("accepted_at").eq("version", PARTNER_CLIENT_TERMS_VERSION).limit(1),
     ]);
     if (referrals.error) throw new Error(referrals.error.message);
@@ -71,6 +73,7 @@ export async function GET(req: Request) {
         notifyEmail: settings.notify_email === true,
         notifyWhatsapp: settings.notify_whatsapp === true,
         hasEmail: typeof settings.email === "string" && settings.email !== "",
+        locale: settings.locale === "es" ? "es" : "en",
       },
       program: { commissionsEnabled: fees },
       terms: { accepted, version: PARTNER_CLIENT_TERMS_VERSION },
@@ -87,6 +90,7 @@ export async function GET(req: Request) {
 const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("accept_terms"), locale: z.enum(["es", "en"]), version: z.string().max(40), textHash: z.string().regex(/^[0-9a-f]{64}$/) }),
   z.object({ action: z.literal("settings"), notifyEmail: z.boolean(), notifyWhatsapp: z.boolean() }),
+  z.object({ action: z.literal("language"), locale: z.enum(["es", "en"]) }),
   z.object({ action: z.literal("logo"), dataUrl: z.string().max(210_000).nullable() }),
   z.object({ action: z.literal("message"), clientId: z.string().uuid(), text: z.string().trim().min(2).max(1500) }),
 ]);
@@ -116,6 +120,12 @@ export async function POST(req: Request) {
 
     if (input.action === "settings") {
       const { error } = await db.from("partners").update({ notify_email: input.notifyEmail, notify_whatsapp: input.notifyWhatsapp }).eq("id", partnerId);
+      if (error) throw new Error(error.message);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (input.action === "language") {
+      const { error } = await db.from("partners").update({ locale: input.locale }).eq("id", partnerId);
       if (error) throw new Error(error.message);
       return NextResponse.json({ ok: true });
     }

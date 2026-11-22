@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import { useLocale } from "@/lib/i18n";
-import { reuploadRequest } from "@/lib/intake/reupload";
+import { reasonInEnglish, reuploadRequest } from "@/lib/intake/reupload";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 // "Sube tu documento de nuevo": the screen the automatic message links to
@@ -64,13 +64,14 @@ const COPY = {
     demo: "Demo: la revisión es simulada y no se guarda nada.",
     back: "Más",
     privacy: "No guardamos los números de tu identificación.",
+    personWillLook: "Una persona del equipo lo revisará.",
     error: "No se pudo subir. Intenta de nuevo.",
   },
   en: {
     title: "Upload your document again",
     lead: "We checked your document and could not use it. It goes with each letter, so another one is needed.",
     why: "Why",
-    tips: "So it goes through",
+    tips: "So it is accepted",
     upload: "Upload another photo",
     checking: "Checking…",
     accepted: "Done: the automatic check accepted it. There is nothing else to do.",
@@ -79,6 +80,7 @@ const COPY = {
     demo: "Demo: the check is simulated and nothing is stored.",
     back: "More",
     privacy: "We do not store your ID numbers.",
+    personWillLook: "A person on our team will look at it.",
     error: "Could not upload. Please try again.",
   },
 } as const;
@@ -145,7 +147,9 @@ export default function DocumentosPage() {
 
       {toFix.map((check) => {
         const request = reuploadRequest(check);
-        const reasons = request?.reasons ?? check.reasons.filter((r) => !/^Es /.test(r));
+        const lines = request?.reasons ?? check.reasons.filter((r) => !/^Es /.test(r));
+        // The check writes its lines in Spanish; in English each is shown in English, or as "a person will look".
+        const reasons = l === "en" ? [...new Set(lines.map((r) => reasonInEnglish(r) ?? c.personWillLook))] : lines;
         const done = result[check.kind];
         return (
           <section key={check.kind} className="card px-5 py-5" data-testid={`reupload-${check.kind}`}>

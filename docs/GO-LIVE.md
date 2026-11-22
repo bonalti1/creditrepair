@@ -21,12 +21,12 @@ name shown. Never paste a key into a chat or an email.
 
 ### To IdentityIQ's partner team
 
-> Subject: Partner program inquiry — Spanish-language credit services company (Texas)
+> Subject: Partner program inquiry — English and Spanish credit services company (Texas)
 >
 > Hello,
 >
-> We are launching Credalti, a Spanish-first credit services company for
-> consumers in Texas. A client reads their own 3-bureau report in our web app
+> We are launching Credalti, a credit services company for consumers in
+> Texas, in English and Spanish. A client reads their own 3-bureau report in our web app
 > and tells us which items are inaccurate; our staff then prepares and mails
 > the dispute letters for them. We would like to refer our clients to
 > IdentityIQ for credit monitoring and are deciding which of your programs fits.

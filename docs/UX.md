@@ -8,7 +8,8 @@
 
 Dispute Beast wins on engine scope (secondary bureaus, escalation) but its UX
 assumes a motivated, English-speaking, credit-literate user on a desktop. Our
-user is Spanish-first, mobile-first, and often doing this for the first time.
+user reads English or Spanish (the app is English first, Spanish if needed),
+is mobile-first, and is often doing this for the first time.
 Every bet below targets a specific Dispute Beast failure mode.
 
 ## The bets (implemented)
@@ -23,7 +24,7 @@ Every bet below targets a specific Dispute Beast failure mode.
 | 6 | Coach buried in a separate tab | **Floating coach** on every page, quick-question chips, offline educational fallbacks so it never dead-ends | `CoachWidget.tsx` |
 | 7 | State lives per-page; users re-review | **Shared review store** (localStorage now, `item_flags` later): decisions follow the user across wizard → attack → dashboard | `src/lib/ux/flagsStore.ts` |
 | 8 | Desktop-web-first | **Mobile bottom tab bar**, thumb-reachable actions, single-column layouts | `AppNav.tsx` |
-| 9 | English-only | Spanish-first everywhere; letters mail in English with a note explaining why | all copy |
+| 9 | English-only | English and Spanish everywhere, one tap apart (English first; Spanish for a Spanish browser, a Spanish invitation or the client's choice); letters mail in English with a note explaining why | all copy, `src/lib/i18n/` |
 
 ## Principles
 
@@ -42,9 +43,18 @@ Every bet below targets a specific Dispute Beast failure mode.
 
 ## Since implemented
 
-- English toggle: dictionary-based i18n (`src/lib/i18n/`) covering all app
-  chrome, explainers, glossary, and journey copy. Spanish default, persists
-  per device.
+- Language: dictionary-based i18n (`src/lib/i18n/`) covering all app
+  chrome, explainers, glossary, and journey copy. **English first, Spanish if
+  needed** (owner's decision, November 2026). The order, in
+  `src/lib/i18n/detect.ts`: an invitation's `?lang=` → the choice saved on the
+  device (cookie `credalti.locale` + localStorage) → the signed-in client's
+  profile (`profiles.locale`) → the browser's language (Spanish when it
+  prefers Spanish) → English. The server reads the cookie and
+  `Accept-Language` for the first render, so there is no flash of the wrong
+  language, and `<html lang>` matches. The button at the top of every client
+  screen names the other language ("Español" / "English"); the choice is
+  saved on the device and on the profile, which is the language automatic
+  messages go out in. The staff console stays Spanish.
 - WhatsApp deep links back into the exact next step (`appLink()` in the
   WhatsApp integration; journey keys map 1:1 to destinations).
 - Passwordless auth (email magic link) — no passwords to forget; review

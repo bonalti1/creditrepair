@@ -147,13 +147,21 @@ send one to yourself before turning email on. `/api/health` reports both.
 ## WhatsApp templates to get approved in Meta
 
 Each must be created in WhatsApp Manager → Message templates with exactly this
-name, category **Utility**, languages **es_MX** and **en_US**, the body in
-`src/lib/autopilot/templates.ts` (the `{{n}}` parameters as listed), and the
-footer "Mensaje automático de Credalti. Si no quieres recibir estos mensajes,
-responde BAJA." / "Automated message from Credalti. Reply STOP if you do not
-want these messages." Then add the approved names to
+name, category **Utility**, and **two languages under the same name**:
+**en_US** (English, the `en` body) and **es_MX** (Spanish, the `es` body), from
+`src/lib/autopilot/templates.ts` (the `{{n}}` parameters as listed), with the
+footer "Automated message from Credalti. Reply STOP if you do not want these
+messages." (en_US) / "Mensaje automático de Credalti. Si no quieres recibir
+estos mensajes, responde BAJA." (es_MX). Then add the approved names to
 `WHATSAPP_APPROVED_TEMPLATES` (comma-separated). Until a template is approved,
-that message never goes on WhatsApp outside the 24-hour window.
+that message never goes on WhatsApp outside the 24-hour window. **Approve both
+languages of every template**: the app is English first, Spanish if needed
+(migration 0024), so each message goes in the client's saved language
+(`profiles.locale`): English unless they chose Spanish (or arrived on an
+invitation in Spanish, or with a Spanish browser). A template approved in only
+one language fails for clients in the other.
+
+Every row below is one name with an **en_US** and an **es_MX** version.
 
 | Template | Parameters | For |
 | --- | --- | --- |
@@ -176,7 +184,13 @@ that message never goes on WhatsApp outside the 24-hour window.
 | `credalti_pago_falta_metodo` | nombre, ronda, fecha, enlace | A mailed round and no payment method; link to «Actualizar mi tarjeta» |
 | `credalti_carta_reenviada` | nombre, destinatario, ronda, enlace | A returned letter went out again |
 
-34 templates for clients. One more, for the team: `credalti_resumen_equipo`
+34 templates for clients, each in en_US and es_MX (68 versions). One for
+referral partners: `credalti_socio_avance` (nombre, avance), the milestone
+notice, in the partner's language (`partners.locale`, English unless they read
+their portal in Spanish): en_US "Hi, {{1}}. {{2}} More details in your Credalti
+partner portal." and es_MX "Hola, {{1}}. {{2}} Más detalles en tu portal de
+socios de Credalti." (`src/lib/partners/sharingServer.ts`). One more, for the
+team, in Spanish only (es_MX): `credalti_resumen_equipo`
 (nombre, cosas, minutos, lo primero, lo que hizo el sistema, enlace), the
 morning summary (`docs/STAFF.md`). Meta may reject a template whose variables carry whole
 sentences; `cambio` and `trabajo` are short generated phrases, and if Meta

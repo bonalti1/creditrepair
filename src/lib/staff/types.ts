@@ -340,7 +340,7 @@ export interface StaffRound extends StaffRoundTeamFields {}
 
 /** Fields the autopilot adds to a client. */
 export interface StaffClientAutopilotFields {
-  /** The client's language for messages (profiles.locale). Absent: Spanish. */
+  /** The client's language for messages (profiles.locale). Absent: English. */
   locale?: "es" | "en";
   /** Every automatic message, oldest first (outbound_messages). */
   outbound?: OutboundMessage[];

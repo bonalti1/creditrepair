@@ -62,7 +62,7 @@ export const deliverForReal: Deliver = async (client, message) => {
     return result.sent ? { ok: true, providerRef: result.id } : { ok: false, providerRef: null, note: "not_configured" };
   }
   if (choice.channel === "email") {
-    const link = unsubscribeUrl(client.id);
+    const link = unsubscribeUrl(client.id, process.env, message.locale);
     const address = process.env.NEXT_PUBLIC_COMPANY_ADDRESS ?? "";
     if (!link || !address || !client.email) return { ok: false, providerRef: null, note: "email_not_ready" };
     const result = await sendEmail(

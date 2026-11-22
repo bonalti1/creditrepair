@@ -120,7 +120,7 @@ export function draftFacts(client: StaffClient, role: StaffRole | null | undefin
   if (!seesBilling) withheld.push("cobros y pagos");
   return {
     firstName: client.firstName,
-    language: client.locale === "en" ? "en" : "es",
+    language: client.locale === "es" ? "es" : "en",
     stage: STAGES[stage].label,
     stageMeaning: STAGES[stage].description,
     nextStep: nextStep(client, now).text,
@@ -170,7 +170,7 @@ export function conversationLines(client: StaffClient): string[] {
 export const DRAFT_SYSTEM_PROMPT = `Escribes BORRADORES de respuesta para una persona del equipo de ${BRAND.name}. Esa persona lee el borrador, lo corrige si hace falta y lo envía en la conversación del cliente en la app, firmado con su propio nombre. Tú no envías nada.
 
 Sobre ${BRAND.name} (lo que es cierto y se puede decir):
-- Es una empresa de servicios de crédito con servicio completo, en español primero, en Texas.
+- Es una empresa de servicios de crédito con servicio completo, en inglés y en español, en Texas.
 - El cliente firma su acuerdo de servicio; tiene 3 días hábiles para cancelar sin costo y antes de eso la ley no permite empezar ningún trabajo.
 - Sube su identificación y un comprobante de domicilio en la app, y conecta su monitoreo de crédito (una suscripción aparte que le paga al servicio de monitoreo).
 - Revisa cada punto de su reporte con ${BRAND.assistant} (el asistente con IA) y dice cuáles cree que son inexactos y por qué. Esas respuestas son SOLO del cliente.

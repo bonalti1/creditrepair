@@ -11,7 +11,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 const bodySchema = z.object({
   email: z.string().email(),
   state: z.string().length(2),
-  locale: z.enum(["es", "en"]).default("es"),
+  locale: z.enum(["es", "en"]).default("en"),
 });
 
 export async function POST(req: Request) {

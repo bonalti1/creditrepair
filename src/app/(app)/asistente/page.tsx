@@ -327,7 +327,8 @@ export default function Asistente() {
       const res = await fetch("/api/coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [...context, { role: "user", content: q.slice(0, 4000) }] }),
+        // The app's language: AltiBot answers in the language of the question, else in this one.
+        body: JSON.stringify({ messages: [...context, { role: "user", content: q.slice(0, 4000) }], locale }),
       });
       if (res.ok) {
         const { reply, stored } = (await res.json()) as { reply: string | null; stored?: boolean };

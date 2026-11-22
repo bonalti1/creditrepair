@@ -151,10 +151,15 @@ export async function viewPartnerClient(reader: SupabaseClient, clientId: string
 
 // ── Milestone notices ───────────────────────────────────────────────────
 
-/** The WhatsApp template a partner notice goes in (to be approved in Meta). */
+/** The WhatsApp template a partner notice goes in (to be approved in Meta, in en_US and es_MX). */
 export const PARTNER_NOTICE_TEMPLATE = "credalti_socio_avance";
-/** Its body: {{1}} the partner's first name, {{2}} the milestone sentence. */
-export const PARTNER_NOTICE_TEMPLATE_BODY = "Hola, {{1}}. {{2}} Más detalles en tu portal de socios de Credalti.";
+/** Its body in each language: {{1}} the partner's first name, {{2}} the milestone sentence. */
+export const PARTNER_NOTICE_TEMPLATE_BODIES: Record<"es" | "en", string> = {
+  en: "Hi, {{1}}. {{2}} More details in your Credalti partner portal.",
+  es: "Hola, {{1}}. {{2}} Más detalles en tu portal de socios de Credalti.",
+};
+/** The Spanish body (kept under its first name). */
+export const PARTNER_NOTICE_TEMPLATE_BODY = PARTNER_NOTICE_TEMPLATE_BODIES.es;
 
 export interface NoticePartner {
   id: string;
@@ -164,20 +169,39 @@ export interface NoticePartner {
   state: string | null;
   notifyEmail: boolean;
   notifyWhatsapp: boolean;
+  /** The partner's language (partners.locale, migration 0024): the portal's, English unless they chose Spanish. */
+  locale?: "es" | "en";
 }
 
 export type NoticeDeliver = (partner: NoticePartner, text: string, channel: "email" | "whatsapp", key: string) => Promise<{ ok: boolean; note?: string }>;
 
-export function noticeText(partner: Pick<NoticePartner, "name">, milestone: PartnerMilestone): string {
+/** The template's two parameters for a notice: the partner's first name and the milestone sentence, in their language. */
+export function noticeParams(partner: Pick<NoticePartner, "name" | "locale">, milestone: PartnerMilestone): [string, string] {
   const first = partner.name.trim().split(/\s+/)[0] ?? partner.name;
-  return `Hola, ${first}. ${milestone.text.es} Más detalles en tu portal de socios de Credalti.`;
+  return [first, milestone.text[partner.locale === "es" ? "es" : "en"]];
+}
+
+export function noticeText(partner: Pick<NoticePartner, "name" | "locale">, milestone: PartnerMilestone): string {
+  const [first, sentence] = noticeParams(partner, milestone);
+  return PARTNER_NOTICE_TEMPLATE_BODIES[partner.locale === "es" ? "es" : "en"].replace("{{1}}", first).replace("{{2}}", sentence);
+}
+
+/** The two parameters back from a notice's words (the template's fixed text taken off). */
+function paramsFromText(text: string, locale: "es" | "en"): [string, string] | null {
+  const [before, after] = PARTNER_NOTICE_TEMPLATE_BODIES[locale].split("{{2}}") as [string, string];
+  const [lead, rest] = before.split("{{1}}") as [string, string];
+  if (!text.startsWith(lead) || !text.endsWith(after)) return null;
+  const middle = text.slice(lead.length, text.length - after.length);
+  const cut = middle.indexOf(rest);
+  return cut < 0 ? null : [middle.slice(0, cut), middle.slice(cut + rest.length)];
 }
 
 export const deliverNotice: NoticeDeliver = async (partner, text, channel, key) => {
   if (channel === "whatsapp" && partner.phone) {
-    const first = partner.name.trim().split(/\s+/)[0] ?? partner.name;
-    const sentence = text.replace(/^Hola, [^.]+\. /, "").replace(/ Más detalles en tu portal de socios de Credalti\.$/, "");
-    const result = await sendWhatsAppTemplate(partner.phone.replace(/^\+/, ""), { name: PARTNER_NOTICE_TEMPLATE, locale: "es", params: [first, sentence], rendered: text }, "partners:notice");
+    const locale = partner.locale === "es" ? "es" : "en";
+    const params = paramsFromText(text, locale);
+    if (!params) return { ok: false, note: "not_template" };
+    const result = await sendWhatsAppTemplate(partner.phone.replace(/^\+/, ""), { name: PARTNER_NOTICE_TEMPLATE, locale, params, rendered: text }, "partners:notice");
     return result.sent ? { ok: true } : { ok: false, note: "not_configured" };
   }
   if (channel === "email" && partner.email) {
@@ -186,13 +210,13 @@ export const deliverNotice: NoticeDeliver = async (partner, text, channel, key) 
     if (!base || !address) return { ok: false, note: "email_not_ready" };
     const result = await sendEmail({
       to: partner.email,
-      subject: "Avance de tu cliente",
+      subject: partner.locale === "es" ? "Avance de tu cliente" : "Your client's progress",
       text,
       // The partner turns notices off in their portal: that page is the unsubscribe link.
       unsubscribeUrl: `${base}/socios/portal#avisos`,
       postalAddress: address,
       idempotencyKey: key,
-    });
+    }, partner.locale === "es" ? "es" : "en");
     return result.sent ? { ok: true } : { ok: false, note: "not_configured" };
   }
   return { ok: false, note: "no_channel" };
@@ -222,7 +246,7 @@ export async function runPartnerNotices(
   const deliver = deps.deliver ?? deliverNotice;
   const quiet = deps.quiet ?? { quietStartHour: 21, quietEndHour: 8 };
   const summary: NoticeRunSummary = { partners: 0, sent: 0, failed: 0, waitingQuietHours: 0, noChannel: 0 };
-  const { data, error } = await db.from("partners").select("id, name, phone_e164, email, state, notify_email, notify_whatsapp").eq("status", "approved");
+  const { data, error } = await db.from("partners").select("id, name, phone_e164, email, state, notify_email, notify_whatsapp, locale").eq("status", "approved");
   if (error) throw new Error(`partners: ${error.message}`);
   const partners: NoticePartner[] = ((data as Row[] | null) ?? [])
     .map((r) => ({
@@ -233,6 +257,7 @@ export async function runPartnerNotices(
       state: typeof r.state === "string" ? r.state : null,
       notifyEmail: r.notify_email === true,
       notifyWhatsapp: r.notify_whatsapp === true,
+      locale: r.locale === "es" ? ("es" as const) : ("en" as const),
     }))
     .filter((p) => p.notifyEmail || p.notifyWhatsapp);
 

@@ -1,4 +1,5 @@
-// UI chrome dictionaries. Spanish is the source of truth; English mirrors it.
+// UI chrome dictionaries, in English and Spanish. The app is English first,
+// Spanish if needed (detect.ts); the two say the same thing.
 // Longer educational content (explainers, glossary, journey copy) lives beside
 // its domain code and is selected by the same Locale type.
 

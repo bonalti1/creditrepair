@@ -73,11 +73,19 @@ const GRANTS = `
   grant all on all tables in schema public to anon, authenticated;
 `;
 
-/** Starts a fresh database with every migration applied. A few seconds. */
-export async function startHarness(): Promise<Harness> {
+/**
+ * Starts a fresh database with every migration applied. A few seconds.
+ * `before`: stop before that migration file (e.g. "0024_english_default.sql"),
+ * to put rows in place and then run it with `pg.exec` (raw SQL only after that:
+ * the adapter's column list is read here).
+ */
+export async function startHarness(options: { before?: string } = {}): Promise<Harness> {
   const pg = new PGlite();
   await pg.exec(BOOTSTRAP);
-  await pg.exec(readFileSync("supabase/setup.sql", "utf8"));
+  const setup = readFileSync("supabase/setup.sql", "utf8");
+  const cut = options.before ? setup.indexOf(`-- ===== ${options.before} =====`) : -1;
+  if (options.before && cut < 0) throw new Error(`startHarness: no migration ${options.before} in supabase/setup.sql`);
+  await pg.exec(cut >= 0 ? setup.slice(0, cut) : setup);
   await pg.exec(GRANTS);
 
   const columns = new Map<string, Map<string, Column>>();

@@ -11,6 +11,10 @@ import { BRAND } from "../brand";
 // what only the customer can do (signing the agreement, reviewing each item,
 // the attestation). The link holds no phone number, address or account data.
 //
+// Language: the salesperson picks the language they talked with the client in
+// (English by default). The link carries it as `lang`, so the client lands in
+// that language (src/lib/i18n/detect.ts), and the message is written in it.
+//
 // The service is full service: the customer says what is inaccurate and the
 // team prepares and mails the letters. The message below and the reminders for
 // the salesperson (SALES_MAY_SAY, SALES_MAY_NOT_SAY) say exactly that.
@@ -42,6 +46,8 @@ export interface Invite {
    * only if the client has no partner yet.
    */
   partner?: string | null;
+  /** The client's language, as the salesperson chose it: the app opens in it (`lang`). */
+  lang?: "es" | "en" | null;
 }
 
 const cleanName = (value: string | null | undefined): string | null => {
@@ -81,6 +87,8 @@ export function parseInvite(params: { get(name: string): string | null }): Invit
   };
   const partner = toPartnerCode(params.get("p"));
   if (partner) invite.partner = partner;
+  const lang = params.get("lang");
+  if (lang === "es" || lang === "en") invite.lang = lang;
   // A link with nothing usable in it is just the ordinary onboarding.
   return invite.name || invite.goal || invite.state || invite.ref ? invite : null;
 }
@@ -97,11 +105,27 @@ export function buildInvitePath(invite: Partial<Invite>): string {
   if (refName) query.set("rn", refName);
   const partner = toPartnerCode(invite.partner);
   if (partner) query.set("p", partner);
+  if (invite.lang === "es" || invite.lang === "en") query.set("lang", invite.lang);
   const qs = query.toString();
   return qs ? `/onboarding?${qs}` : "/onboarding";
 }
 
-/** The WhatsApp message the salesperson sends with the link. Passes the claim rules. */
+/** The WhatsApp message the salesperson sends with the link, in the client's language. Passes the claim rules. */
+export function inviteMessage(invite: Partial<Invite>, url: string, locale: "es" | "en" = invite.lang === "es" ? "es" : "en"): string {
+  return locale === "es" ? inviteMessageEs(invite, url) : inviteMessageEn(invite, url);
+}
+
+export function inviteMessageEn(invite: Partial<Invite>, url: string): string {
+  const name = cleanName(invite.name);
+  const greeting = name ? `All set, ${name}!` : "All set!";
+  return [
+    `${greeting} Here is your link to ${BRAND.name}:`,
+    url,
+    "There you sign your service agreement, upload your ID and a proof of address, and connect your credit monitoring.",
+    `Then you review your report with ${BRAND.assistant}, the AI assistant. You decide what is inaccurate and why; our team prepares and mails the letters for you. I'm still here if you have questions.`,
+  ].join("\n\n");
+}
+
 export function inviteMessageEs(invite: Partial<Invite>, url: string): string {
   const name = cleanName(invite.name);
   const greeting = name ? `¡Listo, ${name}!` : "¡Listo!";

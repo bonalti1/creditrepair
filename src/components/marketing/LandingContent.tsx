@@ -14,7 +14,7 @@ import { CharacterAvatar, CharacterFigure } from "@/components/Character";
 // the headline. Copy discipline: it describes the service (the client says what is
 // wrong, the team prepares and mails the letters) and never a result. No
 // guarantees, no "we remove / we fix", no price; results vary. The words live
-// in src/lib/i18n/marketing.ts, in Spanish and English.
+// in src/lib/i18n/marketing.ts, in English and Spanish.
 //
 // Sales comes first: with a WhatsApp number configured the main button opens a
 // chat with the team, as on /empezar. Without one (the demo) it leads to

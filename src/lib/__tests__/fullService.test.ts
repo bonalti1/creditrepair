@@ -5,7 +5,7 @@ import { COACH_SYSTEM_PROMPT, coachSystemPrompt } from "@/lib/coach/systemPrompt
 import { assertClaimGuardrails, checkClaimGuardrails, checkMarketingCopy } from "@/lib/compliance/guardrails";
 import { DICTS } from "@/lib/i18n/dictionaries";
 import { MARKETING, marketingStrings } from "@/lib/i18n/marketing";
-import { CLIENT_FALLBACK_REPLY, LEAD_GREETING, renderMessage, type WhatsAppEvent } from "@/lib/integrations/whatsapp";
+import { CLIENT_FALLBACK_REPLIES, CLIENT_FALLBACK_REPLY, LEAD_GREETING, LEAD_GREETINGS, renderMessage, type WhatsAppEvent } from "@/lib/integrations/whatsapp";
 import { inviteMessageEs, SALES_MAY_NOT_SAY, SALES_MAY_SAY } from "@/lib/sales/invite";
 import { isFullService, SERVICE_MODE, type ServiceMode } from "@/lib/service/mode";
 import { HUMAN_HELP } from "@/lib/ux/humanHelp";
@@ -433,31 +433,52 @@ describe("WhatsApp messages", () => {
     { kind: "day40_reengage", deletedCount: 0, remainingCount: 1 },
   ];
 
-  it("pass the claim rules in both modes", () => {
+  it("pass the claim rules in both modes and both languages", () => {
     for (const mode of MODES) {
-      for (const event of events) {
-        expect(checkMarketingCopy(renderMessage(event, mode), mode), `${mode} ${event.kind}`).toEqual([]);
+      for (const locale of ["en", "es"] as const) {
+        for (const event of events) {
+          const text = renderMessage(event, mode, locale);
+          expect(checkMarketingCopy(text, mode), `${mode} ${locale} ${event.kind}`).toEqual([]);
+          expect(checkClaimGuardrails(text, mode), `${mode} ${locale} ${event.kind}`).toEqual([]);
+        }
       }
     }
   });
 
+  it("go in English unless the client chose Spanish", () => {
+    for (const event of events) expect(renderMessage(event, "full_service")).toBe(renderMessage(event, "full_service", "en"));
+    expect(renderMessage({ kind: "report_imported" }, "full_service")).toMatch(/^✅ Your credit report was imported\./);
+    expect(renderMessage({ kind: "report_imported" }, "full_service", "es")).toMatch(/^✅ Tu reporte de crédito fue importado\./);
+  });
+
   it("never ask a full-service client to approve or send", () => {
     for (const event of events) {
-      const text = renderMessage(event, "full_service");
+      const text = renderMessage(event, "full_service", "es");
       expect(text, event.kind).not.toMatch(/aprobaci[oó]n|aprueba|presiona enviar|tú envías|armar tu próxima/i);
-      expect(text).toBe(renderMessage(event));
+      const en = renderMessage(event, "full_service", "en");
+      expect(en, event.kind).not.toMatch(/for your approval|press send|you send|put together your next/i);
     }
-    expect(renderMessage({ kind: "attack_ready", roundNumber: 2 }, "full_service")).toMatch(
+    expect(renderMessage({ kind: "attack_ready", roundNumber: 2 }, "full_service", "es")).toMatch(
       /Tu equipo está preparando tu ronda de cartas #2.*No tienes que aprobar ni enviar nada\./,
     );
-    expect(renderMessage({ kind: "letters_mailed", roundNumber: 1, letterCount: 1 }, "full_service")).toMatch(
+    expect(renderMessage({ kind: "attack_ready", roundNumber: 2 }, "full_service", "en")).toMatch(
+      /Your team is preparing your round #2 of letters.*You don't have to approve or send anything\./,
+    );
+    expect(renderMessage({ kind: "letters_mailed", roundNumber: 1, letterCount: 1 }, "full_service", "es")).toMatch(
       /Tu equipo envió por correo la carta de tu ronda #1\./,
     );
-    expect(renderMessage({ kind: "day40_reengage", deletedCount: 0, remainingCount: 1 }, "full_service")).toMatch(
+    expect(renderMessage({ kind: "letters_mailed", roundNumber: 1, letterCount: 1 }, "full_service", "en")).toMatch(
+      /Your team mailed the letter for your round #1\./,
+    );
+    expect(renderMessage({ kind: "day40_reengage", deletedCount: 0, remainingCount: 1 }, "full_service", "es")).toMatch(
       /Revisamos tu reporte de nuevo: el elemento sigue en tu reporte\./,
     );
+    expect(renderMessage({ kind: "day40_reengage", deletedCount: 0, remainingCount: 1 }, "full_service", "en")).toMatch(
+      /We checked your report again: the item is still on your report\./,
+    );
     // Self-serve keeps its wording.
-    expect(renderMessage({ kind: "attack_ready", roundNumber: 2 }, "self_serve")).toMatch(/Tú decides, tú envías\./);
+    expect(renderMessage({ kind: "attack_ready", roundNumber: 2 }, "self_serve", "es")).toMatch(/Tú decides, tú envías\./);
+    expect(renderMessage({ kind: "attack_ready", roundNumber: 2 }, "self_serve", "en")).toMatch(/You decide, you send\./);
   });
 
   it("introduce the assistant as AI and hand a lead to a person", () => {
@@ -467,6 +488,15 @@ describe("WhatsApp messages", () => {
       expect(text).not.toMatch(/preparar tus cartas|\$/);
     }
     expect(LEAD_GREETING).toMatch(/Una persona de nuestro equipo te responde aquí mismo/);
+    // The same in English, the default for anyone who writes in English or chose it.
+    expect(CLIENT_FALLBACK_REPLIES.es).toBe(CLIENT_FALLBACK_REPLY);
+    expect(LEAD_GREETINGS.es).toBe(LEAD_GREETING);
+    for (const text of [CLIENT_FALLBACK_REPLIES.en, LEAD_GREETINGS.en]) {
+      expect(checkMarketingCopy(text), text).toEqual([]);
+      expect(text).toContain(`I'm ${ASSISTANT_NAME}, Credalti's AI assistant`);
+      expect(text).not.toMatch(/prepare your letters|\$/);
+    }
+    expect(LEAD_GREETINGS.en).toMatch(/A person on our team will answer you right here/);
     const webhook = readFileSync("src/app/api/webhooks/whatsapp/route.ts", "utf8");
     expect(webhook).toContain("Esta persona todavía no es cliente");
   });

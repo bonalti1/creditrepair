@@ -5,6 +5,7 @@ import type { DisputeReasonCode } from "../letters/reasons";
 import { isSupabaseConfigured } from "../supabase/config";
 import { fetchClientRound } from "./caseApi";
 import { isDisputeReasonCode } from "./disputeReason";
+import { useLocale } from "../i18n";
 
 // Shared review state so the user's decisions follow them across pages
 // (dashboard, item wizard, letters page). One of the core "10x" bets: the
@@ -92,6 +93,8 @@ export function roundSnapshot(flags: FlagsMap, fingerprints: readonly string[], 
 }
 
 export function useFlags() {
+  // The language the client is reading: the attestation text recorded with a confirmed item is the one they saw.
+  const { locale } = useLocale();
   const [flags, setFlags] = useState<FlagsMap>({});
   const [roundApproved, setRoundApprovedState] = useState(false);
   const [mailedFlags, setMailedFlags] = useState<FlagsMap | null>(null);
@@ -172,10 +175,10 @@ export function useFlags() {
       fetch("/api/flags", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fingerprint, state, reason, reasonCode, checkIds, locale: "es" }),
+        body: JSON.stringify({ fingerprint, state, reason, reasonCode, checkIds, locale }),
       }).catch(() => undefined);
     },
-    [synced],
+    [synced, locale],
   );
 
   const review = useCallback(

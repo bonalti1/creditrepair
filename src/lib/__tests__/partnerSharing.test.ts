@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { checkMarketingCopy } from "../compliance/guardrails";
+import { checkClaimGuardrails, checkMarketingCopy } from "../compliance/guardrails";
 import { EMPTY_CASE_FACTS } from "../case/timeline";
 import { partnerRules } from "../partners/copy";
 import { checkLogo } from "../partners/logo";
@@ -24,7 +24,7 @@ import {
 } from "../partners/sharing";
 import { CLIENT_SHARING_COPY, howItWorksCopy, PARTNER_SHARING_COPY } from "../partners/sharingCopy";
 import { currentShares } from "../partners/sharingStaff";
-import { noticeText, PARTNER_NOTICE_TEMPLATE_BODY } from "../partners/sharingServer";
+import { noticeParams, noticeText, PARTNER_NOTICE_TEMPLATE_BODIES, PARTNER_NOTICE_TEMPLATE_BODY } from "../partners/sharingServer";
 import { PARTNER_CLIENT_TERMS_VERSION, partnerTerms, partnerTermsHash } from "../partners/terms";
 
 // Partner sharing, the pure parts: the consent text and its hash, what a
@@ -195,10 +195,20 @@ describe("milestone notices", () => {
 
   it("the words carry only the milestone, and fit the approved template", () => {
     const [m] = noticesDue({ ...base, rounds: [{ ...base.rounds[0]!, mailedAt: ago(1) }] }, "p1", new Set(), NOW);
-    const text = noticeText({ name: "Laura Benítez" }, m!);
+    // A partner who chose Spanish.
+    const text = noticeText({ name: "Laura Benítez", locale: "es" }, m!);
     expect(text).toBe("Hola, Laura. Salieron las cartas de la ronda 1 de Rosa. Los burós tienen unos 30 días para responder. Más detalles en tu portal de socios de Credalti.");
     expect(PARTNER_NOTICE_TEMPLATE_BODY.replace("{{1}}", "Laura").replace("{{2}}", m!.text.es)).toBe(text);
     expect(checkMarketingCopy(text, "full_service")).toEqual([]);
+    // English: the default, with its own approved body under the same template name.
+    for (const partner of [{ name: "Laura Benítez" }, { name: "Laura Benítez", locale: "en" as const }]) {
+      const en = noticeText(partner, m!);
+      expect(en).toBe("Hi, Laura. Rosa's round 1 letters were mailed. The bureaus have about 30 days to answer. More details in your Credalti partner portal.");
+      expect(PARTNER_NOTICE_TEMPLATE_BODIES.en.replace("{{1}}", "Laura").replace("{{2}}", m!.text.en)).toBe(en);
+      expect(noticeParams(partner, m!)).toEqual(["Laura", m!.text.en]);
+      expect(checkMarketingCopy(en, "full_service")).toEqual([]);
+      expect(checkClaimGuardrails(en)).toEqual([]);
+    }
   });
 });
 

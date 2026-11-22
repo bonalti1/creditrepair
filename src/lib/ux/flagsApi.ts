@@ -26,7 +26,7 @@ export const flagPutSchema = z
      * the reason picked (see storedCheckIds). The text is never taken from here.
      */
     checkIds: z.array(z.string().min(1).max(200)).max(20).optional(),
-    locale: z.enum(["es", "en"]).default("es"),
+    locale: z.enum(["es", "en"]).default("en"),
   })
   .superRefine((value, ctx) => {
     if (value.state === "attested" && !value.reasonCode) {

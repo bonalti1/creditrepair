@@ -70,7 +70,7 @@ export default function SociosContent() {
       return;
     }
     try {
-      const res = await fetch("/api/partners/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+      const res = await fetch("/api/partners/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...input, locale }) });
       setStatus(res.ok ? "done" : "error");
     } catch {
       setStatus("error");

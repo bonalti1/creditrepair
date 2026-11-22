@@ -35,6 +35,16 @@ const FIXABLE: ReadonlyArray<{ test: RegExp; en: string }> = [
   { test: /dirección del documento no coincide/i, en: "the address on it does not match the mailing address in your account" },
 ];
 
+/**
+ * One of the check's lines in English, for a client reading the app in
+ * English ("The photo is blurry."); null for a line with no English wording
+ * here (the page then says a person on the team will look).
+ */
+export function reasonInEnglish(line: string): string | null {
+  const match = FIXABLE.find((f) => f.test.test(line.trim()));
+  return match ? `${match.en.charAt(0).toUpperCase()}${match.en.slice(1)}.` : null;
+}
+
 /** Lines that only say what passed: neither a doubt nor a reason to stop. */
 const NEUTRAL = /^(es |se lee con claridad|el nombre coincide|no está vencida|no muestra fecha|la dirección coincide)/i;
 

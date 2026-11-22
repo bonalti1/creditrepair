@@ -54,7 +54,9 @@ export function attachDemoAutopilot(clients: StaffClient[], now: Date): StaffCli
   }
 
   const byId = (id: string) => clients.find((c) => c.id === id);
+  // The invented clients chose Spanish (a client with no saved language reads English);
   // Ximena reads in English.
+  for (const client of clients) client.locale ??= "es";
   const ximena = byId("c22");
   if (ximena) ximena.locale = "en";
   // Itzel wrote yesterday (her question): the WhatsApp window is open.

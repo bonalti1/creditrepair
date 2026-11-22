@@ -8,7 +8,7 @@ import { header, itemLines, signature as SIGNATURE, type LetterContext, type Let
 // what the client told us is inaccurate. Under full service the team prepares
 // and mails them for the client; the wording is the same either way and is
 // pending attorney review (docs/LETTER-LIBRARY.md). Letters mail in English (bureau operational language); the UI that
-// explains them is Spanish-first.
+// explains them is in English or Spanish, the client's choice.
 //
 // This file is the home of the original ten templates, which the round engine
 // uses by key. Their wording is unchanged. The wider library lives in the

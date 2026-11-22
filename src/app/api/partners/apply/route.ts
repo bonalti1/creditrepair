@@ -23,6 +23,8 @@ const bodySchema = z.object({
   email: z.string().max(200).optional().nullable(),
   state: z.string().max(4).optional().nullable(),
   acceptsTerms: z.boolean(),
+  /** The language the page was read in: the partner's notices go out in it (partners.locale). */
+  locale: z.enum(["es", "en"]).optional(),
   /** The hidden field. */
   website: z.string().max(200).optional(),
 });
@@ -70,6 +72,7 @@ export async function POST(req: Request) {
         status: "pending",
         terms_version: PARTNER_TERMS_VERSION,
         terms_accepted_at: now,
+        locale: parsed.data.locale ?? "en",
       })
       .select("id")
       .single();

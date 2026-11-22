@@ -384,10 +384,13 @@ describe("milestone notices to partners", () => {
     // Mid-day: Rosa's recent milestone (her round's 30 days are not up; documents and signing are older than 3 days)...
     const noon = new Date();
     noon.setUTCHours(18, 0, 0, 0);
+    // The round must be mailed after Rosa started sharing (just now), or it is old news: the next mid-day at least 2 hours away.
+    if (noon.getTime() < Date.now() + 2 * 60 * 60 * 1000) noon.setUTCDate(noon.getUTCDate() + 1);
     await h.service.from("attack_rounds").insert({ user_id: A, round_number: 2, status: "mailed", mailed_at: new Date(noon.getTime() - 60 * 60 * 1000).toISOString() });
     const first = await runPartnerNotices(h.service, noon, { channels, deliver });
     expect(first.sent).toBeGreaterThan(0);
-    expect(sent.join(" ")).toMatch(/ronda 2 de Rosa/);
+    // Laura has no saved language: English (migration 0024).
+    expect(sent.join(" ")).toMatch(/Rosa's round 2 letters were mailed/);
     for (const text of sent) for (const secret of [...itemNames, "Equifax", "742 Calle"]) expect(text).not.toContain(secret);
     const again = await runPartnerNotices(h.service, noon, { channels, deliver });
     expect(again.sent).toBe(0);

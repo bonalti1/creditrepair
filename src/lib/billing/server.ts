@@ -243,7 +243,7 @@ export function databaseChargeStore(db: SupabaseClient, userId: string, roundIds
 async function tellClient(db: SupabaseClient, userId: string, message: { es: string; en: string }, context: string, options: { whatsapp?: boolean } = {}): Promise<void> {
   try {
     const { data: profile } = await db.from("profiles").select("phone_e164, locale").eq("id", userId).maybeSingle();
-    const locale: L = profile?.locale === "en" ? "en" : "es";
+    const locale: L = profile?.locale === "es" ? "es" : "en";
     const body = message[locale];
     await db.from("chat_messages").insert({ user_id: userId, channel: "app", role: "assistant", source: "journey", body });
     if (options.whatsapp !== false && profile?.phone_e164 && !(await isOptedOut(db, userId))) await sendWhatsAppText(profile.phone_e164 as string, body, context);

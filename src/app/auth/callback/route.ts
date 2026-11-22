@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getStaffMember } from "@/lib/staff/access";
 import { getPartnerMember, hasPartnerApplication } from "@/lib/partners/server";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { requestLocale } from "@/lib/i18n/server";
 
 // Magic-link landing: exchange the auth code for a session cookie, then go on.
 // A member of the team (from their own staff record) goes to the console and
@@ -25,7 +26,9 @@ export async function GET(req: Request) {
         // A referral partner: their portal, and no client profile.
         next = "/socios/portal";
       } else {
-        await supabase.from("profiles").upsert({ id: data.user.id }, { onConflict: "id", ignoreDuplicates: true });
+        // A new profile starts in the language the visitor was reading (saved choice or browser; English otherwise).
+        const { locale } = await requestLocale();
+        await supabase.from("profiles").upsert({ id: data.user.id, locale }, { onConflict: "id", ignoreDuplicates: true });
       }
     }
   }
