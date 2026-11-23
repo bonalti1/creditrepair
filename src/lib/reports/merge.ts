@@ -1,5 +1,6 @@
 import { diffReports, diffSummary, type ReportDiff } from "../domain/diff";
 import { parseReport, type RawReport } from "../domain/parser";
+import { dedupePersonalInfo, type PersonalInfoRepeat } from "../domain/personalInfo";
 import type { Bureau, ItemCategory, NormalizedReport, ReportItem } from "../domain/types";
 import { FRESH_REPORT_DAYS } from "../monitoring/subscription";
 import {
@@ -15,6 +16,15 @@ import {
 import { count, longDay } from "../staff/format";
 import type { ReportImport, RoundResult, StaffClient, StaffRound } from "../staff/types";
 import { itemFacts } from "../ux/itemDisplay";
+import {
+  changeRecords,
+  openRoundMarks,
+  personalInfoChanges,
+  reappearedItems,
+  type OpenRoundMark,
+  type PersonalInfoChange,
+  type ReappearedItem,
+} from "./reimport";
 
 // Bringing a report into a client's record, in two steps that share one plan:
 //
@@ -41,6 +51,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export interface ImportPlan {
   /** The report as it would be saved. */
   report: NormalizedReport;
+  /**
+   * The report in the app's own format as it is saved: the one read, with
+   * repeated personal information taken out (domain/personalInfo.ts).
+   */
+  raw: RawReport;
+  /** Personal-information entries not added again: already in the client's file, or listed twice. */
+  personalInfoRepeats: PersonalInfoRepeat[];
   /** The report it replaces; null on a first report. */
   previous: NormalizedReport | null;
   /** Against `previous`; null on a first report. */
@@ -74,7 +91,10 @@ function coveredFingerprints(round: StaffRound): Set<string> {
  */
 export function planImport(client: StaffClient, raw: RawReport, at: string, locale: "es" | "en" = "es"): ImportPlan {
   const en = locale === "en";
-  const parsed = parseReport(raw);
+  // Repeated names, addresses, birth dates and employers are not added again: an entry the file
+  // already has keeps the file's own spelling (and so its fingerprint and the client's answer).
+  const deduped = dedupePersonalInfo(raw, client.report);
+  const parsed = parseReport(deduped.raw);
   const now = new Date(at).getTime();
   const pulled = new Date(parsed.pulledAt).getTime();
   // A report dated a few hours ahead is a clock or time-zone difference: it
@@ -136,7 +156,7 @@ export function planImport(client: StaffClient, raw: RawReport, at: string, loca
     resetRound = unsent?.number ?? null;
   }
 
-  return { report, previous, diff, blocked, round, resetRound };
+  return { report, raw: { ...deduped.raw, pulledAt: report.pulledAt }, personalInfoRepeats: deduped.repeats, previous, diff, blocked, round, resetRound };
 }
 
 // ── Saving ──────────────────────────────────────────────────────────────
@@ -196,6 +216,7 @@ export function mergeReport(client: StaffClient, raw: RawReport, meta: ImportMet
     added: plan.diff?.added.length ?? 0,
     changed: plan.diff?.changed.length ?? 0,
     closedRound: plan.round?.closes ? plan.round.number : null,
+    ...importExtras(client, plan, raw),
   };
 
   return {
@@ -203,6 +224,26 @@ export function mergeReport(client: StaffClient, raw: RawReport, meta: ImportMet
     report: plan.report,
     rounds,
     reportImports: [...(client.reportImports ?? []), record],
+  };
+}
+
+/**
+ * What an import record keeps besides the counts: the repeats skipped, the
+ * items that came back, and what happened to each disputed personal detail.
+ * The same facts the preview shows, so the Reports tab reads them back later.
+ */
+export function importExtras(
+  client: StaffClient,
+  plan: Pick<ImportPlan, "report" | "personalInfoRepeats" | "previous">,
+  raw: Pick<RawReport, "bureaus">,
+): Pick<ReportImport, "skippedPersonalInfo" | "reappeared" | "personalInfo" | "source"> {
+  const covered = BUREAU_ORDER.filter((bureau) => raw.bureaus[bureau]);
+  const changes = plan.previous ? personalInfoChanges(client.rounds, plan.report, covered) : [];
+  return {
+    source: plan.report.source,
+    skippedPersonalInfo: plan.personalInfoRepeats.length,
+    reappeared: reappearedItems(client.rounds, plan.report).length,
+    personalInfo: changeRecords(changes),
   };
 }
 
@@ -256,6 +297,18 @@ export interface ImportPreview {
   notes: string[];
   /** Where the client stands before and after saving; null when blocked. */
   after: { stageBefore: Stage; stageAfter: Stage; next: NextStep } | null;
+  /** Personal-information entries not added again (already in the client's file, or listed twice). */
+  personalInfoRepeats: PersonalInfoRepeat[];
+  /**
+   * Items on this report that a round still open covers: mailed and waiting
+   * for the bureaus ("Already disputed"), or prepared and not mailed. A label
+   * only, so nobody disputes the same item twice.
+   */
+  inOpenRound: Array<{ item: ReportItem; mark: OpenRoundMark }>;
+  /** Items a round recorded as gone that this report lists again (FCRA § 611(a)(5)(B)). */
+  reappeared: ReappearedItem[];
+  /** Each name, address, birth date or employer a mailed round disputed: no longer appears, or still reporting. Empty on a first report. */
+  personalInfoChanges: PersonalInfoChange[];
 }
 
 function emptyCategoryCount(): Record<ItemCategory, number> {
@@ -350,8 +403,23 @@ export function importPreview(client: StaffClient, raw: RawReport, at: string, l
     };
   }
 
+  const marks = openRoundMarks(client.rounds);
+  const inOpenRound = report.items.flatMap((item) => {
+    const mark = marks.get(item.fingerprint);
+    return mark ? [{ item, mark }] : [];
+  });
+  const reappeared = reappearedItems(client.rounds, report);
+  const covered = BUREAU_ORDER.filter((bureau) => raw.bureaus[bureau]);
+  const reimport = {
+    personalInfoRepeats: plan.personalInfoRepeats,
+    inOpenRound,
+    reappeared,
+    personalInfoChanges: previous ? personalInfoChanges(client.rounds, report, covered) : [],
+  };
+
   if (plan.blocked) {
     return {
+      ...reimport,
       reportDate: report.pulledAt,
       ageDays,
       total: report.items.length,
@@ -453,7 +521,17 @@ export function importPreview(client: StaffClient, raw: RawReport, at: string, l
   const merged = mergeReport(client, raw, { at, by: "", readerKey: "" });
   const after = { stageBefore: clientStage(client, now), stageAfter: clientStage(merged, now), next: nextStep(merged, now, locale) };
 
+  if (reappeared.length > 0) {
+    effects.push(
+      L(
+        `${count(reappeared.length, "punto que una ronda anterior vio desaparecer vuelve", "puntos que una ronda anterior vio desaparecer vuelven")} a aparecer. Queda marcado «Volvió a aparecer» para la revisión del cliente y puede ir en la próxima ronda si el cliente dice que es inexacto.`,
+        `${count(reappeared.length, "item a past round saw disappear shows", "items a past round saw disappear show")} up again. It's marked “Reappeared” for the client's review and can go in the next round if the client says it's inaccurate.`,
+      ),
+    );
+  }
+
   return {
+    ...reimport,
     reportDate: report.pulledAt,
     ageDays,
     total,

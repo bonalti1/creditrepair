@@ -4,6 +4,7 @@ import { useId, useMemo, useRef, useState } from "react";
 import type { RawReport } from "@/lib/domain/parser";
 import type { ItemCategory, ReportItem } from "@/lib/domain/types";
 import { BUREAU_NAME, importPreview, toRawReport, type ImportPreview } from "@/lib/reports/merge";
+import { changesByBureau, type OpenRoundMark } from "@/lib/reports/reimport";
 import {
   ACCEPTED_FILE_EXTENSIONS,
   getReportReader,
@@ -75,23 +76,107 @@ function download(fileName: string, text: string) {
   URL.revokeObjectURL(url);
 }
 
-function ItemRow({ item, children, flagged }: { item: ReportItem; children?: React.ReactNode; flagged?: boolean }) {
+/** "Already disputed · round 5" for a mailed round; "In round 6 · not mailed" for one only prepared. */
+function OpenRoundChip({ mark }: { mark: OpenRoundMark }) {
+  const t = useTx();
+  return (
+    <Chip tone="bg-slate-200 text-slate-600">
+      {mark.status === "mailed"
+        ? t(`Ya disputado · ronda ${mark.round}`, `Already disputed · round ${mark.round}`)
+        : t(`En la ronda ${mark.round} · sin enviar`, `In round ${mark.round} · not mailed`)}
+    </Chip>
+  );
+}
+
+function ItemRow({
+  item,
+  children,
+  flagged,
+  mark,
+  reappeared,
+}: {
+  item: ReportItem;
+  children?: React.ReactNode;
+  flagged?: boolean;
+  /** The open round that covers it: the row is greyed so nobody disputes it twice. */
+  mark?: OpenRoundMark;
+  reappeared?: boolean;
+}) {
   const { locale } = useStaffLocale();
   const t = useTx();
   return (
-    <li className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-2">
+    <li className={`flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-2 ${mark ? "opacity-60" : ""}`} data-open-round={mark ? mark.round : undefined}>
       <div className="min-w-0 flex-1 basis-56">
-        <p className="break-words text-[14px] leading-snug text-slate-900">
+        <p className={`break-words text-[14px] leading-snug ${mark ? "text-slate-500" : "text-slate-900"}`}>
           <span className="text-slate-500">{BUREAU_NAME[item.bureau]} · </span>
           {itemLabel(item, locale)}
         </p>
         {children}
       </div>
       <span className="flex shrink-0 flex-wrap gap-1.5">
+        {reappeared && <Chip tone="bg-amber-100 text-blue-900">{t("Volvió a aparecer", "Reappeared")}</Chip>}
+        {mark && <OpenRoundChip mark={mark} />}
         {flagged && <Chip tone="bg-amber-100 text-blue-900">{t("Revisar", "Check")}</Chip>}
         {item.negative && <Chip tone="bg-slate-100 text-slate-600">{t("Se ve negativo", "Looks negative")}</Chip>}
       </span>
     </li>
+  );
+}
+
+const KIND_LABEL: Record<StaffLocale, Record<string, string>> = {
+  en: { name: "Name", address: "Address", dob: "Birth date", employer: "Employer", other: "Other" },
+  es: { name: "Nombre", address: "Dirección", dob: "Fecha de nacimiento", employer: "Empleador", other: "Otro" },
+};
+
+/**
+ * Each name, address, birth date or employer a mailed round disputed, bureau
+ * by bureau: no longer appears, or still reporting. Staff-facing: "deleted"
+ * may be said here (never to a client).
+ */
+export function PersonalInfoChanges({ preview }: { preview: Pick<ImportPreview, "personalInfoChanges"> }) {
+  const { locale } = useStaffLocale();
+  const t = useTx();
+  const groups = changesByBureau(preview.personalInfoChanges);
+  if (groups.length === 0) return null;
+  const gone = preview.personalInfoChanges.filter((c) => c.status === "no_longer_appears").length;
+  const still = preview.personalInfoChanges.length - gone;
+  return (
+    <div className="mt-5" data-testid="personal-info-changes">
+      <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Cambios en datos personales", "Personal info changes")}</p>
+      <p className="mt-1 text-[14px] leading-snug text-slate-600">
+        {t(
+          `De los datos personales que se disputaron: ${gone} ya no ${gone === 1 ? "aparece" : "aparecen"} (el buró los borró) y ${still} ${still === 1 ? "sigue" : "siguen"} en el reporte.`,
+          `Of the personal details that were disputed: ${gone} no longer ${gone === 1 ? "appears" : "appear"} (the bureau deleted ${gone === 1 ? "it" : "them"}) and ${still} ${still === 1 ? "is" : "are"} still reporting.`,
+        )}
+      </p>
+      <div className="mt-2 grid gap-3 sm:grid-cols-3">
+        {groups.map(({ bureau, entries }) => (
+          <div key={bureau} className="rounded-2xl bg-slate-50 px-4 py-3">
+            <p className="text-[14px] font-semibold text-slate-900">{BUREAU_NAME[bureau]}</p>
+            <ul className="mt-1.5 space-y-2">
+              {entries.map((change) => {
+                const value = String((change.item.data as { value?: unknown }).value ?? change.item.name);
+                return (
+                  <li key={change.item.fingerprint} className="text-[13px] leading-snug">
+                    <span className="block text-slate-500">
+                      {KIND_LABEL[locale][change.kind]} · {t(`ronda ${change.round}`, `round ${change.round}`)}
+                    </span>
+                    <span className="block break-words text-slate-900">{value}</span>
+                    <span className="mt-1 inline-block">
+                      {change.status === "no_longer_appears" ? (
+                        <Chip tone="bg-green-50 text-green-700">{t("Ya no aparece", "No longer appears")}</Chip>
+                      ) : (
+                        <Chip tone="bg-slate-200 text-slate-700">{t("Sigue reportándose", "Still reporting")}</Chip>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -111,6 +196,8 @@ function Preview({ preview, flagged }: { preview: ImportPreview; flagged?: Reado
   const t = useTx();
   const STAGES = STAGE_TEXT[locale];
   const comparison = preview.comparison;
+  const marks = new Map(preview.inOpenRound.map(({ item, mark }) => [item.fingerprint, mark]));
+  const reappearedSet = new Set(preview.reappeared.map((r) => r.item.fingerprint));
   return (
     <div data-testid="import-preview">
       <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Lo que trae este reporte", "What this report has")}</p>
@@ -156,12 +243,79 @@ function Preview({ preview, flagged }: { preview: ImportPreview; flagged?: Reado
           </li>
         ))}
       </ul>
+      {preview.personalInfoRepeats.length > 0 && (
+        <details className="mt-3 rounded-2xl bg-slate-50 px-4 py-3" data-testid="pi-repeats">
+          <summary className="cursor-pointer list-none text-[14px] leading-snug text-slate-700 [&::-webkit-details-marker]:hidden">
+            <span className="font-semibold text-slate-900">
+              {t(
+                `${count(preview.personalInfoRepeats.length, "dato personal repetido no se agrega", "datos personales repetidos no se agregan")}.`,
+                `${count(preview.personalInfoRepeats.length, "repeat personal-info entry", "repeat personal-info entries")} skipped.`,
+              )}
+            </span>{" "}
+            {t("Ya están en el expediente del cliente o el reporte los trae dos veces.", "They're already in the client's file, or the report lists them twice.")}{" "}
+            <span className="font-medium text-blue-700">{t("Ver cuáles", "See which")}</span>
+          </summary>
+          <ul className="mt-2 space-y-1 text-[13px] leading-snug text-slate-600">
+            {preview.personalInfoRepeats.map((r, i) => (
+              <li key={`${r.bureau}-${i}`} className="break-words">
+                {BUREAU_NAME[r.bureau]} · {r.value}
+                {r.value !== r.keptValue ? <span className="text-slate-500"> → {r.keptValue}</span> : null}
+                <span className="text-slate-500"> · {r.reason === "on_file" ? t("ya en el expediente", "already on file") : t("repetido en el reporte", "listed twice")}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       <p className="mt-2 text-xs leading-relaxed text-slate-500">
         {t(
           "«Se ve negativo» es una lectura automática del reporte (cobranzas, pagos tardíos, consultas duras). No decide nada: solo el cliente dice qué es inexacto.",
           "“Looks negative” is an automatic reading of the report (collections, late payments, hard inquiries). It decides nothing: only the client says what's inaccurate.",
         )}
       </p>
+
+      {preview.reappeared.length > 0 && (
+        <div className="mt-5 rounded-2xl bg-amber-50 px-4 py-3" data-testid="import-reappeared">
+          <p className="text-[14px] font-semibold text-blue-900">
+            {t("Volvieron a aparecer", "Reappeared")} <span className="font-normal tabular-nums">· {preview.reappeared.length}</span>
+          </p>
+          <p className="mt-0.5 text-[13px] leading-snug text-blue-900/80">
+            {t(
+              "Un reporte anterior ya no los mostraba. Cuando un buró vuelve a poner un dato que borró, la ley (FCRA § 611(a)(5)(B)) le pide que el acreedor certifique que es exacto y que le avise al cliente por escrito en 5 días hábiles. Quedan para la revisión del cliente: solo el cliente decide si se disputan otra vez.",
+              "An earlier report no longer showed them. When a bureau puts back an item it deleted, the law (FCRA § 611(a)(5)(B)) requires the furnisher to certify it's accurate and the bureau to tell the client in writing within 5 business days. They go to the client's review: only the client decides whether they're disputed again.",
+            )}
+          </p>
+          <ul className="mt-1 divide-y divide-amber-100">
+            {preview.reappeared.map(({ item, round, goneOn }) => (
+              <ItemRow key={item.fingerprint} item={item} reappeared flagged={flagged?.has(item.fingerprint)}>
+                <p className="text-[13px] leading-snug text-slate-600">
+                  {t(`Ya no aparecía en el reporte del ${longDay(goneOn, "es")} (ronda ${round}).`, `It was gone on the ${longDay(goneOn, "en")} report (round ${round}).`)}
+                </p>
+              </ItemRow>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {preview.inOpenRound.length > 0 && (
+        <div className="mt-5" data-testid="import-already-disputed">
+          <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">
+            {t("Ya en una ronda abierta", "Already in an open round")} <span className="font-normal tabular-nums normal-case">· {preview.inOpenRound.length}</span>
+          </p>
+          <p className="mt-0.5 text-[13px] leading-snug text-slate-500">
+            {t(
+              "Están en gris para que nadie los dispute dos veces. Es solo una etiqueta: no cambia la ronda ni lo que dijo el cliente.",
+              "Greyed out so nobody disputes them twice. It's only a label: it doesn't change the round or what the client said.",
+            )}
+          </p>
+          <ul className="mt-1 divide-y divide-slate-100">
+            {preview.inOpenRound.map(({ item, mark }) => (
+              <ItemRow key={item.fingerprint} item={item} mark={mark} flagged={flagged?.has(item.fingerprint)} />
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <PersonalInfoChanges preview={preview} />
 
       {comparison && (
         <div className="mt-5" data-testid="import-changes">
@@ -180,14 +334,14 @@ function Preview({ preview, flagged }: { preview: ImportPreview; flagged?: Reado
             </Group>
             <Group title={t("Nuevos", "New")} n={comparison.added.length}>
               {comparison.added.map((item) => (
-                <ItemRow key={item.fingerprint} item={item} flagged={flagged?.has(item.fingerprint)}>
+                <ItemRow key={item.fingerprint} item={item} flagged={flagged?.has(item.fingerprint)} mark={marks.get(item.fingerprint)} reappeared={reappearedSet.has(item.fingerprint)}>
                   <p className="text-[13px] leading-snug text-slate-500">{t("Queda pendiente de la revisión del cliente.", "Waits for the client's review.")}</p>
                 </ItemRow>
               ))}
             </Group>
             <Group title={t("Cambiaron", "Changed")} n={comparison.changed.length}>
               {comparison.changed.map(({ item, differences }) => (
-                <ItemRow key={item.fingerprint} item={item} flagged={flagged?.has(item.fingerprint)}>
+                <ItemRow key={item.fingerprint} item={item} flagged={flagged?.has(item.fingerprint)} mark={marks.get(item.fingerprint)}>
                   {differences.map((line) => (
                     <p key={line} className="break-words text-[13px] leading-snug text-slate-600">
                       {line}

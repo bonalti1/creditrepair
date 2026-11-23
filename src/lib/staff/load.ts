@@ -121,6 +121,12 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     optionalRows(sel("letters", "id, remail_of"), "letters"),
   ]);
 
+  // Households (migration 0027): the household rows this member may read, and the discount links.
+  const [households, householdLinks] = await Promise.all([
+    optionalRows(db.from("household_members").select("id, primary_user_id, primary_prospect_id, member_prospect_id, primary_name, member_name, relationship, link_id, ended_at"), "household_members"),
+    optionalRows(db.from("household_links").select("id, user_a, user_b, ended_at"), "household_links"),
+  ]);
+
   // Chargebacks (migration 0026): administrators read them; another role gets none.
   const chargebacks = await optionalRows(sel("chargebacks", "*"), "chargebacks");
 
@@ -183,6 +189,8 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     resolutions,
     remails: remails.filter((r) => r.remail_of),
     chargebacks,
+    households,
+    householdLinks,
   };
 }
 

@@ -21,6 +21,7 @@ import SpeakButton from "@/components/SpeakButton";
 import Icon from "@/components/Icon";
 import ItemFacts from "@/components/ItemFacts";
 import { InfoNote } from "@/components/RoundNotes";
+import { REAPPEARED_BADGE, reappearedExplanation } from "@/lib/ux/reappeared";
 import DataChecks from "@/components/DataChecks";
 
 // Guided review wizard — the anti-Dispute-Beast item experience. Instead of a
@@ -131,6 +132,7 @@ export default function Items() {
           remaining={pending.length}
           otherBureaus={crossBureauNote(current, items, flags, locale)?.text ?? null}
           checks={checksForItem(checks, current.fingerprint)}
+          reappearedOn={view.reappeared.find((r) => r.fingerprint === current.fingerprint)?.goneOn ?? null}
           lettersOut={roundApproved}
           onCorrect={() => {
             review(current.fingerprint, "correct");
@@ -162,6 +164,7 @@ export default function Items() {
             const heading = itemTitle(item, locale);
             // Shown in the list only when the same account has two different answers.
             const otherBureaus = crossBureauNote(item, items, flags, locale);
+            const back = view.reappeared.find((r) => r.fingerprint === item.fingerprint);
             return (
               <div key={item.fingerprint} className={`px-5 py-4 ${index > 0 ? "border-t hairline" : ""}`}>
                 <div className="flex items-center gap-3">
@@ -170,6 +173,11 @@ export default function Items() {
                     <p className="break-words text-[17px] font-medium leading-snug text-slate-900">{heading.title}</p>
                     <p className="mt-0.5 text-[13px] text-slate-500">
                       {BUREAU_LABEL[item.bureau]} · {CATEGORY_LABEL[locale][item.category]}
+                      {back && (
+                        <span className="ml-2 whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-0.5 text-[12px] font-semibold text-blue-900" data-testid="reappeared-badge">
+                          {REAPPEARED_BADGE[locale]}
+                        </span>
+                      )}
                     </p>
                   </div>
                   {f && (
@@ -199,6 +207,11 @@ export default function Items() {
                 )}
                 {f?.state === "flagged" && (
                   <p className="mt-1 text-[13px] font-medium text-amber-700">{d.items.flaggedPending}</p>
+                )}
+                {back && (
+                  <InfoNote testId="reappeared-note" className="mt-2.5">
+                    {reappearedExplanation(locale, back.goneOn)}
+                  </InfoNote>
                 )}
                 {otherBureaus?.differs && (
                   <InfoNote testId="cross-bureau-note" className="mt-2.5">
@@ -247,11 +260,14 @@ function WizardCard({
   remaining,
   otherBureaus,
   checks,
+  reappearedOn,
   lettersOut,
   onCorrect,
   onAttest,
 }: {
   item: ReportItem;
+  /** The date of the report that no longer listed it, when a round saw it gone and it is back. */
+  reappearedOn: string | null;
   remaining: number;
   /** A neutral note when the same account is also on another bureau. */
   otherBureaus: string | null;
@@ -307,6 +323,11 @@ function WizardCard({
           </InfoNote>
         )}
         <DataChecks checks={checks} category={item.category} locale={locale} className="mt-3" />
+        {reappearedOn && (
+          <InfoNote testId="reappeared-note" className="mt-3">
+            <span className="font-semibold">{REAPPEARED_BADGE[locale]}.</span> {reappearedExplanation(locale, reappearedOn)}
+          </InfoNote>
+        )}
         {lettersOut && (
           <InfoNote testId="after-mailed-note" className="mt-3">
             {d.items.afterMailedCard}

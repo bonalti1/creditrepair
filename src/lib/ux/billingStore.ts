@@ -8,7 +8,8 @@ import { PAYMENT_AUTHORIZATION_VERSION, paymentAuthorizationHash, type Authoriza
 import { ACH_AUTHORIZATION_VERSION, achAuthorizationHash } from "../billing/achAuthorization";
 import { createMemoryChargeStore, runClientBilling } from "../billing/collect";
 import type { HostedFieldsConfig } from "../billing/gateway";
-import { demoOfferedPlan } from "../billing/planData";
+import { demoOfferedPlan, loadDemoCardBrands } from "../billing/planData";
+import { brandRefused, DEFAULT_ACCEPTED_CARDS, type AcceptedCards } from "../billing/cardBrands";
 import { readPlanSnapshot, type PlanSnapshot } from "../billing/plans";
 import { rearmAfterNewPaymentMethod } from "../billing/dunning";
 import { createDemoGateway } from "../billing/gateway";
@@ -47,6 +48,8 @@ export interface BillingView {
   hostedFields: HostedFieldsConfig | null;
   /** True when a bank account (ACH) can be put on file. */
   canAddBank: boolean;
+  /** The card brands the business takes: the screen says so before a card of another brand is sent. */
+  acceptedCards: AcceptedCards;
 }
 
 /** The plan of the signed agreement on this device (demo), or, for an example situation, the catalogue's default. */
@@ -122,6 +125,7 @@ function demoView(state: DemoBillingState): BillingView {
     showAmounts: configured || plan !== null,
     hostedFields: null,
     canAddBank: true,
+    acceptedCards: loadDemoCardBrands(),
     agreementSigned: Boolean(agreement?.signedAt) && !agreement?.cancelledAt,
     canAddMethod: true,
     simulated: true,
@@ -146,6 +150,7 @@ function serverView(payload: ClientBillingPayload): BillingView {
     authorizationTerms: { ...payload.authorizationTerms, ...(payload.plan ? { plan: payload.plan } : {}) },
     hostedFields: payload.processor.hostedFields,
     canAddBank: payload.processor.canAddBank,
+    acceptedCards: payload.processor.acceptedCards ?? DEFAULT_ACCEPTED_CARDS,
     showAmounts: true,
     agreementSigned: Boolean(payload.agreement?.signedAt) && !payload.agreement?.cancelledAt,
     canAddMethod: payload.processor.canAddMethod,
@@ -229,6 +234,8 @@ export function useBilling() {
           : paymentAuthorizationHash(PAYMENT_AUTHORIZATION_VERSION, locale, before.authorizationTerms);
       const method = demoMethod(token, now.toISOString(), { version: kind === "ach" ? ACH_AUTHORIZATION_VERSION : PAYMENT_AUTHORIZATION_VERSION, hash });
       if (!method) return { ok: false, code: "payment_method_refused" };
+      // The same refusal the server makes: a card brand the business does not take is not put on file.
+      if (kind === "card" && brandRefused(method.brand, before.acceptedCards)) return { ok: false, code: "card_brand_not_accepted" };
 
       // A charge declined earlier gets one more try with the new method (the same charge).
       const rearmed: DemoBillingState = { ...state, method, charges: state.charges.map((charge) => rearmAfterNewPaymentMethod(charge, now)) };

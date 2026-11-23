@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { ClientBillingPayload } from "@/lib/billing/api";
 import { getPaymentGateway } from "@/lib/billing/gateway";
+import { loadAcceptedCards } from "@/lib/billing/cardSettings";
 import { achAuthorizationApproved, paymentAuthorizationApproved } from "@/lib/billing/readiness";
 import { loadBilling } from "@/lib/billing/server";
 import { reportError } from "@/lib/observability/errors";
@@ -32,6 +33,8 @@ export async function GET() {
     }
     const resolution = getPaymentGateway();
     const live = resolution.configured && resolution.gateway.live;
+    // Which card brands may be put on file: the screens say so before a card is sent.
+    const acceptedCards = admin ? await loadAcceptedCards(admin) : undefined;
     const payload: ClientBillingPayload = {
       authenticated: true,
       agreement: loaded.agreement
@@ -58,6 +61,7 @@ export async function GET() {
         live,
         // Real money needs an approved authorization text; the demo processor does not.
         canAddMethod: resolution.configured && (!live || paymentAuthorizationApproved()),
+        ...(acceptedCards ? { acceptedCards } : {}),
       },
     };
     return NextResponse.json(payload);

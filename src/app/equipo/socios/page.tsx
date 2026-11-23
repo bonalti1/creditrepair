@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatCents } from "@/lib/billing/rules";
 import { partnerRules } from "@/lib/partners/copy";
 import { usePartners } from "@/lib/partners/data";
@@ -129,6 +129,11 @@ export default function SociosStaff() {
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [edit, setEdit] = useState({ basis: "none", amount: "", note: "", recKind: "owed" as "owed" | "paid", recAmount: "", recNote: "" });
   const [origin] = useState(() => (typeof window === "undefined" ? "" : window.location.origin));
+  // "#socio-<id>" (from the console's search): once the list is drawn, go to that partner.
+  useEffect(() => {
+    if (!booksReady || !window.location.hash.startsWith("#socio-")) return;
+    document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: "center" });
+  }, [booksReady]);
 
   const counts = useMemo(() => {
     const by = new Map<string, { referrals: number; signed: number; active: number }>();
@@ -203,7 +208,7 @@ export default function SociosStaff() {
         ) : (
           <ul className="card overflow-hidden">
             {pending.map((p, i) => (
-              <li key={p.id} className={`flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center ${i > 0 ? "border-t hairline" : ""}`} data-testid="partner-pending">
+              <li key={p.id} id={`socio-${p.id}`} className={`flex scroll-mt-28 flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center ${i > 0 ? "border-t hairline" : ""}`} data-testid="partner-pending">
                 <div className="min-w-0 flex-1">
                   <p className="text-[16px] font-semibold text-slate-900">
                     {p.name}
@@ -258,7 +263,7 @@ export default function SociosStaff() {
               const money = commissionTotals(book.commissions, p.id);
               const records = book.commissions.filter((r) => r.partnerId === p.id).reverse();
               return (
-                <li key={p.id} className={i > 0 ? "border-t hairline" : ""} data-testid="partner-row">
+                <li key={p.id} id={`socio-${p.id}`} className={`scroll-mt-28 ${i > 0 ? "border-t hairline" : ""}`} data-testid="partner-row">
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 px-5 py-3.5 lg:grid-cols-[minmax(0,1.4fr)_7rem_minmax(0,1fr)_8rem_11rem_minmax(0,1.1fr)_6rem]">
                     <div className="min-w-0">
                       <p className="truncate text-[15.5px] font-semibold text-slate-900">{p.name}</p>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { activate, discard, listPlans, recordApproval, recordSwitch, retire, saveDraft, setDefault } from "@/lib/billing/planStore";
 import { loadSwitches } from "@/lib/billing/server";
+import { loadAcceptedCards, saveAcceptedCards } from "@/lib/billing/cardSettings";
 import { reportError } from "@/lib/observability/errors";
 import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
@@ -14,7 +15,8 @@ import { requireCapability } from "@/lib/staff/access";
 //   POST  save_draft | record_approval | activate | retire | set_default |
 //         discard | offer (a plan to one client before they sign) |
 //         household (link or end two clients) | referral (who referred whom) |
-//         switch (pay per delete / referral credits, with the attorney's approval).
+//         switch (pay per delete / referral credits, with the attorney's approval) |
+//         card_brands (which card brands clients may put on file; at least one on).
 //
 // The terms are validated here (validatePlanTerms) whatever the screen
 // showed, and the database checks them again (migration 0026). Nothing here
@@ -31,6 +33,7 @@ const plansBodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("offer"), userId: z.string().uuid(), planId: z.string().uuid().nullable() }).strict(),
   z.object({ action: z.literal("household"), userA: z.string().uuid(), userB: z.string().uuid(), end: z.boolean().optional() }).strict(),
   z.object({ action: z.literal("referral"), referrer: z.string().uuid(), referred: z.string().uuid() }).strict(),
+  z.object({ action: z.literal("card_brands"), visa: z.boolean(), mastercard: z.boolean(), amex: z.boolean(), discover: z.boolean() }).strict(),
   z
     .object({
       action: z.literal("switch"),
@@ -50,8 +53,8 @@ export async function GET(req: Request) {
   const allowed = await requireCapability("billing.plans");
   if (!allowed.ok) return allowed.response;
   try {
-    const [plans, switches] = await Promise.all([listPlans(allowed.db), loadSwitches(allowed.db)]);
-    return NextResponse.json({ plans, switches });
+    const [plans, switches, cardBrands] = await Promise.all([listPlans(allowed.db), loadSwitches(allowed.db), loadAcceptedCards(allowed.db)]);
+    return NextResponse.json({ plans, switches, cardBrands });
   } catch (error) {
     await reportError(error, { where: "api/staff/plans", userId: allowed.member.userId });
     return NextResponse.json({ error: "Could not read the plans." }, { status: 500 });
@@ -115,6 +118,12 @@ export async function POST(req: Request) {
           .from("client_referrals")
           .insert({ referrer_user_id: input.referrer, referred_user_id: input.referred, recorded_by: member.userId, recorded_by_name: member.name.slice(0, 80) });
         return error ? fail(error.message) : NextResponse.json({ ok: true });
+      }
+      case "card_brands": {
+        const result = await saveAcceptedCards(db, { visa: input.visa, mastercard: input.mastercard, amex: input.amex, discover: input.discover }, actor);
+        return result.ok
+          ? NextResponse.json({ ok: true, result: result.cards })
+          : NextResponse.json({ ok: false, problems: [{ code: "invalid", field: "cards", message: result.message }] }, { status: 422 });
       }
       case "switch": {
         const result = await recordSwitch(db, input, actor);

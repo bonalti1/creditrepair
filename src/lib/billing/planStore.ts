@@ -140,18 +140,26 @@ export async function discard(db: SupabaseClient, id: string): Promise<Catalogue
 /**
  * The plan a client would sign today, as its snapshot: the one an
  * administrator offered them, else the default; with the household discount
- * when they are linked to another client. Null when the catalogue has none
+ * when they are linked to another client, or in an open household from the
+ * signup flow (household_discount_applies, migration 0027). Null when the catalogue has none
  * (then the agreement carries the monthly fee from the settings, as before).
  */
 export async function offeredSnapshot(db: SupabaseClient, userId: string): Promise<PlanSnapshot | null> {
   const [plans, offer, household] = await Promise.all([
     listPlans(db),
     db.from("client_plan_offers").select("plan_id").eq("user_id", userId).maybeSingle(),
-    db.rpc("household_partner", { uid: userId }),
+    // Linked to another client, or in an open household from the signup flow (migration 0027).
+    db.rpc("household_discount_applies", { uid: userId }),
   ]);
   const plan = offeredPlan(plans, (offer.data as Row | null)?.plan_id ? text((offer.data as Row).plan_id) : null);
   if (!plan) return null;
-  return snapshotPlan(plan, { household: !household.error && typeof household.data === "string" && household.data.length > 0 });
+  let linked = !household.error && household.data === true;
+  if (household.error) {
+    // A database without migration 0027: the link alone, as before.
+    const partner = await db.rpc("household_partner", { uid: userId });
+    linked = !partner.error && typeof partner.data === "string" && partner.data.length > 0;
+  }
+  return snapshotPlan(plan, { household: linked });
 }
 
 /** Turn a program switch on (with the attorney's approval) or off. Append-only. */

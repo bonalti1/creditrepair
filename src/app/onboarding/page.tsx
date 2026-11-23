@@ -24,6 +24,8 @@ import { partnerDisplay, progressFromCaseFacts, SHARING_CONSENT_VERSION } from "
 import { CLIENT_SHARING_COPY } from "@/lib/partners/sharingCopy";
 import { demoPartnerByCode, writeDemoClientSharing } from "@/lib/partners/sharingDemo";
 import { isDemoMode } from "@/lib/supabase/config";
+import { HOUSEHOLD_COPY, PENDING_HOUSEHOLD_KEY } from "@/lib/household/copy";
+import { checkHouseholdMember, householdInviteMessage, householdInvitePath, RELATIONSHIPS, RELATIONSHIP_LABEL, type HouseholdField, type HouseholdMember, type Relationship } from "@/lib/household/household";
 
 // Onboarding: goal (feeds the mortgage track) → state gate (v1 is TX-only;
 // other states join the waitlist, since expansion is a legal project, not a
@@ -92,7 +94,12 @@ function Onboarding() {
   const { locale } = useLocale();
   const c = MARKETING[locale].onboarding;
   const goalLabel = (g: (typeof GOALS)[number]) => (locale === "en" ? g.labelEn : g.label);
-  const [step, setStep] = useState<"welcome" | "share" | "goal" | "state" | "monitoring" | "assist" | "waitlist-done">("goal");
+  const [step, setStep] = useState<"welcome" | "share" | "goal" | "state" | "household" | "monitoring" | "assist" | "waitlist-done">("goal");
+  // "Anyone at home joining too?": a household member of their own (src/lib/household).
+  const [householdForm, setHouseholdForm] = useState(false);
+  const [hh, setHh] = useState({ firstName: "", lastName: "", phone: "", email: "", relationship: "spouse" as Relationship, locale: "en" as "en" | "es" });
+  const [hhProblems, setHhProblems] = useState<Partial<Record<HouseholdField, string>>>({});
+  const [hhAdded, setHhAdded] = useState<HouseholdMember | null>(null);
   const [partner, setPartner] = useState<(SharePartnerFace & { id: string | null }) | null>(null);
   const [shareDone, setShareDone] = useState(false);
   const [invite, setInvite] = useState<Invite | null>(null);
@@ -206,7 +213,7 @@ function Onboarding() {
     if (!invite?.state) return setStep("state");
     save("bonalti.state", state);
     // A state we are not open in goes to the waitlist form, link or no link.
-    if (stateStatus(state) === "open") toMonitoring();
+    if (stateStatus(state) === "open") setStep("household");
     else setStep("state");
   };
 
@@ -218,6 +225,19 @@ function Onboarding() {
     router.push("/asistente");
   };
   const { providerName, signupUrl } = MONITORING_OFFER;
+  const h = HOUSEHOLD_COPY[locale];
+
+  /** The household member's own invitation, kept on the device until sign-in (OnboardingSync sends it). */
+  const addHousehold = () => {
+    const check = checkHouseholdMember(hh, null);
+    if (!check.ok) {
+      setHhProblems(Object.fromEntries(Object.entries(check.problems).map(([k, v]) => [k, v ? v[locale] : ""])));
+      return;
+    }
+    setHhProblems({});
+    save(PENDING_HOUSEHOLD_KEY, JSON.stringify({ ...check.value, email: check.value.email ?? null }));
+    setHhAdded(check.value);
+  };
 
   const joinWaitlist = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -423,7 +443,7 @@ function Onboarding() {
               <button
                 onClick={() => {
                   save("bonalti.state", state);
-                  toMonitoring();
+                  setStep("household");
                 }}
                 className={primaryButton}
               >
@@ -447,6 +467,113 @@ function Onboarding() {
                 {c.notifyMe}
               </button>
             </form>
+          )}
+        </div>
+      )}
+
+      {step === "household" && (
+        <div className="animate-rise flex flex-1 flex-col pt-10" data-testid="onboarding-household">
+          <h1 className="font-display text-[30px] font-bold leading-tight text-blue-700">{hhAdded ? h.doneTitle(hhAdded.firstName) : h.title}</h1>
+          {!hhAdded && <p className="mt-3 text-[17px] leading-relaxed text-slate-500">{h.lead}</p>}
+          {hhAdded ? (
+            (() => {
+              const url = window.location.origin + householdInvitePath(hhAdded, { state, goal: (GOALS.find((g) => g.key === goal)?.key ?? null), ref: invite?.ref ?? null, refName: invite?.refName ?? null });
+              const firstName = invite?.name?.split(" ")[0] ?? (locale === "es" ? "Alguien de tu hogar" : "Someone in your household");
+              const message = householdInviteMessage(hhAdded.firstName, firstName, url, hhAdded.locale);
+              return (
+                <>
+                  <p className="mt-3 text-[16px] leading-relaxed text-slate-500">{h.doneBody}</p>
+                  <p className="card mt-5 whitespace-pre-line break-words p-4 text-[15px] leading-relaxed text-slate-800">
+                    {message.split(url).flatMap((part, i) => (i === 0 ? [part] : [<span key={i} className="break-all">{url}</span>, part]))}
+                  </p>
+                  <div className="mt-auto space-y-3 pt-8">
+                    <a href={`https://wa.me/${hhAdded.phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer" className={primaryButton}>
+                      {h.send}
+                    </a>
+                    <button onClick={toMonitoring} className="pressable flex h-12 w-full items-center justify-center text-[16px] font-medium text-blue-700">
+                      {h.continue}
+                    </button>
+                  </div>
+                </>
+              );
+            })()
+          ) : householdForm ? (
+            <form
+              className="mt-6 space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                addHousehold();
+              }}
+            >
+              {(
+                [
+                  ["firstName", h.firstName, "text", "given-name"],
+                  ["lastName", h.lastName, "text", "family-name"],
+                  ["phone", h.phone, "tel", "off"],
+                  ["email", h.email, "email", "off"],
+                ] as const
+              ).map(([key, label, type, auto]) => (
+                <label key={key} className="block">
+                  <span className="block pb-1 text-[14px] font-medium text-slate-700">{label}</span>
+                  <input
+                    type={type}
+                    value={hh[key]}
+                    autoComplete={auto}
+                    inputMode={type === "tel" ? "tel" : undefined}
+                    onChange={(e) => setHh({ ...hh, [key]: e.target.value })}
+                    className="h-12 w-full rounded-2xl bg-white px-4 text-[16px] text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] outline-none focus:ring-2 focus:ring-blue-300"
+                    data-testid={`household-${key}`}
+                  />
+                  {key === "phone" && <span className="mt-1 block text-[13px] text-slate-500">{h.phoneHint}</span>}
+                  {hhProblems[key] && <span className="mt-1 block text-[13px] text-red-700" role="alert">{hhProblems[key]}</span>}
+                </label>
+              ))}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="block pb-1 text-[14px] font-medium text-slate-700">{h.relationship}</span>
+                  <select value={hh.relationship} onChange={(e) => setHh({ ...hh, relationship: e.target.value as Relationship })} className="h-12 w-full rounded-2xl bg-white px-3 text-[16px] shadow-[0_0_0_1px_rgba(0,0,0,0.08)]">
+                    {RELATIONSHIPS.map((r) => (
+                      <option key={r} value={r}>{RELATIONSHIP_LABEL[locale][r]}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="block pb-1 text-[14px] font-medium text-slate-700">{h.language}</span>
+                  <select value={hh.locale} onChange={(e) => setHh({ ...hh, locale: e.target.value === "es" ? "es" : "en" })} className="h-12 w-full rounded-2xl bg-white px-3 text-[16px] shadow-[0_0_0_1px_rgba(0,0,0,0.08)]">
+                    <option value="en">{h.english}</option>
+                    <option value="es">{h.spanish}</option>
+                  </select>
+                </label>
+              </div>
+              <p className="text-[13px] leading-relaxed text-slate-500">{h.private}</p>
+              <div className="space-y-3 pt-4">
+                <button type="submit" className={primaryButton} data-testid="household-save">
+                  {h.save}
+                </button>
+                <button type="button" onClick={toMonitoring} className="pressable flex h-12 w-full items-center justify-center text-[16px] font-medium text-blue-700">
+                  {h.notNow}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <p className="card mt-6 px-5 py-4 text-[15px] leading-relaxed text-slate-600">{h.private}</p>
+              <div className="mt-auto space-y-3 pt-8">
+                <button
+                  onClick={() => {
+                    setHh((current) => ({ ...current, locale }));
+                    setHouseholdForm(true);
+                  }}
+                  className={primaryButton}
+                  data-testid="household-add"
+                >
+                  {h.add}
+                </button>
+                <button onClick={toMonitoring} className="pressable flex h-12 w-full items-center justify-center text-[16px] font-medium text-blue-700" data-testid="household-skip">
+                  {h.notNow}
+                </button>
+              </div>
+            </>
           )}
         </div>
       )}

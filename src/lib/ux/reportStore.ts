@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { DEMO_CLIENT_REPORT, DEMO_SCORE_HISTORY } from "../demo";
 import type { NormalizedReport, ReportItem } from "../domain/types";
 import { isSupabaseConfigured } from "../supabase/config";
+import type { ReappearedFact } from "../clientCase/server";
 import { fetchClientReport, type ReportAnswer } from "./caseApi";
 import type { JourneyState } from "./journey";
 
@@ -30,6 +31,8 @@ export interface ClientReportView {
   ready: boolean;
   /** On the database, with no report on file yet. */
   waiting: boolean;
+  /** Items a past round saw disappear that this report lists again: marked "Reappeared" for review. */
+  reappeared: ReappearedFact[];
 }
 
 const DEMO_VIEW: ClientReportView = {
@@ -40,6 +43,7 @@ const DEMO_VIEW: ClientReportView = {
   live: false,
   ready: true,
   waiting: false,
+  reappeared: [],
 };
 
 const EMPTY_REPORT: NormalizedReport = { pulledAt: "", source: "", items: [], scores: {} };
@@ -57,6 +61,7 @@ export function reportView(answer: ReportAnswer | null): ClientReportView {
     live: true,
     ready: true,
     waiting: answer.report === null,
+    reappeared: answer.reappeared ?? [],
   };
 }
 

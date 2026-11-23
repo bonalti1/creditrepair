@@ -123,6 +123,33 @@ and the billing run charges at the snapshot amounts once.
   looks; anything else → a person. The database lets a paid charge go back to
   `failed` only with its `payment_returns` row on record.
 
+- **Accepted card brands** (`billing/cardBrands.ts`, `billing_card_settings`,
+  migration 0027; "Accepted cards" in `/equipo/planes`, administrators): Visa
+  and Mastercard on, American Express and Discover off by default, because
+  many credit repair merchant accounts reject them. At least one stays on. The
+  card screens ("Mis pagos", "Actualizar mi tarjeta") say "We can't take
+  American Express. Please use a Visa or Mastercard." before a card is sent:
+  in the demo from the test card's IIN (4 Visa; 51–55 and 2221–2720
+  Mastercard; 34/37 Amex; 6011, 65, 644–649 Discover), with a real processor
+  from the card type (Collect.js `response.card.type`) or the BIN (Collect.js
+  `response.card.bin`, AcceptUI `encryptedCardData.bin`) that come with the
+  token (UNVERIFIED, like the rest of the hosted fields). The server refuses
+  a brand that is off after attaching it, detaches it at the processor and
+  saves nothing (`card_brand_not_accepted`). A card already on file keeps
+  working: the charge run never looks at the brand.
+- **Household signup** (`src/lib/household`, `household_members`, migration
+  0027): "Add a household member" on the invite, after Add client, on the
+  client page and in the client's onboarding. The member is a lead of their
+  own (source `household`) with their own invite, then their own login,
+  agreement and disputes. When both have accounts the database writes the
+  `household_links` row itself. `household_discount_applies(uid)` puts the
+  plan's household discount in each agreement signed while the household is
+  open (linked, or invited through the flow), so the first to sign does not
+  lose it waiting for the second; a signed agreement never changes afterwards.
+  Neither person can read anything of the other's (clients read no household
+  row; every case table stays owner-only); staff read households by role.
+  Pausing, cancelling and billing stay per person.
+
 ## Gateways (`BILLING_GATEWAY=nmi|authorize_net|demo`)
 
 Keys only from the environment (`.env.example`). Idempotency by our charge id

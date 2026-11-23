@@ -7,6 +7,7 @@ import { cleanRefundReason, refundEligibility, withRefund } from "../billing/ref
 import type { BillingAccount } from "../billing/types";
 import type { RawReport } from "../domain/parser";
 import { mergeReport, planImport } from "../reports/merge";
+import { demoReportHistory } from "../reports/history";
 import { checkStaffReply, MAX_REPLY_CHARS, openQuestions, type ReplyProblem } from "./conversation";
 import { buildDemoClients } from "./demoClients";
 import { withDemoLeadSources } from "../partners/demo";
@@ -216,17 +217,25 @@ export function applyDemoActions(clients: StaffClient[], actions: DemoActions): 
     // Reports last and in the order they were imported: each one is merged
     // into the record as it stood then (a round sent after an import is not
     // answered by it; mergeReport reads the dates).
-    return [...(actions.imports[client.id] ?? [])]
-      .sort((a, b) => a.at.localeCompare(b.at))
-      .reduce((current, imported) => {
-        try {
-          return mergeReport(current, imported.report, imported);
-        } catch {
-          // A stored import that no longer applies (the demo data moved on) is skipped.
-          return current;
-        }
-      }, acted);
+    const imports = [...(actions.imports[client.id] ?? [])].sort((a, b) => a.at.localeCompare(b.at));
+    if (imports.length === 0) return acted;
+    const merged = imports.reduce((current, imported) => {
+      try {
+        return mergeReport(current, imported.report, imported);
+      } catch {
+        // A stored import that no longer applies (the demo data moved on) is skipped.
+        return current;
+      }
+    }, acted);
+    // The Reports tab: the invented report on file first, then each import (reports/history.ts).
+    return { ...merged, reportHistory: demoReportHistory(acted.report, (merged.reportImports ?? []).slice((acted.reportImports ?? []).length)) };
   });
+}
+
+/** Demo only: the report as it was brought in, for the Reports tab's open and download. Null when there is none. */
+export function demoImportedReport(clientId: string, at: string): RawReport | null {
+  const found = (loadActions().imports[clientId] ?? []).find((imported) => imported.at === at);
+  return found ? found.report : null;
 }
 
 /**
@@ -327,6 +336,7 @@ function saveSamples(samples: DemoActions["samples"]): boolean {
 
 function createDemoData(): StaffData & {
   reset(): void;
+  baseReport(clientId: string): StaffClient["report"];
   receiveDocument(clientId: string, kind: DocumentKind): void;
   runBilling(clientId: string, options?: { newMethod?: boolean }): Promise<void>;
 } {
@@ -524,6 +534,9 @@ function createDemoData(): StaffData & {
       a.billing[clientId] = account;
       saveActions(a);
     },
+    baseReport(clientId) {
+      return state().base.find((c) => c.id === clientId)?.report ?? null;
+    },
     receiveDocument(clientId, kind) {
       const { actions: a } = state();
       a.documents[clientId] = [...new Set([...(a.documents[clientId] ?? []), kind])];
@@ -551,6 +564,11 @@ export function resetDemo(): void {
   resetTeamActions();
   resetDemoMail();
   resetDemoLetterVersions();
+}
+
+/** Demo only: the invented report a client had before any import (the Reports tab's first entry). */
+export function demoOnFileReport(clientId: string): StaffClient["report"] {
+  return demoData.baseReport(clientId);
 }
 
 /**

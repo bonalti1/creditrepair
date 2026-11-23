@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { parseReport } from "./parser";
+import { parseReport, type RawReport } from "./parser";
 import { diffReports, diffSummary } from "./diff";
+import { dedupePersonalInfo } from "./personalInfo";
+import type { NormalizedReport } from "./types";
 import { queueStatus } from "../autopilot/store";
 import { recordReportAsProof } from "../monitoring/subscription";
 
@@ -21,7 +23,8 @@ export async function importReportForUser(
   userId: string,
   rawReport: unknown,
 ): Promise<ImportResult> {
-  const normalized = parseReport(rawReport);
+  // Checked before anything is read or written: a report that is not one is refused here.
+  parseReport(rawReport);
 
   const { data: prevPull } = await db
     .from("report_pulls")
@@ -31,9 +34,31 @@ export async function importReportForUser(
     .limit(1)
     .maybeSingle();
 
+  // Repeated names, addresses, birth dates and employers are not added again (domain/personalInfo.ts):
+  // an entry the previous report already has keeps that report's spelling, so it stays one item.
+  let previous: NormalizedReport | null = null;
+  try {
+    previous = prevPull ? parseReport(prevPull.raw) : null;
+  } catch {
+    previous = null;
+  }
+  const deduped = dedupePersonalInfo(rawReport as RawReport, previous);
+  const stored: unknown = deduped.skipped > 0 ? deduped.raw : rawReport;
+  const normalized = parseReport(stored);
+  const firstDiff = previous ? diffReports(previous, normalized) : null;
+  // The Reports tab's counts for a report that came in by itself (a staff import writes its own, fuller one).
+  const importSummary = {
+    itemCount: normalized.items.length,
+    removed: firstDiff?.deleted.length ?? 0,
+    added: firstDiff?.added.length ?? 0,
+    changed: firstDiff?.changed.length ?? 0,
+    closedRound: null,
+    skippedPersonalInfo: deduped.skipped,
+  };
+
   const { data: pull, error: pullError } = await db
     .from("report_pulls")
-    .insert({ user_id: userId, source: normalized.source, pulled_at: normalized.pulledAt, raw: rawReport })
+    .insert({ user_id: userId, source: normalized.source, pulled_at: normalized.pulledAt, raw: stored, import_summary: importSummary })
     .select("id")
     .single();
   if (pullError) throw new Error(pullError.message);
@@ -57,8 +82,8 @@ export async function importReportForUser(
 
   let summary: ImportResult["summary"] = null;
   let deletedFingerprints: string[] = [];
-  if (prevPull) {
-    const diff = diffReports(parseReport(prevPull.raw), normalized);
+  if (prevPull && previous) {
+    const diff = firstDiff ?? diffReports(previous, normalized);
     summary = diffSummary(diff);
 
     deletedFingerprints = diff.deleted.map((i) => i.fingerprint);

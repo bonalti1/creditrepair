@@ -17,6 +17,8 @@ import { partnerCodeOf } from "@/lib/leads/source";
 import { deniedReason } from "@/lib/staff/permissions";
 import { useStaff } from "@/lib/staff/useStaff";
 import { NoAccess } from "@/components/staff/ui";
+import HouseholdMemberCard from "@/components/staff/HouseholdMember";
+import type { StaffClient } from "@/lib/staff/types";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
 
 // The salesperson's side of the handoff. After the WhatsApp conversation they
@@ -38,7 +40,7 @@ const STATES = ["TX", ...ALL_STATES.filter((s) => s !== "TX")];
 const ME = "bonalti.salesName";
 
 export default function Invitar() {
-  const { data, ready: loaded, viewer, can, locale } = useStaff();
+  const { data, ready: loaded, viewer, can, locale, team, members, reload } = useStaff();
   const t = useTx();
   const [me, setMe] = useState("");
   const [name, setName] = useState("");
@@ -51,6 +53,8 @@ export default function Invitar() {
   const [copied, setCopied] = useState<"link" | "message" | null>(null);
   const [partner, setPartner] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
+  // The person the page was opened for: a household member can be added for them.
+  const [record, setRecord] = useState<StaffClient | null>(null);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -78,6 +82,7 @@ export default function Invitar() {
         if (GOALS.some((g) => g.key === client.goal)) setGoal(client.goal as GoalKey);
         setPartner(partnerCodeOf(client.leadSource));
         setClientId(client.id);
+        setRecord(client);
       });
   }, [loaded, viewer, data]);
 
@@ -241,6 +246,13 @@ export default function Invitar() {
           {copied === "link" ? t("Enlace copiado", "Link copied") : t("Copiar solo el enlace", "Copy just the link")}
         </button>
       </div>
+
+      {record && viewer && can("clients.add") && (
+        <section className="mt-8" data-testid="invite-household">
+          <p className={label}>{t("Su hogar", "Their household")}</p>
+          <HouseholdMemberCard primary={record} viewer={viewer} team={team} members={members} initiallyOpen={new URLSearchParams(typeof window === "undefined" ? "" : window.location.search).get("hogar") === "1"} onAdded={reload} />
+        </section>
+      )}
 
       <section className="mt-8" data-testid="sales-may-say">
         <p className={label}>{t("Lo que sí puedes decir", "What you can say")}</p>

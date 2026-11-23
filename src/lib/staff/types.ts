@@ -157,6 +157,45 @@ export interface ReportImport {
   changed: number;
   /** The mailed round this report brought the answers to, if it closed one. */
   closedRound: number | null;
+  // Added with the re-import summary (reports/reimport.ts). Absent on older records.
+  /** The provider the report came from (report.source). */
+  source?: string;
+  /** Personal-information entries not added again: already in the file, or listed twice. */
+  skippedPersonalInfo?: number;
+  /** Items a past round saw disappear that this report lists again. */
+  reappeared?: number;
+  /** Each disputed name, address, birth date or employer: no longer appears, or still reporting. */
+  personalInfo?: import("../reports/reimport").PersonalInfoChangeRecord[];
+}
+
+/**
+ * One report in the client's file, for the Reports tab: every import, whether
+ * staff brought it in or the monitoring pull did (report_pulls). Built from the
+ * import records (reports/history.ts) and, with a database, from every pull.
+ */
+export interface ReportHistoryEntry {
+  /** report_pulls.id with a database; a stable id of its own in the demo. */
+  id: string;
+  /** When it came into the file. */
+  at: string;
+  /** The report's own date. */
+  reportDate: string;
+  /** The provider it came from (report.source). */
+  source: string;
+  /** The reader that read it; null when the monitoring pull brought it in by itself. */
+  readerKey: string | null;
+  /** The teammate who imported it; null when it came in by itself. */
+  by: string | null;
+  itemCount: number;
+  /** True for the client's first report: nothing to compare with. */
+  first: boolean;
+  removed: number;
+  added: number;
+  changed: number;
+  closedRound: number | null;
+  skippedPersonalInfo: number;
+  reappeared: number;
+  personalInfo: import("../reports/reimport").PersonalInfoChangeRecord[];
 }
 
 /**
@@ -268,6 +307,12 @@ export interface StaffClient {
   reportImports?: ReportImport[];
   /** Report pages kept for providers that have no reader yet, oldest first. Absent means none. */
   reportSamples?: ReportSample[];
+  /**
+   * Every report in the file, oldest first, with a database (every report_pulls
+   * row this member may read). Absent in the demo: reports/history.ts builds
+   * the list from the import records there.
+   */
+  reportHistory?: ReportHistoryEntry[];
 }
 
 export const fullName = (client: Pick<StaffClient, "firstName" | "lastName">): string =>
@@ -450,3 +495,12 @@ export interface StaffClientBillingRecordFields {
 }
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StaffClient extends StaffClientBillingRecordFields {}
+
+// ── Households (migration 0027) ─────────────────────────────────────────
+
+export interface StaffClientHouseholdFields {
+  /** The other person in this client's household, when there is one. Each keeps their own case: only the link is shared. */
+  household?: import("../household/household").HouseholdLink | null;
+}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientHouseholdFields {}
