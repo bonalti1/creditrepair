@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseReport } from "../domain/parser";
+import { historyFromPullRows } from "../reports/history";
+import type { ReportHistoryEntry } from "../staff/types";
 import type { Bureau, LetterTargetType, NormalizedReport } from "../domain/types";
 import type { ClientLetterMail } from "../mail/clientView";
 import type { MailClass, MailStatus } from "../mail/types";
@@ -25,6 +27,70 @@ export interface ClientReportPayload {
   scoreHistory: ScorePoint[];
   /** What the letters print as the sender. */
   profile: { fullName: string; addressLines: string[] };
+  /**
+   * Items a round's results recorded as gone that the newest report lists
+   * again (FCRA § 611(a)(5)(B)): marked "Reappeared" in the client's review.
+   * Absent: none.
+   */
+  reappeared?: ReappearedFact[];
+}
+
+export interface ReappearedFact {
+  fingerprint: string;
+  /** The round whose results recorded it as gone. */
+  round: number;
+  /** The date of the report that no longer listed it. */
+  goneOn: string;
+}
+
+/** Items of `report` a round recorded as gone on an earlier report (attack_rounds.results). Pure. */
+export function reappearedFacts(report: NormalizedReport | null, roundRows: readonly Row[]): ReappearedFact[] {
+  if (!report) return [];
+  const gone = new Map<string, ReappearedFact>();
+  for (const r of roundRows) {
+    for (const result of Array.isArray(r.results) ? (r.results as unknown[]) : []) {
+      const row = result as { fingerprint?: unknown; outcome?: unknown; reportDate?: unknown } | null;
+      if (!row || row.outcome !== "removed" || typeof row.fingerprint !== "string" || typeof row.reportDate !== "string") continue;
+      const known = gone.get(row.fingerprint);
+      if (!known || row.reportDate > known.goneOn) gone.set(row.fingerprint, { fingerprint: row.fingerprint, round: Number(r.round_number), goneOn: row.reportDate });
+    }
+  }
+  const pulled = new Date(report.pulledAt).getTime();
+  return report.items.flatMap((item) => {
+    const fact = gone.get(item.fingerprint);
+    return fact && new Date(fact.goneOn).getTime() < pulled ? [fact] : [];
+  });
+}
+
+/** One report in the client's file, as the client's "My reports" shows it: no teammate's name, no reader. */
+export interface ClientReportEntry extends Omit<ReportHistoryEntry, "by" | "readerKey"> {
+  /** True when the team brought it in; false when the monitoring service sent it by itself. */
+  byTeam: boolean;
+}
+
+/** Every report in the signed-in client's file, newest first, with what each one changed. Own rows only (RLS). */
+export async function loadClientReportHistory(db: SupabaseClient, userId: string): Promise<ClientReportEntry[]> {
+  const { data, error } = await db
+    .from("report_pulls")
+    .select("id, pulled_at, created_at, source, reader_key, import_summary")
+    .eq("user_id", userId)
+    .order("pulled_at", { ascending: true })
+    .limit(60);
+  if (error) throw new Error(`report_pulls: ${error.message}`);
+  return historyFromPullRows((data as Row[] | null) ?? [])
+    .map(({ by: _by, readerKey, ...entry }) => ({ ...entry, byTeam: readerKey !== null }))
+    .reverse();
+}
+
+/** One report of the signed-in client's, read again from its stored JSON. Null when it is not theirs or does not read. */
+export async function loadClientReportById(db: SupabaseClient, userId: string, pullId: string): Promise<NormalizedReport | null> {
+  const { data, error } = await db.from("report_pulls").select("id, raw").eq("user_id", userId).eq("id", pullId).maybeSingle();
+  if (error || !data) return null;
+  try {
+    return parseReport((data as Row).raw);
+  } catch {
+    return null;
+  }
 }
 
 const BUREAUS: readonly Bureau[] = ["equifax", "experian", "transunion"];
@@ -40,9 +106,10 @@ function scoresOf(raw: unknown): Partial<Record<Bureau, number>> {
 }
 
 export async function loadClientReport(db: SupabaseClient, userId: string): Promise<ClientReportPayload> {
-  const [pulls, profile] = await Promise.all([
+  const [pulls, profile, rounds] = await Promise.all([
     db.from("report_pulls").select("id, pulled_at, raw").eq("user_id", userId).order("pulled_at", { ascending: false }).limit(12),
     db.from("profiles").select("full_name, address_lines").eq("id", userId).maybeSingle(),
+    db.from("attack_rounds").select("round_number, results").eq("user_id", userId),
   ]);
   if (pulls.error) throw new Error(`report_pulls: ${pulls.error.message}`);
   const rows = (pulls.data as Row[] | null) ?? [];
@@ -54,8 +121,10 @@ export async function loadClientReport(db: SupabaseClient, userId: string): Prom
   }
   const scoreHistory = [...rows].reverse().map((row) => ({ date: String(row.pulled_at).slice(0, 10), scores: scoresOf(row.raw) }));
   const p = (profile.data as Row | null) ?? {};
+  const reappeared = reappearedFacts(report, rounds.error ? [] : ((rounds.data as Row[] | null) ?? []));
   return {
     report,
+    ...(reappeared.length > 0 ? { reappeared } : {}),
     scoreHistory,
     profile: { fullName: typeof p.full_name === "string" ? p.full_name : "", addressLines: Array.isArray(p.address_lines) ? (p.address_lines as string[]) : [] },
   };

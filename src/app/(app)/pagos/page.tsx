@@ -11,12 +11,14 @@ import {
 } from "@/lib/billing/authorization";
 import { chargeStanding, type ChargeStanding } from "@/lib/billing/dunning";
 import { achAuthorization } from "@/lib/billing/achAuthorization";
-import { DEMO_BANK_TOKEN_OK, DEMO_BANK_TOKEN_RETURNS, DEMO_TOKEN_DECLINED, DEMO_TOKEN_OK } from "@/lib/billing/gateway";
+import { DEMO_BANK_TOKEN_OK, DEMO_BANK_TOKEN_RETURNS, DEMO_TOKEN_OK } from "@/lib/billing/gateway";
 import { collectedCents, invoiceNumber, invoiceStatus, statementMonths, type InvoiceStatus } from "@/lib/billing/invoices";
 import { mostYoullPay, planSummary, PLAN_TYPE_LABEL } from "@/lib/billing/plans";
 import { chargedTowardCap } from "@/lib/billing/rules";
 import { unitWork } from "@/lib/billing/schedule";
 import HostedFields from "@/components/billing/HostedFields";
+import { acceptedCardsLine, brandFromIin, cardBrandMessage, CARD_BRAND_NAME, normalizeBrand } from "@/lib/billing/cardBrands";
+import { TEST_CARDS, testCardBrand, testCardLine } from "@/lib/ux/testCards";
 import { PLAN_COPY } from "@/lib/ux/billingPlanCopy";
 import { billingOutlook } from "@/lib/billing/outlook";
 import { receiptFor, workLine, workLineWithoutLetters, type Receipt } from "@/lib/billing/receipts";
@@ -68,6 +70,8 @@ function errorText(code: string, locale: L): string {
   switch (code) {
     case "payment_method_refused":
       return e.refused;
+    case "card_brand_not_accepted":
+      return e.brand;
     case "authorization_changed":
       return e.changed;
     case "agreement_required":
@@ -172,6 +176,8 @@ export default function PagosPage() {
   const [kind, setKind] = useState<"card" | "ach">("card");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** A card brand the business does not take, said before the card is sent (billing/cardBrands.ts). */
+  const [hostedBrand, setHostedBrand] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
   const [openReceipt, setOpenReceipt] = useState<string | null>(null);
@@ -228,8 +234,14 @@ export default function PagosPage() {
     window.setTimeout(() => methodRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 30);
   };
 
+  // The brand of the card about to be sent: the test card's IIN in the demo, or what the
+  // processor's hosted fields reported with the token. A brand that is off is said now, before sending.
+  const selectedTestCard = TEST_CARDS.find((card) => card.token === token) ?? null;
+  const pendingBrand = kind !== "card" ? null : view.simulated ? (selectedTestCard ? testCardBrand(selectedTestCard) : null) : hostedBrand;
+  const brandWarning = cardBrandMessage(pendingBrand, view.acceptedCards, locale);
+
   const save = async () => {
-    if (!accepted || busy) return;
+    if (!accepted || busy || brandWarning) return;
     setBusy(true);
     setError(null);
     const result: BillingActionResult = await addMethod(token, locale, kind);
@@ -585,7 +597,13 @@ export default function PagosPage() {
                         config={view.hostedFields}
                         kind={kind}
                         label={kind === "ach" ? p.methodBank : c.formSave}
-                        onToken={(t) => setToken(t)}
+                        onToken={(t, card) => {
+                          const brand = normalizeBrand(card?.brand) ?? brandFromIin(card?.bin ?? "");
+                          setHostedBrand(brand);
+                          // A brand that is off is never sent on: the client is told and picks another card.
+                          if (kind === "card" && cardBrandMessage(brand, view.acceptedCards, locale)) return;
+                          setToken(t);
+                        }}
                         onError={() => setError(c.errors.generic)}
                       />
                     </div>
@@ -598,16 +616,18 @@ export default function PagosPage() {
                             { value: DEMO_BANK_TOKEN_OK, label: p.bankDemoOk, card: p.bankLabel("checking", "6789") },
                             { value: DEMO_BANK_TOKEN_RETURNS, label: p.bankDemoReturns, card: p.bankLabel("checking", "0002") },
                           ]
-                        : [
-                            { value: DEMO_TOKEN_OK, label: c.demoCardOk, card: "Visa ···· 4242" },
-                            { value: DEMO_TOKEN_DECLINED, label: c.demoCardDeclined, card: "Visa ···· 0002" },
-                          ]
+                        : TEST_CARDS.map((card) => ({
+                            value: card.token,
+                            label: card.testId === "ok" ? c.demoCardOk : card.testId === "declined" ? c.demoCardDeclined : c.demoCardBrand(CARD_BRAND_NAME[testCardBrand(card)!]),
+                            card: testCardLine(card),
+                            testId: card.testId,
+                          }))
                       ).map((option) => (
                         <label key={option.value} className="mt-2 flex cursor-pointer items-center gap-3 rounded-2xl bg-slate-50 px-3.5 py-3">
                           <input
                             type="radio"
                             name="demo-card"
-                            data-testid={`demo-card-${option.value === DEMO_TOKEN_OK || option.value === DEMO_BANK_TOKEN_OK ? "ok" : "declined"}`}
+                            data-testid={`demo-card-${"testId" in option ? option.testId : option.value === DEMO_BANK_TOKEN_OK ? "ok" : "declined"}`}
                             checked={token === option.value}
                             onChange={() => setToken(option.value)}
                             className="h-5 w-5 shrink-0 accent-blue-700"
@@ -620,14 +640,24 @@ export default function PagosPage() {
                       ))}
                     </fieldset>
                   )}
+                  {kind === "card" && (
+                    <p className="mt-3 text-[13px] leading-snug text-slate-500" data-testid="accepted-cards">
+                      {c.acceptedCards(acceptedCardsLine(view.acceptedCards, locale))}
+                    </p>
+                  )}
                 </div>
 
+                {brandWarning && (
+                  <p role="alert" className="mt-3 rounded-2xl bg-amber-100 px-4 py-3 text-[15px] font-medium leading-snug text-blue-900" data-testid="card-brand-warning">
+                    {brandWarning}
+                  </p>
+                )}
                 {error && (
                   <p role="alert" className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-[14px] leading-snug text-red-700">
                     {error}
                   </p>
                 )}
-                <button type="button" onClick={save} disabled={!accepted || busy} data-testid="method-save" className={`${PRIMARY} mt-4`}>
+                <button type="button" onClick={save} disabled={!accepted || busy || Boolean(brandWarning)} data-testid="method-save" className={`${PRIMARY} mt-4`}>
                   {c.formSave}
                 </button>
                 <button type="button" onClick={() => setAdding(false)} className={`${SECONDARY} mt-2.5`}>

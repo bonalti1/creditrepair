@@ -97,5 +97,7 @@ export interface ClientBillingPayload {
     live: boolean;
     /** Whether a payment method can be put on file right now. */
     canAddMethod: boolean;
+    /** The card brands the business takes (migration 0027). Absent: the defaults (Visa and Mastercard). */
+    acceptedCards?: import("./cardBrands").AcceptedCards;
   };
 }

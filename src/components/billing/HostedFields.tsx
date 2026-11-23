@@ -51,7 +51,14 @@ export default function HostedFields({
   config: HostedFieldsConfig;
   kind: Kind;
   label: string;
-  onToken: (token: string) => void;
+  /**
+   * The token, and what the processor says about the card with it: its type
+   * (Collect.js: response.card.type) or its BIN (Collect.js: response.card.bin;
+   * AcceptUI: response.encryptedCardData.bin), never the number. The screen
+   * checks the brand against the accepted ones before sending (billing/cardBrands.ts).
+   * UNVERIFIED like the rest of this file: check both against a sandbox.
+   */
+  onToken: (token: string, card?: { brand: string | null; bin: string | null }) => void;
   onError: (message: string) => void;
 }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, "");
@@ -70,7 +77,8 @@ export default function HostedFields({
               kind === "ach"
                 ? { checkname: { selector: `#${id}-name` }, checkaba: { selector: `#${id}-aba` }, checkaccount: { selector: `#${id}-account` } }
                 : { ccnumber: { selector: `#${id}-number` }, ccexp: { selector: `#${id}-exp` }, cvv: { selector: `#${id}-cvv` } },
-            callback: (response: { token?: string }) => (response.token ? tokenRef.current(response.token) : onError("no token")),
+            callback: (response: { token?: string; card?: { type?: string; bin?: string } }) =>
+              response.token ? tokenRef.current(response.token, { brand: response.card?.type ?? null, bin: response.card?.bin ?? null }) : onError("no token"),
           });
           setReady(true);
         })
@@ -78,9 +86,9 @@ export default function HostedFields({
     }
     if (config.kind === "acceptui") {
       const handler = `credaltiAccept${id}` as const;
-      window[handler] = (response: { opaqueData?: { dataValue?: string }; messages?: { resultCode?: string } }) => {
+      window[handler] = (response: { opaqueData?: { dataValue?: string }; messages?: { resultCode?: string }; encryptedCardData?: { bin?: string } }) => {
         const token = response.opaqueData?.dataValue;
-        if (response.messages?.resultCode === "Ok" && token) tokenRef.current(token);
+        if (response.messages?.resultCode === "Ok" && token) tokenRef.current(token, { brand: null, bin: response.encryptedCardData?.bin ?? null });
         else onError("not accepted");
       };
       // AcceptUI binds to buttons with class "AcceptUI" that exist when it loads.

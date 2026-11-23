@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import { getStaffData, resetDemo } from "@/lib/staff/data";
-import { can, ROLE_LABELS, STAFF_ROLES, type Capability, type Viewer } from "@/lib/staff/permissions";
+import { can, ROLE_LABELS, STAFF_ROLES, type Viewer } from "@/lib/staff/permissions";
+import { MORE_NAV, PRIMARY_NAV, type NavItem } from "@/lib/staff/nav";
 import { StaffLocaleProvider, useStaffLocale, useText } from "@/lib/staff/i18n/StaffLocale";
 import { LANGUAGE_SELF_NAME, STAFF_LOCALES, type StaffLocale } from "@/lib/staff/i18n/locale";
 import { SHELL_TEXT } from "@/lib/staff/i18n/ui/shell";
@@ -13,10 +14,11 @@ import { demoViewAs } from "@/lib/staff/teamData";
 import { resetDemoAnswers } from "@/lib/staff/useSavedAnswers";
 import { resetDemoPreferences } from "@/lib/staff/usePreferences";
 import { StaffViewerContext, useViewer, VIEWER_CHANGED } from "@/lib/staff/useStaff";
-import Icon, { type IconName } from "@/components/Icon";
+import Icon from "@/components/Icon";
 import Logo from "@/components/Logo";
 import HelpPanel from "@/components/staff/HelpPanel";
 import TourBar from "@/components/staff/TourBar";
+import { isSearchShortcut, SEARCH_TEXT, SearchButton, SearchDialog } from "@/components/staff/GlobalSearch";
 
 // The frame around every staff screen.
 //
@@ -42,37 +44,9 @@ import TourBar from "@/components/staff/TourBar";
 // look at the console as each role sees it ("Ver como"). It exists only in the
 // demo: with a database the role comes from the signed-in member's own row.
 
-type NavKey = keyof (typeof SHELL_TEXT)["en"]["nav"];
-
-interface NavItem {
-  href: string;
-  label: NavKey;
-  icon: IconName;
-  needs?: Capability;
-}
-
-/** The everyday destinations: tabs on the top bar and on the phone's bottom bar. */
-const PRIMARY: NavItem[] = [
-  { href: "/equipo", label: "home", icon: "home" },
-  { href: "/equipo/clientes", label: "clients", icon: "person" },
-  { href: "/equipo/respuestas", label: "answers", icon: "chat", needs: "clients.reply" },
-];
-
-/** Everything else, under "More". */
-const MORE: NavItem[] = [
-  { href: "/equipo/invitar", label: "invite", icon: "mail", needs: "clients.invite" },
-  { href: "/equipo/acreedores", label: "creditors", icon: "doc", needs: "rounds.send" },
-  { href: "/equipo/actividad", label: "activity", icon: "clock" },
-  { href: "/equipo/piloto", label: "autopilot", icon: "sparkle", needs: "rounds.send" },
-  { href: "/equipo/negocio", label: "business", icon: "chart", needs: "business.view" },
-  { href: "/equipo/socios", label: "partners", icon: "link", needs: "partners.view" },
-  { href: "/equipo/equipo", label: "team", icon: "team", needs: "team.manage" },
-  { href: "/equipo/cartas", label: "letters", icon: "clipboard", needs: "letters.edit" },
-  { href: "/equipo/planes", label: "plans", icon: "calc", needs: "billing.plans" },
-  { href: "/equipo/cobros", label: "invoices", icon: "doc", needs: "billing.plans" },
-  { href: "/equipo/perfil", label: "profile", icon: "person" },
-  { href: "/equipo/bienvenida", label: "welcome", icon: "book" },
-];
+// The destinations live in lib/staff/nav.ts, shared with the console's search.
+const PRIMARY = PRIMARY_NAV;
+const MORE = MORE_NAV;
 
 /** The two languages, side by side: the quick switch in the member's menu and on the profile. */
 export function LanguageSwitch({ className = "" }: { className?: string }) {
@@ -216,8 +190,9 @@ function MoreMenu({ items, active, isActive }: { items: NavItem[]; active: boole
 }
 
 /** The phone's "More": a sheet over the bottom bar. */
-function MoreSheet({ items, isActive, onClose }: { items: NavItem[]; isActive: (href: string) => boolean; onClose: () => void }) {
+function MoreSheet({ items, isActive, onClose, onSearch }: { items: NavItem[]; isActive: (href: string) => boolean; onClose: () => void; onSearch: () => void }) {
   const t = useText(SHELL_TEXT);
+  const { locale } = useStaffLocale();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -232,6 +207,16 @@ function MoreSheet({ items, isActive, onClose }: { items: NavItem[]; isActive: (
         data-testid="more-sheet"
       >
         <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-slate-200" />
+        {/* The console's search, on the phone (Ctrl/Cmd+K and the header's box on a laptop). */}
+        <button
+          type="button"
+          onClick={onSearch}
+          className="pressable mb-2 flex h-12 w-full items-center gap-2.5 rounded-2xl bg-slate-100 px-3.5 text-left text-[15px] text-slate-500"
+          data-testid="sheet-search"
+        >
+          <Icon name="search" size={20} />
+          {SEARCH_TEXT[locale].placeholder}
+        </button>
         <ul className="grid grid-cols-2 gap-1">
           {items.map((n) => (
             <li key={n.href}>
@@ -260,6 +245,19 @@ function Frame({ children }: { children: React.ReactNode }) {
   const { locale } = useStaffLocale();
   const [help, setHelp] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const [search, setSearch] = useState(false);
+
+  // Ctrl+K / Cmd+K opens the search from any screen.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!isSearchShortcut(e)) return;
+      e.preventDefault();
+      setSheet(false);
+      setSearch(true);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const isActive = (href: string) => (href === "/equipo" ? pathname === "/equipo" : pathname === href || pathname.startsWith(`${href}/`));
   const allowed = (n: NavItem) => !n.needs || can(viewer?.role, n.needs);
   const primary = PRIMARY.filter(allowed);
@@ -270,6 +268,7 @@ function Frame({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setSheet(false);
     setHelp(false);
+    setSearch(false);
   }, [pathname]);
 
   const viewAs = (role: (typeof STAFF_ROLES)[number]) => {
@@ -306,6 +305,7 @@ function Frame({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+            {ready && <SearchButton onOpen={() => setSearch(true)} />}
             {demo && (
               <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-blue-900" title={t.demoPillTitle}>
                 {t.demoPill}
@@ -416,7 +416,18 @@ function Frame({ children }: { children: React.ReactNode }) {
           </div>
         </nav>
       )}
-      {sheet && <MoreSheet items={more} isActive={isActive} onClose={() => setSheet(false)} />}
+      {sheet && (
+        <MoreSheet
+          items={more}
+          isActive={isActive}
+          onClose={() => setSheet(false)}
+          onSearch={() => {
+            setSheet(false);
+            setSearch(true);
+          }}
+        />
+      )}
+      {search && <SearchDialog viewer={viewer} onClose={() => setSearch(false)} />}
       {help && <HelpPanel pathname={pathname} onClose={() => setHelp(false)} />}
     </div>
   );

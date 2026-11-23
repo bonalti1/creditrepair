@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { BILLING_STATE_LABELS, BILLING_STATES, clientRows, clientsCsv, filterRows } from "@/lib/staff/clientList";
@@ -47,6 +47,10 @@ function ClientList() {
   const [query, setQuery] = useState(params.get("q") ?? "");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
+  // "?agregar=1" (from the console's search: "Add client") opens the form.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("agregar") === "1") setAdding(true);
+  }, []);
   const [assignTo, setAssignTo] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

@@ -14,6 +14,7 @@ import {
 } from "./catalogue";
 import { snapshotPlan, type PlanProblem, type PlanSnapshot, type PlanVersion } from "./plans";
 import { SWITCHES_OFF, type BillingSwitches } from "./types";
+import { acceptedCardsProblem, DEFAULT_ACCEPTED_CARDS, readAcceptedCards, type AcceptedCards } from "./cardBrands";
 
 // Where /equipo/planes reads and writes the catalogue. Like the letter editor
 // (letters/versions/data.ts): the demo keeps it in this browser and says so;
@@ -21,7 +22,7 @@ import { SWITCHES_OFF, type BillingSwitches } from "./types";
 
 export interface PlanCatalogueData {
   readonly demo: boolean;
-  list(): Promise<{ plans: PlanVersion[]; switches: BillingSwitches }>;
+  list(): Promise<{ plans: PlanVersion[]; switches: BillingSwitches; cardBrands: AcceptedCards }>;
   saveDraft(input: DraftInput, by: string): Promise<CatalogueResult<PlanVersion>>;
   recordApproval(id: string, input: ApprovalInput): Promise<CatalogueResult<PlanVersion>>;
   activate(id: string): Promise<CatalogueResult<unknown>>;
@@ -29,12 +30,16 @@ export interface PlanCatalogueData {
   setDefault(id: string): Promise<CatalogueResult<unknown>>;
   discard(id: string): Promise<CatalogueResult<unknown>>;
   setSwitch(input: { switch: "pay_per_delete" | "referral_credits"; enabled: boolean } & Partial<ApprovalInput> & { referralCreditCents?: number }): Promise<CatalogueResult<unknown>>;
+  /** Which card brands clients may put on file (billing_card_settings). At least one stays on. */
+  setCardBrands(input: AcceptedCards): Promise<CatalogueResult<AcceptedCards>>;
 }
 
 // ── Demo ────────────────────────────────────────────────────────────────
 
 const DEMO_KEY = "credalti.staffDemo.billingPlans.v1";
 const SWITCH_KEY = "credalti.staffDemo.billingSwitches.v1";
+// Read by the client app's demo payment screens too (same browser).
+export const DEMO_CARD_BRANDS_KEY = "credalti.demo.cardBrands.v1";
 
 function read<T>(key: string, fallback: () => T): T {
   try {
@@ -61,11 +66,17 @@ export function loadDemoSwitches(): BillingSwitches {
   return read(SWITCH_KEY, () => SWITCHES_OFF);
 }
 
+/** The demo's accepted card brands: what an administrator chose in this browser, else the defaults. */
+export function loadDemoCardBrands(): AcceptedCards {
+  return readAcceptedCards(read<Record<string, unknown> | null>(DEMO_CARD_BRANDS_KEY, () => null));
+}
+
 /** Demo only: put the example catalogue back. */
 export function resetDemoPlans(): void {
   try {
     window.localStorage.removeItem(DEMO_KEY);
     window.localStorage.removeItem(SWITCH_KEY);
+    window.localStorage.removeItem(DEMO_CARD_BRANDS_KEY);
   } catch {
     // ignore
   }
@@ -87,7 +98,7 @@ function replace(changed: PlanVersion[]): void {
 export const demoPlanCatalogue: PlanCatalogueData = {
   demo: true,
   async list() {
-    return { plans: loadDemoPlans(), switches: loadDemoSwitches() };
+    return { plans: loadDemoPlans(), switches: loadDemoSwitches(), cardBrands: loadDemoCardBrands() };
   },
   async saveDraft(input, by) {
     const result = planSaveDraft(loadDemoPlans(), input, by, new Date(), newId);
@@ -127,6 +138,12 @@ export const demoPlanCatalogue: PlanCatalogueData = {
     write(SWITCH_KEY, { ...loadDemoSwitches(), [input.switch === "pay_per_delete" ? "payPerDelete" : "referralCredits"]: input.enabled });
     return { ok: true, value: null };
   },
+  async setCardBrands(input) {
+    const problem = acceptedCardsProblem(input);
+    if (problem) return { ok: false, problems: [{ code: "invalid", field: "cards", message: problem }] };
+    write(DEMO_CARD_BRANDS_KEY, input);
+    return { ok: true, value: readAcceptedCards(input) };
+  },
 };
 
 // ── Database ────────────────────────────────────────────────────────────
@@ -149,8 +166,8 @@ export const databasePlanCatalogue: PlanCatalogueData = {
   async list() {
     const res = await fetch("/api/staff/plans", { cache: "no-store" });
     if (!res.ok) throw new Error("Could not read the plans.");
-    const body = (await res.json()) as { plans?: PlanVersion[]; switches?: BillingSwitches };
-    return { plans: body.plans ?? [], switches: body.switches ?? SWITCHES_OFF };
+    const body = (await res.json()) as { plans?: PlanVersion[]; switches?: BillingSwitches; cardBrands?: AcceptedCards };
+    return { plans: body.plans ?? [], switches: body.switches ?? SWITCHES_OFF, cardBrands: body.cardBrands ?? DEFAULT_ACCEPTED_CARDS };
   },
   saveDraft: (input) => post({ action: "save_draft", ...input }),
   recordApproval: (id, input) => post({ action: "record_approval", id, ...input }),
@@ -159,6 +176,7 @@ export const databasePlanCatalogue: PlanCatalogueData = {
   setDefault: (id) => post({ action: "set_default", id }),
   discard: (id) => post({ action: "discard", id }),
   setSwitch: (input) => post({ action: "switch", ...input }),
+  setCardBrands: (input) => post({ action: "card_brands", ...input }),
 };
 
 export function getPlanCatalogue(): PlanCatalogueData {

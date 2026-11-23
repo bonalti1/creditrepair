@@ -27,6 +27,7 @@ import { SWITCHES_OFF, type BillingSwitches } from "@/lib/billing/types";
 import { deniedReason } from "@/lib/staff/permissions";
 import { staffAuthor, useStaff } from "@/lib/staff/useStaff";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
+import { CARD_BRAND_NAME, CARD_BRANDS, DEFAULT_ACCEPTED_CARDS, type AcceptedCards } from "@/lib/billing/cardBrands";
 import { Chip, NoAccess, PRIMARY_BUTTON, QUIET_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SectionTitle } from "@/components/staff/ui";
 
 // Billing plans, the way Credit Repair Cloud's "Manage Plans" lays them out
@@ -482,6 +483,75 @@ function SwitchCard({ name, on, onSave, label, help, withAmount }: { name: "pay_
   );
 }
 
+/**
+ * "Accepted cards": which card brands clients may put on file. Visa and
+ * Mastercard on by default; American Express and Discover off by default,
+ * because many credit repair merchant accounts refuse them. Cards already on
+ * file keep working whatever is chosen here.
+ */
+function CardBrandsCard({ cards, onSave }: { cards: AcceptedCards; onSave: (next: AcceptedCards) => Promise<string | null> }) {
+  const t = useTx();
+  const [draft, setDraft] = useState<AcceptedCards>(cards);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setDraft(cards), [cards]);
+  const changed = CARD_BRANDS.some((b) => draft[b] !== cards[b]);
+  return (
+    <div className="card px-5 py-4" data-testid="card-brands">
+      <p className="text-[14px] leading-snug text-slate-600">
+        {t(
+          "Las marcas que un cliente puede registrar en «Mis pagos» y en «Actualizar mi tarjeta». La pantalla avisa antes de enviar una tarjeta de una marca apagada, y el servidor la rechaza igual. Las tarjetas que ya están registradas siguen funcionando.",
+          "The brands a client can put on file in “My payments” and “Update my card”. The screen says so before a card of a brand that's off is sent, and the server refuses it too. Cards already on file keep working.",
+        )}
+      </p>
+      <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+        {CARD_BRANDS.map((brand) => (
+          <li key={brand}>
+            <label className="flex min-h-12 cursor-pointer items-start gap-3 rounded-2xl bg-slate-50 px-3.5 py-3">
+              <input
+                type="checkbox"
+                checked={draft[brand]}
+                onChange={(e) => setDraft({ ...draft, [brand]: e.target.checked })}
+                className="mt-0.5 h-5 w-5 shrink-0 accent-blue-700"
+                data-testid={`card-brand-${brand}`}
+              />
+              <span className="min-w-0">
+                <span className="block text-[15px] font-medium text-slate-900">{CARD_BRAND_NAME[brand]}</span>
+                {(brand === "amex" || brand === "discover") && (
+                  <span className="block text-[12.5px] leading-snug text-slate-500">
+                    {t(
+                      "Apagada por defecto: muchas cuentas de comerciante para reparación de crédito no la aceptan. Enciéndela solo si tu cuenta la acepta.",
+                      "Off by default: many credit repair merchant accounts reject it. Turn it on only if yours accepts it.",
+                    )}
+                  </span>
+                )}
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+      {note && (
+        <p role="status" className={`mt-3 rounded-2xl px-4 py-2.5 text-[13.5px] ${note.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+          {note.text}
+        </p>
+      )}
+      <button
+        type="button"
+        disabled={!changed || busy}
+        className={`${ROW_BUTTON} mt-3`}
+        onClick={async () => {
+          setBusy(true);
+          const problem = await onSave(draft);
+          setBusy(false);
+          setNote(problem ? { ok: false, text: problem } : { ok: true, text: t("Guardado.", "Saved.") });
+        }}
+      >
+        {t("Guardar marcas", "Save brands")}
+      </button>
+    </div>
+  );
+}
+
 export default function PlanesPage() {
   const { ready, can, locale } = useStaff();
   const t = useTx();
@@ -489,6 +559,7 @@ export default function PlanesPage() {
   const data = useMemo(() => getPlanCatalogue(), []);
   const [plans, setPlans] = useState<PlanVersion[] | null>(null);
   const [switches, setSwitches] = useState<BillingSwitches>(SWITCHES_OFF);
+  const [cardBrands, setCardBrands] = useState<AcceptedCards>(DEFAULT_ACCEPTED_CARDS);
   const [form, setForm] = useState<Form | null>(null);
   const [problems, setProblems] = useState<PlanProblem[]>([]);
   const [saving, setSaving] = useState(false);
@@ -500,6 +571,7 @@ export default function PlanesPage() {
     const list = await data.list();
     setPlans(list.plans);
     setSwitches(list.switches);
+    setCardBrands(list.cardBrands);
   }, [data]);
   useEffect(() => {
     void load();
@@ -695,6 +767,20 @@ export default function PlanesPage() {
           <Timeline terms={validatePlanTerms(formToTerms(form)).length === 0 ? formToTerms(form) : null} l={l} />
         </section>
       )}
+
+      <section className="mt-7" aria-labelledby="tarjetas">
+        <SectionTitle>
+          <span id="tarjetas">{t("Tarjetas aceptadas", "Accepted cards")}</span>
+        </SectionTitle>
+        <CardBrandsCard
+          cards={cardBrands}
+          onSave={async (next) => {
+            const r = await data.setCardBrands(next);
+            await load();
+            return r.ok ? null : (r.problems[0]?.message[l] ?? t("No se pudo guardar.", "Could not save."));
+          }}
+        />
+      </section>
 
       <section className="mt-7" aria-labelledby="programa">
         <SectionTitle>

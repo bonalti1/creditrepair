@@ -156,6 +156,17 @@ that screen (`SCREEN_HELP`) with the cards that matter there.
   2.5.8's inline exception).
 - «Cartas» (`/equipo/cartas`, the letter template editor) is behind the
   capability `letters.edit`, administrators only.
+- **Search** (`src/lib/staff/search.ts`, `components/staff/GlobalSearch.tsx`):
+  the box in the top bar, Ctrl+K / Cmd+K anywhere, and «Buscar» at the top of
+  the phone's «Más» sheet. Pages, clients by name or phone (only the ones the
+  member's role may see: the same list, and with a database the same row level
+  security, as the clients screen), partners, letter templates and actions
+  ("send rounds", "import report", "import rosa" for that client's importer).
+  Both languages match; ↑ ↓ and Enter move and go, Esc closes. The
+  destinations come from `src/lib/staff/nav.ts`, shared with the bars.
+- **The client page has two tabs**: «Caso» and «Reportes» (every report in
+  the file, with what it changed, and Open / Print / Download; see
+  `src/lib/reports/history.ts`). `?pestana=reportes` opens the second.
 
 ## The morning summary
 

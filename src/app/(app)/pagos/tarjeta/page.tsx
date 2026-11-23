@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import { paymentAuthorization } from "@/lib/billing/authorization";
-import { DEMO_TOKEN_DECLINED, DEMO_TOKEN_OK } from "@/lib/billing/gateway";
+import { DEMO_TOKEN_OK } from "@/lib/billing/gateway";
+import { acceptedCardsLine, cardBrandMessage, CARD_BRAND_NAME } from "@/lib/billing/cardBrands";
+import { TEST_CARDS, testCardBrand, testCardLine } from "@/lib/ux/testCards";
 import { billingOutlook } from "@/lib/billing/outlook";
 import { formatCents } from "@/lib/billing/rules";
 import { useLocale } from "@/lib/i18n";
@@ -82,14 +84,18 @@ export default function ActualizarTarjetaPage() {
   const pending = failed !== null || outlook.kind === "payment_method_missing";
   const canAdd = view.canAddMethod && view.simulated && view.agreementSigned;
 
+  // The test card's brand, from its IIN: a brand the business does not take is said before anything is sent.
+  const selected = TEST_CARDS.find((card) => card.token === token) ?? null;
+  const brandWarning = cardBrandMessage(selected ? testCardBrand(selected) : null, view.acceptedCards, l);
+
   const save = async () => {
-    if (!accepted || busy) return;
+    if (!accepted || busy || brandWarning) return;
     setBusy(true);
     setError(null);
     const result = await addMethod(token, l);
     setBusy(false);
     if (!result.ok) {
-      setError(result.code === "payment_method_refused" ? b.errors.refused : b.errors.generic);
+      setError(result.code === "payment_method_refused" ? b.errors.refused : result.code === "card_brand_not_accepted" ? b.errors.brand : b.errors.generic);
       return;
     }
     setNotice(result.settled > 0 ? { ok: true, text: b.formSettled } : result.declined > 0 ? { ok: false, text: b.formStillDeclined } : { ok: true, text: b.formSaved });
@@ -144,12 +150,14 @@ export default function ActualizarTarjetaPage() {
             <p className="mt-1 text-[14px] leading-relaxed text-slate-600">{b.secureFieldsBody}</p>
             <fieldset className="mt-3">
               <legend className="text-[14px] font-medium text-blue-900">{b.secureFieldsDemo}</legend>
-              {[
-                { value: DEMO_TOKEN_OK, label: b.demoCardOk, card: "Visa ···· 4242" },
-                { value: DEMO_TOKEN_DECLINED, label: b.demoCardDeclined, card: "Visa ···· 0002" },
-              ].map((option) => (
+              {TEST_CARDS.map((card) => ({
+                value: card.token,
+                label: card.testId === "ok" ? b.demoCardOk : card.testId === "declined" ? b.demoCardDeclined : b.demoCardBrand(CARD_BRAND_NAME[testCardBrand(card)!]),
+                card: testCardLine(card),
+                testId: card.testId,
+              })).map((option) => (
                 <label key={option.value} className="mt-2 flex cursor-pointer items-center gap-3 rounded-2xl bg-slate-50 px-3.5 py-3">
-                  <input type="radio" name="demo-card" checked={token === option.value} onChange={() => setToken(option.value)} className="h-5 w-5 shrink-0 accent-blue-700" />
+                  <input type="radio" name="demo-card" data-testid={`demo-card-${option.testId}`} checked={token === option.value} onChange={() => setToken(option.value)} className="h-5 w-5 shrink-0 accent-blue-700" />
                   <span className="min-w-0">
                     <span className="block text-[15px] font-medium text-slate-900">{option.label}</span>
                     <span className="block text-[13px] tabular-nums text-slate-500">{option.card}</span>
@@ -157,7 +165,15 @@ export default function ActualizarTarjetaPage() {
                 </label>
               ))}
             </fieldset>
+            <p className="mt-3 text-[13px] leading-snug text-slate-500" data-testid="accepted-cards">
+              {b.acceptedCards(acceptedCardsLine(view.acceptedCards, l))}
+            </p>
           </div>
+          {brandWarning && (
+            <p role="alert" className="mt-3 rounded-2xl bg-amber-100 px-4 py-3 text-[15px] font-medium leading-snug text-blue-900" data-testid="card-brand-warning">
+              {brandWarning}
+            </p>
+          )}
 
           <label className="mt-4 flex cursor-pointer items-start gap-3 py-1">
             <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="mt-0.5 h-6 w-6 shrink-0 accent-blue-700" data-testid="card-consent" />
@@ -183,7 +199,7 @@ export default function ActualizarTarjetaPage() {
               {error}
             </p>
           )}
-          <button type="button" onClick={save} disabled={!accepted || busy} className={`${PRIMARY} mt-4`} data-testid="card-save">
+          <button type="button" onClick={save} disabled={!accepted || busy || Boolean(brandWarning)} className={`${PRIMARY} mt-4`} data-testid="card-save">
             {pending ? c.save : c.saveOnly}
           </button>
           <p className="mt-3 text-center text-[13px] leading-snug text-slate-500">{b.methodNoCharge}</p>

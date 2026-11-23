@@ -309,7 +309,11 @@ describe("report import: a first report", () => {
     expect(clientStage(after, NOW)).toBe("client_review_pending");
     expect(nextStep(after, NOW)).toMatchObject({ actor: "client", text: "Terminar su revisión (faltan 8 de 8)" });
     expect(after.reportImports).toEqual([
-      { at: AT, by: "ana", readerKey: "credalti_json", reportDate: AT, itemCount: 8, removed: 0, added: 0, changed: 0, closedRound: null },
+      {
+        at: AT, by: "ana", readerKey: "credalti_json", reportDate: AT, itemCount: 8, removed: 0, added: 0, changed: 0, closedRound: null,
+        // The re-import facts (reports/reimport.ts): none on a first report.
+        source: "demo", skippedPersonalInfo: 0, reappeared: 0, personalInfo: [],
+      },
     ]);
     // A new object: the record passed in is untouched.
     expect(waiting.report).toBeNull();

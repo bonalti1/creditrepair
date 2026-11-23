@@ -36,6 +36,27 @@ export default function OnboardingSync() {
           })
           .catch(() => undefined);
       };
+      // A household member added during onboarding (src/lib/household): their own lead and invitation,
+      // recorded once, through /api/household, which always takes the signed-in client as the first person.
+      const pendingHousehold = read("bonalti.householdMember");
+      if (pendingHousehold) {
+        let body: Record<string, unknown> | null = null;
+        try {
+          body = JSON.parse(pendingHousehold) as Record<string, unknown>;
+        } catch {
+          window.localStorage.removeItem("bonalti.householdMember");
+        }
+        if (body) {
+          fetch("/api/household", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+            .then((res) => {
+              // Saved, or refused for good (already in a household, a phone already taken): not retried.
+              // 428: the profile is not there yet; it is sent again on the next screen.
+              if (res.ok || (res.status >= 400 && res.status < 500 && ![401, 428, 429].includes(res.status))) window.localStorage.removeItem("bonalti.householdMember");
+            })
+            .catch(() => undefined);
+        }
+      }
+
       const goal = read(KEYS.goal);
       const state = read(KEYS.state);
       const assisted = read(KEYS.assisted);

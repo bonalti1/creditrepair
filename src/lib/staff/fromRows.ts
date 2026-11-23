@@ -16,6 +16,9 @@ import { isDisputeReasonCode } from "../ux/disputeReason";
 import { leadSourceFromRows } from "../leads/fromRows";
 import { pulseFromRow, type PulseRow } from "../pulse/pulse";
 import { resolutionFromRow } from "../autopilot/resolutions";
+import { historyFromPullRows } from "../reports/history";
+import type { HouseholdLink } from "../household/household";
+import { readChangeRecords } from "../reports/reimport";
 import type {
   ClientAssignment,
   DocumentKind,
@@ -113,6 +116,11 @@ export interface StaffRows {
   resolutions?: Row[];
   /** letters (id, remail_of) that re-mail one that came back. */
   remails?: Row[];
+  // Households (migration 0027). Absent or empty on a database without it.
+  /** household_members this member may read (by role, like the people in them). */
+  households?: Row[];
+  /** household_links (migration 0026): two clients linked for the household discount. */
+  householdLinks?: Row[];
 }
 
 export const EMPTY_STAFF_ROWS: StaffRows = {
@@ -288,6 +296,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
   const context: MapContext = {
     handleOf: new Map(rows.staffMembers.map((m) => [text(m.user_id), text(m.handle) || text(m.user_id).slice(0, 8)])),
   };
+  const householdOf = householdsFromRows(rows);
   const staffIds = new Set(rows.staffMembers.map((m) => text(m.user_id)));
 
   const agreementsBy = groupBy(rows.agreements, "user_id");
@@ -599,8 +608,14 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
           added: Number(summary.added ?? 0),
           changed: Number(summary.changed ?? 0),
           closedRound: typeof summary.closedRound === "number" ? summary.closedRound : null,
+          ...(textOrNull(p.source) ? { source: text(p.source) } : {}),
+          ...(typeof summary.skippedPersonalInfo === "number" ? { skippedPersonalInfo: summary.skippedPersonalInfo } : {}),
+          ...(typeof summary.reappeared === "number" ? { reappeared: summary.reappeared } : {}),
+          ...(Array.isArray(summary.personalInfo) ? { personalInfo: readChangeRecords(summary.personalInfo) } : {}),
         };
       });
+    // Every report in the file, staff-imported or not, for the Reports tab (reports/history.ts).
+    const reportHistory = historyFromPullRows(pulls);
     const reportSamples: ReportSample[] = [...(samplesBy.get(id) ?? [])].sort(byTime("saved_at")).map((s) => ({
       id: text(s.id),
       provider: text(s.provider),
@@ -683,6 +698,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       handled,
       ...(conversation.length > 0 ? { conversation } : {}),
       ...(reportImports.length > 0 ? { reportImports } : {}),
+      ...(reportHistory.length > 0 ? { reportHistory } : {}),
       ...(reportSamples.length > 0 ? { reportSamples } : {}),
       ...(intake.length > 0 ? { intake } : {}),
       ...pulseFields(pulsesBy.get(id)),
@@ -694,6 +710,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       ...autopilotFields(id, profile),
       ...selfHealingFields(id),
       ...(sourceOf(prospect, profile) ? { leadSource: sourceOf(prospect, profile) } : {}),
+      ...(householdOf.get(id) ? { household: householdOf.get(id)! } : {}),
     };
     return client;
   });
@@ -731,10 +748,44 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       goal: textOrNull(prospect.goal),
       addedBy: handle(context, prospect.created_by),
       ...(sourceOf(prospect, null) ? { leadSource: sourceOf(prospect, null) } : {}),
+      ...(householdOf.get(id) ? { household: householdOf.get(id)! } : {}),
     });
   }
 
   return clients;
+}
+
+/**
+ * Each client's household, by the console's client id (an account's id, or a
+ * prospect's while they have none): the other person's id and name, how they
+ * are related, and whether the discount link exists yet. Only the link: the
+ * other person's case is theirs and stays out of this record.
+ */
+export function householdsFromRows(rows: Pick<StaffRows, "households" | "householdLinks" | "prospects" | "profiles">): Map<string, HouseholdLink> {
+  const out = new Map<string, HouseholdLink>();
+  const convertedOf = new Map(rows.prospects.filter((p) => p.converted_user_id).map((p) => [text(p.id), text(p.converted_user_id)]));
+  const relationshipOf = (v: unknown): HouseholdLink["relationship"] => (v === "spouse" || v === "partner" || v === "family" ? v : "household");
+  const linked = new Set<string>();
+  for (const h of rows.households ?? []) {
+    if (h.ended_at) continue;
+    const primaryId = textOrNull(h.primary_user_id) ?? convertedOf.get(text(h.primary_prospect_id)) ?? text(h.primary_prospect_id);
+    const memberId = convertedOf.get(text(h.member_prospect_id)) ?? text(h.member_prospect_id);
+    const status: HouseholdLink["status"] = h.link_id ? "linked" : "invited";
+    const relationship = relationshipOf(h.relationship);
+    out.set(primaryId, { partnerId: memberId, partnerName: text(h.member_name), relationship, status });
+    out.set(memberId, { partnerId: primaryId, partnerName: text(h.primary_name), relationship, status });
+    if (h.link_id) linked.add(text(h.link_id));
+  }
+  // Two existing clients an administrator linked from Plans: their names from the profiles this member may read.
+  const nameOf = new Map(rows.profiles.map((p) => [text(p.id), text(p.full_name)]));
+  for (const l of rows.householdLinks ?? []) {
+    if (l.ended_at || linked.has(text(l.id))) continue;
+    const a = text(l.user_a);
+    const b = text(l.user_b);
+    if (!out.has(a) && nameOf.has(b)) out.set(a, { partnerId: b, partnerName: nameOf.get(b)!, relationship: "household", status: "linked" });
+    if (!out.has(b) && nameOf.has(a)) out.set(b, { partnerId: a, partnerName: nameOf.get(a)!, relationship: "household", status: "linked" });
+  }
+  return out;
 }
 
 /** The id the console gives a letter of the next round before it exists: client, round and the letter's key. */

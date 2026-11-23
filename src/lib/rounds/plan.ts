@@ -139,6 +139,22 @@ export function nextRoundNumber(
   return newest.status === "complete" ? Number(newest.round_number) + 1 : null;
 }
 
+/**
+ * Fingerprints of active items that an earlier round's results recorded as
+ * gone (attack_rounds.results, "removed"): the report lists them again.
+ */
+export function reappearedFingerprints(roundRows: readonly Row[], items: readonly ReportItem[]): Set<string> {
+  const gone = new Set<string>();
+  for (const r of roundRows) {
+    if (!Array.isArray(r.results)) continue;
+    for (const result of r.results as unknown[]) {
+      const row = result as { fingerprint?: unknown; outcome?: unknown } | null;
+      if (row && typeof row.fingerprint === "string" && row.outcome === "removed") gone.add(row.fingerprint);
+    }
+  }
+  return new Set(items.filter((i) => gone.has(i.fingerprint)).map((i) => i.fingerprint));
+}
+
 export interface RoundPlanInput {
   itemRows: readonly Row[];
   flagRows: readonly Row[];
@@ -178,6 +194,9 @@ export function planNextRound(input: RoundPlanInput): NextRoundPlan | null {
   const existing = input.roundRows.find((r) => Number(r.round_number) === roundNumber && r.status === "draft");
   const roundId = existing ? String(existing.id) : null;
   const history = historyFromRows(input.letterRows, input.letterItemRows, itemIdToFp, roundId);
+  // An item a round's results showed gone that is on the report again was put back by the bureau
+  // (FCRA § 611(a)(5)(B)): if the client confirms it again, it is disputed again from the start.
+  for (const fp of reappearedFingerprints(input.roundRows, items)) delete history[fp];
   const plan = buildAttackPlan({ roundNumber, items, flags, history });
   const itemDetails = input.reportDate ? itemDetailsFromRows(items, input.flagRows, itemIdToFp, input.reportDate) : {};
   return { roundNumber, roundId, plan, items, itemReasons, itemDetails, attested };

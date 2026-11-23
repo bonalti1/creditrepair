@@ -13,6 +13,7 @@ import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import { staffMessage } from "@/lib/staff/i18n/messages";
 import Icon from "@/components/Icon";
 import { ClientLanguageTag, PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/staff/ui";
+import HouseholdMemberCard from "@/components/staff/HouseholdMember";
 
 // "Agregar cliente": someone sales talked to, added by hand, as a prospect.
 // Then the same invitation the invite page makes (sales/invite.ts: the same
@@ -133,6 +134,10 @@ export default function AddClient({
           <Link href={`/equipo/clientes/${added.id}`} className={SECONDARY_BUTTON}>
             {t("Ver su ficha", "See their record")}
           </Link>
+        </div>
+        {/* A spouse, partner or family member: a person of their own, with their own invite (migration 0027). */}
+        <div className="mt-4 border-t hairline pt-4">
+          <HouseholdMemberCard primary={{ ...added, locale: lang }} viewer={viewer} team={team} members={members} />
         </div>
         <button type="button" onClick={onClose} className="mt-3 text-[14px] font-medium text-blue-700 underline-offset-2 hover:underline">
           {t("Cerrar", "Close")}

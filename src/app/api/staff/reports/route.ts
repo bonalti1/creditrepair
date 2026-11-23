@@ -4,7 +4,7 @@ import { reportError } from "@/lib/observability/errors";
 import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
 import { requireCapability } from "@/lib/staff/access";
-import { importStaffReport, saveStaffSample } from "@/lib/staff/actions";
+import { importStaffReport, readStaffReport, saveStaffSample } from "@/lib/staff/actions";
 import { MAX_REPORT_SOURCE_CHARS, reportsBodySchema } from "@/lib/staff/api";
 import { getServerSupabase } from "@/lib/supabase/server";
 
@@ -17,6 +17,35 @@ import { getServerSupabase } from "@/lib/supabase/server";
 //           (reports/merge.ts): nothing older than the report on file,
 //           nothing missing a bureau the old one had, never an answer written.
 //   sample  A page from a provider that has no reader yet, kept untouched.
+//
+// GET ?clientId=&pull=: one report in the client's file exactly as it was
+// stored (the Reports tab's open, print and download). Staff who see the case
+// only (case.view: administrators, and specialists for their assigned
+// clients), read through the member's own connection so the read policies
+// decide. Clients never get the raw import: their own page shows the audit.
+
+const idSchema = z.string().uuid();
+
+export async function GET(req: Request) {
+  const limited = rateLimit(req, "staff-reports-read", { limit: 60, windowMs: 60_000 });
+  if (limited) return limited;
+  const params = new URL(req.url).searchParams;
+  const clientId = params.get("clientId") ?? "";
+  const pull = params.get("pull") ?? "";
+  if (!idSchema.safeParse(clientId).success || !idSchema.safeParse(pull).success) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  const allowed = await requireCapability("case.view");
+  if (!allowed.ok) return allowed.response;
+  const reader = await getServerSupabase();
+  if (!reader) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  try {
+    const result = await readStaffReport(reader, clientId, pull);
+    if (!result.ok) return NextResponse.json({ error: result.message, code: result.code }, { status: result.status });
+    return NextResponse.json({ report: result.report }, { headers: { "cache-control": "no-store" } });
+  } catch (error) {
+    await reportError(error, { where: "api/staff/reports:read", userId: allowed.member.userId });
+    return NextResponse.json({ error: "Could not read the report." }, { status: 500 });
+  }
+}
 
 export async function POST(req: Request) {
   const limited = rateLimit(req, "staff-reports", { limit: 20, windowMs: 60_000 });

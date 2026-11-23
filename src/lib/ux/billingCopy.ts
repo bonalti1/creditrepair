@@ -70,6 +70,8 @@ export const BILLING_COPY = {
     secureFieldsDemo: "Demo: no escribas una tarjeta real. Elige una tarjeta de prueba.",
     demoCardOk: "Tarjeta de prueba que sí pasa",
     demoCardDeclined: "Tarjeta de prueba que no pasa",
+    demoCardBrand: (brand: string) => `${brand} de prueba`,
+    acceptedCards: (line: string) => `Aceptamos ${line}.`,
     formSave: "Guardar método de pago",
     formCancel: "Cancelar",
     formSaved: "Tu método de pago quedó guardado.",
@@ -78,6 +80,7 @@ export const BILLING_COPY = {
     errors: {
       generic: "No se pudo guardar. No cambió nada y no se cobró nada; inténtalo de nuevo en un momento.",
       refused: "El procesador no aceptó ese método de pago. No se guardó ni se cobró nada.",
+      brand: "No aceptamos esa marca de tarjeta. No se guardó ni se cobró nada. Por favor usa otra tarjeta.",
       changed: "El texto de la autorización se actualizó mientras lo leías. Vuelve a cargar la página. No se guardó nada.",
       agreement: "Primero hay que firmar tu acuerdo de servicio.",
       unavailable: "Todavía no se pueden agregar métodos de pago. No se te cobra nada.",
@@ -150,6 +153,8 @@ export const BILLING_COPY = {
     secureFieldsDemo: "Demo: do not type a real card. Pick a test card.",
     demoCardOk: "Test card that goes through",
     demoCardDeclined: "Test card that is declined",
+    demoCardBrand: (brand: string) => `Test ${brand}`,
+    acceptedCards: (line: string) => `We take ${line}.`,
     formSave: "Save payment method",
     formCancel: "Cancel",
     formSaved: "Your payment method was saved.",
@@ -158,6 +163,7 @@ export const BILLING_COPY = {
     errors: {
       generic: "It could not be saved. Nothing changed and nothing was charged; please try again in a moment.",
       refused: "The processor did not accept that payment method. Nothing was saved or charged.",
+      brand: "We don't take that card brand. Nothing was saved or charged. Please use another card.",
       changed: "The authorization text was updated while you were reading. Reload the page. Nothing was saved.",
       agreement: "Your service agreement has to be signed first.",
       unavailable: "Payment methods cannot be added yet. Nothing is charged.",

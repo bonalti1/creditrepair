@@ -18,9 +18,11 @@ export interface DemoTeamActions {
   sentBy: Record<string, Record<string, string>>;
   /** Handle of the teammate whose view the demo shows ("Ver como"). Empty: the first administrator. */
   viewAs: string;
+  /** Households added in the demo: the first person's id → the member added (a person in `added`). */
+  households?: Record<string, { memberId: string; memberName: string; primaryName: string; relationship: "spouse" | "partner" | "family" }>;
 }
 
-export const EMPTY_TEAM_ACTIONS: DemoTeamActions = { team: null, added: [], assignments: {}, sentBy: {}, viewAs: "" };
+export const EMPTY_TEAM_ACTIONS: DemoTeamActions = { team: null, added: [], assignments: {}, sentBy: {}, viewAs: "", households: {} };
 
 /**
  * The clients with the demo's assignments and senders applied. People added by
@@ -28,7 +30,14 @@ export const EMPTY_TEAM_ACTIONS: DemoTeamActions = { team: null, added: [], assi
  * actions are replayed (data.ts). Pure: returns new objects.
  */
 export function applyTeamActions(clients: StaffClient[], actions: DemoTeamActions): StaffClient[] {
-  return clients.map((client) => {
+  // Households: both people get the link (only the link: each case stays their own).
+  const household = new Map<string, NonNullable<StaffClient["household"]>>();
+  for (const [primaryId, h] of Object.entries(actions.households ?? {})) {
+    household.set(primaryId, { partnerId: h.memberId, partnerName: h.memberName, relationship: h.relationship, status: "invited" });
+    household.set(h.memberId, { partnerId: primaryId, partnerName: h.primaryName, relationship: h.relationship, status: "invited" });
+  }
+  return clients.map((input) => {
+    const client = household.has(input.id) ? { ...input, household: household.get(input.id)! } : input;
     const assigned = (actions.assignments[client.id] ?? []).reduce(
       (current, entry) => withAssignment(current, entry.to, entry.by, entry.at, entry.auto),
       client,
@@ -62,6 +71,7 @@ export function loadTeamActions(): DemoTeamActions {
       assignments: parsed.assignments ?? {},
       sentBy: parsed.sentBy ?? {},
       viewAs: parsed.viewAs ?? "",
+      households: parsed.households ?? {},
     };
   } catch {
     memory = structuredClone(EMPTY_TEAM_ACTIONS);

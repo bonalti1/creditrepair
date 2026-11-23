@@ -4,6 +4,8 @@ import { loadAgreement, notifyTeam } from "@/lib/agreement/server";
 import { looksLikeCardNumber, paymentMethodBodySchema } from "@/lib/billing/api";
 import { PAYMENT_AUTHORIZATION_VERSION, paymentAuthorizationHash } from "@/lib/billing/authorization";
 import { getPaymentGateway } from "@/lib/billing/gateway";
+import { brandRefused, normalizeBrand } from "@/lib/billing/cardBrands";
+import { loadAcceptedCards } from "@/lib/billing/cardSettings";
 import { ACH_AUTHORIZATION_VERSION, achAuthorizationHash } from "@/lib/billing/achAuthorization";
 import { readPlanSnapshot } from "@/lib/billing/plans";
 import { achAuthorizationApproved, paymentAuthorizationApproved } from "@/lib/billing/readiness";
@@ -111,6 +113,19 @@ export async function POST(req: Request) {
         { error: "The payment method was not accepted. Nothing was saved or charged.", code: "payment_method_refused" },
         { status: 422 },
       );
+    }
+    // A card brand the business does not take (billing_card_settings, migration 0027) is not put on
+    // file, whatever the screen did: the processor forgets it again and nothing is saved or charged.
+    // A card already on file is never affected: only a new one is checked.
+    if (kind === "card") {
+      const accepted = await loadAcceptedCards(db);
+      if (brandRefused(attached.brand, accepted)) {
+        if (gateway.detachPaymentMethod) await gateway.detachPaymentMethod({ customerRef, paymentMethodRef: attached.paymentMethodRef }).catch(() => undefined);
+        return NextResponse.json(
+          { error: "This card brand is not accepted. Nothing was saved or charged.", code: "card_brand_not_accepted", brand: normalizeBrand(attached.brand), accepted },
+          { status: 422 },
+        );
+      }
     }
 
     const now = new Date();

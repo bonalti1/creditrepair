@@ -125,8 +125,10 @@ describe("the letters capability", () => {
   });
 
   it("the console's frame lists «Cartas» behind it", () => {
-    const shell = readFileSync("src/components/staff/StaffShell.tsx", "utf8");
+    // The destinations live in lib/staff/nav.ts, shared by the frame and the console's search.
+    const shell = readFileSync("src/lib/staff/nav.ts", "utf8");
     expect(shell).toMatch(/href: "\/equipo\/cartas", label: "letters", icon: "clipboard", needs: "letters\.edit"/);
+    expect(readFileSync("src/components/staff/StaffShell.tsx", "utf8")).toMatch(/MORE_NAV/);
     const text = readFileSync("src/lib/staff/i18n/ui/shell.ts", "utf8");
     expect(text).toMatch(/letters: "Cartas"/);
     expect(text).toMatch(/letters: "Letters"/);

@@ -100,6 +100,13 @@ export default function Mas() {
             desc={es ? "El resumen completo de lo que encontramos." : "The full summary of what we found."}
           />
           <Row
+            href="/mas/reportes"
+            icon="doc"
+            tint="bg-blue-900"
+            title={es ? "Mis reportes" : "My reports"}
+            desc={es ? "Cada reporte de tu expediente y lo que cambió." : "Every report in your file and what changed."}
+          />
+          <Row
             href="/items"
             icon="search"
             tint="bg-slate-700"

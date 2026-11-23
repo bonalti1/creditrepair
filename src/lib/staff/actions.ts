@@ -5,7 +5,7 @@ import { importReportForUser } from "../domain/importReport";
 import { furnisherFromRow } from "../mail/server";
 import { roundMailPlan } from "../mail/sendPlan";
 import type { MailClass } from "../mail/types";
-import { mergeReport, planImport } from "../reports/merge";
+import { importExtras, mergeReport, planImport } from "../reports/merge";
 import { getReportReader, ReportReadError } from "../reports/readers";
 import { sendRound, type SendRoundOptions } from "../rounds/send";
 import type { StaffMember } from "./access";
@@ -174,14 +174,17 @@ export async function importStaffReport(
   if (plan.blocked) return fail(409, plan.blocked, "import_blocked");
   const merged = mergeReport(client, raw, { at, by: member.handle, readerKey: read.key });
 
-  // The report as planImport dated it (a few hours ahead counts as now).
-  const result = await importReportForUser(db, input.clientId, { ...raw, pulledAt: plan.report.pulledAt });
+  // The report as planImport dated it (a few hours ahead counts as now), with repeated personal
+  // information already taken out (domain/personalInfo.ts): what is saved is what the preview showed.
+  const result = await importReportForUser(db, input.clientId, plan.raw);
   const summary = {
     itemCount: plan.report.items.length,
     removed: plan.diff?.deleted.length ?? 0,
     added: plan.diff?.added.length ?? 0,
     changed: plan.diff?.changed.length ?? 0,
     closedRound: plan.round?.closes ? plan.round.number : null,
+    // What the Reports tab reads back: repeats skipped, items back again, disputed personal details.
+    ...(({ source: _source, ...extras }) => extras)(importExtras(client, plan, raw)),
   };
   const { error: pullError } = await db
     .from("report_pulls")
@@ -200,6 +203,38 @@ export async function importStaffReport(
     if (error) throw new Error(`attack_rounds: ${error.message}`);
   }
   return { ok: true, pullId: result.pullId, itemCount: result.itemCount };
+}
+
+/**
+ * One report in a client's file as it was stored (report_pulls.raw), for the
+ * Reports tab's open, print and download. Read through the member's OWN
+ * connection: the "staff read pulls" policy (migration 0012, case scope)
+ * decides, so sales gets nothing and a specialist only their assigned clients.
+ */
+export async function readStaffReport(
+  reader: SupabaseClient,
+  clientId: string,
+  pullId: string,
+): Promise<ActionResult<{ report: { id: string; pulledAt: string; createdAt: string; source: string; raw: unknown } }>> {
+  const { data, error } = await reader
+    .from("report_pulls")
+    .select("id, user_id, pulled_at, created_at, source, raw")
+    .eq("id", pullId)
+    .eq("user_id", clientId)
+    .maybeSingle();
+  if (error) throw new Error(`report_pulls: ${error.message}`);
+  const row = data as Row | null;
+  if (!row) return fail(404, NOT_YOURS, "not_visible");
+  return {
+    ok: true,
+    report: {
+      id: String(row.id),
+      pulledAt: new Date(String(row.pulled_at)).toISOString(),
+      createdAt: new Date(String(row.created_at)).toISOString(),
+      source: String(row.source),
+      raw: row.raw,
+    },
+  };
 }
 
 /** Keep a report page exactly as received, for a provider with no reader yet. Nothing is read from it. */

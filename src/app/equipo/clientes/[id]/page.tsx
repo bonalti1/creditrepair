@@ -66,6 +66,11 @@ import BillingCard from "@/components/staff/BillingCard";
 import Conversation from "@/components/staff/Conversation";
 import { ClientPulse } from "@/components/staff/PulseCards";
 import ReportImport from "@/components/staff/ReportImport";
+import ReportsTab from "@/components/staff/ReportsTab";
+import HouseholdMemberCard from "@/components/staff/HouseholdMember";
+import { RELATIONSHIP_LABEL } from "@/lib/household/household";
+import { reportHistoryOf } from "@/lib/reports/history";
+import { reappearedItems } from "@/lib/reports/reimport";
 import IntakeChecks from "@/components/staff/IntakeChecks";
 import {
   ActorTag,
@@ -321,7 +326,16 @@ export default function ClientePage() {
   const [note, setNote] = useState("");
   const [importing, setImporting] = useState(false);
   const [importNote, setImportNote] = useState<string | null>(null);
+  // "Case" (everything below) or "Reports" (every report in the file). "?pestana=reportes" opens the second.
+  const [tab, setTab] = useState<"case" | "reports">("case");
   const client = clients.find((c) => c.id === id) ?? null;
+
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("pestana") === "reportes") setTab("reports");
+    // "?importar=1" (from the console's search: "Import report"): the importer opens.
+    if (query.get("importar") === "1") setImporting(true);
+  }, []);
 
   // The page is drawn after the data loads, so a link to "#cartas" is honoured here.
   useEffect(() => {
@@ -406,6 +420,9 @@ export default function ClientePage() {
     ...(theftReportMissing ? (["identity_theft_report"] as const) : []),
   ];
   const samples = client.reportSamples ?? [];
+  const reportCount = reportHistoryOf(client).length;
+  // Items a round saw disappear that the report lists again (FCRA § 611(a)(5)(B)): back to the client's review.
+  const reappeared = new Map(reappearedItems(client.rounds, client.report).map((r) => [r.item.fingerprint, r]));
   // What the report's own data shows, per item (domain/checks.ts). Read-only:
   // for answering the client's questions. Nothing on this page can apply it.
   const checks = client.report ? dataChecks(client.report.items, client.report.pulledAt) : [];
@@ -438,8 +455,55 @@ export default function ClientePage() {
         {client.assignedTo ? memberName(members, client.assignedTo, locale) : t("nadie todavía", "nobody yet")} · {t("última actividad", "last activity")}{" "}
         {relativeDay(client.lastActivityAt, now, locale)} · <ClientLanguageTag client={client} />
       </p>
+      {client.household && (
+        <p className="mt-1.5 text-[14px] text-slate-600" data-testid="client-household">
+          <span className="font-medium text-slate-900">{t("Hogar", "Household")}:</span>{" "}
+          <Link href={`/equipo/clientes/${client.household.partnerId}`} className="font-medium text-blue-700 underline-offset-2 hover:underline">
+            {client.household.partnerName}
+          </Link>
+          {client.household.relationship !== "household" ? ` · ${RELATIONSHIP_LABEL[locale][client.household.relationship]}` : ""}
+          {" · "}
+          {client.household.status === "linked"
+            ? t("los dos tienen cuenta; descuento de hogar", "both have accounts; household discount")
+            : t("invitación enviada; cada uno con su propio caso", "invited; each has their own case")}
+        </p>
+      )}
+
+      {caseView && (
+        <div className="mt-5 flex gap-1 rounded-2xl bg-slate-100 p-1 sm:inline-flex" role="tablist" aria-label={t("Secciones del cliente", "Client sections")} data-testid="client-tabs">
+          {(
+            [
+              ["case", t("Caso", "Case")],
+              ["reports", `${t("Reportes", "Reports")} · ${reportCount}`],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              data-testid={`tab-${key}`}
+              onClick={() => {
+                setTab(key);
+                const url = new URL(window.location.href);
+                if (key === "reports") url.searchParams.set("pestana", "reportes");
+                else url.searchParams.delete("pestana");
+                window.history.replaceState(null, "", url.toString());
+              }}
+              className={`pressable h-11 flex-1 rounded-xl px-4 text-[14px] font-semibold sm:flex-none md:h-9 ${tab === key ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="mt-6 grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        {caseView && tab === "reports" ? (
+          <div className="min-w-0">
+            <ReportsTab client={client} demo={data.demo} locale={locale} />
+          </div>
+        ) : (
         <div className="min-w-0 space-y-6">
           <section className="card px-5 py-5 sm:px-6" aria-label={t("Dónde está y qué sigue", "Where they are and what's next")}>
             <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Dónde está", "Where they are")}</p>
@@ -652,6 +716,7 @@ export default function ClientePage() {
                             <p className="break-words text-[15px] font-medium leading-snug text-slate-900">{title}</p>
                           </div>
                           <div className="flex max-w-[55%] shrink-0 flex-wrap items-center justify-end gap-1.5">
+                            {reappeared.has(item.fingerprint) && <Chip tone="bg-amber-100 text-blue-900">{t("Volvió a aparecer", "Reappeared")}</Chip>}
                             <AnswerReason answer={answer} />
                             <AnswerChip answer={answer} />
                           </div>
@@ -662,6 +727,14 @@ export default function ClientePage() {
                             <span className="text-slate-500">
                               {t(`Confirmado por el cliente el ${shortDay(answer.confirmedAt, "es")}.`, `Confirmed by the client ${shortDay(answer.confirmedAt, "en")}.`)}
                             </span>
+                          </p>
+                        )}
+                        {reappeared.has(item.fingerprint) && (
+                          <p className="mt-1 text-[13px] leading-snug text-slate-600" data-testid="reappeared-note">
+                            {t(
+                              `Ya no aparecía en el reporte del ${shortDay(reappeared.get(item.fingerprint)!.goneOn, "es")} (ronda ${reappeared.get(item.fingerprint)!.round}) y volvió. El buró debe certificar que es exacto y avisar al cliente por escrito (FCRA § 611(a)(5)(B)). Está en la revisión del cliente; puede ir en la próxima ronda si el cliente dice que es inexacto.`,
+                              `It was gone on the ${shortDay(reappeared.get(item.fingerprint)!.goneOn, "en")} report (round ${reappeared.get(item.fingerprint)!.round}) and came back. The bureau must certify it's accurate and tell the client in writing (FCRA § 611(a)(5)(B)). It's in the client's review; it can go in the next round if the client says it's inaccurate.`,
+                            )}
                           </p>
                         )}
                         {answer?.status === "inaccurate" && answer.reasonCode === "identity_theft" && (
@@ -774,6 +847,7 @@ export default function ClientePage() {
           </section>
           )}
         </div>
+        )}
 
         <aside className="min-w-0 space-y-6">
           <section aria-labelledby="contacto">
@@ -817,6 +891,18 @@ export default function ClientePage() {
               )}
             </div>
           </section>
+
+          {can("clients.add") && viewer && (
+            <section aria-labelledby="hogar">
+              <SectionTitle>
+                <span id="hogar">{t("Hogar", "Household")}</span>
+              </SectionTitle>
+              <HouseholdMemberCard primary={client} viewer={viewer} team={team} members={members} onAdded={reload} />
+              <p className="px-1 pt-2 text-xs leading-relaxed text-slate-500">
+                {t("Cada persona del hogar tiene su propio caso. Pausar o cancelar es por persona.", "Each person in the household has their own case. Pausing or cancelling is per person.")}
+              </p>
+            </section>
+          )}
 
           <LeadSourceCard source={client.leadSource} />
 

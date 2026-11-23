@@ -19,6 +19,8 @@ import {
   type TeamState,
 } from "./team";
 import { demoTeamState, loadTeamActions, saveTeamActions } from "./teamStore";
+import { canSeeClient } from "./permissions";
+import { checkHouseholdMember, type HouseholdMember, type HouseholdMemberInput } from "../household/household";
 import type { StaffClient, StaffRole } from "./types";
 
 // What the team does about the team: the list of members and their roles,
@@ -35,6 +37,10 @@ export type AddClientResult =
   | { ok: true; client: StaffClient }
   | { ok: false; message: string; problems?: Partial<Record<NewClientField, string>> };
 
+export type AddHouseholdResult =
+  | { ok: true; memberId: string; member: HouseholdMember }
+  | { ok: false; message: string; problems?: Partial<Record<string, { en: string; es: string }>> };
+
 export interface TeamData {
   readonly demo: boolean;
   load(): Promise<TeamState>;
@@ -47,6 +53,12 @@ export interface TeamData {
    * With the round-robin on, the next specialist gets them.
    */
   addClient(input: NewClientInput, by: Viewer | null): Promise<AddClientResult>;
+  /**
+   * Add a household member for a client or lead this member may see: a
+   * person of their own (a lead with their own invitation), linked to the
+   * first person as a household. Nothing of either case is shared.
+   */
+  addHouseholdMember(primary: StaffClient, input: HouseholdMemberInput, by: Viewer | null): Promise<AddHouseholdResult>;
   /** Give clients to a teammate, or to nobody (`to` null). */
   assignClients(clientIds: string[], to: string | null, by: Viewer | null): Promise<TeamActionResult & { count?: number }>;
 }
@@ -123,6 +135,32 @@ function createDemoTeamData(): TeamData {
       saveTeamActions({ ...actions, team, added: [...actions.added, client] });
       return { ok: true, client };
     },
+    async addHouseholdMember(primary, input, by) {
+      if (!can(by?.role, "clients.add")) return { ok: false, message: deniedReason("clients.add") };
+      if (!canSeeClient(by, primary)) return { ok: false, message: "Este cliente no está entre los tuyos." };
+      if (primary.household) return { ok: false, message: "Esta persona ya tiene a alguien de su hogar. Un hogar son dos personas." };
+      const existing = await getStaffData().listClients();
+      const check = checkHouseholdMember(input, primary.phone, existing.map((c) => c.phone));
+      if (!check.ok) return { ok: false, message: "Revisa los datos marcados.", problems: check.problems };
+      const now = new Date();
+      const m = check.value;
+      const goal = primary.goal && ["mortgage", "auto", "card", "general"].includes(primary.goal) ? primary.goal : "general";
+      const record = {
+        ...prospectRecord(newId(now), { firstName: m.firstName, lastName: m.lastName, phone: m.phone, email: m.email, state: primary.state || "TX", goal, salesperson: primary.salesperson }, by!.handle, now),
+        locale: m.locale,
+        assignedTo: primary.assignedTo ?? null,
+      };
+      const actions = loadTeamActions();
+      saveTeamActions({
+        ...actions,
+        added: [...actions.added, record],
+        households: {
+          ...(actions.households ?? {}),
+          [primary.id]: { memberId: record.id, memberName: `${m.firstName} ${m.lastName}`, primaryName: primary.firstName, relationship: m.relationship },
+        },
+      });
+      return { ok: true, memberId: record.id, member: m };
+    },
     async assignClients(clientIds, to, by) {
       if (!can(by?.role, "clients.assign")) return refused("clients.assign");
       const problem = assignmentProblem(demoTeamState().members, to);
@@ -182,6 +220,16 @@ function createDatabaseTeamData(): TeamData {
         ok: false,
         message: typeof res.data.message === "string" ? res.data.message : "No se pudo guardar. Intenta de nuevo.",
         problems: res.data.problems as Partial<Record<NewClientField, string>> | undefined,
+      };
+    },
+    async addHouseholdMember(primary, input) {
+      const res = await post("/api/staff/household", { primaryId: primary.id, ...input, email: input.email || null });
+      if (res.ok) return { ok: true, memberId: String(res.data.prospectId), member: res.data.member as HouseholdMember };
+      const message = res.data.message as { en?: string; es?: string } | string | undefined;
+      return {
+        ok: false,
+        message: typeof message === "string" ? message : (message?.es ?? "No se pudo guardar. Intenta de nuevo."),
+        problems: res.data.problems as Partial<Record<string, { en: string; es: string }>> | undefined,
       };
     },
     async assignClients(clientIds, to) {
