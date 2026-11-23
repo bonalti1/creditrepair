@@ -1,3 +1,4 @@
+import type { PlanSnapshot } from "../billing/plans";
 import { MONITORING_OFFER } from "../monitoring/offer";
 
 // The business facts the documents are filled in with: who the company is,
@@ -38,6 +39,23 @@ export interface ResolvedTerms {
   /** What the client pays the monitoring provider, not us. From the monitoring offer. */
   monitoringPriceLabel: string;
   monitoringProviderName: string | null;
+  /**
+   * The plan the client is offered (billing/plans.ts, migration 0026). When
+   * set, the contract's payment terms are generated from it and its snapshot
+   * is kept with the signature; the monthly fee above then plays no part.
+   * Absent: no plan catalogue yet, and the monthly fee is the price per round.
+   */
+  plan?: PlanSnapshot | null;
+}
+
+/** The terms with a plan: what the documents print and what the signature keeps. */
+export function withPlan(terms: ResolvedTerms, plan: PlanSnapshot | null | undefined): ResolvedTerms {
+  return plan ? { ...terms, plan } : terms;
+}
+
+/** Under a plan the monthly fee and the estimated length are not used, so they are not required. */
+export function requiredTermsFor(terms: ResolvedTerms): readonly TermKey[] {
+  return terms.plan ? REQUIRED_TERMS.filter((k) => k !== "monthlyFee" && k !== "estimatedMonths") : REQUIRED_TERMS;
 }
 
 /** The environment variable behind each term the owner must fill. */
@@ -147,7 +165,7 @@ export function resolveTerms(source: TermsSource = ENV_SOURCE): ResolvedTerms {
 
 /** Required terms that are not set, in the order of REQUIRED_TERMS. */
 export function missingTerms(terms: ResolvedTerms): TermKey[] {
-  return REQUIRED_TERMS.filter((key) => terms[key] === null);
+  return requiredTermsFor(terms).filter((key) => terms[key] === null);
 }
 
 export function termsComplete(terms: ResolvedTerms): boolean {

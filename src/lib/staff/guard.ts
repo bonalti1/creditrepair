@@ -117,5 +117,11 @@ export function guardStaffData(data: StaffData, viewer: Viewer | null, hooks: Gu
     async resumeBilling(clientId) {
       return (await money("billing.pause", clientId)) ?? data.resumeBilling(clientId);
     },
+    async recordChargeback(clientId, chargeId, input, by) {
+      return (await money("billing.plans", clientId)) ?? data.recordChargeback(clientId, chargeId, input, by);
+    },
+    async setChargebackStatus(clientId, chargeId, status) {
+      return (await money("billing.plans", clientId)) ?? data.setChargebackStatus(clientId, chargeId, status);
+    },
   };
 }

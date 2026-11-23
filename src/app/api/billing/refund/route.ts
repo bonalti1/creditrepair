@@ -87,10 +87,16 @@ export async function POST(req: Request) {
       refund = inserted as Record<string, unknown>;
     }
 
+    // The stored method, for a processor that refunds to it (Authorize.Net). Server only.
+    const { data: method } = await db.from("payment_methods").select("id").eq("user_id", row.user_id).is("removed_at", null).maybeSingle();
+    const { data: vault } = method
+      ? await db.from("payment_method_vault").select("customer_ref, payment_method_ref").eq("payment_method_id", (method as { id: string }).id).maybeSingle()
+      : { data: null };
     const result = await gateway.refund({
       chargeReference: row.gateway_reference as string,
       amountCents: refund.amount_cents as number,
       idempotencyKey: refund.id as string,
+      ...(vault ? { handle: { customerRef: String(vault.customer_ref), paymentMethodRef: String(vault.payment_method_ref) } } : {}),
     });
     if (!result.ok) {
       await db.from("refunds").update({ failure_reason: result.message.slice(0, 500) }).eq("id", refund.id as string);
@@ -104,7 +110,7 @@ export async function POST(req: Request) {
     const now = new Date().toISOString();
     const { error: completeError } = await db
       .from("refunds")
-      .update({ completed_at: now, gateway_reference: result.reference, failure_reason: null })
+      .update({ completed_at: now, gateway_reference: result.reference, failure_reason: null, kind: result.kind ?? "refund" })
       .eq("id", refund.id as string);
     if (completeError) throw new Error(completeError.message);
     const { error: chargeError } = await db.from("charges").update({ status: "refunded", next_attempt_at: null }).eq("id", row.id);

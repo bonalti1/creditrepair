@@ -1,4 +1,6 @@
 import { sha256Hex } from "../agreement/sha256";
+import { authorizeNetGateway } from "./gateways/authorizeNet";
+import { nmiGateway } from "./gateways/nmi";
 
 // The payment processor, behind one small interface.
 //
@@ -35,6 +37,34 @@ export type AttachResult =
   | { ok: true; paymentMethodRef: string; brand: string; last4: string }
   | { ok: false; code: string };
 
+/** A bank account (ACH) put on file: "checking" or "savings" and the last four digits of the account. Never the numbers. */
+export type AttachBankResult =
+  | { ok: true; paymentMethodRef: string; accountType: "checking" | "savings"; last4: string }
+  | { ok: false; code: string };
+
+/**
+ * What the processor told us, in our words. A webhook (or a person entering
+ * what the processor's portal shows) becomes one of these; webhooks.ts applies
+ * it. `reference` is the processor's reference of the charge attempt.
+ */
+export type GatewayEvent =
+  | { kind: "charge_settled"; eventId: string; reference: string; at: string }
+  /** An ACH debit came back from the client's bank (Nacha return code R01…). */
+  | { kind: "ach_return"; eventId: string; reference: string; code: string; at: string }
+  | { kind: "chargeback_opened"; eventId: string; reference: string; amountCents: number | null; reasonCode: string | null; caseId: string | null; at: string }
+  | { kind: "chargeback_closed"; eventId: string; reference: string; outcome: "won" | "lost"; at: string }
+  | { kind: "ignored"; eventId: string; type: string };
+
+export type WebhookParse =
+  | { ok: true; events: GatewayEvent[] }
+  | { ok: false; reason: "not_configured" | "bad_signature" | "malformed" };
+
+/** What the browser needs to mount the processor's own hosted fields. Public values only. */
+export type HostedFieldsConfig =
+  | { kind: "demo" }
+  | { kind: "collectjs"; scriptUrl: string; tokenizationKey: string }
+  | { kind: "acceptui"; scriptUrl: string; apiLoginId: string; clientKey: string };
+
 export interface ChargeInput {
   amountCents: number;
   currency: "usd";
@@ -44,6 +74,8 @@ export interface ChargeInput {
   idempotencyKey: string;
   /** For the processor's records and the card statement: the round it pays for. No personal data. */
   description: string;
+  /** "ach" for a bank account: the processor files it as a consumer debit authorized online (WEB). */
+  methodKind?: "card" | "ach";
 }
 
 export type GatewayChargeResult =
@@ -59,9 +91,12 @@ export interface RefundInput {
   amountCents: number;
   /** The refund row's id. */
   idempotencyKey: string;
+  /** The stored method, for a processor that refunds to it (Authorize.Net). Server only. */
+  handle?: { customerRef: string; paymentMethodRef: string };
 }
 
-export type GatewayRefundResult = { ok: true; reference: string } | { ok: false; message: string };
+/** "void" when the charge had not settled yet and was cancelled instead of refunded: no money moved back, none was taken. */
+export type GatewayRefundResult = { ok: true; reference: string; kind?: "refund" | "void" } | { ok: false; message: string };
 
 export interface PaymentGateway {
   /** Stored with every charge, so the books say who was asked. */
@@ -74,6 +109,12 @@ export interface PaymentGateway {
   refund(input: RefundInput): Promise<GatewayRefundResult>;
   /** Optional: forget a stored method at the processor when the client removes or replaces it. */
   detachPaymentMethod?(input: { customerRef: string; paymentMethodRef: string }): Promise<void>;
+  /** A bank account from the processor's hosted fields (ACH). Absent: the processor takes cards only. */
+  attachBankAccount?(input: AttachPaymentMethodInput): Promise<AttachBankResult>;
+  /** Verify and read a webhook. Absent: this processor sends none we use; staff enter returns and chargebacks by hand. */
+  parseWebhook?(input: { rawBody: string; headers: Headers }): Promise<WebhookParse>;
+  /** Public configuration for the hosted fields in the browser. */
+  hostedFields(): HostedFieldsConfig;
 }
 
 /** The idempotency key of one attempt of one charge. */
@@ -91,6 +132,10 @@ export function attemptKey(chargeId: string, attemptNumber: number): string {
  */
 export const DEMO_TOKEN_OK = "demo_tok_visa_4242";
 export const DEMO_TOKEN_DECLINED = "demo_tok_visa_0002";
+/** A demo bank account (ACH). Ending 0002: every debit is refused, as a bank return for insufficient funds would be. */
+export const DEMO_BANK_TOKEN_OK = "demo_bank_checking_6789";
+export const DEMO_BANK_TOKEN_RETURNS = "demo_bank_checking_0002";
+const DEMO_BANK = /^demo_bank_(checking|savings)_(\d{4})$/;
 const DEMO_TOKEN = /^demo_tok_([a-z]{3,12})_(\d{4})$/;
 const DEMO_METHOD = /^demo_pm_([a-z]{3,12})_(\d{4})$/;
 const DECLINED_LAST4 = "0002";
@@ -135,11 +180,17 @@ export function createDemoGateway(): DemoGateway {
       if (!parsed) return { ok: false, code: "invalid_token" };
       return { ok: true, paymentMethodRef: `demo_pm_${parsed.brand}_${parsed.last4}`, brand: parsed.brand, last4: parsed.last4 };
     },
+    async attachBankAccount({ token }) {
+      const match = DEMO_BANK.exec(token);
+      if (!match) return { ok: false, code: "invalid_token" };
+      return { ok: true, paymentMethodRef: `demo_pm_${match[1]}_${match[2]}`, accountType: match[1] as "checking" | "savings", last4: match[2]! };
+    },
+    hostedFields: () => ({ kind: "demo" }),
     async charge(input) {
       calls += 1;
       const known = charges.get(input.idempotencyKey);
       if (known) return known;
-      const method = DEMO_METHOD.exec(input.paymentMethodRef);
+      const method = DEMO_METHOD.exec(input.paymentMethodRef) ?? /^demo_pm_(checking|savings)_(\d{4})$/.exec(input.paymentMethodRef);
       let result: GatewayChargeResult;
       if (!method || !Number.isInteger(input.amountCents) || input.amountCents <= 0) {
         result = { ok: false, kind: "declined", code: "invalid_request" };
@@ -176,8 +227,8 @@ export type GatewayResolution =
       message: string;
     };
 
-/** The names BILLING_GATEWAY accepts today. A real adapter adds its own name here. */
-export const KNOWN_GATEWAYS = ["demo"] as const;
+/** The names BILLING_GATEWAY accepts. */
+export const KNOWN_GATEWAYS = ["demo", "nmi", "authorize_net"] as const;
 
 export const GATEWAY_NOT_CONFIGURED =
   "No payment processor is configured (BILLING_GATEWAY is empty). Nothing was charged and nothing will be until one is set up. See docs/BILLING.md.";
@@ -197,7 +248,10 @@ export function getPaymentGateway(env: Record<string, string | undefined> = proc
     demoSingleton ??= createDemoGateway();
     return { configured: true, gateway: demoSingleton };
   }
-  // A real adapter goes here: `if (name === "acme") return { configured: true, gateway: acmeGateway(env) };`
+  if (name === "nmi" || name === "authorize_net") {
+    const built = name === "nmi" ? nmiGateway(env) : authorizeNetGateway(env);
+    return built.ok ? { configured: true, gateway: built.gateway } : { configured: false, message: built.message };
+  }
   return {
     configured: false,
     message: `BILLING_GATEWAY is "${name}", and no adapter with that name exists. Nothing was charged. See docs/BILLING.md.`,

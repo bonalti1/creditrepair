@@ -56,6 +56,8 @@ export const CAPABILITIES = [
   "partners.manage",
   // The letter editor (src/lib/letters/versions, migration 0019): change a letter and record the attorney's approval.
   "letters.edit",
+  // The plan catalogue, invoices, exports and chargebacks (src/lib/billing, migration 0026).
+  "billing.plans",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -95,6 +97,7 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "partners.view": "Ver los socios que refieren clientes",
   "partners.manage": "Aprobar socios y fijar sus comisiones",
   "letters.edit": "Editar las cartas y registrar la aprobación del abogado",
+  "billing.plans": "Planes de cobro, facturas, exportaciones y contracargos",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -116,6 +119,7 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "partners.view": "See the partners who refer clients",
   "partners.manage": "Approve partners and set their commissions",
   "letters.edit": "Edit the letters and record the attorney's approval",
+  "billing.plans": "Billing plans, invoices, exports and chargebacks",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -153,6 +157,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "partners.view": false,
       "partners.manage": false,
       "letters.edit": false,
+      "billing.plans": false,
     },
   },
   sales: {
@@ -177,6 +182,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "partners.view": true,
       "partners.manage": false,
       "letters.edit": false,
+      "billing.plans": false,
     },
   },
 };

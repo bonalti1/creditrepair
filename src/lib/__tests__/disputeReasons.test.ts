@@ -530,6 +530,8 @@ describe("the reason follows the item through the plan, the previews and the sta
       "refundCharge",
       "pauseBilling",
       "resumeBilling",
+      "recordChargeback",
+      "setChargebackStatus",
     ]);
     // The screens added to the client page since (report import, conversation) set no answer or reason either.
     for (const file of ["src/components/staff/ReportImport.tsx", "src/components/staff/Conversation.tsx"]) {

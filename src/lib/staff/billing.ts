@@ -48,6 +48,7 @@ export function billingContextFor(client: StaffClient, agreement: AgreementRecor
     signedMonthlyFee: client.agreementMonthlyFee ?? null,
     rounds: billableRounds(client),
     account: client.billing,
+    ...(client.agreementPlan ? { plan: client.agreementPlan } : {}),
   };
 }
 

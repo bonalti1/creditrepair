@@ -4,7 +4,12 @@ import { useState } from "react";
 import { PAUSE_REASON_MIN_CHARS } from "@/lib/billing/api";
 import { chargeStanding, type ChargeStanding } from "@/lib/billing/dunning";
 import { REFUND_REASON_MIN_CHARS } from "@/lib/billing/refunds";
-import { feeToCents, formatCents } from "@/lib/billing/rules";
+import { invoiceNumber, invoiceStatus, INVOICE_STATUS_LABEL } from "@/lib/billing/invoices";
+import { PLAN_TYPE_LABEL, planSummary } from "@/lib/billing/plans";
+import { chargedTowardCap, feeToCents, formatCents } from "@/lib/billing/rules";
+import { unitWork, upcomingCharges } from "@/lib/billing/schedule";
+import { billingContextFor } from "@/lib/staff/billing";
+import Link from "next/link";
 import type { BillingCharge } from "@/lib/billing/types";
 import { demoRunsBilling, type StaffData } from "@/lib/staff/data";
 import { count, shortDay } from "@/lib/staff/format";
@@ -96,8 +101,18 @@ export default function BillingCard({
   const fee = feeToCents(client.agreementMonthlyFee);
   const rounds = new Map(client.rounds.map((round) => [round.number, round]));
   // Newest first, like the rounds beside it.
-  const ordered = [...charges].sort((a, b) => b.roundNumber - a.roundNumber);
+  const ordered = [...charges].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.roundNumber - a.roundNumber);
   const attention = outlook.kind === "paused_for_payment" || outlook.kind === "payment_method_missing" || outlook.kind === "needs_person";
+  const plan = client.agreementPlan ?? null;
+  const context = billingContextFor(client, {
+    disclosureAcknowledgedAt: client.disclosureAcknowledgedAt ?? null,
+    signedAt: client.agreementSignedAt,
+    cancellationDeadline: client.cancellationDeadline ?? null,
+    cancelledAt: client.agreementCancelledAt ?? null,
+    serviceEndRequestedAt: client.serviceEndRequestedAt ?? null,
+  });
+  const upcoming = plan ? upcomingCharges(context, now, 3) : [];
+  const charged = chargedTowardCap(charges);
 
   const act = async (run: () => Promise<{ ok: true } | { ok: false; message: string }>, done: () => void) => {
     if (busy) return;
@@ -170,10 +185,31 @@ export default function BillingCard({
                 </dd>
               </div>
             )}
+            {plan && (
+              <>
+                <div className="flex items-baseline justify-between gap-3" data-testid="billing-plan">
+                  <dt className="shrink-0 text-slate-500">{t("Plan firmado", "Signed plan")}</dt>
+                  <dd className="min-w-0 text-right font-medium text-slate-900">
+                    {plan.name[locale]} <span className="font-normal text-slate-500">v{plan.version} · {PLAN_TYPE_LABEL[plan.terms.type][locale]}</span>
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="shrink-0 text-slate-500">{t("Lo máximo que pagará", "Most they'll pay")}</dt>
+                  <dd className="text-right font-medium tabular-nums text-slate-900" data-testid="billing-cap">
+                    {formatCents(charged)} {t("de", "of")} {formatCents(plan.effective.maxTotalCents)}
+                  </dd>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                  <div className="h-full rounded-full bg-blue-700" style={{ width: `${Math.min(100, (charged / Math.max(1, plan.effective.maxTotalCents)) * 100)}%` }} />
+                </div>
+              </>
+            )}
             <div className="flex items-baseline justify-between gap-3">
-              <dt className="shrink-0 text-slate-500">{t("Cuota de su acuerdo", "Agreement fee")}</dt>
+              <dt className="shrink-0 text-slate-500">{plan ? t("Monto", "Amount") : t("Cuota de su acuerdo", "Agreement fee")}</dt>
               <dd className="text-right font-medium text-slate-900">
-                {fee !== null
+                {plan
+                  ? planSummary(plan, locale).split(" · ").slice(1).join(" · ")
+                  : fee !== null
                   ? t(`${formatCents(fee)} por ronda enviada`, `${formatCents(fee)} per mailed round`)
                   : client.agreementSignedAt
                     ? t("Sin cuota en el acuerdo", "No fee in the agreement")
@@ -181,6 +217,21 @@ export default function BillingCard({
               </dd>
             </div>
           </dl>
+          {upcoming.length > 0 && (
+            <div className="mt-3 border-t hairline pt-3" data-testid="billing-upcoming">
+              <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">{t("Próximos cobros, por trabajo ya registrado", "Upcoming charges, for work already on record")}</p>
+              <ul className="mt-1.5 space-y-1.5">
+                {upcoming.map((u) => (
+                  <li key={u.at + u.work.en} className="flex items-baseline justify-between gap-3 text-[13.5px]">
+                    <span className="min-w-0 text-slate-700">
+                      <span className="font-medium text-slate-900">{shortDay(u.at, locale)}</span> · {u.work[locale]}
+                    </span>
+                    <span className="shrink-0 font-medium tabular-nums text-slate-900">{formatCents(u.amountCents)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {pause && (
@@ -209,7 +260,18 @@ export default function BillingCard({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[15px] font-medium leading-snug text-slate-900">
-                        {t(`Ronda ${charge.roundNumber} · enviada el ${shortDay(charge.workDate, "es")}`, `Round ${charge.roundNumber} · mailed ${shortDay(charge.workDate, "en")}`)}
+                        {charge.unit && charge.unit !== "round"
+                          ? unitWork(charge, locale)
+                          : t(`Ronda ${charge.roundNumber} · enviada el ${shortDay(charge.workDate, "es")}`, `Round ${charge.roundNumber} · mailed ${shortDay(charge.workDate, "en")}`)}
+                      </p>
+                      <p className="text-[12px] text-slate-500">
+                        <Link href={`/equipo/cobros/${encodeURIComponent(charge.id)}`} className="font-mono underline-offset-2 hover:underline">
+                          {invoiceNumber(charge)}
+                        </Link>
+                        {" · "}
+                        {INVOICE_STATUS_LABEL[invoiceStatus(charge)][locale]}
+                        {charge.methodKind === "ach" ? " · ACH" : ""}
+                        {charge.chargeback ? ` · ${t("contracargo", "chargeback")} ${charge.chargeback.status}` : ""}
                       </p>
                       <p className="text-[13px] leading-snug text-slate-500">
                         {formatCents(charge.amountCents)}
@@ -353,8 +415,8 @@ export default function BillingCard({
         <Icon name="check" size={14} className="mt-0.5 shrink-0" />
         <span>
           {t(
-            "Los cobros los hace el sistema, solo por rondas ya enviadas y por la cuota del acuerdo firmado. El equipo no puede crear un cobro ni cambiar un monto: solo reembolsar o pausar.",
-            "The system makes the charges, only for rounds already mailed and at the signed agreement's fee. The team can't create a charge or change an amount: only refund or pause.",
+            "Los cobros los hace el sistema, solo por trabajo ya registrado y con los montos del plan firmado. El equipo no puede crear un cobro ni cambiar un monto: solo reembolsar o pausar.",
+            "The system makes the charges, only for work already on record and at the signed plan's amounts. The team can't create a charge or change an amount: only refund or pause.",
           )}
         </span>
       </p>

@@ -4,7 +4,9 @@ import { loadAgreement, notifyTeam } from "@/lib/agreement/server";
 import { looksLikeCardNumber, paymentMethodBodySchema } from "@/lib/billing/api";
 import { PAYMENT_AUTHORIZATION_VERSION, paymentAuthorizationHash } from "@/lib/billing/authorization";
 import { getPaymentGateway } from "@/lib/billing/gateway";
-import { paymentAuthorizationApproved } from "@/lib/billing/readiness";
+import { ACH_AUTHORIZATION_VERSION, achAuthorizationHash } from "@/lib/billing/achAuthorization";
+import { readPlanSnapshot } from "@/lib/billing/plans";
+import { achAuthorizationApproved, paymentAuthorizationApproved } from "@/lib/billing/readiness";
 import { loadBilling, runBillingForUser } from "@/lib/billing/server";
 import { BRAND } from "@/lib/brand";
 import { reportError } from "@/lib/observability/errors";
@@ -53,14 +55,18 @@ export async function POST(req: Request) {
   const parsed = paymentMethodBodySchema.safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ error: z.flattenError(parsed.error) }, { status: 400 });
   const { token, authorization } = parsed.data;
+  const kind = parsed.data.kind ?? "card";
 
   const resolution = getPaymentGateway();
   if (!resolution.configured) {
     return NextResponse.json({ error: resolution.message, code: "gateway_not_configured" }, { status: 503 });
   }
   const gateway = resolution.gateway;
-  // Real money: only under an authorization text an attorney approved.
-  if (gateway.live && !paymentAuthorizationApproved()) {
+  if (kind === "ach" && !gateway.attachBankAccount) {
+    return NextResponse.json({ error: "This payment processor does not take bank accounts.", code: "ach_not_available" }, { status: 409 });
+  }
+  // Real money: only under an authorization text an attorney approved (the ACH one for a bank account).
+  if (gateway.live && !(kind === "ach" ? achAuthorizationApproved() : paymentAuthorizationApproved())) {
     return NextResponse.json(
       { error: "The payment authorization is not ready to be accepted yet.", code: "authorization_not_ready" },
       { status: 409 },
@@ -80,12 +86,12 @@ export async function POST(req: Request) {
       companyLegalName: agreement.terms?.companyLegalName ?? null,
       companyEmail: agreement.terms?.companyEmail ?? null,
       monthlyFee: agreement.terms?.monthlyFee ?? null,
+      plan: readPlanSnapshot((agreement.terms as { plan?: unknown } | null)?.plan),
     };
     // The browser says what it was showing; it must be what the server would show.
-    if (
-      authorization.version !== PAYMENT_AUTHORIZATION_VERSION ||
-      authorization.hash !== paymentAuthorizationHash(PAYMENT_AUTHORIZATION_VERSION, authorization.locale, terms)
-    ) {
+    const version = kind === "ach" ? ACH_AUTHORIZATION_VERSION : PAYMENT_AUTHORIZATION_VERSION;
+    const expected = kind === "ach" ? achAuthorizationHash(version, authorization.locale, terms) : paymentAuthorizationHash(version, authorization.locale, terms);
+    if (authorization.version !== version || authorization.hash !== expected) {
       return NextResponse.json(
         { error: "The authorization text changed. Reload the page.", code: "authorization_changed" },
         { status: 409 },
@@ -94,7 +100,12 @@ export async function POST(req: Request) {
 
     const before = await loadBilling(db, user.id, { withHandle: true });
     const customerRef = before.handle?.customerRef ?? (await gateway.createCustomer({ userId: user.id })).customerRef;
-    const attached = await gateway.attachPaymentMethod({ customerRef, token });
+    const bank = kind === "ach" ? await gateway.attachBankAccount!({ customerRef, token }) : null;
+    const attached = bank
+      ? bank.ok
+        ? { ok: true as const, paymentMethodRef: bank.paymentMethodRef, brand: bank.accountType, last4: bank.last4 }
+        : bank
+      : await gateway.attachPaymentMethod({ customerRef, token });
     if (!attached.ok) {
       return NextResponse.json(
         { error: "The payment method was not accepted. Nothing was saved or charged.", code: "payment_method_refused" },
@@ -118,9 +129,10 @@ export async function POST(req: Request) {
       .insert({
         user_id: user.id,
         gateway: gateway.name,
+        kind,
         brand: attached.brand.toLowerCase().slice(0, 30),
         last4: attached.last4,
-        authorization_version: PAYMENT_AUTHORIZATION_VERSION,
+        authorization_version: version,
         authorization_locale: authorization.locale,
         authorization_hash: authorization.hash,
         authorized_at: now.toISOString(),
@@ -138,7 +150,7 @@ export async function POST(req: Request) {
     await db.from("events").insert({
       user_id: user.id,
       kind: "payment_method_added",
-      payload: { brand: attached.brand, last4: attached.last4, authorizationVersion: PAYMENT_AUTHORIZATION_VERSION },
+      payload: { kind, brand: attached.brand, last4: attached.last4, authorizationVersion: version },
     });
 
     // A charge declined earlier gets one more try now (the same charge, never a new one).

@@ -2,6 +2,7 @@
 
 import { Suspense, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { PLAN_TYPE_LABEL } from "@/lib/billing/plans";
 import { formatCents } from "@/lib/billing/rules";
 import {
   businessMetrics,
@@ -261,10 +262,65 @@ function Dashboard() {
         </StatGrid>
         <p className="px-1 pt-2 text-xs leading-relaxed text-slate-500">
           {t(
-            "Se cobra solo por rondas ya enviadas, a la cuota del acuerdo firmado. Lo programado no incluye rondas que todavía no salen.",
-            "Charges are only for rounds already mailed, at the signed agreement's fee. What's scheduled doesn't include rounds that haven't gone out.",
+            "Se cobra solo por trabajo ya registrado, con los montos del plan firmado. Lo programado no incluye rondas que todavía no salen.",
+            "Charges are only for work already on record, at the signed plan's amounts. What's scheduled doesn't include rounds that haven't gone out.",
           )}
         </p>
+      </section>
+
+      <section className="mt-7" aria-labelledby="cobros-planes" data-testid="billing-dashboard">
+        <SectionTitle>
+          <span id="cobros-planes">{t("Cobros por plan y método", "Billing by plan and method")}</span>
+        </SectionTitle>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+          <figure className="card px-5 py-4" aria-label={METRIC_INFO.revenueByPlan.label} data-testid="metric-revenueByPlan">
+            <figcaption className="flex items-start gap-1.5">
+              <span className="text-[14px] font-semibold text-slate-900">{METRIC_INFO.revenueByPlan.label}</span>
+              <Definition label={METRIC_INFO.revenueByPlan.label} text={METRIC_INFO.revenueByPlan.definition} />
+            </figcaption>
+            {m.money.byPlanType.length === 0 ? (
+              <p className="mt-3 text-[14px] text-slate-500">{t("Nada cobrado en el periodo.", "Nothing charged in the period.")}</p>
+            ) : (
+              <ul className="mt-3 space-y-2.5">
+                {m.money.byPlanType.map((row) => {
+                  const max = Math.max(1, ...m.money.byPlanType.map((r) => r.cents));
+                  return (
+                    <li key={row.type}>
+                      <div className="flex items-baseline justify-between gap-3 text-[13.5px]">
+                        <span className="text-slate-700">{row.type === "legacy" ? t("Por ronda (antes de los planes)", "Per round (before plans)") : PLAN_TYPE_LABEL[row.type][locale]}</span>
+                        <span className="font-semibold tabular-nums text-slate-900">{formatCents(row.cents)}</span>
+                      </div>
+                      <div className="mt-1 h-2 rounded-full bg-slate-100" aria-hidden="true">
+                        <div className="h-2 rounded-full bg-blue-700" style={{ width: `${(row.cents / max) * 100}%` }} />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </figure>
+          <StatGrid cols="grid-cols-2">
+            <Stat
+              metric="achShare"
+              value={m.money.achShare === null ? "—" : formatPercent(m.money.achShare)}
+              note={t(`ACH ${formatCents(m.money.achCents)} · tarjeta ${formatCents(m.money.cardCents)}`, `ACH ${formatCents(m.money.achCents)} · card ${formatCents(m.money.cardCents)}`)}
+            />
+            <Stat metric="feesEstimate" value={formatCents(m.money.feesEstimateCents)} note={t("estimado", "estimate")} />
+            <Stat
+              metric="chargebackRate"
+              value={m.money.chargebackRate === null ? "—" : `${(m.money.chargebackRate * 100).toFixed(2)}%`}
+              note={t(`${m.money.chargebacks} contracargos · aviso desde 0.75%`, `${m.money.chargebacks} chargebacks · warning from 0.75%`)}
+            />
+            <div className="flex min-w-0 flex-col justify-center gap-1.5 px-4 py-4 sm:px-5">
+              <a href="/equipo/cobros" className="text-[14px] font-medium text-blue-700 underline-offset-2 hover:underline">
+                {t("Facturas y exportar CSV", "Invoices and CSV export")}
+              </a>
+              <a href="/equipo/planes" className="text-[14px] font-medium text-blue-700 underline-offset-2 hover:underline">
+                {t("Planes de cobro", "Billing plans")}
+              </a>
+            </div>
+          </StatGrid>
+        </div>
       </section>
 
       <DashboardPulse pulse={m.pulse} clients={clients} />

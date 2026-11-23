@@ -1226,7 +1226,8 @@ describe("billing: the staff console", () => {
     const api = data.slice(data.indexOf("export interface StaffData"), data.indexOf("// ── Demo implementation"));
     const methods = [...api.matchAll(/^  (\w+)\(/gm)].map((m) => m[1]!);
     const money = methods.filter((name) => /charge|bill|pay|amount|refund|cobr|pag/i.test(name));
-    expect(money).toEqual(["refundCharge", "pauseBilling", "resumeBilling"]);
+    // Refund, pause, and recording what the processor reports (a chargeback and its outcome): none creates a charge.
+    expect(money).toEqual(["refundCharge", "pauseBilling", "resumeBilling", "recordChargeback", "setChargebackStatus"]);
     // No operation takes an amount: the signatures have no such parameter.
     const signatures = [...api.matchAll(/^  \w+\([^;]*;/gm)].map((m) => m[0]);
     expect(signatures).toHaveLength(methods.length);
@@ -1282,6 +1283,20 @@ describe("billing: the staff console", () => {
 
     it("are consistent with the rule: every charge is for a mailed round, the day after, at the signed fee, never two for a round", () => {
       for (const c of clients) {
+        if (c.agreementPlan) {
+          // Under a plan (migration 0026): each charge is for work on record, never above the cap, 30 days apart.
+          const plan = c.agreementPlan;
+          expect(c.billing.charges.reduce((n, ch) => n + ch.amountCents, 0)).toBeLessThanOrEqual(plan.effective.maxTotalCents);
+          for (const ch of c.billing.charges) {
+            const r = c.rounds.find((x) => x.number === ch.roundNumber)!;
+            expect(r?.mailedAt, `${c.id} ${ch.unit}`).toBeTruthy();
+            expect(ch.workDate).toBe(ch.unit === "period" ? ch.periodEnd : r.mailedAt);
+            expect(new Date(ch.createdAt).getTime()).toBeGreaterThanOrEqual(new Date(ch.workDate).getTime() + DAY);
+          }
+          const created = c.billing.charges.map((ch) => new Date(ch.createdAt).getTime()).sort((a, b) => a - b);
+          for (let i = 1; i < created.length; i++) expect(created[i]! - created[i - 1]!).toBeGreaterThanOrEqual(30 * DAY);
+          continue;
+        }
         const seen = new Set<number>();
         for (const ch of c.billing.charges) {
           const r = c.rounds.find((x) => x.number === ch.roundNumber)!;

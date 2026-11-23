@@ -4,7 +4,8 @@ import { AGREEMENT_VERSION, disclosureHash } from "@/lib/agreement/documents";
 import { agreementReadiness } from "@/lib/agreement/readiness";
 import { agreementFromRow } from "@/lib/agreement/record";
 import { AGREEMENT_TABLE, loadAgreementRow } from "@/lib/agreement/server";
-import { resolveTerms } from "@/lib/agreement/terms";
+import { resolveTerms, withPlan } from "@/lib/agreement/terms";
+import { offeredSnapshot } from "@/lib/billing/planStore";
 import { reportError } from "@/lib/observability/errors";
 import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
@@ -45,7 +46,9 @@ export async function POST(req: Request) {
   const { version, locale } = parsed.data;
 
   // Unreviewed text is never put in front of a real client for acknowledgement or signature.
-  const readiness = agreementReadiness();
+  // The plan the client is offered is part of the text (the Texas statement prints its costs).
+  const terms = withPlan(resolveTerms(), await offeredSnapshot(db, user.id).catch(() => null));
+  const readiness = agreementReadiness({ terms });
   if (!readiness.ready) {
     return NextResponse.json(
       { error: "The agreement is not ready to be signed yet.", code: "agreement_not_ready" },
@@ -55,7 +58,7 @@ export async function POST(req: Request) {
   if (version !== AGREEMENT_VERSION) {
     return NextResponse.json({ error: "The agreement text changed. Reload the page.", code: "version_changed" }, { status: 409 });
   }
-  const expectedHash = disclosureHash(AGREEMENT_VERSION, locale, resolveTerms());
+  const expectedHash = disclosureHash(AGREEMENT_VERSION, locale, terms);
   if (parsed.data.disclosureHash !== expectedHash) {
     return NextResponse.json({ error: "The disclosure text changed. Reload the page.", code: "document_changed" }, { status: 409 });
   }

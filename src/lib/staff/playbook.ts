@@ -461,6 +461,22 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     playbooks: [],
   },
   "/equipo/cartas": { title: "Cartas", what: "Las plantillas de las cartas.", steps: ["Solo un administrador las edita."], playbooks: [] },
+  "/equipo/planes": {
+    title: "Planes de cobro",
+    what: "Los planes que se ofrecen a los clientes, como en Credit Repair Cloud, y la vista previa de cuándo se cobra.",
+    steps: [
+      "Guarda un borrador, envíalo al abogado y registra su aprobación; solo entonces se puede ofrecer.",
+      "Un plan ofrecido no cambia: para cambiarlo, guarda una versión nueva. Quien ya firmó sigue con la suya.",
+      "No hay cuota de inscripción: la cuota de primer trabajo se cobra después de enviar la primera ronda.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/cobros": {
+    title: "Facturas y contracargos",
+    what: "Cada cobro es una factura. Filtra, exporta a CSV o a QuickBooks y registra contracargos.",
+    steps: ["Filtra por estado, método o fecha.", "Descarga el CSV que necesites.", "Ante un contracargo, abre el paquete de evidencia y envíalo al procesador."],
+    playbooks: [],
+  },
 };
 
 const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
@@ -554,6 +570,22 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
     playbooks: [],
   },
   "/equipo/cartas": { title: "Letters", what: "The letter templates.", steps: ["Only an administrator edits them."], playbooks: [] },
+  "/equipo/planes": {
+    title: "Billing plans",
+    what: "The plans offered to clients, as in Credit Repair Cloud, with a preview of when each charge happens.",
+    steps: [
+      "Save a draft, send it to the attorney and record the approval; only then can it be offered.",
+      "An offered plan never changes: to change it, save a new version. Clients who signed keep theirs.",
+      "There is no setup fee: the first work fee is charged after the first round is mailed.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/cobros": {
+    title: "Invoices and chargebacks",
+    what: "Every charge is an invoice. Filter, export to CSV or QuickBooks, and record chargebacks.",
+    steps: ["Filter by status, method or date.", "Download the CSV you need.", "For a chargeback, open the evidence pack and send it to the processor."],
+    playbooks: [],
+  },
 };
 
 /** Every screen's help, in each language (the same paths). */

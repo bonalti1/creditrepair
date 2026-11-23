@@ -6,7 +6,8 @@ import { agreementReadiness } from "@/lib/agreement/readiness";
 import { agreementFromRow } from "@/lib/agreement/record";
 import { AGREEMENT_TABLE, loadAgreementRow } from "@/lib/agreement/server";
 import { isFullName, signerNameMatches } from "@/lib/agreement/signature";
-import { resolveTerms } from "@/lib/agreement/terms";
+import { resolveTerms, withPlan } from "@/lib/agreement/terms";
+import { offeredSnapshot } from "@/lib/billing/planStore";
 import { reportError } from "@/lib/observability/errors";
 import { readJsonBody } from "@/lib/security/body";
 import { clientIp, rateLimit } from "@/lib/security/rateLimit";
@@ -55,7 +56,10 @@ export async function POST(req: Request) {
   const { locale } = parsed.data;
   const fullName = parsed.data.fullName.replace(/\s+/g, " ").trim();
 
-  const readiness = agreementReadiness();
+  // The plan offered to this client, as the snapshot the signature keeps (terms.plan). The database
+  // checks it is exactly an active, attorney-approved plan version (migration 0026).
+  const terms = withPlan(resolveTerms(), await offeredSnapshot(db, user.id).catch(() => null));
+  const readiness = agreementReadiness({ terms });
   if (!readiness.ready) {
     return NextResponse.json(
       { error: "The agreement is not ready to be signed yet.", code: "agreement_not_ready" },
@@ -65,7 +69,6 @@ export async function POST(req: Request) {
   if (parsed.data.version !== AGREEMENT_VERSION) {
     return NextResponse.json({ error: "The agreement text changed. Reload the page.", code: "version_changed" }, { status: 409 });
   }
-  const terms = resolveTerms();
   const expectedHash = documentHash(AGREEMENT_VERSION, locale, terms);
   if (parsed.data.documentHash !== expectedHash) {
     return NextResponse.json({ error: "The agreement text changed. Reload the page.", code: "document_changed" }, { status: 409 });
@@ -142,7 +145,12 @@ export async function POST(req: Request) {
     await db.from("events").insert({
       user_id: user.id,
       kind: "agreement_signed",
-      payload: { version: AGREEMENT_VERSION, locale, cancellationDeadline: deadline.toISOString() },
+      payload: {
+        version: AGREEMENT_VERSION,
+        locale,
+        cancellationDeadline: deadline.toISOString(),
+        ...(terms.plan ? { plan: { key: terms.plan.key, version: terms.plan.version, termsHash: terms.plan.termsHash } } : {}),
+      },
     });
     return NextResponse.json({ ok: true, agreement: agreementFromRow(row as Record<string, unknown>) });
   } catch (error) {

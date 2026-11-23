@@ -1,4 +1,5 @@
 import type { AgreementRecord } from "../agreement/gate";
+import type { PlanSnapshot, PlanType } from "./plans";
 
 // Billing, as data. One rule shapes every type here: a charge exists only FOR
 // a round of letters that was mailed. There is no "invoice", no "subscription
@@ -29,6 +30,33 @@ export interface BillingRefund {
   at: string;
   /** When the processor confirmed it; null while it is still being sent. */
   completedAt: string | null;
+  /** "void" when the charge had not settled yet and the processor cancelled it instead. */
+  kind?: "refund" | "void";
+}
+
+/**
+ * What one charge pays for (migration 0026). A charge is always for work on
+ * record: a mailed round, a 30-day period in which a round was mailed, a flat
+ * fee's installment or its last round, items a later report no longer shows,
+ * or the first work fee after the first round was mailed.
+ */
+export type ChargeUnit = "round" | "period" | "installment" | "flat" | "results" | "first_work";
+
+export type MethodKind = "card" | "ach";
+
+export type ChargebackStatus = "open" | "won" | "lost" | "accepted";
+
+/** A dispute the client opened with their bank or card issuer about one charge. */
+export interface ChargebackSummary {
+  id: string;
+  status: ChargebackStatus;
+  reasonCode: string | null;
+  amountCents: number;
+  receivedAt: string;
+  /** "webhook" (the processor told us) or "manual" (recorded by staff). */
+  source: "webhook" | "manual";
+  /** When the evidence was sent to the processor, if it was. */
+  respondedAt: string | null;
 }
 
 /** One charge: the payment for one mailed round. At most one per round, ever. */
@@ -52,6 +80,28 @@ export interface BillingCharge {
   /** The processor's code for the last decline, for staff. Never shown raw to a client. */
   failureCode: string | null;
   refund: BillingRefund | null;
+  /** What the charge pays for. Absent on a charge made before plans existed: a round. */
+  unit?: ChargeUnit;
+  /** The plan type of the signed agreement it was charged under. */
+  planType?: PlanType | null;
+  /** Subscription: the 30-day period it pays for. */
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  /** Flat fee in installments: which one (1-based). */
+  installmentNumber?: number | null;
+  /** The part of the amount that is the first work fee. */
+  firstWorkCents?: number;
+  /** A referral credit applied: the processor is asked for amountCents − creditCents. */
+  creditCents?: number;
+  /** Pay per delete: the items (report_items ids) it pays for. */
+  resultItemIds?: string[];
+  /** "INV-2026-000123": assigned by the database. */
+  invoiceNumber?: string | null;
+  /** Card or bank account (ACH) at the time of the last attempt. */
+  methodKind?: MethodKind;
+  chargeback?: ChargebackSummary | null;
+  /** The last ACH return code on this charge (R01…), when the bank sent one back. */
+  returnCode?: string | null;
 }
 
 /** What the app knows about the payment method on file. No token, no card number. */
@@ -63,6 +113,8 @@ export interface PaymentMethodSummary {
   /** The recurring-payment authorization the client accepted with it (authorization.ts). */
   authorizationVersion: string;
   authorizedAt: string;
+  /** "card" unless a bank account (ACH) is on file. For ACH, brand is "checking" or "savings". */
+  kind?: MethodKind;
 }
 
 /** Billing paused for one client by a member of staff, with the reason. */
@@ -101,6 +153,34 @@ export interface BillableRound {
   letters: BillableLetter[];
 }
 
+/**
+ * Pay per delete: an item the client disputed through us that a later report
+ * no longer shows (or shows updated). Built from item_results (migration
+ * 0026), which the report import writes.
+ */
+export interface ProvenResult {
+  /** report_items.id */
+  itemId: string;
+  /** "Equifax · CAPITAL ONE" */
+  label: string;
+  outcome: "deleted" | "updated";
+  /** The round whose letter disputed it, and when that round was mailed. */
+  disputedRound: number;
+  disputedAt: string;
+  /** When the report that shows it was pulled. */
+  provedAt: string;
+  /** False when a still later report shows the item again: then it is not charged. */
+  stillGone: boolean;
+}
+
+/** Program-wide switches an administrator turns on only with the attorney's approval on record. */
+export interface BillingSwitches {
+  payPerDelete: boolean;
+  referralCredits: boolean;
+}
+
+export const SWITCHES_OFF: BillingSwitches = { payPerDelete: false, referralCredits: false };
+
 /** The four things every billing decision is made from. */
 export interface BillingContext {
   agreement: AgreementRecord | null;
@@ -111,6 +191,17 @@ export interface BillingContext {
   signedMonthlyFee: string | null;
   rounds: BillableRound[];
   account: BillingAccount;
+  /**
+   * The plan snapshot kept with the signature (service_agreements.terms.plan).
+   * Absent or null: the agreement was signed before plans existed, and it is
+   * billed per mailed round at signedMonthlyFee, as before.
+   */
+  plan?: PlanSnapshot | null;
+  /** Pay per delete only. */
+  results?: ProvenResult[];
+  switches?: BillingSwitches;
+  /** Referral credit the client has not used yet, in cents. */
+  creditBalanceCents?: number;
 }
 
 export type L = "es" | "en";

@@ -70,6 +70,10 @@ export async function importReportForUser(
         .eq("user_id", userId)
         .in("fingerprint", diff.deleted.map((i) => i.fingerprint));
     }
+    // The proof pay per delete is billed from (migration 0026: item_results): this pull no longer
+    // lists these items, or lists them changed. The database checks the first against the item's
+    // last sighting. Kept even when no plan charges for it: it is the record of what the report showed.
+    await recordResults(db, userId, String(pull.id), deletedFingerprints, diff.changed.map((i) => i.fingerprint));
   }
 
   // A report after an earlier one: tell the client it arrived and, only as a
@@ -98,4 +102,17 @@ async function disputedGone(db: SupabaseClient, userId: string, fingerprints: st
   if (ids.length === 0) return 0;
   const { data: flags } = await db.from("item_flags").select("item_id").eq("user_id", userId).eq("attested", true).in("item_id", ids);
   return new Set(((flags as Array<{ item_id: string }> | null) ?? []).map((f) => f.item_id)).size;
+}
+
+async function recordResults(db: SupabaseClient, userId: string, pullId: string, deleted: string[], changed: string[]): Promise<void> {
+  const all = [...new Set([...deleted, ...changed])];
+  if (all.length === 0) return;
+  const { data: items } = await db.from("report_items").select("id, fingerprint").eq("user_id", userId).in("fingerprint", all);
+  const idOf = new Map(((items as Array<{ id: string; fingerprint: string }> | null) ?? []).map((i) => [i.fingerprint, i.id]));
+  const rows = [
+    ...deleted.flatMap((fp) => (idOf.has(fp) ? [{ user_id: userId, item_id: idOf.get(fp)!, outcome: "deleted", proof_pull_id: pullId }] : [])),
+    ...changed.flatMap((fp) => (idOf.has(fp) ? [{ user_id: userId, item_id: idOf.get(fp)!, outcome: "updated", proof_pull_id: pullId }] : [])),
+  ];
+  // One at a time: a row the database refuses (the item is still listed) must not drop the others.
+  for (const row of rows) await db.from("item_results").insert(row);
 }

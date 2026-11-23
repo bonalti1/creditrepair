@@ -1,4 +1,5 @@
 import { resolveTerms } from "../agreement/terms";
+import { ACH_AUTHORIZATION_VERSION } from "./achAuthorization";
 import { PAYMENT_AUTHORIZATION_VERSION } from "./authorization";
 import { getPaymentGateway } from "./gateway";
 import { feeToCents } from "./rules";
@@ -33,6 +34,13 @@ export interface BillingReadiness {
   authorizationApproved: boolean;
   /** What is missing, one plain sentence each. Empty when ready. */
   problems: string[];
+}
+
+const ACH_APPROVED_VERSION = process.env.NEXT_PUBLIC_ACH_AUTHORIZATION_APPROVED_VERSION;
+
+/** True when the owner recorded an attorney's approval of the current ACH debit authorization text. */
+export function achAuthorizationApproved(approvedVersion: string | null | undefined = ACH_APPROVED_VERSION): boolean {
+  return (approvedVersion ?? "").trim() === ACH_AUTHORIZATION_VERSION;
 }
 
 /** True when the owner recorded an attorney's approval of the current authorization text. */

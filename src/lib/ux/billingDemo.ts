@@ -36,6 +36,10 @@ export function isDemoScenario(value: string): value is DemoScenario {
 
 /** The demo method a token stands for, as it would be on file. */
 export function demoMethod(token: string, at: string, authorization: { version: string; hash: string }): DemoMethod | null {
+  const bank = /^demo_bank_(checking|savings)_(\d{4})$/.exec(token);
+  if (bank) {
+    return { token, kind: "ach", brand: bank[1]!, last4: bank[2]!, addedAt: at, authorizationVersion: authorization.version, authorizedAt: at, authorizationHash: authorization.hash };
+  }
   const parsed = parseDemoToken(token);
   if (!parsed) return null;
   return {

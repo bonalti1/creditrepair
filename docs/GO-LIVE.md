@@ -82,6 +82,11 @@ name shown. Never paste a key into a chat or an email.
 >    charged so that nothing is charged before the service it pays for.
 > 9. **Letters in the client's name.** Our staff prepares and mails them. What
 >    must the client sign for that? (The letter packet asks this in detail.)
+> 10. **Billing plans.** We offer plans like Credit Repair Cloud's (monthly for
+>    a month in which letters were mailed, per round, flat fee in installments,
+>    pay per deleted item), each charged only after the work. The questions,
+>    plan by plan, are in `docs/BILLING.md`; each plan's contract text needs
+>    your approval, as do the card and the bank-debit (ACH) authorizations.
 
 ---
 
@@ -100,6 +105,7 @@ Open each one, then copy the values named in the last column into Render
 | 6 | **Meta for Developers + WhatsApp Business** | WhatsApp messages | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, and a word you invent for `WHATSAPP_WEBHOOK_VERIFY_TOKEN` |
 | 7 | **n8n** | The hourly clock for rounds | a long random password you invent for `N8N_WEBHOOK_SECRET` |
 | 8 | **Slack or n8n webhook** (optional) | Alerts | `ERROR_WEBHOOK_URL`, `SALES_WEBHOOK_URL` |
+| 9 | **A merchant account that accepts credit repair**: NMI or Authorize.Net | Charges by card and bank account (ACH), refunds, returns and chargebacks (`docs/BILLING.md`) | `BILLING_GATEWAY` (`nmi` or `authorize_net`); NMI: `NMI_SECURITY_KEY` (secret), `NEXT_PUBLIC_NMI_TOKENIZATION_KEY`, `NMI_WEBHOOK_SIGNING_KEY`; Authorize.Net: `AUTHORIZE_NET_API_LOGIN_ID`, `AUTHORIZE_NET_TRANSACTION_KEY` (secret), `NEXT_PUBLIC_AUTHORIZE_NET_API_LOGIN_ID`, `NEXT_PUBLIC_AUTHORIZE_NET_CLIENT_KEY`, `AUTHORIZE_NET_SIGNATURE_KEY`, `AUTHORIZE_NET_ENV=production` |
 
 Also set, with no account needed:
 
@@ -124,6 +130,16 @@ In short:
 - [ ] Decide the monthly fee and the estimated length
 - [ ] Set the `NEXT_PUBLIC_COMPANY_…`, `NEXT_PUBLIC_PLAN_…` and `NEXT_PUBLIC_TX_…` variables listed there
 - [ ] Only after the attorney approves: set `NEXT_PUBLIC_AGREEMENT_APPROVED_VERSION`
+
+### Billing plans and payments
+
+- [ ] Build the plans in `/equipo/planes` (CRC's types; no setup fee; the first work fee is charged after the first round)
+- [ ] The attorney approves each plan version's contract text; record each approval in `/equipo/planes`, then offer the plan and pick the default. No client can sign until the plan they are offered is approved
+- [ ] The attorney approves the card and the ACH authorizations; then set `NEXT_PUBLIC_PAYMENT_AUTHORIZATION_APPROVED_VERSION` and `NEXT_PUBLIC_ACH_AUTHORIZATION_APPROVED_VERSION`
+- [ ] In the processor's portal, point webhooks at `https://<app>/api/billing/webhooks/nmi` (or `/authorize_net`)
+- [ ] Check every UNVERIFIED item in `docs/BILLING.md` against the processor's sandbox: charge, decline, refund, void, an ACH return, a webhook
+- [ ] Set the fee estimates `NEXT_PUBLIC_BILLING_FEE_*` from your merchant pricing
+- [ ] Pay per delete and referral credits stay off unless the attorney approves them in writing
 
 ## Step 3 — Three one-time setups
 
@@ -204,5 +220,6 @@ Then run one full pass yourself (the database part in detail: `docs/DATABASE.md`
 | IdentityIQ: a sample report or partner documentation | Reading real reports. Until then the app shows the sample report. |
 | IdentityIQ: partner link and price | The subscribe button and naming IdentityIQ in the app |
 | IdentityIQ: paid-ads permission | Any ad spend |
-| Attorney | Launch itself; Texas registration and bond; the service agreement text (`docs/AGREEMENT.md`); approval of the letters in `/equipo/cartas` (`docs/LETTERS-EDITOR.md`), without which no round is mailed |
+| Attorney | Launch itself; Texas registration and bond; the service agreement text (`docs/AGREEMENT.md`); approval of the letters in `/equipo/cartas` (`docs/LETTERS-EDITOR.md`), without which no round is mailed; each plan version, the card and ACH authorizations, pay per delete and referral credits (`docs/BILLING.md`) |
+| A merchant account (NMI or Authorize.Net) | Real charges; until then nothing is charged |
 | You: AltiBot's voice, new ads with AltiBot and Alti | Brand polish on ads |

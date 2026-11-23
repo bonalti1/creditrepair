@@ -10,7 +10,14 @@ import {
   type PaymentAuthorization,
 } from "@/lib/billing/authorization";
 import { chargeStanding, type ChargeStanding } from "@/lib/billing/dunning";
-import { DEMO_TOKEN_DECLINED, DEMO_TOKEN_OK } from "@/lib/billing/gateway";
+import { achAuthorization } from "@/lib/billing/achAuthorization";
+import { DEMO_BANK_TOKEN_OK, DEMO_BANK_TOKEN_RETURNS, DEMO_TOKEN_DECLINED, DEMO_TOKEN_OK } from "@/lib/billing/gateway";
+import { collectedCents, invoiceNumber, invoiceStatus, statementMonths, type InvoiceStatus } from "@/lib/billing/invoices";
+import { mostYoullPay, planSummary, PLAN_TYPE_LABEL } from "@/lib/billing/plans";
+import { chargedTowardCap } from "@/lib/billing/rules";
+import { unitWork } from "@/lib/billing/schedule";
+import HostedFields from "@/components/billing/HostedFields";
+import { PLAN_COPY } from "@/lib/ux/billingPlanCopy";
 import { billingOutlook } from "@/lib/billing/outlook";
 import { receiptFor, workLine, workLineWithoutLetters, type Receipt } from "@/lib/billing/receipts";
 import { billingDate, billingDay, formatCents } from "@/lib/billing/rules";
@@ -108,19 +115,38 @@ function AuthorizationText({ authorization }: { authorization: PaymentAuthorizat
   );
 }
 
-function ReceiptView({ receipt, locale, showAmount, company }: { receipt: Receipt; locale: L; showAmount: boolean; company: string }) {
+const INVOICE_TONE: Record<InvoiceStatus, string> = {
+  paid: "bg-green-50 text-green-700",
+  processing: "bg-blue-50 text-blue-700",
+  failed: "bg-amber-100 text-blue-900",
+  refunded: "bg-slate-100 text-slate-600",
+  voided: "bg-slate-100 text-slate-600",
+  disputed: "bg-slate-100 text-slate-700",
+};
+
+/** The receipt as an invoice: its number, the date, the amount, exactly which work it paid for, and its status. */
+function ReceiptView({ receipt, charge, locale, showAmount, company, planName }: { receipt: Receipt; charge: BillingCharge; locale: L; showAmount: boolean; company: string; planName: string | null }) {
   const c = BILLING_COPY[locale];
+  const p = PLAN_COPY[locale];
+  const status = invoiceStatus(charge);
+  const credit = charge.creditCents ?? 0;
+  const work = charge.unit && charge.unit !== "round" ? unitWork(charge, locale) : receipt.work[locale];
   const rows: Array<[string, string]> = [
     [c.receiptDate, receipt.date[locale]],
-    ...(showAmount ? ([[c.receiptAmount, receipt.amount]] as Array<[string, string]>) : []),
-    [c.receiptWork, receipt.work[locale]],
+    ...(showAmount ? ([[c.receiptAmount, formatCents(charge.amountCents)]] as Array<[string, string]>) : []),
+    ...(showAmount && credit > 0 ? ([[p.invoiceCredit, `−${formatCents(credit)}`], [p.invoiceTotal, formatCents(collectedCents(charge))]] as Array<[string, string]>) : []),
+    [c.receiptWork, work],
+    ...(planName ? ([[p.invoicePlan, planName]] as Array<[string, string]>) : []),
     [c.receiptFrom, company],
   ];
   return (
     <div data-testid="receipt">
-      <p className="text-[15px] font-semibold text-slate-900">
-        {c.receipt} {receipt.number}
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[15px] font-semibold text-slate-900">
+          {p.invoice} <span className="font-mono">{invoiceNumber(charge)}</span>
+        </p>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${INVOICE_TONE[status]}`}>{p.status[status]}</span>
+      </div>
       <dl className="mt-1.5 space-y-1.5">
         {rows.map(([label, value]) => (
           <div key={label}>
@@ -142,6 +168,8 @@ export default function PagosPage() {
   const [adding, setAdding] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [token, setToken] = useState(DEMO_TOKEN_OK);
+  /** Card or bank account (ACH): the authorization shown and the processor's fields follow it. */
+  const [kind, setKind] = useState<"card" | "ach">("card");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -162,6 +190,7 @@ export default function PagosPage() {
     () => (view ? paymentAuthorization(locale, view.authorizationTerms) : null),
     [locale, view],
   );
+  const ach = useMemo(() => (view ? achAuthorization(locale, view.authorizationTerms) : null), [locale, view]);
 
   if (!hydrated || !now || !view || !authorization) return null;
 
@@ -176,9 +205,14 @@ export default function PagosPage() {
   const helpHref = humanHelpHref(locale);
   // A real processor's own hosted fields are mounted in the marked place below by its adapter
   // (docs/BILLING.md). Until one exists, only the demo processor's test cards can be put on file.
-  const canAdd = view.canAddMethod && view.simulated;
+  const canAdd = view.canAddMethod && (view.simulated || view.hostedFields !== null);
+  const plan = context.plan ?? null;
+  const p = PLAN_COPY[locale];
+  const statements = statementMonths(context, now, locale);
+  const shownAuthorization = kind === "ach" && ach ? ach : authorization;
   const amountOf = (charge: BillingCharge) => (showAmounts ? formatCents(charge.amountCents) : c.feeOfAgreement);
   const work = (charge: BillingCharge) => {
+    if (charge.unit && charge.unit !== "round") return unitWork(charge, locale);
     const round = rounds.get(charge.roundNumber);
     return (round ? workLine(round, charge.workDate) : workLineWithoutLetters(charge.roundNumber, charge.workDate))[locale];
   };
@@ -198,7 +232,7 @@ export default function PagosPage() {
     if (!accepted || busy) return;
     setBusy(true);
     setError(null);
-    const result: BillingActionResult = await addMethod(token, locale);
+    const result: BillingActionResult = await addMethod(token, locale, kind);
     setBusy(false);
     if (!result.ok) {
       setError(errorText(result.code, locale));
@@ -284,12 +318,44 @@ export default function PagosPage() {
                 {outlook.client[locale]}
               </p>
             )}
-            <p className={`text-[15px] leading-relaxed text-slate-600 ${failed ? "" : "mt-2"}`} data-testid="fee-line">
-              {fee ? c.feeLine(fee) : c.feeUnknown}
-            </p>
-            <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{c.whenLine}</p>
+            {plan ? (
+              <p className={`text-[15px] leading-relaxed text-slate-600 ${failed ? "" : "mt-2"}`} data-testid="fee-line">
+                {p.onlyAfterWork}
+              </p>
+            ) : (
+              <>
+                <p className={`text-[15px] leading-relaxed text-slate-600 ${failed ? "" : "mt-2"}`} data-testid="fee-line">
+                  {fee ? c.feeLine(fee) : c.feeUnknown}
+                </p>
+                <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{c.whenLine}</p>
+              </>
+            )}
           </div>
         </section>
+
+        {plan && (
+          <section aria-labelledby="plan" data-testid="plan-card">
+            <h2 id="plan" className={SECTION_LABEL}>
+              {p.planTitle}
+            </h2>
+            <div className="card px-5 py-5">
+              <p className="text-[15px] leading-snug text-slate-700">{planSummary(plan, locale)}</p>
+              <p className="mt-3 text-[13px] font-semibold uppercase tracking-wide text-slate-500">{p.mostLabel}</p>
+              <p className="text-[32px] font-semibold leading-tight tabular-nums text-blue-700" data-testid="most-youll-pay" aria-label={mostYoullPay(plan, locale)}>
+                {formatCents(plan.effective.maxTotalCents)}
+              </p>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                <div className="h-full rounded-full bg-amber-400" style={{ width: `${Math.min(100, (chargedTowardCap(account.charges) / Math.max(1, plan.effective.maxTotalCents)) * 100)}%` }} />
+              </div>
+              <p className="mt-1.5 text-[14px] text-slate-600">{p.chargedSoFar(formatCents(chargedTowardCap(account.charges)), formatCents(plan.effective.maxTotalCents))}</p>
+              <p className="mt-2 text-[14px] leading-relaxed text-slate-600">{p.mostNote}</p>
+              {plan.terms.type === "pay_per_delete" && <p className="mt-2 text-[14px] leading-relaxed text-slate-600">{p.perDelete}</p>}
+              <p className="mt-2 text-xs text-slate-500">
+                {PLAN_TYPE_LABEL[plan.terms.type][locale]} · v{plan.version}
+              </p>
+            </div>
+          </section>
+        )}
 
         <section aria-labelledby="cobrado">
           <h2 id="cobrado" className={SECTION_LABEL}>
@@ -326,11 +392,11 @@ export default function PagosPage() {
                           className={`mt-1.5 inline-flex h-9 items-center gap-1 ${TEXT_LINK}`}
                         >
                           <Icon name="doc" size={16} />
-                          {open ? c.hideReceipt : c.seeReceipt}
+                          {open ? p.hideInvoice : p.seeInvoice}
                         </button>
                         {open && (
                           <div className="mt-1 rounded-2xl bg-slate-100 px-4 py-4">
-                            <ReceiptView receipt={receipt} locale={locale} showAmount={showAmounts} company={company} />
+                            <ReceiptView receipt={receipt} charge={charge} locale={locale} showAmount={showAmounts} company={company} planName={plan ? plan.name[locale] : null} />
                             <button
                               type="button"
                               onClick={() => setPrinting({ kind: "receipt", id: charge.id })}
@@ -350,6 +416,37 @@ export default function PagosPage() {
           <p className="px-1 pt-2 text-[13px] leading-relaxed text-slate-500">{c.retryPolicy}</p>
         </section>
 
+        <section aria-labelledby="estados" data-testid="statements">
+          <h2 id="estados" className={SECTION_LABEL}>
+            {p.statementsTitle}
+          </h2>
+          {statements.length === 0 ? (
+            <div className="card px-5 py-5 text-[15px] leading-relaxed text-slate-600">{p.statementsEmpty}</div>
+          ) : (
+            <div className="card overflow-hidden">
+              {statements.map((month, i) => (
+                <details key={month.key} className={`group px-5 py-3.5 ${i > 0 ? "border-t hairline" : ""}`} open={i === 0}>
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+                    <span className="text-[16px] font-medium text-slate-900 first-letter:uppercase">{month.label}</span>
+                    <span className="text-[15px] font-semibold tabular-nums text-slate-900">{showAmounts ? formatCents(month.chargedCents - month.refundedCents) : ""}</span>
+                  </summary>
+                  <ul className="mt-2 space-y-1.5">
+                    {month.lines.map((line, k) => (
+                      <li key={k} className="flex items-baseline justify-between gap-3 text-[14px]" data-testid={line.kind === "no_work" ? "no-work-line" : undefined}>
+                        <span className={`min-w-0 ${line.kind === "no_work" ? "text-slate-500" : "text-slate-700"}`}>
+                          {line.invoice ? <span className="mr-1 font-mono text-[12.5px] text-slate-500">{line.invoice}</span> : null}
+                          {line.text}
+                        </span>
+                        {line.cents !== null && showAmounts && <span className="shrink-0 tabular-nums text-slate-900">{formatCents(line.cents)}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ))}
+            </div>
+          )}
+        </section>
+
         <section aria-labelledby="metodo" ref={methodRef} className="scroll-mt-24">
           <h2 id="metodo" className={SECTION_LABEL}>
             {c.methodTitle}
@@ -365,7 +462,9 @@ export default function PagosPage() {
             {account.paymentMethod ? (
               <div data-testid="method-on-file">
                 <p className="text-[19px] font-semibold tabular-nums text-slate-900">
-                  {cardLabel(account.paymentMethod.brand, account.paymentMethod.last4)}
+                  {account.paymentMethod.kind === "ach"
+                    ? p.bankLabel(account.paymentMethod.brand, account.paymentMethod.last4)
+                    : cardLabel(account.paymentMethod.brand, account.paymentMethod.last4)}
                 </p>
                 <p className="text-[14px] text-slate-500">{c.methodSince(billingDate(account.paymentMethod.addedAt, locale))}</p>
               </div>
@@ -431,16 +530,37 @@ export default function PagosPage() {
               <div className="mt-5 border-t hairline pt-5" data-testid="method-form">
                 <h3 className="text-[19px] font-semibold text-slate-900">{c.formTitle}</h3>
 
+                {view.canAddBank && (
+                  <div className="mt-4 flex gap-1 rounded-2xl bg-slate-100 p-1" role="group" data-testid="method-kind">
+                    {(["card", "ach"] as const).map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        aria-pressed={kind === k}
+                        onClick={() => {
+                          setKind(k);
+                          setAccepted(false);
+                          setToken(k === "ach" ? DEMO_BANK_TOKEN_OK : DEMO_TOKEN_OK);
+                        }}
+                        className={`h-10 flex-1 rounded-xl text-[14px] font-semibold ${kind === k ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
+                        data-testid={`method-kind-${k}`}
+                      >
+                        {k === "ach" ? p.methodBank : p.methodCard}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {kind === "ach" && <p className="mt-2 text-[14px] leading-relaxed text-slate-600">{p.methodBankWhy}</p>}
                 <p className="mt-4 text-[13px] font-semibold uppercase tracking-wide text-slate-500">{c.formStepAuthorization}</p>
                 {view.draft && (
                   <p role="note" className="mt-2 rounded-2xl bg-amber-100 px-4 py-2.5 text-[13px] leading-snug text-blue-900" data-testid="authorization-draft">
                     {c.draftBanner}
                   </p>
                 )}
-                <div className="mt-2 rounded-2xl bg-slate-50 px-4 py-4">
-                  <p className="text-[16px] font-semibold text-slate-900">{authorization.title}</p>
+                <div className="mt-2 rounded-2xl bg-slate-50 px-4 py-4" data-testid={kind === "ach" ? "ach-authorization" : "card-authorization"}>
+                  <p className="text-[16px] font-semibold text-slate-900">{shownAuthorization.title}</p>
                   <div className="mt-2">
-                    <AuthorizationText authorization={authorization} />
+                    <AuthorizationText authorization={shownAuthorization} />
                   </div>
                 </div>
                 <label className="mt-3 flex cursor-pointer items-start gap-3 py-1">
@@ -451,26 +571,43 @@ export default function PagosPage() {
                     onChange={(e) => setAccepted(e.target.checked)}
                     className="mt-0.5 h-6 w-6 shrink-0 accent-blue-700"
                   />
-                  <span className="min-w-0 text-[15px] leading-snug text-slate-800">{authorization.consent}</span>
+                  <span className="min-w-0 text-[15px] leading-snug text-slate-800">{shownAuthorization.consent}</span>
                 </label>
 
-                <p className="mt-5 text-[13px] font-semibold uppercase tracking-wide text-slate-500">{c.formStepCard}</p>
+                <p className="mt-5 text-[13px] font-semibold uppercase tracking-wide text-slate-500">{kind === "ach" ? p.bankStep : c.formStepCard}</p>
                 {/* The marked place for the processor's own hosted fields. This app never renders a card-number input. */}
                 <div className="mt-2 rounded-2xl border-2 border-dashed border-slate-300 px-4 py-4" data-testid="secure-fields">
-                  <p className="text-[15px] font-semibold text-slate-900">{c.secureFieldsTitle}</p>
-                  <p className="mt-1 text-[14px] leading-relaxed text-slate-600">{c.secureFieldsBody}</p>
+                  <p className="text-[15px] font-semibold text-slate-900">{kind === "ach" ? p.bankSecureTitle : c.secureFieldsTitle}</p>
+                  <p className="mt-1 text-[14px] leading-relaxed text-slate-600">{kind === "ach" ? p.bankSecureBody : c.secureFieldsBody}</p>
+                  {!view.simulated && view.hostedFields && (
+                    <div className="mt-3">
+                      <HostedFields
+                        config={view.hostedFields}
+                        kind={kind}
+                        label={kind === "ach" ? p.methodBank : c.formSave}
+                        onToken={(t) => setToken(t)}
+                        onError={() => setError(c.errors.generic)}
+                      />
+                    </div>
+                  )}
                   {view.simulated && (
                     <fieldset className="mt-3">
-                      <legend className="text-[14px] font-medium text-blue-900">{c.secureFieldsDemo}</legend>
-                      {[
-                        { value: DEMO_TOKEN_OK, label: c.demoCardOk, card: "Visa ···· 4242" },
-                        { value: DEMO_TOKEN_DECLINED, label: c.demoCardDeclined, card: "Visa ···· 0002" },
-                      ].map((option) => (
+                      <legend className="text-[14px] font-medium text-blue-900">{kind === "ach" ? p.bankDemo : c.secureFieldsDemo}</legend>
+                      {(kind === "ach"
+                        ? [
+                            { value: DEMO_BANK_TOKEN_OK, label: p.bankDemoOk, card: p.bankLabel("checking", "6789") },
+                            { value: DEMO_BANK_TOKEN_RETURNS, label: p.bankDemoReturns, card: p.bankLabel("checking", "0002") },
+                          ]
+                        : [
+                            { value: DEMO_TOKEN_OK, label: c.demoCardOk, card: "Visa ···· 4242" },
+                            { value: DEMO_TOKEN_DECLINED, label: c.demoCardDeclined, card: "Visa ···· 0002" },
+                          ]
+                      ).map((option) => (
                         <label key={option.value} className="mt-2 flex cursor-pointer items-center gap-3 rounded-2xl bg-slate-50 px-3.5 py-3">
                           <input
                             type="radio"
                             name="demo-card"
-                            data-testid={`demo-card-${option.value === DEMO_TOKEN_OK ? "ok" : "declined"}`}
+                            data-testid={`demo-card-${option.value === DEMO_TOKEN_OK || option.value === DEMO_BANK_TOKEN_OK ? "ok" : "declined"}`}
                             checked={token === option.value}
                             onChange={() => setToken(option.value)}
                             className="h-5 w-5 shrink-0 accent-blue-700"
@@ -618,7 +755,16 @@ export default function PagosPage() {
             </div>
           </div>
         )}
-        {printedReceipt && <ReceiptView receipt={printedReceipt} locale={locale} showAmount={showAmounts} company={company} />}
+        {printedReceipt && (
+          <ReceiptView
+            receipt={printedReceipt}
+            charge={charges.find((ch) => ch.id === printedReceipt.chargeId)!}
+            locale={locale}
+            showAmount={showAmounts}
+            company={company}
+            planName={plan ? plan.name[locale] : null}
+          />
+        )}
       </div>
     </main>
   );
