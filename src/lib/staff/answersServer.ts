@@ -22,7 +22,7 @@ export async function listSavedAnswers(reader: SupabaseClient): Promise<SavedAns
   return ((data as Row[] | null) ?? []).flatMap((row) => answerFromRow(row) ?? []);
 }
 
-/** Approved answers only, for AltiBot and for drafts (service role: the caller already checked who is asking). */
+/** Approved answers only, for Alti and for drafts (service role: the caller already checked who is asking). */
 export async function loadApprovedAnswers(db: SupabaseClient): Promise<SavedAnswer[]> {
   const { data, error } = await db.from("saved_answers").select("*").eq("status", "approved");
   if (error) return [];

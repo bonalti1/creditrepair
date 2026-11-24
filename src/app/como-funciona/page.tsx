@@ -1,40 +1,25 @@
-import { CharacterFigure } from "@/components/Character";
+import { HomeReadyTeaser, HowScroll } from "@/components/site/islands";
+import { Reveal } from "@/components/site/motion";
+import { ONLINE_START } from "@/lib/site/cta";
 import SiteShell from "@/components/site/SiteShell";
 import { CheckList, Container, CtaGroup, Lead, PageHero, SectionTitle } from "@/components/site/ui";
 import { requestLocale } from "@/lib/i18n/server";
 import { SITE_COPY } from "@/lib/site/copy";
 import { siteMetadata } from "@/lib/site/seo";
 
-// /como-funciona: the whole journey, with screens of the real app (its demo
-// mode, sample data, retaken at 390 px and 2x in each language:
-// public/screens/site/). No score is on any of them.
+// /como-funciona: the whole journey as a scroll story, with screens of the
+// real app (its demo mode, sample data, taken at 390 px and 2x in each
+// language: public/screens/site/), then the rounds and after-care. No score is
+// on any of the screens.
 
 export async function generateMetadata() {
   return siteMetadata("how", (await requestLocale()).locale);
 }
 
-const SCREENS = ["welcome", "case", "review", "letters"] as const;
-/** The app's screenshots are 390 × 844 at 1x. */
+/** The real app screens of the story, one per stage (public/screens/site/<name>-<locale>@1x/@2x.webp). */
+const SCREENS = ["welcome", "case", "review", "letters", "build"] as const;
+/** The app's screenshots are 390 × 844 at 1x (HowScroll gives every image this size, with srcSet=). */
 const SHOT = { width: 390, height: 844 };
-
-function Screen({ name, locale, alt }: { name: (typeof SCREENS)[number]; locale: "en" | "es"; alt: string }) {
-  const base = `/screens/site/${name}-${locale}`;
-  return (
-    <div className="mx-auto w-[260px] rounded-[40px] bg-blue-900 p-2 shadow-[0_30px_60px_-30px_rgba(18,33,58,0.6)] sm:w-[290px]">
-      {/* eslint-disable-next-line @next/next/no-img-element -- sized WebP pair, no re-encoding needed */}
-      <img
-        src={`${base}@1x.webp`}
-        srcSet={`${base}@1x.webp 1x, ${base}@2x.webp 2x`}
-        width={SHOT.width}
-        height={SHOT.height}
-        alt={alt}
-        loading="lazy"
-        decoding="async"
-        className="block h-auto w-full rounded-[32px]"
-      />
-    </div>
-  );
-}
 
 export default async function HowItWorks() {
   const { locale } = await requestLocale();
@@ -46,32 +31,10 @@ export default async function HowItWorks() {
       <main>
         <PageHero eyebrow={h.eyebrow} title={h.title} lead={h.lead} />
 
-        <section aria-label={h.eyebrow} className="py-14 sm:py-20">
+        {/* The journey as a scroll story: the phone stays, its screen follows the step (HowScroll). */}
+        <section aria-label={h.eyebrow} className="py-14 sm:py-20" data-shot-width={SHOT.width}>
           <Container>
-            <ol className="space-y-16 sm:space-y-24">
-              {h.stages.map((stage, i) => (
-                <li key={stage.title} className="grid items-center gap-8 md:grid-cols-2 md:gap-16">
-                  <div className={i % 2 === 1 ? "md:order-2" : ""}>
-                    <h2 className="font-display text-[26px] font-bold leading-tight text-blue-900 sm:text-[34px]">{stage.title}</h2>
-                    <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-slate-700">{stage.body}</p>
-                    <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3.5 py-1.5 text-[14px] font-semibold text-blue-700">{stage.caption}</p>
-                  </div>
-                  <figure className="relative rounded-[40px] bg-gradient-to-b from-blue-100/70 to-blue-50/0 px-4 pt-8 sm:pt-10">
-                    <Screen name={SCREENS[i]!} locale={locale} alt={stage.alt} />
-                    {i === 2 && (
-                      <div aria-hidden className="absolute -bottom-4 left-[calc(50%-210px)] hidden lg:block">
-                        <CharacterFigure character="assistant" view="threeQuarter" height={130} decorative />
-                      </div>
-                    )}
-                    {i === 3 && (
-                      <div aria-hidden className="absolute bottom-0 right-[calc(50%-250px)] hidden lg:block">
-                        <CharacterFigure character="team" view="threeQuarter" height={300} decorative />
-                      </div>
-                    )}
-                  </figure>
-                </li>
-              ))}
-            </ol>
+            <HowScroll stages={h.stages} screens={SCREENS} locale={locale} />
             <p className="mt-12 text-center text-[13px] text-slate-500">{h.screensNote}</p>
           </Container>
         </section>
@@ -99,6 +62,19 @@ export default async function HowItWorks() {
                 <CheckList items={h.we} onNavy className="mt-4" />
               </div>
             </div>
+          </Container>
+        </section>
+
+        {/* After the letters: the after-care features (docs/AFTERCARE.md), truthfully: general guidance in the app. */}
+        <section aria-labelledby="after" className="py-14 sm:py-20">
+          <Container className="grid gap-10 lg:grid-cols-[1fr_1.05fr] lg:items-start">
+            <Reveal>
+              <SectionTitle id="after">{c.live.after.title}</SectionTitle>
+              <Lead className="mt-4">{c.live.after.lead}</Lead>
+              <CheckList items={c.live.after.cards.map((card) => `${card.title}: ${card.body}`)} className="mt-6" />
+              <p className="mt-4 text-[13px] leading-relaxed text-slate-500">{c.live.after.note}</p>
+            </Reveal>
+            <HomeReadyTeaser locale={locale} startHref={ONLINE_START} />
           </Container>
         </section>
 

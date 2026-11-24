@@ -98,7 +98,7 @@ export const PRODUCT_FACTS: ProductFact[] = [
   },
   {
     id: "assistant-explains",
-    fact: "AltiBot, the AI assistant, explains each account, collection or inquiry in plain words.",
+    fact: "Alti, the AI assistant, explains each account, collection or inquiry in plain words.",
     source: "src/lib/i18n/marketing.ts",
     evidence: /explains each account, collection or inquiry in plain words/,
   },

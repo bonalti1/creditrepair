@@ -211,7 +211,7 @@ export function itinMonitoringNote(locale: L): { title: string; body: string } {
 
 /**
  * Saved answers for the team's library (src/lib/staff/answers.ts): what
- * AltiBot may send when a question closely matches one an administrator
+ * Alti may send when a question closely matches one an administrator
  * approved. The monitoring question is left out on purpose: it is not
  * confirmed, so it stays a person's answer.
  */
@@ -260,7 +260,7 @@ export const ITIN_SAVED_ANSWERS: ReadonlyArray<{ id: string; question: string; a
 
 /**
  * A full Social Security number or ITIN in a text (nine digits, with or
- * without dashes or spaces). AltiBot's replies are refused when they contain
+ * without dashes or spaces). Alti's replies are refused when they contain
  * one; nothing the app writes ever does.
  */
 export function containsTaxpayerNumber(text: string): boolean {

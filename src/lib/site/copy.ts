@@ -2,6 +2,7 @@ import { BRAND } from "../brand";
 import { AFFILIATE_DISCLOSURE, monitoringName } from "../monitoring/offer";
 import { CASE_NEXT_ROUND_DAYS, CASE_RESPONSE_DAYS } from "../case/timeline";
 import type { Locale } from "../i18n/dictionaries";
+import { LIVE_COPY, type LiveCopy } from "./live";
 
 // Every word of the public website (src/app/(site)/), in English and Spanish.
 // English first; the Spanish is written, not translated, and says the same
@@ -22,7 +23,9 @@ import type { Locale } from "../i18n/dictionaries";
 //    other company named. Comparisons are against "many companies", only
 //    where a product fact backs our side (facts.ts, `facts` on each row).
 //  - Plain language: no sentence over 25 words.
-//  - AltiBot is always called AI; Alti is the team, never an author.
+//  - Alti is the AI assistant and the only voice: always called AI, never a
+//    person. The robot appears only as a small cameo (the About page and
+//    the mailing animation's caption, `home.demo.mail`); never as a speaker.
 
 const brand = BRAND.name;
 const bot = BRAND.assistant;
@@ -122,6 +125,11 @@ export interface SiteCopy {
       happened: string;
       restart: string;
       note: string;
+      replay: string;
+      /** The visitor's answer flying into the case. */
+      intoCase: string;
+      /** The mailing animation: the only place the robot's cameo appears on the home page. */
+      mail: { caption: string; mailed: string; transit: string; delivered: string; label: string };
       /** Invented data for the example item. Not copy about the service. */
       sample: { company: string; original: string; balanceLabel: string; balance: string; openedLabel: string; opened: string; bureausLabel: string; bureaus: string };
     };
@@ -195,6 +203,8 @@ export interface SiteCopy {
     whereTitle: string;
     where: string;
   };
+  /** The interactive pieces' words (live.ts). */
+  live: LiveCopy;
   rights: { eyebrow: string; title: string; lead: string; selfTitle: string; self: string[]; statementTitle: string; officialNote: string; moreTitle: string; links: Source[] };
   privacy: { eyebrow: string; title: string; lead: string; sections: Step[]; pending: string };
   terms: { eyebrow: string; title: string; lead: string; sections: Step[]; pending: string };
@@ -236,7 +246,7 @@ const en: SiteCopy = {
     },
     about: {
       title: `About us · ${brand}`,
-      description: `Who we are, who Alti and ${bot} are, and the rules we work by.`,
+      description: `Who we are, who ${bot} is, and the rules we work by.`,
     },
     rights: {
       title: `Your rights · ${brand}`,
@@ -311,7 +321,16 @@ const en: SiteCopy = {
       next: "What comes next",
       happened: "What already happened",
       restart: "Try another answer",
-      note: `Sample item and invented dates. ${bot} is AI: it explains, and you decide. Results vary.`,
+      note: `Sample item and invented dates. ${bot} is AI: he explains, and you decide. Results vary.`,
+      replay: "Replay",
+      intoCase: "Your answer goes into your case",
+      mail: {
+        caption: `${BRAND.cameo} carries your letters`,
+        mailed: "Mailed",
+        transit: "On the way",
+        delivered: "Delivered ✓",
+        label: "Your letters on their way: mailed, on the way, delivered",
+      },
       sample: {
         company: "Sample Collections",
         original: "Original creditor: Sample Mobile",
@@ -504,6 +523,12 @@ const en: SiteCopy = {
         alt: "The letters of a round and the status of each one",
         caption: "Each letter, with its status",
       },
+      {
+        title: "5. Build your credit, too",
+        body: "Your app has a plan to build credit, ordered by your own report, plus a home-ready path and an ITIN guide. General information, alongside the service.",
+        alt: "The build-your-credit plan in the app, with its habits",
+        caption: "Your plan, at your own pace",
+      },
     ],
     roundsTitle: "Then, round by round",
     rounds: [
@@ -525,7 +550,7 @@ const en: SiteCopy = {
     items: [
       {
         q: `What does ${brand} do?`,
-        a: `You tell us what is inaccurate on your credit report. Our team prepares and mails the dispute letters for you, and shows you each one in Mi caso.`,
+        a: `You tell us what is inaccurate on your credit report. Our team prepares and mails the dispute letters for you, and shows you each one in Mi caso. Your app also has a plan to build credit and a path if you're getting ready to buy a home.`,
       },
       {
         q: "Who decides what gets disputed?",
@@ -585,7 +610,7 @@ const en: SiteCopy = {
       },
       {
         q: "I use an ITIN instead of a Social Security number. Can I sign up?",
-        a: "The monitoring service checks your identity to show your report. Message us on WhatsApp before you start, and we'll tell you your options.",
+        a: "Yes, you can have a credit file with your ITIN. The monitoring service checks your identity, so message us before you start. Your app has an ITIN guide: reports by mail, building credit and home loans.",
       },
       {
         q: "Does this have anything to do with immigration status?",
@@ -631,9 +656,9 @@ const en: SiteCopy = {
     lead: `${brand} helps people dispute what they believe is wrong on their credit reports. You decide; our team prepares and mails the letters; you see every step.`,
     storyTitle: "Our story",
     storyPending: "A note from our founder is coming soon.",
-    charactersTitle: "Meet Alti and AltiBot",
-    alti: `Alti stands for our team of people. When you see Alti, it means a person is involved: someone who reads your messages and keeps your case moving.`,
-    altibot: `${bot} is our AI assistant. It explains your report in plain words, in English or Spanish. It is artificial intelligence, not a person or a lawyer.`,
+    charactersTitle: `Meet ${bot}, our AI assistant`,
+    alti: `${bot} is our AI assistant. He explains your report in plain words, in English or Spanish. ${bot} is artificial intelligence, not a person and not a lawyer. Every message he writes says so.`,
+    altibot: `You may also spot ${BRAND.cameo}, a small robot who carries the envelopes in our animations. ${BRAND.cameo} doesn't chat. When a person on our team writes to you, you see their own name.`,
     rulesTitle: "The rules we work by",
     rules: [
       { title: "No promises", body: "We say what we do, never what a bureau will decide. Results vary." },
@@ -645,6 +670,7 @@ const en: SiteCopy = {
     whereTitle: "Where we work",
     where: "We are available in Texas today. Each state has its own rules for credit services, so we open one state at a time.",
   },
+  live: LIVE_COPY.en,
   rights: {
     eyebrow: "Your rights",
     title: "Your rights, before anything else",
@@ -718,7 +744,7 @@ const es: SiteCopy = {
     },
     about: {
       title: `Nosotros · ${brand}`,
-      description: `Quiénes somos, quiénes son Alti y ${bot}, y las reglas con las que trabajamos.`,
+      description: `Quiénes somos, quién es ${bot} y las reglas con las que trabajamos.`,
     },
     rights: {
       title: `Tus derechos · ${brand}`,
@@ -794,6 +820,15 @@ const es: SiteCopy = {
       happened: "Lo que ya pasó",
       restart: "Probar otra respuesta",
       note: `Punto de muestra y fechas inventadas. ${bot} es IA: te explica, y tú decides. Los resultados varían.`,
+      replay: "Ver de nuevo",
+      intoCase: "Tu respuesta entra en tu caso",
+      mail: {
+        caption: `${BRAND.cameo} lleva tus cartas`,
+        mailed: "Enviada",
+        transit: "En camino",
+        delivered: "Entregada ✓",
+        label: "Tus cartas en camino: enviadas, en camino, entregadas",
+      },
       sample: {
         company: "Cobranzas de Muestra",
         original: "Acreedor original: Telefonía de Muestra",
@@ -986,6 +1021,12 @@ const es: SiteCopy = {
         alt: "Las cartas de una ronda y el estado de cada una",
         caption: "Cada carta, con su estado",
       },
+      {
+        title: "5. Construye tu crédito, también",
+        body: "Tu app tiene un plan para construir crédito, ordenado según tu propio reporte, un camino para comprar casa y una guía para ITIN. Información general, junto al servicio.",
+        alt: "El plan para construir crédito en la app, con sus hábitos",
+        caption: "Tu plan, a tu ritmo",
+      },
     ],
     roundsTitle: "Después, ronda por ronda",
     rounds: [
@@ -1007,7 +1048,7 @@ const es: SiteCopy = {
     items: [
       {
         q: `¿Qué hace ${brand}?`,
-        a: "Tú nos dices qué es inexacto en tu reporte de crédito. Nuestro equipo prepara y envía las cartas de disputa por ti, y te muestra cada una en Mi caso.",
+        a: "Tú nos dices qué es inexacto en tu reporte de crédito. Nuestro equipo prepara y envía las cartas de disputa por ti, y te muestra cada una en Mi caso. Tu app también tiene un plan para construir crédito y un camino si te preparas para comprar casa.",
       },
       {
         q: "¿Quién decide qué se disputa?",
@@ -1067,7 +1108,7 @@ const es: SiteCopy = {
       },
       {
         q: "Uso ITIN en lugar de Seguro Social. ¿Puedo inscribirme?",
-        a: "El servicio de monitoreo verifica tu identidad para mostrarte tu reporte. Escríbenos por WhatsApp antes de empezar y te decimos tus opciones.",
+        a: "Sí, puedes tener un expediente de crédito con tu ITIN. El servicio de monitoreo verifica tu identidad, así que escríbenos antes de empezar. Tu app tiene una guía para ITIN: reportes por correo, construir crédito y préstamos para casa.",
       },
       {
         q: "¿Esto tiene que ver con mi estatus migratorio?",
@@ -1113,9 +1154,9 @@ const es: SiteCopy = {
     lead: `${brand} ayuda a las personas a disputar lo que creen que está mal en sus reportes de crédito. Tú decides; nuestro equipo prepara y envía las cartas; tú ves cada paso.`,
     storyTitle: "Nuestra historia",
     storyPending: "Muy pronto, unas palabras de nuestro fundador.",
-    charactersTitle: "Conoce a Alti y a AltiBot",
-    alti: "Alti representa a nuestro equipo de personas. Cuando ves a Alti, hay una persona de por medio: alguien que lee tus mensajes y mantiene tu caso en marcha.",
-    altibot: `${bot} es nuestro asistente con IA. Te explica tu reporte en palabras simples, en inglés o en español. Es inteligencia artificial, no una persona ni un abogado.`,
+    charactersTitle: `Conoce a ${bot}, nuestro asistente con IA`,
+    alti: `${bot} es nuestro asistente con IA. Te explica tu reporte en palabras simples, en inglés o en español. ${bot} es inteligencia artificial, no una persona ni un abogado. Cada mensaje suyo lo dice.`,
+    altibot: `También verás a ${BRAND.cameo}, un pequeño robot que lleva los sobres en nuestras animaciones. ${BRAND.cameo} no conversa. Cuando una persona del equipo te escribe, ves su propio nombre.`,
     rulesTitle: "Las reglas con las que trabajamos",
     rules: [
       { title: "Sin promesas", body: "Decimos lo que hacemos, nunca lo que decidirá un buró. Los resultados varían." },
@@ -1127,6 +1168,7 @@ const es: SiteCopy = {
     whereTitle: "Dónde trabajamos",
     where: "Hoy estamos disponibles en Texas. Cada estado tiene sus propias reglas para los servicios de crédito, así que abrimos un estado a la vez.",
   },
+  live: LIVE_COPY.es,
   rights: {
     eyebrow: "Tus derechos",
     title: "Tus derechos, antes que nada",

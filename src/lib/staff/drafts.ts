@@ -8,7 +8,7 @@ import { agreementLine, clientStage, documentNames, formatDay, latestRound, miss
 import type { StaffClient, StaffRole } from "./types";
 import { clientLanguage, type StaffLocale } from "./i18n/locale";
 
-// AltiBot's drafted replies for the team: when a client's question is
+// Alti's drafted replies for the team: when a client's question is
 // waiting, the teammate sees an answer already written, in the CLIENT's
 // language (i18n/locale.ts: clientLanguage, never the teammate's console
 // language), that they read, edit and send with one tap. The send itself is
@@ -149,7 +149,7 @@ export function draftFacts(client: StaffClient, role: StaffRole | null | undefin
   };
 }
 
-/** The question to answer: the oldest one AltiBot passed to the team, else the client's last message if nobody answered it yet. */
+/** The question to answer: the oldest one Alti passed to the team, else the client's last message if nobody answered it yet. */
 export function questionToAnswer(client: StaffClient): string | null {
   const waiting = openQuestions(client).find((q) => q.text.trim());
   if (waiting) return waiting.text;

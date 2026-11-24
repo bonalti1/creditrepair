@@ -13,7 +13,7 @@ import { useLocale } from "@/lib/i18n";
 import { MARKETING } from "@/lib/i18n/marketing";
 import { MONITORING_OFFER } from "@/lib/monitoring/offer";
 import { GOALS, parseInvite, type Invite } from "@/lib/sales/invite";
-import { BRAND } from "@/lib/brand";
+import { BRAND, aiByline } from "@/lib/brand";
 import { isFullService } from "@/lib/service/mode";
 import { readStoredAgreement } from "@/lib/ux/agreementLocal";
 import { isFullName } from "@/lib/agreement/signature";
@@ -37,9 +37,11 @@ import { checkHouseholdMember, householdInviteMessage, householdInvitePath, RELA
 // service fee is not stated here, the team explains the plan) → how you want
 // to do your review (with the AI assistant, or with a teammate on WhatsApp;
 // either way the answers are the client's and the team mails the letters).
-// Characters: the invited welcome is from the team, so Alti (the face of the
-// team, never a specific person) greets; on the review choice the robot marks the
-// AI assistant and Alti marks "a person by my side".
+// Characters (docs/BRAND.md, owner's decision 2026-11-24): Alti, the AI
+// assistant, guides the onboarding and greets on the invited welcome, always
+// labelled "Alti · AI assistant"; the invitation itself is from the teammate
+// who sent it, by name. On the review choice Alti marks the AI assistant and a
+// plain person icon marks "a person by my side" (never a character).
 // One question per screen, one obvious button.
 //
 // Sales-led path: most customers arrive from a WhatsApp conversation with a
@@ -293,10 +295,15 @@ function Onboarding() {
 
       {step === "welcome" && invite && (
         <div className="animate-rise flex flex-1 flex-col pt-10">
-          {/* Alti stands on a white card, feet on its lower edge, with the team's name beside him. */}
+          {/* Alti, the AI assistant, stands on a white card, feet on its lower edge, labelled as AI. */}
           <div className="card flex items-end gap-5 overflow-hidden px-6 pt-5">
-            <CharacterFigure character="team" height={150} />
-            <p className="self-center font-display text-[22px] font-bold leading-tight text-blue-700">{c.teamTag}</p>
+            <CharacterFigure character="assistant" height={150} motion="wave" />
+            <div className="self-center pb-5">
+              <p className="font-display text-[19px] font-bold leading-tight text-blue-700" data-testid="welcome-ai-byline">{aiByline(locale)}</p>
+              <p className="mt-1 text-[14px] leading-snug text-slate-600">
+                {locale === "es" ? "Te guío paso a paso. Soy una inteligencia artificial, no una persona." : "I'll guide you step by step. I'm artificial intelligence, not a person."}
+              </p>
+            </div>
           </div>
           <h1 className="mt-5 font-display text-[34px] font-bold leading-tight text-blue-700">
             {c.hello(invite.name)}
@@ -744,7 +751,7 @@ function Onboarding() {
               <Icon name="chevron" size={18} className="shrink-0 text-slate-300" />
             </button>
             <button onClick={() => finish(true)} className="card pressable flex w-full items-center gap-4 p-5 text-left">
-              <CharacterAvatar character="team" size={52} />
+<span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-blue-700 text-white"><Icon name="person" size={26} strokeWidth={2.25} /></span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[17px] font-semibold text-slate-900">{c.withPerson}</span>
                 <span className="block text-[15px] leading-snug text-slate-500">

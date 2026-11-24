@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { ASSISTANT_NAME } from "../brand";
+import { ASSISTANT_NAME, CAMEO_NAME } from "../brand";
 import { rowToTurn, type ChatTurn } from "../chat/history";
 import { checkClaimGuardrails, checkMarketingCopy } from "../compliance/guardrails";
 import { checkStaffReply, displayName, lastTeamMessage, openQuestions, threadAuthor } from "../staff/conversation";
@@ -174,24 +174,26 @@ describe("the client's chat: a message written by a person", () => {
   const mine: ChatMsg = { role: "user", text: "¿Cuánto tardan?" };
   const team: ChatMsg = { role: "assistant", text: "Hola, ya revisé tu cuenta.", author: { kind: "team", name: "ana lópez" } };
 
-  it("is signed with the teammate's first name and a plain 'del equipo', and is not AI", () => {
+  it("is signed with the teammate's own first name and 'Credalti team', and is not AI", () => {
     expect(messageVoice(team, "es")).toEqual({
       kind: "team",
       ai: false,
-      byline: "Ana · del equipo",
-      spoken: "Ana, del equipo: Hola, ya revisé tu cuenta.",
+      byline: "Ana · equipo Credalti",
+      spoken: "Ana, equipo Credalti: Hola, ya revisé tu cuenta.",
     });
-    expect(messageVoice(team, "en").byline).toBe("Ana · from the team");
+    expect(messageVoice(team, "en").byline).toBe("Ana · Credalti team");
     expect(teamFirstName("  carmen ")).toBe("Carmen");
   });
 
   it("never passes for the assistant: no AI label, its own look, and read-aloud says who wrote it", () => {
     const voice = messageVoice(team, "es");
-    expect(voice.byline).not.toContain(ASSISTANT_NAME);
-    expect(voice.byline).not.toMatch(/IA|AI|asistente/i);
-    expect(voice.spoken.startsWith("Ana, del equipo: ")).toBe(true);
-    // The assistant stays the only AI voice, unsigned; the client is the client.
-    expect(messageVoice(assistant, "es")).toEqual({ kind: "assistant", ai: true, byline: null, spoken: `Hola, soy ${ASSISTANT_NAME}.` });
+    // Never the assistant's name (Alti) and never the engine's (AltiBot): the real person's.
+    expect(voice.byline).not.toMatch(new RegExp(`\\b(${ASSISTANT_NAME}|${CAMEO_NAME})\\b`));
+    expect(voice.byline).not.toMatch(/\bIA\b|\bAI\b|asistente/i);
+    expect(voice.spoken.startsWith("Ana, equipo Credalti: ")).toBe(true);
+    // The assistant is the only AI voice, and every one of its messages says so beside its name.
+    expect(messageVoice(assistant, "es")).toEqual({ kind: "assistant", ai: true, byline: "Alti · Asistente con IA", spoken: `Hola, soy ${ASSISTANT_NAME}.` });
+    expect(messageVoice(assistant, "en").byline).toBe("Alti · AI assistant");
     expect(messageVoice(mine, "es")).toEqual({ kind: "client", ai: false, byline: null, spoken: "¿Cuánto tardan?" });
     // The screen draws a teammate's message with its own component, not the assistant's bubble.
     const page = readFileSync("src/app/(app)/asistente/page.tsx", "utf8");
@@ -203,8 +205,8 @@ describe("the client's chat: a message written by a person", () => {
 
   it("still says a person wrote it when the name is missing", () => {
     const unnamed: ChatMsg = { role: "assistant", text: "Hola.", author: { kind: "team", name: "" } };
-    expect(messageVoice(unnamed, "es")).toMatchObject({ kind: "team", ai: false, byline: "Una persona del equipo" });
-    expect(messageVoice(unnamed, "en").byline).toBe("A person from the team");
+    expect(messageVoice(unnamed, "es")).toMatchObject({ kind: "team", ai: false, byline: "Una persona del equipo Credalti" });
+    expect(messageVoice(unnamed, "en").byline).toBe("A person on the Credalti team");
   });
 
   it("only an assistant-side message can carry an author", () => {

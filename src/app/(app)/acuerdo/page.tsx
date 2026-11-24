@@ -5,7 +5,6 @@ import Link from "next/link";
 import AgreementDocumentCard, { Blocks, DraftBanner } from "@/components/agreement/AgreementDocument";
 import Icon, { type IconName } from "@/components/Icon";
 import IdentityDocs from "@/components/IdentityDocs";
-import { CharacterAvatar } from "@/components/Character";
 import { cancellationDeadline, firstWorkingDay } from "@/lib/agreement/businessDays";
 import { AGREEMENT_VERSION, agreementDocuments, type AgreementDocument } from "@/lib/agreement/documents";
 import { clockTime, deadlineMoment, longDate, recordMoment } from "@/lib/agreement/format";
@@ -715,8 +714,10 @@ function Signed({
                       : "Your time to cancel at no cost is over. Your team prepares and mails your letters about what you confirm."}
                 </span>
               </span>
-              {/* The team's step: Alti stands for the team (never one person, never the AI). */}
-              <CharacterAvatar character="team" size={48} className="self-center" />
+              {/* The mailing step: an envelope, no character (the team prepares, the letters are mailed). */}
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center self-center rounded-full bg-blue-50 text-blue-700">
+                <Icon name="mail" size={22} />
+              </span>
             </li>
           </ol>
         </section>
@@ -917,7 +918,9 @@ function NotReady({ locale, stateNeedsText = null }: { locale: L; stateNeedsText
       </section>
       {help && (
         <a href={help} target="_blank" rel="noopener noreferrer" className={SECONDARY}>
-          <CharacterAvatar character="team" size={32} decorative className="-ml-2 mr-2" />
+          <span className="-ml-2 mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-700 text-white">
+            <Icon name="person" size={16} strokeWidth={2.25} />
+          </span>
           {es ? "Hablar con una persona" : "Talk to a person"}
         </a>
       )}

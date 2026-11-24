@@ -2,13 +2,13 @@ import Icon, { type IconName } from "@/components/Icon";
 import { CharacterFigure } from "@/components/Character";
 import SiteShell from "@/components/site/SiteShell";
 import { Container, CtaGroup, PageHero, SectionTitle } from "@/components/site/ui";
-import { BRAND } from "@/lib/brand";
+import { BRAND, aiByline } from "@/lib/brand";
 import { requestLocale } from "@/lib/i18n/server";
 import { SITE_COPY } from "@/lib/site/copy";
 import { OWNER_STORY } from "@/lib/site/owner";
 import { siteMetadata } from "@/lib/site/seo";
 
-// /nosotros: who we are, Alti and AltiBot, and the rules we work by. The
+// /nosotros: who we are, Alti (our AI assistant, with the robot's small cameo), and the rules we work by. The
 // founder's story is the owner's to write (src/lib/site/owner.ts); until then
 // the page says it is coming and invents nothing.
 
@@ -56,22 +56,23 @@ export default async function About() {
         <section aria-labelledby="characters" className="border-y border-slate-200 bg-white py-14 sm:py-20">
           <Container>
             <SectionTitle id="characters">{a.charactersTitle}</SectionTitle>
-            <div className="mt-10 grid gap-6 md:grid-cols-2">
+            <div className="mt-10 grid gap-6 md:grid-cols-[1.6fr_1fr]">
+              {/* Alti, the AI assistant and the only voice: labelled as AI. */}
               <div className="flex items-end gap-6 overflow-hidden rounded-3xl bg-blue-900 px-6 pt-6 text-white sm:px-8 sm:pt-8">
                 <div className="flex-1 pb-8">
-                  <h3 className="font-display text-[26px] font-bold">{BRAND.teamMascot}</h3>
-                  <p className="mt-1 text-[14px] font-semibold text-blue-200">{c.common.team}</p>
+                  <h3 className="font-display text-[26px] font-bold">{BRAND.assistant}</h3>
+                  <p data-on-navy className="mt-1 text-[14px] font-semibold text-amber-300">{aiByline(locale)}</p>
                   <p className="mt-4 text-[16px] leading-relaxed text-blue-50">{a.alti}</p>
                 </div>
-                <CharacterFigure character="team" view="front" height={260} heightClassName="h-[220px] sm:h-[260px]" />
+                <CharacterFigure character="assistant" view="front" height={260} heightClassName="h-[220px] sm:h-[260px]" motion="wave" />
               </div>
-              <div className="flex items-end gap-6 overflow-hidden rounded-3xl bg-amber-50 px-6 pt-6 ring-1 ring-amber-200 sm:px-8 sm:pt-8">
-                <div className="flex-1 pb-8">
-                  <h3 className="font-display text-[26px] font-bold text-blue-900">{BRAND.assistant}</h3>
-                  <p className="mt-1 text-[14px] font-semibold text-amber-700">{c.common.aiAssistant}</p>
-                  <p className="mt-4 text-[16px] leading-relaxed text-slate-700">{a.altibot}</p>
+              {/* The robot's small cameo (one of the two places it may appear: docs/BRAND.md). */}
+              <div className="flex items-end gap-4 overflow-hidden rounded-3xl bg-amber-50 px-6 pt-6 ring-1 ring-amber-200">
+                <div className="flex-1 pb-6">
+                  <h3 className="font-display text-[20px] font-bold text-blue-900">{BRAND.cameo}</h3>
+                  <p className="mt-3 text-[15px] leading-relaxed text-slate-700">{a.altibot}</p>
                 </div>
-                <CharacterFigure character="assistant" view="front" height={150} heightClassName="mb-8 h-[120px] sm:h-[150px]" />
+                <CharacterFigure character="cameo" view="threeQuarter" height={96} heightClassName="mb-6 h-[80px] sm:h-[96px]" />
               </div>
             </div>
           </Container>

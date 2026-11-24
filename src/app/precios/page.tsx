@@ -5,6 +5,9 @@ import { CheckList, Container, CtaGroup, Lead, PageHero, SectionTitle } from "@/
 import { requestLocale } from "@/lib/i18n/server";
 import { SITE_COPY } from "@/lib/site/copy";
 import { publicPlans } from "@/lib/site/plans";
+import { payEvents } from "@/lib/site/payTimeline";
+import { PayTimeline } from "@/components/site/islands";
+import { Reveal } from "@/components/site/motion";
 import { siteMetadata } from "@/lib/site/seo";
 
 // /precios: how charging works, for everyone, and the offered plans when the
@@ -23,6 +26,11 @@ export default async function Pricing() {
   const c = SITE_COPY[locale];
   const p = c.pricing;
   const plans = await publicPlans(locale);
+  // "When would I pay?": the rule for every plan, and each offered plan's own amounts (payTimeline.ts).
+  const timelines = [
+    ...plans.map((plan) => ({ id: plan.id, name: plan.name, events: payEvents(plan.timeline) })),
+    { id: "rule", name: c.live.timeline.ruleOnly, events: payEvents(null) },
+  ];
 
   return (
     <SiteShell>
@@ -58,6 +66,15 @@ export default async function Pricing() {
                 </div>
               </div>
             )}
+          </Container>
+        </section>
+
+        {/* When would I pay? Drag through months 1 to 6. */}
+        <section aria-labelledby="when-pay" className="pb-14 sm:pb-20">
+          <Container>
+            <Reveal>
+              <PayTimeline locale={locale} sets={timelines} />
+            </Reveal>
           </Container>
         </section>
 

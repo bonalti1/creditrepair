@@ -11,12 +11,12 @@ that order.
 | Step | Who | What happens | Where it lives |
 | --- | --- | --- | --- |
 | 1 | Lead | Sees an ad and taps the button, which opens WhatsApp | `/empezar` and the landing page (the button goes to WhatsApp when `NEXT_PUBLIC_WHATSAPP_NUMBER` is set) |
-| 2 | AltiBot (AI assistant) | Greets the lead once, in the language they wrote in (English unless Spanish), says it is AI, and says a person will write | `LEAD_GREETINGS` in `src/lib/integrations/whatsapp.ts`, sent by `src/app/api/webhooks/whatsapp/route.ts` |
+| 2 | Alti (AI assistant) | Greets the lead once, in the language they wrote in (English unless Spanish), says it is AI, and says a person will write | `LEAD_GREETINGS` in `src/lib/integrations/whatsapp.ts`, sent by `src/app/api/webhooks/whatsapp/route.ts` |
 | 3 | Salesperson | Talks with the lead in WhatsApp: what they want, where they live, how the service works, the plan | WhatsApp, following the rules below |
 | 4 | Salesperson | Fills in a few fields, including **the client's language** (English unless they talked in Spanish), and sends the personal link with a message in that language | `/equipo/invitar` |
 | 5 | Client | Opens the link: a welcome screen in their language, with their name, goal and state already filled in | `/onboarding?n=…&g=…&s=…&r=…&lang=…` |
 | 6 | Client | Signs the service agreement, uploads ID and proof of address, activates monitoring, signs in with their phone | `/acuerdo`, `/onboarding` → `/login` |
-| 7 | Client | Reviews each item on their report with AltiBot and says which ones are inaccurate and why | `/asistente`, `/items` |
+| 7 | Client | Reviews each item on their report with Alti and says which ones are inaccurate and why | `/asistente`, `/items` |
 | 8 | Team | Prepares and mails the letters, in rounds about every 40 days, and imports the report again to see what changed | `/equipo` (the staff console) |
 | 9 | Client | Reads the letters and follows their status; the salesperson and the team stay available on WhatsApp | `/attack`, `/rounds`, WhatsApp |
 
@@ -52,15 +52,15 @@ never a call, and never an SMS offer.
 
 ## Who answers on WhatsApp
 
-- **A number that is not yet a client is a lead.** AltiBot sends one greeting
+- **A number that is not yet a client is a lead.** Alti sends one greeting
   and then stays quiet, so it never talks over the salesperson. Set
   `SALES_WEBHOOK_URL` to get a ping in Slack or n8n for each new lead.
-- **A number that belongs to a client gets AltiBot**, with the last day of the
-  conversation as context, always marked as AI. AltiBot explains the report and
+- **A number that belongs to a client gets Alti**, with the last day of the
+  conversation as context, always marked as AI. Alti explains the report and
   the service, never quotes a price, never says which items to mark, and passes
   what it cannot answer to the team (`src/lib/coach/systemPrompt.ts`).
-- `WHATSAPP_LEAD_REPLIES=ai` lets AltiBot answer leads too, for hours when nobody
-  is on sales. AltiBot is then told the person is not a client yet.
+- `WHATSAPP_LEAD_REPLIES=ai` lets Alti answer leads too, for hours when nobody
+  is on sales. Alti is then told the person is not a client yet.
 
 ## The client's language
 
@@ -119,7 +119,7 @@ what we do may be described; what the bureaus will do may not be promised.
    take a payment on a call.
 
 The same line is enforced in code. A teammate's reply in a client's
-conversation, the invitation message, every WhatsApp template and AltiBot's
+conversation, the invitation message, every WhatsApp template and Alti's
 replies are checked against the claim rules in
 `src/lib/compliance/guardrails.ts` before they are sent.
 
@@ -130,7 +130,7 @@ delivered. Leave it unset for full service, which is the business today.
 `self_serve` brings back the earlier version, where the client approves and
 sends their own letters; it is kept for later. The mode changes the client
 app's wording, whether the approve button exists, the WhatsApp templates,
-AltiBot's instructions and one claim rule: saying "we dispute" is allowed under
+Alti's instructions and one claim rule: saying "we dispute" is allowed under
 full service and banned under self-serve. Promising an outcome is banned in
 both.
 

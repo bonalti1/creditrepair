@@ -80,9 +80,9 @@ review".
   identifier line is ever added to letters, it must read "ITIN ending in …"
   for ITIN clients and never print a full number.
 - **Never stored:** `profiles.id_type` holds `ssn` or `itin` only. A test checks
-  no table has a column for the number. AltiBot's replies are refused if they
+  no table has a column for the number. Alti's replies are refused if they
   contain a 9-digit taxpayer number (`containsTaxpayerNumber`, `/api/coach`).
-- **AltiBot:** the coach's instructions (full service) cover building credit,
+- **Alti:** the coach's instructions (full service) cover building credit,
   the home-ready topics and ITIN, with "requirements vary by lender", no
   recommendation of a product, no score comparison, "monitoring with ITIN is
   not confirmed: a person answers", and never ask for or repeat a number.

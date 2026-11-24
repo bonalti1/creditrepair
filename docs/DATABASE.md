@@ -164,7 +164,7 @@ Not yet, and why:
   text and the statutory passages are verified (`docs/AGREEMENT.md`). No round
   can be sent before a client signs.
 - **Taking money.** Needs a payment processor adapter (`docs/BILLING.md`).
-- **Questions the assistant (AltiBot) passes to the team.** The console can show them, but the assistant
+- **Questions the assistant (Alti) passes to the team.** The console can show them, but the assistant
   does not record them yet.
 - **Staff seeing the ID photos themselves.** The console shows which documents
   are on file; storage lets only the client read the files.

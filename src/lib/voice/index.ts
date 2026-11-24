@@ -3,7 +3,7 @@
 //
 // Today there is one voice: the phone's own speech engine (Web Speech API).
 // It costs nothing, works offline and reads in the app's language. The brand
-// kit has reference recordings for Alti and AltiBot; a recorded or synthetic
+// kit has reference recordings for both characters; a recorded or synthetic
 // brand voice would be a second adapter registered here (see docs/VOICE.md).
 // No provider is wired in, and nothing here sends text anywhere.
 //
@@ -11,12 +11,14 @@
 //  - It reads exactly the text it is given. It never rewords, summarises or
 //    adds to it (the copy on screen passed the claim rules; a reworded line
 //    would not have).
-//  - The speaker says whose words these are. "assistant" is AltiBot's (AI);
-//    "team" is the app speaking for the team as a whole; "neutral" is plain
-//    app text (a status line, a lesson). A brand voice for Alti must only ever
-//    read "team" or "neutral" text, never a message a real teammate wrote, and
-//    must never be presented as a person speaking live.
-//  - Where AltiBot's voice is used, the screen still says he is AI.
+//  - The speaker says whose words these are. "assistant" is Alti's, the AI
+//    assistant (owner's decision, 2026-11-24; docs/BRAND.md); "team" is the
+//    app speaking for the team as a whole; "neutral" is plain app text (a
+//    status line, a lesson). A brand voice for Alti may only ever read
+//    "assistant" text: never a message a real teammate wrote, and never
+//    presented as a person speaking live. No other character has a voice.
+//  - Where Alti's voice is used, the screen still says he is AI ("Alti · AI
+//    assistant"), and a voice message would start by saying so.
 
 export type VoiceLocale = "es" | "en";
 

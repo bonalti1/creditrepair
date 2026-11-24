@@ -7,7 +7,7 @@
 // Spanish, otherwise English.
 //
 // This is the language the console speaks to the MEMBER. Anything the console
-// writes to a CLIENT (a WhatsApp draft, an AltiBot draft, a saved answer, a
+// writes to a CLIENT (a WhatsApp draft, an Alti draft, a saved answer, a
 // reminder) is in the client's language instead: see clientLanguage below.
 
 export const STAFF_LOCALES = ["en", "es"] as const;

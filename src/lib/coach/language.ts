@@ -1,6 +1,6 @@
 import type { Locale } from "../i18n/dictionaries";
 
-// Which language a client wrote in, so AltiBot answers in it (English first,
+// Which language a client wrote in, so Alti answers in it (English first,
 // Spanish if needed). A small word count, not a model: it only has to tell
 // English from Spanish in a short chat message. When a message gives no clear
 // signal ("ok", a name, a number), the answer is null and the app's language
@@ -36,7 +36,7 @@ export function replyLanguage(text: string, appLocale: Locale | null | undefined
   return detectMessageLanguage(text) ?? (appLocale === "es" ? "es" : "en");
 }
 
-/** What AltiBot sends instead of a reply that broke the claim rules, in the reply's language. */
+/** What Alti sends instead of a reply that broke the claim rules, in the reply's language. */
 export const COACH_SAFE_FALLBACK: Record<Locale, string> = {
   en: "I can help you understand your report and the dispute process, but I can't promise results: every case is different and results vary. Which item on your report would you like to understand better?",
   es: "Puedo ayudarte a entender tu reporte y el proceso de disputa, pero no puedo prometer resultados: cada caso es distinto y los resultados varían. ¿Qué elemento de tu reporte quieres entender mejor?",

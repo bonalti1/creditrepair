@@ -1,6 +1,7 @@
 import { listPlans } from "../billing/planStore";
 import { effectiveAmounts, mostYoullPay, paymentTermsLines, type PlanVersion } from "../billing/plans";
 import type { Locale } from "../i18n/dictionaries";
+import { timelinePlan, type TimelinePlan } from "./payTimeline";
 import { getAdminClient } from "../supabase/admin";
 
 // The plans /precios may show: only versions that are OFFERED (active) and
@@ -17,6 +18,8 @@ export interface PublicPlan {
   name: string;
   terms: string[];
   most: string;
+  /** The plan's own terms, for the "When would I pay?" timeline (payTimeline.ts). */
+  timeline: TimelinePlan;
 }
 
 export function publicPlansFrom(all: readonly PlanVersion[], locale: Locale): PublicPlan[] {
@@ -27,7 +30,7 @@ export function publicPlansFrom(all: readonly PlanVersion[], locale: Locale): Pu
       const e = effectiveAmounts(p.terms, 0);
       // The last line is the "most you'll pay" sentence: shown on its own, larger.
       const lines = paymentTermsLines(p.terms, e, locale).slice(0, -1);
-      return { id: p.id, name: p.name[locale], terms: lines, most: mostYoullPay({ effective: e }, locale) };
+      return { id: p.id, name: p.name[locale], terms: lines, most: mostYoullPay({ effective: e }, locale), timeline: timelinePlan(p.terms, e) };
     });
 }
 

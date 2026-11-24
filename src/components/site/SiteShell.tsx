@@ -7,7 +7,10 @@ import { PATH_HEADER } from "@/lib/i18n/detect";
 import { requestLocale } from "@/lib/i18n/server";
 import type { Locale } from "@/lib/i18n/dictionaries";
 import { SITE_COPY } from "@/lib/site/copy";
-import { ONLINE_START, supportPhone } from "@/lib/site/cta";
+import { ONLINE_START, primaryCta, supportPhone, whatsappHref } from "@/lib/site/cta";
+import { aiByline } from "@/lib/brand";
+import AskAltiLauncher from "./AskAltiLauncher";
+import type { AskCopy, AskCtas } from "./AskAlti";
 import { otherLanguageHref } from "@/lib/site/routes";
 import { jsonLd, organizationJsonLd } from "@/lib/site/seo";
 import { Container, PrimaryCta } from "./ui";
@@ -17,7 +20,25 @@ import { Container, PrimaryCta } from "./ui";
 // legal links. Server-rendered in the request's language
 // (src/lib/i18n/server.ts). The menu on a phone is a <details>, and the
 // language switch is a link to the same page with ?lang=, so neither needs any
-// JavaScript; the proxy saves the choice and the next page paints in it.
+// JavaScript; the proxy saves the choice and the next page paints in it (with
+// a cross-fade where the browser supports view transitions: globals.css).
+// Every page also gets "Ask Alti" (AskAltiLauncher: the floating button, and
+// on a phone the sticky bar), whose chat loads only when opened.
+
+/** The chat's two actions, in the page's language: start a review, or WhatsApp with the team. */
+export function askCtas(locale: Locale): AskCtas {
+  const cta = primaryCta(locale);
+  return {
+    start: { href: cta.external ? ONLINE_START : cta.href, external: false },
+    whatsapp: whatsappHref(SITE_COPY[locale].live.ask.whatsappText),
+    faq: "/preguntas",
+  };
+}
+
+/** The chat's words for the browser, without the answer library (the server answers from it). */
+export function askClientCopy(locale: Locale): AskCopy {
+  return { ...SITE_COPY[locale].live.ask, library: [] };
+}
 
 const NAV = [
   { key: "how", href: "/como-funciona" },
@@ -210,6 +231,7 @@ export default async function SiteShell({ children }: { children: React.ReactNod
           {children}
         </div>
         <SiteFooter locale={locale} />
+        <AskAltiLauncher copy={askClientCopy(locale)} locale={locale} byline={aiByline(locale)} ctas={askCtas(locale)} barLabel={SITE_COPY[locale].live.mobileBar.start} />
       </div>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(organizationJsonLd(locale)) }} />
     </RequestLocaleProvider>

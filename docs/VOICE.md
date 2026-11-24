@@ -4,7 +4,7 @@ Many clients prefer listening to reading. Every important text in the client
 app has an **Escuchar** button (`src/components/SpeakButton.tsx`): Home's
 status sentence, "Mi caso", each item explanation in the review, each letter's
 "en palabras simples" summary, each lesson in "Aprende", the calculators'
-results, and AltiBot's chat messages.
+results, and Alti's chat messages (Alti is the AI assistant since 2026-11-24).
 
 ## How it works today
 
@@ -30,7 +30,7 @@ provider is wired in. To add one:
    before the browser voice; when it cannot speak (offline, unsupported
    language), the browser voice reads instead.
 3. Decide per speaker. Every button says whose words it reads:
-   - `assistant`: AltiBot's words (his chat messages, the lessons he presents).
+   - `assistant`: Alti's words, the AI assistant's (his chat messages, the lessons he presents). The screen still says AI, and a voice would say so too.
      His voice may read these. The screen still says he is AI.
    - `team`: the app speaking for the team as a whole. Alti's voice may read
      these.

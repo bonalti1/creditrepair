@@ -34,28 +34,53 @@
     "source": "Owner's brand kit (2026-11-21), web-ready folder: transparent WebP at @1x and @2x.",
     "rule": "Locked art: never edit, redraw, recolour, re-crop or regenerate the characters. Place them on navy or ivory/white; on very dark or saturated backgrounds a light 1-2 px rim may show.",
     "assistant": {
-      "name": "AltiBot",
-      "formerName": "The brand kit's files still use the robot's earlier name; the owner renamed it AltiBot on 2026-11-22. Same art.",
-      "role": "Credalti's AI assistant, always identified as AI",
-      "look": "A friendly robot: gold and cream shell, navy body, glowing amber face, a checkmark on his chest.",
-      "files": {
-        "front": ["public/brand/characters/altibot_front@1x.webp", "public/brand/characters/altibot_front@2x.webp"],
-        "threeQuarter": ["public/brand/characters/altibot_three_quarter@1x.webp", "public/brand/characters/altibot_three_quarter@2x.webp"],
-        "headFront": ["public/brand/characters/altibot_head_front@1x.webp", "public/brand/characters/altibot_head_front@2x.webp"],
-        "headThreeQuarter": ["public/brand/characters/altibot_head_three_quarter@1x.webp", "public/brand/characters/altibot_head_three_quarter@2x.webp"]
-      }
-    },
-    "team": {
       "name": "Alti",
-      "role": "The face of Credalti's human team. Never the author of a message, never a particular teammate, never presented as AI.",
+      "role": "Credalti's AI assistant and the only voice (owner, 2026-11-24). Always labelled 'Alti · AI assistant' on every message he writes; never presented as a person or as a teammate.",
       "look": "A young man in a navy overshirt with the Credalti logo, a lanyard badge reading ALTI, a gold shoulder strap with a checkmark device.",
       "files": {
-        "front": ["public/brand/characters/alti_front@1x.webp", "public/brand/characters/alti_front@2x.webp"],
-        "threeQuarter": ["public/brand/characters/alti_three_quarter@1x.webp", "public/brand/characters/alti_three_quarter@2x.webp"],
-        "headFront": ["public/brand/characters/alti_head_front@1x.webp", "public/brand/characters/alti_head_front@2x.webp"],
-        "headThreeQuarter": ["public/brand/characters/alti_head_three_quarter@1x.webp", "public/brand/characters/alti_head_three_quarter@2x.webp"]
+        "front": [
+          "public/brand/characters/alti_front@1x.webp",
+          "public/brand/characters/alti_front@2x.webp"
+        ],
+        "threeQuarter": [
+          "public/brand/characters/alti_three_quarter@1x.webp",
+          "public/brand/characters/alti_three_quarter@2x.webp"
+        ],
+        "headFront": [
+          "public/brand/characters/alti_head_front@1x.webp",
+          "public/brand/characters/alti_head_front@2x.webp"
+        ],
+        "headThreeQuarter": [
+          "public/brand/characters/alti_head_three_quarter@1x.webp",
+          "public/brand/characters/alti_head_three_quarter@2x.webp"
+        ]
       }
-    }
+    },
+    "cameo": {
+      "name": "AltiBot",
+      "formerName": "The brand kit's files still use the robot's earlier name; the owner renamed it AltiBot on 2026-11-22. Same art.",
+      "role": "A small supporting cameo only (owner, 2026-11-24): the website's letter-mailing animation and the About page. Never speaks, never the author of a message, never the assistant.",
+      "look": "A friendly robot: gold and cream shell, navy body, glowing amber face, a checkmark on his chest.",
+      "files": {
+        "front": [
+          "public/brand/characters/altibot_front@1x.webp",
+          "public/brand/characters/altibot_front@2x.webp"
+        ],
+        "threeQuarter": [
+          "public/brand/characters/altibot_three_quarter@1x.webp",
+          "public/brand/characters/altibot_three_quarter@2x.webp"
+        ],
+        "headFront": [
+          "public/brand/characters/altibot_head_front@1x.webp",
+          "public/brand/characters/altibot_head_front@2x.webp"
+        ],
+        "headThreeQuarter": [
+          "public/brand/characters/altibot_head_three_quarter@1x.webp",
+          "public/brand/characters/altibot_head_three_quarter@2x.webp"
+        ]
+      }
+    },
+    "rolesChangedOn": "2026-11-24"
   },
   "look": "Photoreal live-action TV commercial, deadpan comedy, shot on 35mm, late-afternoon golden light, locked-off camera on a tripod, natural film grain.",
   "models": {

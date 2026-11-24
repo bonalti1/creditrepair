@@ -9,7 +9,7 @@ import { requireCapability } from "@/lib/staff/access";
 import { callDraftModel } from "@/lib/staff/draftModel";
 import { isDemoMode } from "@/lib/supabase/config";
 
-// AltiBot's draft of a public reply to a review a teammate pasted
+// Alti's draft of a public reply to a review a teammate pasted
 // (src/lib/reviews/reply.ts). Nothing is posted from here: a person reads,
 // edits and posts it on the platform. The review's text goes to the model and
 // nowhere else; nothing is stored. Without ANTHROPIC_API_KEY: the safe

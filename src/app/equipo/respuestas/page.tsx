@@ -18,7 +18,7 @@ import { Chip, NoAccess, PRIMARY_BUTTON_COMPACT, QUIET_BUTTON, SectionTitle } fr
 // clients keep asking (src/lib/staff/answers.ts).
 //
 // An approved answer is offered first when a client asks something close to
-// it, and AltiBot may send it to a client by itself (after the claim rules
+// it, and Alti may send it to a client by itself (after the claim rules
 // pass again). Only an administrator approves, edits or deletes; a specialist
 // proposes (from «Guardar como respuesta» after a reply) and may edit or
 // withdraw their own proposal until it is approved.

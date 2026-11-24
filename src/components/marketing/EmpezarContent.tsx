@@ -21,12 +21,12 @@ import { CharacterAvatar, CharacterFigure, type Character } from "@/components/C
 // step 1 is the invited welcome, not the home screen with its score ring.
 const STEP_IMAGES = ["/screens/bienvenida.png", "/screens/revisar.png", "/screens/carta.png"];
 
-// Who stands beside each step: the robot (the AI assistant) where it explains the
-// report (step 2), Alti where the team prepares and mails the letters (step 3).
+// Who stands beside each step (docs/BRAND.md): Alti, the AI assistant, where
+// he explains the report (step 2). He is the only character.
 const STEP_CHARACTERS: Array<{ character: Character; height: number } | null> = [
   null,
-  { character: "assistant", height: 120 },
-  { character: "team", height: 230 },
+  { character: "assistant", height: 230 },
+  null,
 ];
 
 export default function EmpezarContent() {
@@ -44,10 +44,9 @@ export default function EmpezarContent() {
             <Logo size={30} tone="dark" priority />
             <LocaleToggle tone="dark" />
           </div>
-          {/* The team and the assistant: Alti (people) and the robot (AI). */}
-          <div className="mt-7 flex justify-center -space-x-3">
-            <CharacterAvatar character="team" size={76} className="ring-4 ring-blue-800" />
-            <CharacterAvatar character="assistant" size={76} tone="ivory" className="ring-4 ring-blue-800" />
+          {/* Alti, the AI assistant: the one character. */}
+          <div className="mt-7 flex justify-center">
+            <CharacterAvatar character="assistant" size={76} className="ring-4 ring-blue-800" />
           </div>
           <h1 className="mt-5 font-display text-[35px] font-bold leading-[1.08] sm:text-[56px]">
             {c.headline} <span className="text-amber-400">{c.headlineAccent}</span>
@@ -82,7 +81,7 @@ export default function EmpezarContent() {
                   </span>
                   {beside && (
                     <span className="ml-2 inline-block text-sm font-semibold text-slate-500">
-                      {beside.character === "assistant" ? c.assistantTag : c.teamTag}
+                      {c.assistantTag}
                     </span>
                   )}
                   <h2 className="mt-3 font-display text-[26px] font-bold leading-tight text-blue-700">{s.title}</h2>

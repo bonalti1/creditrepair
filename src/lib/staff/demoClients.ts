@@ -366,7 +366,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   ];
   itzel.conversation = [
     ...thread("c04", ago(2, 3), [
-      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA. Para empezar activa tu monitoreo de crédito: en cuanto esté listo importo tu reporte y lo revisamos juntos.`],
+      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA: soy una inteligencia artificial, no una persona. Para empezar activa tu monitoreo de crédito: en cuanto esté listo importo tu reporte y lo revisamos juntos.`],
     ]),
     // Her question, at the moment the assistant passed it to the team.
     ...thread("c04", ago(1), [
@@ -384,7 +384,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
 
   fidel.conversation = [
     ...thread("c05", ago(2), [
-      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós. Vamos a revisarlo juntos, punto por punto: yo te explico cada uno y tú decides.`],
+      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA: soy una inteligencia artificial, no una persona. Ya importé tu reporte de los 3 burós. Vamos a revisarlo juntos, punto por punto: yo te explico cada uno y tú decides.`],
     ]),
     ...thread("c05", ago(0, 3), [
       ["client", "¿Qué es una consulta dura?"],
@@ -533,7 +533,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   }
   dolores.conversation = [
     ...thread("c16", ago(3), [
-      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós. Vamos a revisarlo juntos, punto por punto: yo te explico cada uno y tú decides.`],
+      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA: soy una inteligencia artificial, no una persona. Ya importé tu reporte de los 3 burós. Vamos a revisarlo juntos, punto por punto: yo te explico cada uno y tú decides.`],
     ]),
     ...thread("c16", ago(1), [
       ["assistant", "Anotado. Para este motivo hace falta un reporte de robo de identidad de la FTC. Una persona del equipo te va a contactar para seguir con ese paso."],

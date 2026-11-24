@@ -50,7 +50,7 @@ export default function GraduationCard({ caseView, locale, aftercare, where }: {
     return (
       <section className="card overflow-hidden" data-testid="graduation" aria-labelledby="graduation-title">
         <div className="flex items-center gap-4 bg-blue-900 px-5 py-5 text-white">
-          <CharacterAvatar character="team" size={56} />
+          <CharacterAvatar character="assistant" size={56} />
           <div className="min-w-0">
             <h2 id="graduation-title" className="font-display text-[24px] font-bold leading-tight text-white">{c.doneTitle}</h2>
             <p className="mt-1 text-[15px] leading-snug text-white">{c.doneLead(caseDay(g.completedAt, locale))}</p>

@@ -1,4 +1,4 @@
-import { ASSISTANT_NAME, BRAND } from "../../brand";
+import { ASSISTANT_NAME, BRAND, CAMEO_NAME } from "../../brand";
 import { checkClaimGuardrails } from "../../compliance/guardrails";
 import { ENCLOSED_SENTENCE } from "../parts";
 import { TEMPLATES } from "../templates";
@@ -28,7 +28,7 @@ export const SUBJECT_MAX = 200;
 export const BODY_MAX = 20_000;
 
 /** Names that never appear in a client's letter (the same rule as the letter tests). */
-const COMPANY_NAMES = new RegExp(`\\b${escapeRe(BRAND.name)}\\b|\\b${escapeRe(ASSISTANT_NAME)}\\b|${escapeRe(BRAND.internalName)}|\\bon behalf of\\b`, "i");
+const COMPANY_NAMES = new RegExp(`\\b${escapeRe(BRAND.name)}\\b|\\b${escapeRe(ASSISTANT_NAME)}\\b|\\b${escapeRe(CAMEO_NAME)}\\b|${escapeRe(BRAND.internalName)}|\\bon behalf of\\b`, "i");
 const SPANISH = /[¿¡ñáéíóúü]/i;
 const CITATION = /§\s*[\w.()-]+|\d+\s+U\.S\.C\.|\d+\s+C\.F\.R\.|Section\s+\d+[A-Za-z]?(?:\([A-Za-z0-9]+\))*/g;
 
@@ -105,7 +105,7 @@ export function validateLetterSource(templateKey: string, source: LetterSource):
     error("guardrail", `Promete o insinúa un resultado: «${violation.match}». Una carta pide; no promete ni asegura nada.`);
   }
   if (COMPANY_NAMES.test(text)) {
-    error("company_named", `La carta es del cliente y va en su nombre: no menciona a ${BRAND.name}, a ${ASSISTANT_NAME} ni dice «on behalf of».`);
+    error("company_named", `La carta es del cliente y va en su nombre: no menciona a ${BRAND.name}, a ${ASSISTANT_NAME}, a ${CAMEO_NAME} ni dice «on behalf of».`);
   }
   if (SPANISH.test(text)) error("not_english", "Las cartas se envían en inglés: quita los acentos, la ñ y los signos ¿ ¡.");
   if (!/\bI\b|\bmy\b|\bme\b/i.test(body.replace(TOKEN, " "))) error("first_person", "La carta va en primera persona, con la voz del cliente (I, my).");

@@ -12,7 +12,7 @@ import { useTx } from "@/lib/staff/i18n/StaffLocale";
 import type { StaffLocale } from "@/lib/staff/i18n/locale";
 
 // What waits above the reply box when a client's question is open: the
-// approved saved answer that matches it, first; then AltiBot's draft
+// approved saved answer that matches it, first; then Alti's draft
 // (/api/staff/drafts), already checked against the reply rules on the server.
 // Either one can be sent with one tap or copied into the box to edit. Sending
 // goes through the conversation's own send, with its checks.
@@ -46,7 +46,7 @@ function remember(key: string, state: DraftState): void {
 }
 
 /**
- * AltiBot's draft for this client's waiting question. Asked once per question
+ * Alti's draft for this client's waiting question. Asked once per question
  * (kept for this browser tab), so opening the page again does not spend
  * another model call.
  */

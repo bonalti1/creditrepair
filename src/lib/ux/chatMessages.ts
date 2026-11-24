@@ -1,3 +1,5 @@
+import { aiByline, teamByline } from "../brand";
+
 // One message of the client's thread, and who wrote it.
 //
 // Three voices can appear in the thread: the client, the AI assistant
@@ -7,8 +9,13 @@
 // - A message is a person's only when it says so itself (`author`). The server
 //   sets that from chat_messages.source = 'human'; nothing the client types
 //   can produce it.
+// - The assistant (Alti) is AI, and he looks like a person, so every one of his
+//   messages carries "Alti · AI assistant" (brand.ts, aiByline): the AI label
+//   is never left to the header alone (docs/BRAND.md, the disclosure rule).
 // - A person's message is never presented as the assistant's: it carries the
-//   teammate's first name and "del equipo", and no AI label.
+//   teammate's first name and "Credalti team" ("Ana · Credalti team"), never
+//   Alti's name, and no AI label.
+// - No other character ever authors a message in the thread.
 // - A message saved before `author` existed has none and renders as before.
 
 export interface ChatAuthor {
@@ -49,26 +56,24 @@ export interface MessageVoice {
   kind: "client" | "assistant" | "team";
   /** True only for the assistant: the one voice that is artificial intelligence. */
   ai: boolean;
-  /** Team only: the line shown above the bubble, "Ana · del equipo". Null otherwise. */
+  /**
+   * The line shown above the bubble: "Alti · AI assistant" for the assistant,
+   * "Ana · Credalti team" for a teammate. Null for the client's own messages.
+   */
   byline: string | null;
   /** What the read-aloud button says: a teammate's message starts with who wrote it. */
   spoken: string;
 }
 
-const TEAM = {
-  es: { label: "del equipo", unnamed: "Una persona del equipo" },
-  en: { label: "from the team", unnamed: "A person from the team" },
-} as const;
-
 /** Who is speaking in a message, and how the thread should say so. */
 export function messageVoice(m: ChatMsg, locale: "es" | "en"): MessageVoice {
   const text = messageText(m, locale);
   if (m.role === "user") return { kind: "client", ai: false, byline: null, spoken: text };
-  if (m.author?.kind !== "team") return { kind: "assistant", ai: true, byline: null, spoken: text };
+  if (m.author?.kind !== "team") return { kind: "assistant", ai: true, byline: aiByline(locale), spoken: text };
   const first = teamFirstName(m.author.name);
-  const byline = first ? `${first} · ${TEAM[locale].label}` : TEAM[locale].unnamed;
-  const speaker = first ? `${first}, ${TEAM[locale].label}` : TEAM[locale].unnamed;
-  return { kind: "team", ai: false, byline, spoken: `${speaker}: ${text}` };
+  const byline = teamByline(first, locale);
+  // Read aloud as "Ana, Credalti team: …": who wrote it, before the words.
+  return { kind: "team", ai: false, byline, spoken: `${byline.replace(" · ", ", ")}: ${text}` };
 }
 
 /** A turn as /api/chat returns it (chat/history.ts: ChatTurn). */

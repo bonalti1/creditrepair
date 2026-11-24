@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { CaseStatus, CaseTimelineList } from "@/components/case/CaseViews";
-import { CharacterAvatar } from "@/components/Character";
 import GraduationCard from "@/components/aftercare/Graduation";
 import { useAftercare } from "@/lib/aftercare/useAftercare";
 import { clearDemoCase, loadExampleCase } from "@/lib/case/demo";
 import { useCase } from "@/lib/case/useCase";
+import Icon from "@/components/Icon";
 import { useLocale } from "@/lib/i18n";
 import { forgetClientCase } from "@/lib/ux/caseApi";
 
@@ -55,7 +55,9 @@ export default function CasoPage() {
       <GraduationCard caseView={view} locale={locale} aftercare={aftercare} where="bottom" />
 
       <section className="flex items-start gap-3 px-1">
-        <CharacterAvatar character="team" size={40} />
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+          <Icon name="info" size={20} />
+        </span>
         <p className="min-w-0 text-[14px] leading-relaxed text-slate-600">
           {es
             ? "Aquí solo ponemos lo que está registrado. Los burós deciden cómo responden, y los resultados varían. ¿Tienes una pregunta? Escríbele a tu equipo desde Más."

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CharacterAvatar, CharacterFigure } from "@/components/Character";
+import { CharacterAvatar } from "@/components/Character";
 import Icon from "@/components/Icon";
 import SpeakButton from "@/components/SpeakButton";
 import { ASSISTANT_NAME } from "@/lib/brand";
@@ -9,8 +9,9 @@ import { useLocale } from "@/lib/i18n";
 import { checkedOnLabel, getLesson, LESSONS, lessonReadAloud } from "@/lib/learn/lessons";
 
 // One lesson: the character, the text, "Escuchar", the sources with the day
-// they were checked, and the next lesson. AltiBot's lessons say he is AI; Alti
-// is an illustration of the team, never the author.
+// they were checked, and the next lesson. Alti's lessons say he is AI. The
+// team's own lessons (protecting yourself) show a plain team icon: Alti is the
+// AI assistant now (docs/BRAND.md), so he never stands for the people.
 
 export default function LessonView({ slug }: { slug: string }) {
   const { locale } = useLocale();
@@ -30,7 +31,9 @@ export default function LessonView({ slug }: { slug: string }) {
       <article className="card overflow-hidden">
         <div className={`flex items-end gap-4 px-5 pt-5 ${lesson.character === "team" ? "bg-amber-50" : "bg-blue-50"}`}>
           {lesson.character === "team" ? (
-            <CharacterFigure character="team" height={130} className="-mb-px" />
+            <span className="mb-4 flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-blue-700 text-white">
+              <Icon name="team" size={34} />
+            </span>
           ) : (
             <CharacterAvatar character="assistant" size={72} className="mb-4" />
           )}

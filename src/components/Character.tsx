@@ -3,15 +3,24 @@
 import { BRAND, type CharacterImage, type CharacterView } from "@/lib/brand";
 import { useLocale } from "@/lib/i18n";
 
-// The brand's two characters, drawn from the art in src/lib/brand.ts:
+// The brand's characters (src/lib/brand.ts; owner's decisions of 2026-11-24,
+// docs/BRAND.md):
 //
-//   "assistant"  The robot, the AI assistant (name in brand.ts). Use him where the assistant
-//                speaks or explains.
-//   "team"       Alti, the face of the human team. Use him where the app
-//                talks about the team as a whole ("your team is importing
-//                your report", "talk to a person"). Never beside a message a
-//                real teammate wrote (that message carries the teammate's own
-//                name), and never next to anything that says AI.
+//   "assistant"  Alti, the AI assistant and the only voice. Use him where the
+//                assistant speaks or explains, always with the AI label in
+//                words beside him ("Alti · AI assistant"). Never beside a
+//                message a real teammate wrote (that message carries the
+//                teammate's own name), never on "talk to a person" (he is not
+//                a person), and never beside what the system did on its own
+//                (that is said in plain words, with an icon).
+//   "cameo"      The robot, a small cameo in exactly two places: the
+//                website's letter-mailing animation and the About page. Never
+//                in a chat, never as an author (a test holds the list).
+//
+// Motion: `motion="idle"` (a slow bob) or "wave" (a short greeting sway) moves
+// the whole picture with CSS transforms only (globals.css, .char-idle and
+// .char-wave), never redrawing the art, and nothing moves for people who ask
+// for reduced motion.
 //
 // The art is locked (docs/BRAND.md): it is shown as delivered, only scaled.
 // It is served as the kit's own @1x/@2x WebP files through srcSet, so a phone
@@ -19,14 +28,18 @@ import { useLocale } from "@/lib/i18n";
 // would re-compress the art). Width and height are always set, so the layout
 // does not move when an image arrives.
 
-export type Character = "assistant" | "team";
+export type Character = "assistant" | "cameo";
+
+export type CharacterMotion = "none" | "idle" | "wave";
+
+const MOTION_CLASS: Record<CharacterMotion, string> = { none: "", idle: "char-idle", wave: "char-wave" };
 
 function imagesOf(character: Character) {
-  return character === "assistant" ? BRAND.assistantImages : BRAND.teamMascotImages;
+  return character === "cameo" ? BRAND.cameoImages : BRAND.assistantImages;
 }
 
 function altOf(character: Character, locale: "es" | "en"): string {
-  return (character === "assistant" ? BRAND.assistantAlt : BRAND.teamMascotAlt)[locale];
+  return (character === "cameo" ? BRAND.cameoAlt : BRAND.assistantAlt)[locale];
 }
 
 function srcSetOf(image: CharacterImage): string {
@@ -35,8 +48,8 @@ function srcSetOf(image: CharacterImage): string {
 
 /**
  * A round avatar: the character's head on a navy or ivory circle. A wide head
- * (the robot's) is shown whole inside the circle; a tall one (a person's head
- * and collar) fills it from the hair down, like a portrait.
+ * (the robot's) is shown whole inside the circle; a tall one (Alti's head and collar) fills
+ * it from the hair down, like a portrait.
  */
 export function CharacterAvatar({
   character,
@@ -51,7 +64,7 @@ export function CharacterAvatar({
   /** Diameter in px. */
   size?: number;
   view?: Extract<CharacterView, "headFront" | "headThreeQuarter">;
-  /** The circle's colour. Default: navy for the assistant, ivory for the team. */
+  /** The circle's colour. Default: ivory. */
   tone?: "navy" | "ivory";
   /** A thin gold ring around the circle. */
   ring?: boolean;
@@ -61,7 +74,7 @@ export function CharacterAvatar({
 }) {
   const { locale } = useLocale();
   const image = imagesOf(character)[view];
-  const circle = (tone ?? (character === "assistant" ? "navy" : "ivory")) === "navy" ? "bg-blue-800" : "bg-amber-50";
+  const circle = (tone ?? "ivory") === "navy" ? "bg-blue-800" : "bg-amber-50";
   const wide = image.width >= image.height;
   // Wide: the whole head, centred, with a margin. Tall: a portrait from the hair down.
   const shown = wide ? 0.84 : 0.94;
@@ -105,10 +118,13 @@ export function CharacterFigure({
   heightClassName,
   priority = false,
   decorative = false,
+  motion = "none",
   className = "",
 }: {
   character: Character;
   view?: Extract<CharacterView, "front" | "threeQuarter">;
+  /** Subtle motion of the whole picture (transforms only). */
+  motion?: CharacterMotion;
   /** Displayed height in px (CSS); the width keeps the art's proportions. */
   height: number;
   /**
@@ -136,7 +152,7 @@ export function CharacterFigure({
       fetchPriority={priority ? "high" : undefined}
       decoding={priority ? "sync" : "async"}
       draggable={false}
-      className={`block shrink-0 select-none ${heightClassName ? `${heightClassName} w-auto` : "h-auto"} ${className}`}
+      className={`block shrink-0 select-none ${heightClassName ? `${heightClassName} w-auto` : "h-auto"} ${MOTION_CLASS[motion]} ${className}`}
       style={heightClassName ? { aspectRatio: `${image.width} / ${image.height}` } : { width, aspectRatio: `${image.width} / ${image.height}` }}
       data-character={character}
     />

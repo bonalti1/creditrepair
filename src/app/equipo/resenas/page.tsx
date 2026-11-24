@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BRAND } from "@/lib/brand";
 import { STATUS_TEMPLATES, renderTemplate } from "@/lib/autopilot/templates";
 import { fallbackReply } from "@/lib/reviews/reply";
 import {
@@ -23,7 +24,7 @@ import { useStaff } from "@/lib/staff/useStaff";
 import { DeniedNote, SectionTitle } from "@/components/staff/ui";
 
 // Reviews: where clients are asked to leave one, when, how many were asked,
-// what each platform shows (typed in by a person), and AltiBot's draft of a
+// what each platform shows (typed in by a person), and Alti's draft of a
 // reply to a review someone pasted. Read by the team; changed by an
 // administrator. The rules this page cannot break are written on it.
 
@@ -285,8 +286,8 @@ export default function ResenasPage() {
         <div className="card px-5 py-4">
           <p className="text-[14px] leading-snug text-slate-600">
             {t(
-              "Pega la reseña y AltiBot escribe un borrador: sin datos del caso (ni siquiera que es cliente), sin promesas, sin pedir que la cambie. Tú la lees, la corriges y la publicas en el sitio.",
-              "Paste the review and AltiBot writes a draft: no case details (not even that they're a client), no promises, never asking them to change it. You read it, edit it and post it on the site.",
+              `Pega la reseña y ${BRAND.assistant} (IA) escribe un borrador: sin datos del caso (ni siquiera que es cliente), sin promesas, sin pedir que la cambie. Tú la lees, la corriges y la publicas en el sitio.`,
+              `Paste the review and ${BRAND.assistant} (AI) writes a draft: no case details (not even that they're a client), no promises, never asking them to change it. You read it, edit it and post it on the site.`,
             )}
           </p>
           <textarea
@@ -326,7 +327,7 @@ export default function ResenasPage() {
           {draft && (
             <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3" data-testid="review-reply-draft">
               <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
-                {draft.source === "model" ? t("Borrador de AltiBot · revisado", "AltiBot's draft · checked") : t("Respuesta segura (sin AltiBot)", "Safe reply (without AltiBot)")}
+                {draft.source === "model" ? t(`Borrador de ${BRAND.assistant} (IA) · revisado`, `${BRAND.assistant}'s draft (AI) · checked`) : t(`Respuesta segura (sin ${BRAND.assistant})`, `Safe reply (without ${BRAND.assistant})`)}
               </p>
               <p className="mt-1 whitespace-pre-line text-[15px] leading-relaxed text-slate-900">{draft.text}</p>
               <p className="mt-2 text-[12px] text-slate-500">{t("Nada se publica desde aquí. Cópiala y publícala tú en el sitio.", "Nothing is posted from here. Copy it and post it yourself on the site.")}</p>

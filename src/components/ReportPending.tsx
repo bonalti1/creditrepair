@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Icon from "@/components/Icon";
 import { useLocale } from "@/lib/i18n";
-import { CharacterAvatar } from "@/components/Character";
 
 // What a real client sees where their report will be, while the team has not
 // imported it yet. It says what is happening and what (nothing) they need to
@@ -27,7 +27,9 @@ export default function ReportPending({ compact = false, showLink = true }: { co
   const c = REPORT_PENDING_COPY[locale === "en" ? "en" : "es"];
   return (
     <section className={`card ${compact ? "px-5 py-4" : "px-6 py-7 text-center"}`} data-testid="report-pending" role="status">
-      <CharacterAvatar character="team" size={compact ? 48 : 72} className={compact ? "" : "mx-auto"} />
+      <span className={`flex shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 ${compact ? "h-12 w-12" : "mx-auto h-[72px] w-[72px]"}`}>
+        <Icon name="clock" size={compact ? 22 : 32} />
+      </span>
       <h2 className={`${compact ? "mt-3 text-[17px]" : "mt-4 text-[20px]"} font-semibold leading-snug text-slate-900`}>{c.title}</h2>
       <p className={`mt-2 text-[15px] leading-relaxed text-slate-500 ${compact ? "" : "mx-auto max-w-sm"}`}>{c.body}</p>
       {showLink && (

@@ -39,15 +39,31 @@ const PAGE_FILES: Record<string, string> = {
   privacy: "src/app/privacidad/page.tsx",
   terms: "src/app/terminos/page.tsx",
 };
+/** The website's interactive islands (client components), each in its own chunk (islands.tsx). */
+const ISLAND_FILES = [
+  "src/components/site/AltiDemo.tsx",
+  "src/components/site/MailCameo.tsx",
+  "src/components/site/HeroPhone.tsx",
+  "src/components/site/AskAlti.tsx",
+  "src/components/site/AskAltiLauncher.tsx",
+  "src/components/site/ReportQuiz.tsx",
+  "src/components/site/HowScroll.tsx",
+  "src/components/site/CompareToggle.tsx",
+  "src/components/site/PayTimeline.tsx",
+  "src/components/site/Tools.tsx",
+  "src/components/site/HomeReadyTeaser.tsx",
+  "src/components/site/motion.tsx",
+  "src/components/site/islands.tsx",
+];
 const COMPONENT_FILES = [
   "src/components/site/SiteShell.tsx",
   "src/components/site/ui.tsx",
   "src/components/site/sections.tsx",
-  "src/components/site/AltiBotDemo.tsx",
   "src/components/site/LegalPage.tsx",
   "src/app/opengraph-image.tsx",
+  ...ISLAND_FILES,
 ];
-const ALL_SOURCES = [...Object.values(PAGE_FILES), ...COMPONENT_FILES, "src/lib/site/copy.ts", "src/lib/site/seo.ts"];
+const ALL_SOURCES = [...Object.values(PAGE_FILES), ...COMPONENT_FILES, "src/lib/site/copy.ts", "src/lib/site/live.ts", "src/lib/site/seo.ts"];
 const read = (file: string) => readFileSync(file, "utf8");
 /** A file's code without its comments (the comments explain the rules, and so name what is banned). */
 const code = (file: string) =>
@@ -68,7 +84,7 @@ describe("website copy: claim rules, in English and Spanish", () => {
       }
     });
 
-    it(`${locale}: the example's own words pass too (the case AltiBot shows is built by the app's timeline)`, () => {
+    it(`${locale}: the example's own words pass too (the case the example shows is built by the app's timeline)`, () => {
       const cases = demoCases(locale, new Date("2026-11-24T15:00:00Z"));
       const lines = Object.values(cases).flatMap((c) => [c.sentence, ...c.happened.flatMap((e) => [e.title, e.detail ?? ""]), ...c.next.flatMap((n) => [n.title, n.detail ?? ""])]);
       for (const line of lines.filter(Boolean)) expect(checkMarketingCopy(line, "full_service"), line).toEqual([]);
@@ -94,12 +110,15 @@ describe("website copy: claim rules, in English and Spanish", () => {
       }
     });
 
-    it(`${locale}: says results vary, names AltiBot as AI, and keeps the client's decisions with the client`, () => {
+    it(`${locale}: says results vary, names Alti as AI, and keeps the client's decisions with the client`, () => {
       const c = SITE_COPY[locale];
       expect(c.footer.disclaimer).toMatch(locale === "en" ? /We do not guarantee results/ : /No garantizamos resultados/);
       expect(c.footer.disclaimer).toMatch(locale === "en" ? /You can dispute errors with the bureaus yourself, at no cost/ : /Puedes disputar errores con los burós por tu cuenta, sin costo/);
       expect(c.footer.aiDisclosure).toMatch(locale === "en" ? /artificial intelligence assistant, not a person and not a lawyer/ : /asistente de inteligencia artificial: no es una persona ni un abogado/);
-      expect(c.home.demo.note).toMatch(locale === "en" ? /AltiBot is AI/ : /AltiBot es IA/);
+      expect(c.home.demo.note).toMatch(locale === "en" ? /Alti is AI/ : /Alti es IA/);
+      // The chat says it is AI, not a person, in its first message and its subtitle.
+      expect(c.live.ask.intro).toMatch(locale === "en" ? /AI assistant\. I'm artificial intelligence, not a person/ : /asistente con IA de Credalti\. Soy inteligencia artificial, no una persona/);
+      expect(c.live.ask.subtitle).toMatch(locale === "en" ? /not a person/ : /no una persona/);
       expect(c.home.rights.points.join(" ")).toMatch(locale === "en" ? /3 business days after signing to cancel at no cost/ : /3 días hábiles después de firmar para cancelar sin costo/);
     });
   }
@@ -247,7 +266,7 @@ describe("pricing: only attorney-approved, offered plans", () => {
   });
 });
 
-describe("the AltiBot example", () => {
+describe("the hero example", () => {
   const today = new Date("2026-11-24T15:00:00Z");
 
   it("shows the letters going out, with dates, when the visitor says something is wrong", () => {
@@ -270,11 +289,16 @@ describe("the AltiBot example", () => {
     }
   });
 
-  it("is labelled an example, speaks only as AltiBot (AI), and never as Alti", () => {
-    const demo = read("src/components/site/AltiBotDemo.tsx");
-    expect(demo).not.toMatch(/character="team"/);
+  it("is labelled an example, speaks only as Alti (labelled AI), and the robot only carries the envelope", () => {
+    const demo = read("src/components/site/AltiDemo.tsx");
     expect(demo).toMatch(/copy\.label/);
     expect(demo).not.toMatch(/fetch\(|\/api\//);
+    // Every one of Alti's lines carries the byline ("Alti · AI assistant"), on screen and for screen readers.
+    expect(demo).toMatch(/<AltiLine byline=\{byline\}/);
+    expect(demo).toMatch(/sr-only">\{byline\}: </);
+    // The robot appears only in the mailing animation, which has no bubble and no byline.
+    expect(demo).not.toMatch(/character="cameo"/);
+    expect(read("src/components/site/MailCameo.tsx")).toMatch(/character="cameo"/);
     for (const locale of LOCALES) expect(SITE_COPY[locale].home.demo.label).toMatch(/Example|Ejemplo/);
   });
 });
@@ -361,16 +385,26 @@ describe("pages: structure, accessibility, performance", () => {
       expect(total, file).toBe(1);
     }
     expect(h1("src/components/site/LegalPage.tsx") + hero("src/components/site/LegalPage.tsx")).toBe(1);
-    for (const file of ["src/components/site/SiteShell.tsx", "src/components/site/sections.tsx", "src/components/site/AltiBotDemo.tsx", "src/components/partners/SociosContent.tsx"]) {
+    for (const file of ["src/components/site/SiteShell.tsx", "src/components/site/sections.tsx", ...ISLAND_FILES, "src/components/partners/SociosContent.tsx"]) {
       expect(h1(file), file).toBe(0);
     }
   });
 
-  it("only the AltiBot example is a client component among the site's own files", () => {
+  it("pages stay server components; only the listed islands run in the browser, each in its own chunk", () => {
     for (const file of [...Object.values(PAGE_FILES), ...COMPONENT_FILES]) {
       const client = read(file).startsWith('"use client"');
-      expect(client, file).toBe(file.endsWith("AltiBotDemo.tsx"));
+      expect(client, file).toBe(ISLAND_FILES.includes(file));
     }
+    // Pages take the islands through islands.tsx (next/dynamic), never directly.
+    const islands = read("src/components/site/islands.tsx");
+    for (const name of ["HeroPhone", "ReportQuiz", "HowScroll", "CompareToggle", "Tools", "HomeReadyTeaser", "PayTimeline"]) {
+      expect(islands).toContain(`export const ${name} = dynamic(() => import("./${name}"))`);
+      for (const page of Object.values(PAGE_FILES)) expect(read(page), page).not.toMatch(new RegExp(`from "@/components/site/${name}"`));
+    }
+    // The chat's code loads only when someone opens it.
+    expect(read("src/components/site/AskAltiLauncher.tsx")).toMatch(/dynamic\(\(\) => import\("\.\/AskAlti"\), \{ ssr: false \}\)/);
+    // The browser-side copy imports nothing heavy.
+    expect(read("src/lib/site/live.ts").match(/^import .*$/gm)).toEqual(['import { BRAND } from "../brand";', 'import type { Locale } from "../i18n/dictionaries";']);
   });
 
   it("loads only the hero's art eagerly, and gives every image its size", () => {
@@ -378,10 +412,11 @@ describe("pages: structure, accessibility, performance", () => {
     for (const file of ["src/app/como-funciona/page.tsx", "src/app/nosotros/page.tsx", "src/app/precios/page.tsx"]) {
       expect(read(file), file).not.toMatch(/\bpriority\b/);
     }
-    const how = read("src/app/como-funciona/page.tsx");
+    const how = read("src/components/site/HowScroll.tsx");
     expect(how).toMatch(/srcSet=/);
     expect(how).toMatch(/width=\{SHOT\.width\}/);
-    for (const name of ["welcome", "case", "review", "letters"]) {
+    expect(how).toMatch(/loading="lazy"/);
+    for (const name of ["welcome", "case", "review", "letters", "build"]) {
       for (const locale of LOCALES) {
         for (const scale of ["1x", "2x"]) expect(existsSync(`public/screens/site/${name}-${locale}@${scale}.webp`)).toBe(true);
       }

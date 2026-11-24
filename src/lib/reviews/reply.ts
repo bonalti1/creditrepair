@@ -3,7 +3,7 @@ import { sensitiveIn } from "../intake/redact";
 import type { DraftCaller } from "../staff/drafts";
 import { reviewCopyProblems, type L } from "./reviews";
 
-// AltiBot's draft of a public reply to a review someone left on Google,
+// Alti's draft of a public reply to a review someone left on Google,
 // Trustpilot or BBB. A person pastes the review, reads the draft, edits it
 // and posts it on the platform themselves: nothing here posts anything.
 //

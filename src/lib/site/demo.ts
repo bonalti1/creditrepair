@@ -2,7 +2,7 @@ import { cancellationDeadline } from "../agreement/businessDays";
 import { caseDay, caseTimeline, type CaseEventKind, type CaseFacts, type CaseIcon } from "../case/timeline";
 import type { Locale } from "../i18n/dictionaries";
 
-// The home page's AltiBot example: what "Mi caso" would show a few days after
+// The home page's example (Alti explains; a small cameo carries the letters): what "Mi caso" would show a few days after
 // the visitor's answer. Built on the server with the app's own timeline rules
 // (src/lib/case/timeline.ts), from invented facts dated from today, so the
 // example says exactly what a client's Mi caso says, in the same words, and

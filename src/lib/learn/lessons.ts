@@ -15,10 +15,11 @@
 //   "needs_review"  Could not be confirmed online. The lesson marks it, and
 //                   the screen says "Pendiente de revisión" beside the source.
 //
-// Characters (docs/BRAND.md): AltiBot, the AI assistant, presents the lessons
-// that explain how credit works; the lesson says he is AI. Alti illustrates the
-// two lessons about protecting yourself, where the app talks about how an
-// honest team works; he is an illustration, never the author.
+// Who presents each lesson (docs/BRAND.md): "assistant" is Alti, the AI
+// assistant, for the lessons that explain how credit works; the lesson says he
+// is AI. "team" marks the two lessons about protecting yourself, the team's own
+// words about how an honest company works: they show a team icon, never a
+// character (Alti is the AI, and the robot is the mailing system).
 
 export type LessonLocale = "es" | "en";
 export type SourceStatus = "verified" | "needs_review";
