@@ -121,7 +121,9 @@ describe("state registry", () => {
     expect(stateStatus("CA")).toBe("waitlist");
     expect(stateStatus("WY")).toBe("waitlist");
     expect(stateStatus("ZZ")).toBe("waitlist");
-    expect(ALL_STATES).toHaveLength(50);
+    // Every state and DC (the expansion checklist covers all 51).
+    expect(ALL_STATES).toHaveLength(51);
+    expect(ALL_STATES).toContain("DC");
   });
 });
 

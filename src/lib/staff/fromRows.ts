@@ -1,5 +1,8 @@
 import { currentOptOut } from "../autopilot/optout";
 import { roundPlanKey } from "../autopilot/planKey";
+import { parseIdType } from "../aftercare/itin";
+import { marksFromRows } from "../aftercare/plan";
+import { graduationFromRow } from "../aftercare/server";
 import type { OptOutRecord, OutboundMessage } from "../autopilot/types";
 import { readPlanSnapshot } from "../billing/plans";
 import { chargeFromRow, paymentMethodFromRow } from "../billing/server";
@@ -121,6 +124,13 @@ export interface StaffRows {
   households?: Row[];
   /** household_links (migration 0026): two clients linked for the household discount. */
   householdLinks?: Row[];
+  // After-care (migration 0030). Absent or empty on a database without it.
+  /** aftercare_marks (the case's readers: admin, the assigned specialist). */
+  aftercareMarks?: Row[];
+  /** program_completions. */
+  completions?: Row[];
+  /** loan_officer_requests. */
+  loanOfficerRequests?: Row[];
 }
 
 export const EMPTY_STAFF_ROWS: StaffRows = {
@@ -321,6 +331,9 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
   const samplesBy = groupBy(rows.samples, "user_id");
   const intakeBy = groupBy(rows.intake ?? [], "user_id");
   const pulsesBy = groupBy(rows.pulses ?? [], "user_id");
+  const aftercareMarksBy = groupBy(rows.aftercareMarks ?? [], "user_id");
+  const completionBy = new Map((rows.completions ?? []).map((c) => [text(c.user_id), c]));
+  const introBy = new Map((rows.loanOfficerRequests ?? []).filter((r) => !r.withdrawn_at).map((r) => [text(r.user_id), r]));
   const assignmentBy = new Map(rows.assignments.map((a) => [text(a.user_id), a]));
   const outboundBy = groupBy(rows.outbound ?? [], "user_id");
   const optOutsBy = groupBy(rows.optOuts ?? [], "user_id");
@@ -711,6 +724,10 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       ...selfHealingFields(id),
       ...(sourceOf(prospect, profile) ? { leadSource: sourceOf(prospect, profile) } : {}),
       ...(householdOf.get(id) ? { household: householdOf.get(id)! } : {}),
+      idType: parseIdType(profile.id_type),
+      aftercareMarks: marksFromRows(aftercareMarksBy.get(id) ?? []),
+      graduation: graduationFromRow(completionBy.get(id)),
+      loanOfficerRequest: introOf(introBy.get(id), createdAt),
     };
     return client;
   });
@@ -803,4 +820,11 @@ export function plannedLetterKey(letterId: string, clientId: string, roundNumber
 function pulseFields(rows: Row[] | undefined): { pulses?: PulseRow[] } {
   const pulses = (rows ?? []).flatMap((row) => pulseFromRow(row) ?? []).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return pulses.length > 0 ? { pulses } : {};
+}
+
+/** The open introduction request, as the console shows it. */
+function introOf(row: Row | undefined, fallback: string): StaffClient["loanOfficerRequest"] {
+  if (!row) return null;
+  const at = typeof row.created_at === "string" && !Number.isNaN(Date.parse(row.created_at)) ? new Date(row.created_at).toISOString() : fallback;
+  return { partnerName: String(row.partner_name_shown ?? ""), how: row.how === "referred" ? "referred" : "accepting", at };
 }

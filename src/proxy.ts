@@ -27,6 +27,7 @@ const PROTECTED = [
   "/goal",
   "/caso",
   "/aprende",
+  "/construir",
   "/acuerdo",
   "/pagos",
   "/confirmar-direccion",
@@ -90,6 +91,8 @@ export const config = {
     // "Mi caso" and "Aprende" (the client app's timeline and lessons).
     "/caso/:path*",
     "/aprende/:path*",
+    // After-care: the build-your-credit plan, the home-ready path and the ITIN guide.
+    "/construir/:path*",
     // The service agreement: read, signed and cancelled only by the signed-in client.
     "/acuerdo/:path*",
     // "Mis pagos": the client's charges, receipts and payment method.
@@ -110,5 +113,15 @@ export const config = {
     "/socios",
     "/conoce/:path*",
     "/baja",
+    // The review sites, the same for everyone (src/lib/reviews): the request message links here with ?lang=.
+    "/opina",
+    // The public website (src/lib/site/routes.ts): ?lang= is each page's language-specific URL.
+    "/precios",
+    "/como-funciona",
+    "/preguntas",
+    "/nosotros",
+    "/derechos",
+    "/privacidad",
+    "/terminos",
   ],
 };

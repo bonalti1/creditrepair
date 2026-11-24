@@ -15,9 +15,11 @@ Rules, checked by `src/lib/__tests__/learn.test.ts`:
   information, and that you can dispute errors yourself, for free (the Credit
   Repair Organizations Act requires telling consumers they can do it
   themselves).
-- Characters: AltiBot presents the lessons that explain how credit works, and
-  the lesson says he is AI. Alti illustrates the identity theft and scams
-  lessons, as the face of the team; he is never the author.
+- Characters: Alti, the AI assistant, presents the lessons that explain how
+  credit works, and the lesson says he is AI. The identity theft and scams
+  lessons are the team's own words and show a team icon, no character
+  (docs/BRAND.md, owner's decision of 2026-11-24). The calculators are also on
+  the public website (docs/WEBSITE.md).
 
 ## Sources and their status
 

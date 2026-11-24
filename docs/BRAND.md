@@ -1,7 +1,9 @@
 # Credalti brand in the product
 
-The company is **Credalti**. Two characters appear in the product: **AltiBot**,
-the robot, is the AI assistant, and **Alti** is the face of the human team.
+The company is **Credalti**. **Alti**, the young man in the navy overshirt, is
+the AI assistant: the main character and the only voice in the product, always
+labelled as AI. **AltiBot**, the robot, is a small supporting cameo (two places
+only). Both decisions are the owner's, of 2026-11-24 (see "Characters").
 Internal and spec name remains Bonalti Credit (storage keys such as
 `bonalti.locale` come from it; they are not the robot's name).
 
@@ -35,8 +37,9 @@ Read in the kit, not copied: `brand/logo/LOGO_README.md`, `brand/palette/PALETTE
 (`characters/bonalti/BONALTI_IDENTITY_LOCK.txt`, `web-ready/bonalti/`, the
 kit's `CLAUDE.md` and its other notes). The owner renamed him **AltiBot** on
 2026-11-22; the art is the same. Where the kit says BONALTI, read AltiBot.
-The name is one value, `assistant` in `src/lib/brand.ts`; every page, message,
-WhatsApp template and the assistant's instructions interpolate it.
+His name is one value, `cameo` in `src/lib/brand.ts`, used only where the
+cameo appears. The assistant's name, Alti, is `assistant`; every page,
+message, WhatsApp template and the assistant's instructions interpolate it.
 
 ## Logo
 
@@ -59,7 +62,9 @@ Where it appears:
 
 | Where | Version | Height |
 | --- | --- | --- |
-| Landing (`/`) and `/empezar`, on the navy hero | white | 30 px |
+| The public website's header (`SiteShell`: `/`, `/precios`, `/como-funciona`…) | white | 28 px |
+| The website's footer, `/empezar`, on navy | white | 30 px |
+| Open Graph image (`src/app/opengraph-image.tsx`), on navy | white | 84 px |
 | Client app header (`AppNav`), onboarding | navy | 24 px |
 | Staff console header (`StaffShell`) | navy | 24 px |
 | Staff "no access" page (`equipo/layout.tsx`) | navy | 28 px |
@@ -70,7 +75,8 @@ Where it appears:
 Not shown on paper: the printed agreement copy (`/acuerdo/copia`) and the
 staff print batch hide the app header, and the attorney letter packet
 (`scripts/letters-packet.ts`) is Markdown with no logo. There is no Open Graph
-or social image yet.
+image other than the website's (`src/app/opengraph-image.tsx`, the white
+logo file on brand navy; docs/WEBSITE.md).
 
 Rules (from the kit):
 
@@ -226,8 +232,8 @@ to the app:
   itself a dial, is gone.)
 - **Disputes are about potential inaccuracies, with the consumer's consent**:
   the client decides what is inaccurate; nothing is sent without their say.
-- **No false credentials**: AltiBot is AI and never presented as a licensed
-  attorney or a human expert; Alti is never presented as AI.
+- **No false credentials**: Alti is AI and never presented as a licensed
+  attorney, a human expert or a person; every message he writes says AI.
 - **Respect**: no humour about debt, mistakes, income, language, immigrant
   background or literacy.
 - **Taglines**: the kit approves none (`{TAGLINE — pending}`).
@@ -260,51 +266,103 @@ score, and any screen reading the score history.
 
 ## Characters
 
-The brand kit's "web-ready" folder brought two characters.
+**Decided by the owner on 2026-11-24:** "I don't want AltiBot to be the one
+answering. ALTI should be the one." Later the same day: "We can show AltiBot,
+but very little." So:
 
 | Character | What he is | Role in the product |
 | --- | --- | --- |
-| **AltiBot** | A friendly robot: gold and cream shell, navy body, glowing amber face, a checkmark on his chest. | **The AI assistant.** He speaks in the chat, greets on WhatsApp and explains the report. A robot makes "this is AI" obvious, and every place he speaks still says so in words ("tu asistente con IA"). The kit calls him BONALTI; the owner renamed him AltiBot on 2026-11-22 (see "The brand kit"). It is one value in `brand.ts`. |
-| **Alti** | A young man in a navy overshirt with the Credalti logo, a lanyard badge reading "ALTI" and a gold shoulder strap. | **The face of the human team.** He appears where the app talks about the team as a whole: the landing page and `/empezar`, the invited client's welcome ("Tu equipo Credalti"), "talk to a person", the "what happens next" screen after signing, and "your team is working" states. |
+| **Alti** | A young man in a navy overshirt with the Credalti logo, a lanyard badge reading "ALTI" and a gold shoulder strap. | **The AI assistant, the main character and the only voice.** He talks to clients and visitors: the app's chat (`/asistente`), the explanations and lessons, onboarding guidance, the website's "Ask Alti" chat and its hero example, WhatsApp replies from the assistant, saved answers sent automatically, the coach's instructions (he introduces himself as Alti, an AI). Every message he writes is labelled as AI beside his name (below). |
+| **AltiBot** | A friendly robot: gold and cream shell, navy body, glowing amber face, a checkmark on his chest. | **A small supporting cameo.** He appears in exactly two places: the website's letter-mailing animation (small, carrying the envelope to "Delivered ✓", `src/components/site/MailCameo.tsx`) and once on `/nosotros`, beside Alti. He never speaks, never authors a message and never appears in the client app, the staff console, WhatsApp or the assistant's instructions. The kit calls him BONALTI; the owner renamed him AltiBot on 2026-11-22. |
 
-Where each one appears today:
+Before 2026-11-24 the roles were the other way round (the robot was the AI
+assistant and Alti stood for the human team). Nothing stands for the human
+team as a character any more: a teammate's message carries the real person's
+name, and "talk to a person" buttons show a plain person icon.
 
-- **Landing page:** both, side by side in the hero (Alti and AltiBot turned
-  toward each other, with name tags). Below the buttons on a phone, beside the
-  headline on a wide screen. AltiBot's head is also in the "Hola, soy…" pill.
-- **`/empezar`:** both heads at the top; AltiBot beside step 2 (the assistant
-  explains the report), Alti beside step 3 (the team prepares and mails).
-- **Onboarding:** Alti on the invited welcome; on "how do you want to do your
-  review", AltiBot on the assistant option and Alti on the person option.
-- **Chat (`/asistente`):** AltiBot in the header and beside the assistant's
-  messages; Alti on the "Persona" button.
-- **Más → Hablar con una persona,** the agreement's "talk to a person" button,
-  step 3 of "Qué sigue" after signing, "Tu equipo está importando tu reporte"
-  and the empty "rounds" screen: Alti. The empty "letters" screens, which send
-  the client back to the review: AltiBot.
-- **Staff console:** AltiBot's head beside each "AltiBot (IA)" message. Alti
-  does not appear in the console.
+### The AI-disclosure rule
+
+Alti looks like a person, so the product says in words, every time, that he is
+not one:
+
+- **Every message he writes** carries "Alti · AI assistant" / "Alti · Asistente
+  con IA" beside his face (`aiByline` in `src/lib/brand.ts`): above the first
+  bubble of each run of his messages on screen, and in each bubble for screen
+  readers. The chat's header says the same, with "Artificial intelligence, not a
+  person".
+- **His first message** says he is an AI assistant and not a person (the app's
+  chat, the website's chat, WhatsApp).
+- **A real teammate's message** shows that person's own name, "Ana · Credalti
+  team" / "Ana · equipo Credalti" (`teamByline`), never Alti's name, never a
+  character and never the AI label (`TeamMessage`).
+- **The coach and the website chat** are told they are AI, never a person or an
+  employee, and to say so when asked (`src/lib/coach/systemPrompt.ts`,
+  `src/lib/site/askAlti.ts`); the website chat also refuses any reply that
+  claims to be a person.
+- What the system does on its own (mailing, delivery, imports) is said in plain
+  words ("Your round 1 letters were mailed"); the staff console calls it "The
+  system" / "El sistema".
+
+Why (checked through search results on 2026-11-24; the official pages were
+outside the build machine's network, so **counsel should read each one before
+launch**; this is not legal advice):
+
+| Law | What it asks | Source |
+| --- | --- | --- |
+| **California B.O.T. Act**, Bus. & Prof. Code §§17940–17943 (SB 1001, 2018) | Unlawful to use a bot online to mislead a person in California about its artificial identity to sell goods or services; no liability if the bot's use is disclosed clearly, conspicuously and in a way reasonably designed to inform. | leginfo.legislature.ca.gov, BPC §17941; secondary: california.public.law/codes/business_and_professions_code_section_17941 |
+| **Utah Artificial Intelligence Policy Act** (2024), as amended by SB 226 (2025, effective 2025-05-07), Utah Code title 13, ch. 77 | Generative AI interacting with a consumer must disclose it is AI when asked, and up front in "high-risk" interactions (financial advice among them); a clear disclosure at the start is a safe harbour. | le.utah.gov/Session/2025/bills/enrolled/SB0226.pdf; FPF, "Chatbots in Check: Utah's Latest AI Legislation" |
+| **Maine** LD 1727 (2025), 10 M.R.S. §1500-DD | An AI chatbot in trade may not lead a reasonable consumer to believe they are talking to a person unless clearly told otherwise; enforced as an unfair trade practice. | legislature.maine.gov/statutes/10/title10sec1500-DD.html |
+| **FTC Act §5** (15 U.S.C. §45) | Deceptive practices include misrepresenting that a chatbot is a person; the FTC's 2023 guidance ("Chatbots, deepfakes, and voice clones") warns against it. | ftc.gov business guidance blog, March 2023 |
+| Texas **TRAIGA** (HB 149, effective 2026-01-01) | Consumer AI disclosure is required of state agencies and health care, not of a private credit services company; noted because Texas is where we operate. | capitol.texas.gov/tlodocs/89R/billtext |
+
+We label every message, not only the first, because the cheapest way to never
+mislead anyone is to never leave it unsaid. Tests hold the rule:
+`brand.test.ts` (the bylines, "talk to a person" shows no character, the
+robot's files allow-list), `conversation.test.ts` (an AI message carries "Alti ·
+AI assistant"; a teammate's carries their name and never "Alti"),
+`siteInteractive.test.ts` (the website chat).
+
+### Where each appears
+
+- **Website:** Alti in the hero (standing beside the phone, labelled "Alti · AI
+  assistant", with a slow idle bob and a one-time greeting sway done with CSS
+  transforms on the whole picture), in the hero example and "Ask Alti" (every
+  line labelled), on the floating "Ask Alti" button and the phone's sticky bar,
+  on `/nosotros` and in the final call. AltiBot: the mailing animation in the
+  example, and the small card on `/nosotros`. `/empezar`: Alti at the top and
+  beside step 2 (he explains the report).
+- **Client app:** Alti in the chat's header and beside his messages, on the
+  invited welcome ("Alti · AI assistant: I'll guide you step by step"), on the
+  review choice in onboarding, beside the lessons he presents, on the
+  build-your-credit plan and on graduation. "Talk to a person" (chat, Más,
+  agreement, onboarding): a person icon. Waiting and status screens ("your
+  report is being imported", the empty rounds screen, Mi caso's note): icons.
+- **Staff console:** Alti's head beside each "Alti (IA)" message and his drafts.
+  No robot.
 
 Rules for the characters:
 
 - **The art is locked.** Never edit, redraw, recolour, re-crop or regenerate
-  either character. The files in `public/brand/characters/` are the kit's own
-  WebP files, copied unchanged (the robot's renamed from `bonalti_*` to
-  `altibot_*`, contents identical): four views per character (`front`,
-  `three_quarter`, `head_front`, `head_three_quarter`), each at @1x and @2x,
-  served with `srcSet` so retina screens get @2x. The round avatars show the
-  kit's head crops inside a circle; nothing is cropped into new files. The
-  kit's `side`, `back` and `head_side`/`head_back` views are not used yet.
+  AltiBot: his files in `public/brand/characters/` are the kit's own WebP
+  files, copied unchanged (renamed from `bonalti_*` to `altibot_*`, contents
+  identical). **Alti was redrawn once, at the owner's request (2026-11-24):**
+  "no droopy eyes", but "still a bit sarcastic". His eyes are now open, one
+  eyebrow is up and he has a small smirk; face, outfit and style are the
+  kit's. His two head views are crops of the new standing views. Six poses
+  were made with him (`alti_wave`, `alti_phone`, `alti_thumbsup`,
+  `alti_thinking`, `alti_envelope` with a yellow envelope, `alti_celebrate`;
+  `BRAND.assistantPoses`). Change his art again only when the owner asks.
+  Each character has four views (`front`, `three_quarter`, `head_front`,
+  `head_three_quarter`), each at @1x and @2x, served with `srcSet` so retina
+  screens get @2x. The round avatars show the head views inside a circle. Motion
+  (`motion="idle"` / `"wave"` on `CharacterFigure`) moves the whole picture with
+  CSS transforms only, and stops for visitors who ask for reduced motion.
 - **Surfaces:** navy or ivory/white. On very dark or saturated backgrounds a
   light 1–2 px rim from the original studio backdrop may show on hair edges;
   move the art to a navy or ivory surface instead of touching it.
-- **Alti never speaks for a person.** A teammate's message in the chat is
-  signed with that teammate's own name and "del equipo" (`TeamMessage`), and in
-  the console with their name. Alti is never shown as the author of a message,
-  never stands in for a particular teammate, and is never presented as AI.
-- **AltiBot is always identified as artificial intelligence** wherever he
-  speaks (chat header, first message, WhatsApp prefix, the coach's
-  instructions).
+- **Alti never speaks for a person** and never stands in for a teammate.
+- **The robot is a cameo**: only the two places above (the brand test holds the
+  list of files that may name or show him), never an author.
 
 ## What the brand says it does
 
@@ -313,7 +371,7 @@ Our team prepares and mails the letters for you and keeps you posted."**
 (Spanish: *"Tú nos dices qué está mal en tu reporte; nuestro equipo prepara y
 envía las cartas por ti y te mantiene al tanto."*) Everything a client or a
 prospect reads is written around it: the landing page, `/empezar`,
-onboarding, the app, AltiBot and the WhatsApp messages.
+onboarding, the app, Alti and the WhatsApp messages.
 
 **Language: English first, Spanish if needed** (the owner's decision,
 November 2026; it replaces "Spanish-first"). Every client-facing surface is in
@@ -348,9 +406,9 @@ do-it-yourself wording and its approve button, kept for later.
 | What | Where | How to change it |
 | --- | --- | --- |
 | Colours | `@theme` block in `src/app/globals.css` | `blue-*` is navy, `amber-*` is gold, `slate-*` is neutral (see "Colours"). Edit the values; `tokens.test.ts` checks the brand values and the contrast. |
-| Names, logo paths, icons | `src/lib/brand.ts` | Company name, the page titles, the logo files (`logo`), the app icons and theme colour (`APP_ICONS`), and the two characters: `assistant` / `assistantImages` (AltiBot) and `teamMascot` / `teamMascotImages` (Alti), with their image descriptions. A rename is a change to this file only. |
+| Names, logo paths, icons | `src/lib/brand.ts` | Company name, the page titles, the logo files (`logo`), the app icons and theme colour (`APP_ICONS`), the assistant `assistant` / `assistantImages` / `aiLabel` (Alti) with `aiByline` and `teamByline`, and the cameo `cameo` / `cameoImages` (AltiBot), with their image descriptions. |
 | Logo | `public/brand/logo/*.svg`, shown by `src/components/Logo.tsx` | The kit's files, byte for byte (see "Logo"). |
-| Characters | `public/brand/characters/*.webp`, drawn by `CharacterAvatar` (round head) and `CharacterFigure` (standing) in `src/components/Character.tsx` | Locked art from the brand kit; see "Characters". A test checks every path in `brand.ts` exists. |
+| Characters | `public/brand/characters/*.webp`, drawn by `CharacterAvatar` (round head) and `CharacterFigure` (standing) in `src/components/Character.tsx` | Brand kit art (Alti redrawn at the owner's request, 2026-11-24, plus six poses); see "Characters". A test checks every path in `brand.ts` exists. |
 | Favicon, app icons, manifest | `src/app/favicon.ico`, `icon.svg`, `apple-icon.png`, `manifest.ts`; `public/brand/icons/` | See "Favicon and app icons". |
 | Typefaces | `src/app/layout.tsx` | See "Typography". |
 
@@ -381,7 +439,8 @@ locked in `content/brand/lock.json`, and every ad script must pass the claim
 gate before anything is generated. See `content/README.md`.
 
 **The existing ad videos show the old mascot (the capybara) and must be
-remade** with AltiBot and Alti before they run again. `lock.json` marks the old
+remade** with Alti (the AI assistant, labelled as AI on screen) before they run
+again. `lock.json` marks the old
 character and its reference stills as retired and records the new characters'
 files; the ad pipeline itself, the spot scripts and the hooks still describe
 the old mascot and were left as they are (nothing was regenerated). New spots
@@ -402,8 +461,9 @@ card and has to be assembled again before it runs.
 - **Trademark:** a quick web search found no existing "Credalti". That is not
   a clearance: counsel should run a proper trademark search before spend on
   signage or ads.
-- **AltiBot's voice:** not chosen yet, for video.
+- **Alti's voice:** not chosen yet, for video; any voice must say it is AI.
 - **Ads:** every existing video shows the old mascot and must be remade.
-- **More poses:** the kit has four views per character (front, three-quarter,
-  side, back). Poses such as waving or celebrating would have to come from the
-  owner as new locked art.
+- **More poses:** Alti has six poses (2026-11-24) and a 4-second waving loop
+  on the home page. AltiBot has only the kit's views.
+- **AI-disclosure laws:** counsel to confirm the table above against the
+  official texts.

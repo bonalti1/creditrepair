@@ -15,7 +15,7 @@ import { isStaffRole } from "@/lib/staff/permissions";
 import { isDemoMode } from "@/lib/supabase/config";
 import { getServerSupabase } from "@/lib/supabase/server";
 
-// AltiBot's draft of a reply to a client's waiting question (src/lib/staff/drafts.ts).
+// Alti's draft of a reply to a client's waiting question (src/lib/staff/drafts.ts).
 //
 // With a database: only a member whose role answers clients (clients.reply,
 // checked on the server from their own row); the client is read through

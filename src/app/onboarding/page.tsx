@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
+import { ALL_STATES, NOT_OPEN_COPY, stateLaw } from "@/lib/compliance/states";
+import { useOpenStates } from "@/lib/compliance/useOpenStates";
 import Icon from "@/components/Icon";
 import LocaleToggle from "@/components/LocaleToggle";
 import Logo from "@/components/Logo";
@@ -12,7 +13,7 @@ import { useLocale } from "@/lib/i18n";
 import { MARKETING } from "@/lib/i18n/marketing";
 import { MONITORING_OFFER } from "@/lib/monitoring/offer";
 import { GOALS, parseInvite, type Invite } from "@/lib/sales/invite";
-import { BRAND } from "@/lib/brand";
+import { BRAND, aiByline } from "@/lib/brand";
 import { isFullService } from "@/lib/service/mode";
 import { readStoredAgreement } from "@/lib/ux/agreementLocal";
 import { isFullName } from "@/lib/agreement/signature";
@@ -25,6 +26,8 @@ import { CLIENT_SHARING_COPY } from "@/lib/partners/sharingCopy";
 import { demoPartnerByCode, writeDemoClientSharing } from "@/lib/partners/sharingDemo";
 import { isDemoMode } from "@/lib/supabase/config";
 import { HOUSEHOLD_COPY, PENDING_HOUSEHOLD_KEY } from "@/lib/household/copy";
+import { ID_TYPE_QUESTION, itinMonitoringNote, parseIdType, type IdType } from "@/lib/aftercare/itin";
+import { ID_TYPE_KEY } from "@/lib/aftercare/useAftercare";
 import { checkHouseholdMember, householdInviteMessage, householdInvitePath, RELATIONSHIPS, RELATIONSHIP_LABEL, type HouseholdField, type HouseholdMember, type Relationship } from "@/lib/household/household";
 
 // Onboarding: goal (feeds the mortgage track) → state gate (v1 is TX-only;
@@ -34,9 +37,11 @@ import { checkHouseholdMember, householdInviteMessage, householdInvitePath, RELA
 // service fee is not stated here, the team explains the plan) → how you want
 // to do your review (with the AI assistant, or with a teammate on WhatsApp;
 // either way the answers are the client's and the team mails the letters).
-// Characters: the invited welcome is from the team, so Alti (the face of the
-// team, never a specific person) greets; on the review choice the robot marks the
-// AI assistant and Alti marks "a person by my side".
+// Characters (docs/BRAND.md, owner's decision 2026-11-24): Alti, the AI
+// assistant, guides the onboarding and greets on the invited welcome, always
+// labelled "Alti · AI assistant"; the invitation itself is from the teammate
+// who sent it, by name. On the review choice Alti marks the AI assistant and a
+// plain person icon marks "a person by my side" (never a character).
 // One question per screen, one obvious button.
 //
 // Sales-led path: most customers arrive from a WhatsApp conversation with a
@@ -94,7 +99,9 @@ function Onboarding() {
   const { locale } = useLocale();
   const c = MARKETING[locale].onboarding;
   const goalLabel = (g: (typeof GOALS)[number]) => (locale === "en" ? g.labelEn : g.label);
-  const [step, setStep] = useState<"welcome" | "share" | "goal" | "state" | "household" | "monitoring" | "assist" | "waitlist-done">("goal");
+  const [step, setStep] = useState<"welcome" | "share" | "goal" | "state" | "idtype" | "household" | "monitoring" | "assist" | "waitlist-done">("goal");
+  // "Do you have a Social Security number or an ITIN?" Only the kind is kept, never the number (src/lib/aftercare/itin.ts).
+  const [idType, setIdType] = useState<IdType | null>(null);
   // "Anyone at home joining too?": a household member of their own (src/lib/household).
   const [householdForm, setHouseholdForm] = useState(false);
   const [hh, setHh] = useState({ firstName: "", lastName: "", phone: "", email: "", relationship: "spouse" as Relationship, locale: "en" as "en" | "es" });
@@ -106,6 +113,8 @@ function Onboarding() {
   const [ready, setReady] = useState(false);
   const [goal, setGoal] = useState<string | null>(null);
   const [state, setState] = useState("TX");
+  // The states opened in /equipo/estados (Texas alone until the server answers).
+  const openStates = useOpenStates();
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -117,6 +126,11 @@ function Onboarding() {
 
   // Read the invite link once, on arrival.
   useEffect(() => {
+    try {
+      setIdType(parseIdType(window.localStorage.getItem(ID_TYPE_KEY)));
+    } catch {
+      // ignore
+    }
     const query = new URLSearchParams(window.location.search);
     // Back from signing the agreement: pick up at monitoring, with the same invitation.
     if (query.get("paso") === "monitoreo") {
@@ -213,7 +227,7 @@ function Onboarding() {
     if (!invite?.state) return setStep("state");
     save("bonalti.state", state);
     // A state we are not open in goes to the waitlist form, link or no link.
-    if (stateStatus(state) === "open") setStep("household");
+    if (openStates.status(state) === "open") setStep("idtype");
     else setStep("state");
   };
 
@@ -281,10 +295,15 @@ function Onboarding() {
 
       {step === "welcome" && invite && (
         <div className="animate-rise flex flex-1 flex-col pt-10">
-          {/* Alti stands on a white card, feet on its lower edge, with the team's name beside him. */}
+          {/* Alti, the AI assistant, stands on a white card, feet on its lower edge, labelled as AI. */}
           <div className="card flex items-end gap-5 overflow-hidden px-6 pt-5">
-            <CharacterFigure character="team" height={150} />
-            <p className="self-center font-display text-[22px] font-bold leading-tight text-blue-700">{c.teamTag}</p>
+            <CharacterFigure character="assistant" pose="wave" height={150} motion="idle" />
+            <div className="self-center pb-5">
+              <p className="font-display text-[19px] font-bold leading-tight text-blue-700" data-testid="welcome-ai-byline">{aiByline(locale)}</p>
+              <p className="mt-1 text-[14px] leading-snug text-slate-600">
+                {locale === "es" ? "Te guío paso a paso. Soy una inteligencia artificial, no una persona." : "I'll guide you step by step. I'm artificial intelligence, not a person."}
+              </p>
+            </div>
           </div>
           <h1 className="mt-5 font-display text-[34px] font-bold leading-tight text-blue-700">
             {c.hello(invite.name)}
@@ -433,17 +452,17 @@ function Onboarding() {
           >
             {STATES.map((s) => (
               <option key={s} value={s}>
-                {s === "TX" ? "Texas (TX)" : s}
+                {`${stateLaw(s)?.name ?? s} (${s})`}
               </option>
             ))}
           </select>
 
-          {stateStatus(state) === "open" ? (
+          {openStates.status(state) === "open" ? (
             <div className="mt-auto pt-8">
               <button
                 onClick={() => {
                   save("bonalti.state", state);
-                  setStep("household");
+                  setStep("idtype");
                 }}
                 className={primaryButton}
               >
@@ -451,9 +470,15 @@ function Onboarding() {
               </button>
             </div>
           ) : (
-            <form onSubmit={joinWaitlist} className="card mt-6 p-5">
-              <p className="text-[17px] font-semibold text-slate-900">{c.notYetTitle}</p>
-              <p className="mt-1 text-[15px] text-slate-500">{c.notYetBody}</p>
+            openStates.status(state) === "blocked" ? (
+              <div className="card mt-6 p-5" data-testid="state-blocked">
+                <p className="text-[17px] font-semibold text-slate-900">{NOT_OPEN_COPY[locale].title(stateLaw(state)?.name ?? state)}</p>
+                <p className="mt-1 text-[15px] text-slate-500">{NOT_OPEN_COPY[locale].blocked}</p>
+              </div>
+            ) : (
+            <form onSubmit={joinWaitlist} className="card mt-6 p-5" data-testid="state-waitlist">
+              <p className="text-[17px] font-semibold text-slate-900">{NOT_OPEN_COPY[locale].title(stateLaw(state)?.name ?? state)}</p>
+              <p className="mt-1 text-[15px] text-slate-500">{NOT_OPEN_COPY[locale].body}</p>
               <input
                 type="email"
                 required
@@ -467,7 +492,57 @@ function Onboarding() {
                 {c.notifyMe}
               </button>
             </form>
+            )
           )}
+        </div>
+      )}
+
+      {step === "idtype" && (
+        <div className="animate-rise flex flex-1 flex-col pt-12" data-testid="onboarding-idtype">
+          <h1 className="font-display text-[30px] font-bold leading-tight text-blue-700">{ID_TYPE_QUESTION[locale].title}</h1>
+          <p className="mt-3 text-[17px] leading-relaxed text-slate-500">{ID_TYPE_QUESTION[locale].sub}</p>
+          <div className="card mt-8 overflow-hidden">
+            {(["ssn", "itin"] as const).map((kind, index) => (
+              <button
+                key={kind}
+                type="button"
+                onClick={() => setIdType(kind)}
+                aria-pressed={idType === kind}
+                data-testid={`idtype-${kind}`}
+                className={`pressable flex w-full items-center justify-between gap-3 px-5 py-4 text-left hover:bg-slate-50 ${index > 0 ? "border-t hairline" : ""}`}
+              >
+                <span className="min-w-0">
+                  <span className={`block text-[17px] text-slate-900 ${idType === kind ? "font-semibold" : ""}`}>{ID_TYPE_QUESTION[locale][kind]}</span>
+                  <span className="block text-[14px] leading-snug text-slate-500">{ID_TYPE_QUESTION[locale][kind === "ssn" ? "ssnSub" : "itinSub"]}</span>
+                </span>
+                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${idType === kind ? "bg-amber-400 text-blue-900" : "border-2 border-slate-300"}`}>
+                  {idType === kind && <Icon name="check" size={14} strokeWidth={3} />}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-4 text-[13px] leading-relaxed text-slate-500">{ID_TYPE_QUESTION[locale].note}</p>
+          {idType === "itin" && (
+            <p className="mt-4 rounded-2xl bg-blue-50 px-4 py-3 text-[15px] leading-snug text-blue-900" data-testid="idtype-itin-welcome">
+              {locale === "es"
+                ? "Bien. Te mostramos el camino para ITIN: monitoreo, cómo pedir tus reportes y cómo van tus cartas."
+                : "Good. We will show you the ITIN path: monitoring, how to get your reports, and how your letters work."}
+            </p>
+          )}
+          <div className="mt-auto pt-8">
+            <button
+              onClick={() => {
+                if (!idType) return;
+                save(ID_TYPE_KEY, idType);
+                setStep("household");
+              }}
+              disabled={!idType}
+              className={primaryButton}
+              data-testid="idtype-next"
+            >
+              {c.next}
+            </button>
+          </div>
         </div>
       )}
 
@@ -595,10 +670,26 @@ function Onboarding() {
               </div>
             ))}
           </div>
+          {idType === "itin" && (
+            <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3" data-testid="monitoring-itin">
+              <p className="text-[15px] font-semibold text-blue-900">{itinMonitoringNote(locale).title}</p>
+              <p className="mt-1 text-[14px] leading-snug text-blue-900">{itinMonitoringNote(locale).body}</p>
+              {whatsappNumber && (
+                <a
+                  href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(c.itinWhatsappText)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-flex h-10 items-center text-[15px] font-semibold text-blue-700 underline underline-offset-2"
+                >
+                  {c.itinLink}
+                </a>
+              )}
+            </div>
+          )}
           <p className="mt-4 text-[13px] leading-relaxed text-slate-500">
             {c.disclosure}
-            {/* Only where there is a number to write to. */}
-            {whatsappNumber && (
+            {/* Only where there is a number to write to, and only while we do not know which number they have. */}
+            {whatsappNumber && idType === null && (
               <>
                 {" "}
                 {c.itinQuestion}{" "}
@@ -660,7 +751,7 @@ function Onboarding() {
               <Icon name="chevron" size={18} className="shrink-0 text-slate-300" />
             </button>
             <button onClick={() => finish(true)} className="card pressable flex w-full items-center gap-4 p-5 text-left">
-              <CharacterAvatar character="team" size={52} />
+<span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-blue-700 text-white"><Icon name="person" size={26} strokeWidth={2.25} /></span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[17px] font-semibold text-slate-900">{c.withPerson}</span>
                 <span className="block text-[15px] leading-snug text-slate-500">

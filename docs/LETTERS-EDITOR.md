@@ -79,7 +79,7 @@ saved (`src/lib/letters/versions/validate.ts`). Errors stop the save:
   words), no chips in the "Re:" line;
 - `checkClaimGuardrails` (`src/lib/compliance/guardrails.ts`): no promise or
   implication of results ("we will remove", "guaranteed deletion", …);
-- the letter is the client's: it does not name Credalti or AltiBot, or say
+- the letter is the client's: it does not name Credalti or Alti, or say
   "on behalf of"; it is in the first person and in English (no accents, ñ,
   ¿ ¡);
 - no hand-written "To Whom It May Concern", "Re:" or "Sincerely" (they are

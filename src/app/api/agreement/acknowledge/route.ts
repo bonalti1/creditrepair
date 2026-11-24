@@ -3,7 +3,7 @@ import { z } from "zod";
 import { AGREEMENT_VERSION, disclosureHash } from "@/lib/agreement/documents";
 import { agreementReadiness } from "@/lib/agreement/readiness";
 import { agreementFromRow } from "@/lib/agreement/record";
-import { AGREEMENT_TABLE, loadAgreementRow } from "@/lib/agreement/server";
+import { AGREEMENT_TABLE, loadAgreementRow, loadSigningState } from "@/lib/agreement/server";
 import { resolveTerms, withPlan } from "@/lib/agreement/terms";
 import { offeredSnapshot } from "@/lib/billing/planStore";
 import { reportError } from "@/lib/observability/errors";
@@ -48,7 +48,12 @@ export async function POST(req: Request) {
   // Unreviewed text is never put in front of a real client for acknowledgement or signature.
   // The plan the client is offered is part of the text (the Texas statement prints its costs).
   const terms = withPlan(resolveTerms(), await offeredSnapshot(db, user.id).catch(() => null));
-  const readiness = agreementReadiness({ terms });
+  // The client's state: opened by Credalti (migration 0030), and with its own agreement documents (stateDocuments.ts).
+  const signing = await loadSigningState(db, user.id);
+  if (!signing.open) {
+    return NextResponse.json({ error: "We are not taking clients in this state yet.", code: "state_not_open" }, { status: 409 });
+  }
+  const readiness = agreementReadiness({ terms, state: signing.state });
   if (!readiness.ready) {
     return NextResponse.json(
       { error: "The agreement is not ready to be signed yet.", code: "agreement_not_ready" },

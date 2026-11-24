@@ -16,7 +16,8 @@ import { availabilityFromEnv } from "./channels";
 import type { PlannedMessage } from "./followups";
 import { planDeliveries } from "./plan";
 import { roundPlanKey } from "./planKey";
-import { autoSendState } from "./sending";
+import { autoSendState, upcomingFirstRound } from "./sending";
+import { runReviewRequests, type ReviewRunSummary } from "../reviews/server";
 import { emailSubject, renderTemplateBody } from "./templates";
 import { unsubscribeUrl } from "./unsubscribe";
 import { loadAutopilotSettings, queueingWhatsApp, queueStatus, recordOptChange } from "./store";
@@ -172,6 +173,8 @@ export interface AutopilotRunSummary {
   roundsRefused: Array<{ userId: string; roundNumber: number; reason: string }>;
   roundsHeld: number;
   roundsInWindow: number;
+  /** Round 1s noted while their client's cancellation window runs: they go out on its first working day. */
+  roundsWaitingForWindow?: number;
   messagesSent: number;
   messagesFailed: number;
   messagesCancelled: number;
@@ -181,6 +184,8 @@ export interface AutopilotRunSummary {
   returns?: ReturnsSummary;
   /** Companies whose dispute address is missing, and how many were seen missing for the first time. */
   furnisherGaps?: { open: number; fresh: number };
+  /** Review requests queued in this run (src/lib/reviews: once per client, at a milestone). */
+  reviews?: ReviewRunSummary;
 }
 
 async function loadClients(db: SupabaseClient): Promise<StaffClient[]> {
@@ -238,7 +243,24 @@ export async function runAutopilot(db: SupabaseClient, now: Date = new Date(), d
   // 1. Rounds: note the ones ready for the first time, and mail the ones whose window is over.
   for (const client of clients) {
     const round = sendableRound(client, now, { furnishers });
-    if (!round) continue;
+    if (!round) {
+      // Round 1 inside the cancellation window: noted now, so it goes out on the first run of the first
+      // working day after the window instead of a review window later (sending.ts: upcomingFirstRound).
+      // No status message and nothing mailed until then.
+      const upcoming = upcomingFirstRound(client, now, furnishers);
+      if (upcoming && !upcoming.round.readyAt) {
+        const { error } = await db
+          .from("autopilot_ready_rounds")
+          .upsert(
+            { user_id: client.id, round_number: upcoming.round.number, plan_key: roundPlanKey(upcoming.round), first_ready_at: now.toISOString() },
+            { onConflict: "user_id,round_number,plan_key", ignoreDuplicates: true },
+          );
+        if (error) throw new Error(`autopilot_ready_rounds: ${error.message}`);
+        summary.newlyReady += 1;
+        summary.roundsWaitingForWindow = (summary.roundsWaitingForWindow ?? 0) + 1;
+      }
+      continue;
+    }
     const planKey = roundPlanKey(round);
     if (!round.readyAt) {
       const { error } = await db
@@ -284,8 +306,16 @@ export async function runAutopilot(db: SupabaseClient, now: Date = new Date(), d
     }
   }
 
+  // 1b. Review requests: every client who reached a milestone and was never asked, whatever they think
+  // of the service (src/lib/reviews/reviews.ts). Queued as status messages, so step 2 sends them under the same rules.
+  try {
+    summary.reviews = await runReviewRequests(db, clients, now);
+  } catch (error) {
+    await reportError(error, { where: "autopilot:reviews" });
+  }
+
   // 2. Messages, on the records as they are now (the sends above queued theirs).
-  if (summary.roundsSent.length > 0 || summary.newlyReady > 0) clients = await loadClients(db);
+  if (summary.roundsSent.length > 0 || summary.newlyReady > 0 || (summary.reviews?.asked ?? 0) > 0) clients = await loadClients(db);
   for (const client of clients) {
     const plan = planDeliveries(client, now, env, deps.base);
     for (const { id, note } of plan.cancel) {

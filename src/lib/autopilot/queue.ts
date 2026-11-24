@@ -168,6 +168,7 @@ export const STATUS_LABEL = {
   payment_declined: "Aviso: cobro no pasó, con el enlace «Actualizar mi tarjeta»",
   payment_method_needed: "Aviso: falta su método de pago, con el enlace «Actualizar mi tarjeta»",
   letter_remailed: "Aviso: carta enviada de nuevo",
+  review_request: "Pedido de reseña (una vez por cliente)",
 } as const;
 
 /** The automatic notices' names, in each language. */
@@ -182,6 +183,7 @@ export const STATUS_LABELS: Record<StaffLocale, Record<keyof typeof STATUS_LABEL
     payment_declined: "Notice: charge declined, with the “Update my card” link",
     payment_method_needed: "Notice: payment method missing, with the “Update my card” link",
     letter_remailed: "Notice: letter mailed again",
+    review_request: "Review request (once per client)",
   },
 };
 

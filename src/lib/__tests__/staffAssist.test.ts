@@ -8,7 +8,7 @@ import { seededBook } from "../mail/data";
 import { demoClientsWithMail } from "../mail/demo";
 import { withDemoPulses } from "../pulse/demo";
 import {
-  ALTIBOT_MIN_OVERLAP,
+  ASSISTANT_MIN_OVERLAP,
   answerFromRow,
   answerProblems,
   bestMatch,
@@ -176,7 +176,7 @@ describe("saved answers: what AltiBot may send by itself", () => {
     // A loose match is a suggestion for a person, not an answer for AltiBot: it shares words, not the question.
     const loose = bestMatch("¿Las cartas salen por correo certificado?", library);
     expect(loose?.answer.question).toBe("¿Cuándo salen mis cartas?");
-    expect(loose!.overlap).toBeLessThan(ALTIBOT_MIN_OVERLAP);
+    expect(loose!.overlap).toBeLessThan(ASSISTANT_MIN_OVERLAP);
     expect(libraryReplyFor("¿Las cartas salen por correo certificado?", library)).toBeNull();
     // The same question, worded a little differently, is answered.
     expect(libraryReplyFor("cuando salen mis cartas", library)?.answer.id).toBe("00000000-0000-4000-a000-000000000001");

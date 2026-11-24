@@ -81,8 +81,9 @@ const CASES: Record<CaseState, CaseFacts> = {
     rounds: [round({ letters: [{ ...round().letters[0]!, status: "returned", returnedAt: ago(6) }] })],
   }),
   answers_in: facts({ rounds: [round({ answers: [{ from: "Experian", receivedAt: ago(1) }] })] }),
-  window_over: facts({ rounds: [round({ mailedAt: ago(33), preparedAt: ago(35) })] }),
-  next_round_due: facts({ rounds: [round({ mailedAt: ago(45), preparedAt: ago(47) })] }),
+  // The letters carry the round's own mailing date (rounds/timing.ts counts each letter from its own).
+  window_over: facts({ rounds: [round({ mailedAt: ago(33), preparedAt: ago(35), letters: round().letters.map((l) => ({ ...l, mailedAt: ago(33) })) })] }),
+  next_round_due: facts({ rounds: [round({ mailedAt: ago(45), preparedAt: ago(47), letters: round().letters.map((l) => ({ ...l, mailedAt: ago(45) })) })] }),
 };
 
 const words = (s: string) => s.split(/\s+/).filter(Boolean).length;

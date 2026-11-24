@@ -37,7 +37,9 @@ export type StatusEvent =
     }
   | { kind: "payment_method_needed"; roundNumber: number; workDate: Record<MessageLocale, string> }
   // A returned letter that went out again (mail/returnsServer.ts).
-  | { kind: "letter_remailed"; letterId: string; recipient: string; roundNumber: number };
+  | { kind: "letter_remailed"; letterId: string; recipient: string; roundNumber: number }
+  // The one review request (src/lib/reviews): once per client, whatever the milestone.
+  | { kind: "review_request"; milestone: string };
 
 export interface StatusMessage {
   dedupeKey: string;
@@ -59,6 +61,8 @@ const PATH: Record<StatusKind, string> = {
   payment_declined: "/pagos/tarjeta",
   payment_method_needed: "/pagos/tarjeta",
   letter_remailed: "/rounds",
+  // The public page with every configured review site, the same for everyone (no sign-in).
+  review_request: "/opina",
 };
 
 function longDay(iso: string, locale: MessageLocale): string {
@@ -84,11 +88,15 @@ export function statusDedupeKey(userId: string, event: StatusEvent): string {
       return `status:${userId}:payment_method_needed:r${event.roundNumber}`;
     case "letter_remailed":
       return `status:${userId}:letter_remailed:${event.letterId}`;
+    case "review_request":
+      // Once per client, ever: not per milestone.
+      return `status:${userId}:review_request`;
   }
 }
 
 export function statusMessage(userId: string, firstName: string, locale: MessageLocale, event: StatusEvent, base?: string): StatusMessage {
-  const link = appLink(PATH[event.kind], base);
+  // The review page has no sign-in: its language comes from the link (?lang=, the proxy saves it).
+  const link = appLink(event.kind === "review_request" ? `${PATH[event.kind]}?lang=${locale}` : PATH[event.kind], base);
   const name = firstName.trim() || (locale === "es" ? "hola" : "there");
   let template: MessageTemplate;
   let params: string[];
@@ -147,6 +155,10 @@ export function statusMessage(userId: string, firstName: string, locale: Message
     case "letter_remailed":
       template = STATUS_TEMPLATES.letter_remailed;
       params = [name, event.recipient, String(event.roundNumber), link];
+      break;
+    case "review_request":
+      template = STATUS_TEMPLATES.review_request;
+      params = [name, link];
       break;
   }
   return { dedupeKey: statusDedupeKey(userId, event), topic: event.kind, locale, template, params, body: renderTemplate(template, locale, params), link };

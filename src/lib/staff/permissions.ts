@@ -58,6 +58,10 @@ export const CAPABILITIES = [
   "letters.edit",
   // The plan catalogue, invoices, exports and chargebacks (src/lib/billing, migration 0026).
   "billing.plans",
+  // Review sites, the review requests and the ratings typed in (src/lib/reviews, migration 0029).
+  "reviews.manage",
+  // Which states Credalti sells in (src/lib/compliance/stateRules.ts, migration 0030).
+  "states.manage",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -98,6 +102,8 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "partners.manage": "Aprobar socios y fijar sus comisiones",
   "letters.edit": "Editar las cartas y registrar la aprobación del abogado",
   "billing.plans": "Planes de cobro, facturas, exportaciones y contracargos",
+  "reviews.manage": "Sitios de reseñas, pedidos de reseña y calificaciones",
+  "states.manage": "Abrir y cerrar estados",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -120,6 +126,8 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "partners.manage": "Approve partners and set their commissions",
   "letters.edit": "Edit the letters and record the attorney's approval",
   "billing.plans": "Billing plans, invoices, exports and chargebacks",
+  "reviews.manage": "Review sites, review requests and ratings",
+  "states.manage": "Open and close states",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -158,6 +166,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "partners.manage": false,
       "letters.edit": false,
       "billing.plans": false,
+      "reviews.manage": false,
+      "states.manage": false,
     },
   },
   sales: {
@@ -183,6 +193,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "partners.manage": false,
       "letters.edit": false,
       "billing.plans": false,
+      "reviews.manage": false,
+      "states.manage": false,
     },
   },
 };

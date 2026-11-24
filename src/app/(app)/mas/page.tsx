@@ -6,7 +6,6 @@ import { BILLING_COPY } from "@/lib/ux/billingCopy";
 import { CLIENT_SHARING_COPY } from "@/lib/partners/sharingCopy";
 import { HUMAN_HELP, humanHelpHref } from "@/lib/ux/humanHelp";
 import Icon, { type IconName } from "@/components/Icon";
-import { CharacterAvatar } from "@/components/Character";
 import { isFullService } from "@/lib/service/mode";
 import MailingAddress from "@/components/MailingAddress";
 import { useTextSize } from "@/lib/ux/textSize";
@@ -84,6 +83,13 @@ export default function Mas() {
             tint="bg-blue-900"
             title={es ? "Mi caso" : "My case"}
             desc={es ? "Todo lo que ha pasado y lo que sigue, con fechas." : "Everything that happened and what comes next, with dates."}
+          />
+          <Row
+            href="/construir"
+            icon="sparkle"
+            tint="bg-amber-500"
+            title={es ? "Construye tu crédito" : "Build your credit"}
+            desc={es ? "Tu plan de hábitos, el camino para comprar casa y la guía para ITIN." : "Your plan of habits, the path to buying a home, and the ITIN guide."}
           />
           <Row
             href="/aprende"
@@ -178,15 +184,15 @@ export default function Mas() {
               href={humanHref}
               icon="person"
               tint="bg-green-600"
-              leading={<CharacterAvatar character="team" size={40} />}
+              leading={<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-700 text-white"><Icon name="person" size={20} strokeWidth={2.25} /></span>}
               title={humanTitle}
               desc={HUMAN_HELP.liveRow[locale]}
             />
           ) : (
             // Demo: not a link, and it says why.
-            // Alti stands for the team (never a particular person, never the AI).
+            // A person icon: this row leads to people. Alti is the AI assistant, so never him here.
             <div className="flex items-center gap-3.5 px-4 py-3.5">
-              <CharacterAvatar character="team" size={40} />
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-700 text-white"><Icon name="person" size={20} strokeWidth={2.25} /></span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
                   <span className="text-[17px] font-medium text-slate-900">{humanTitle}</span>

@@ -17,7 +17,7 @@ from the build environment, so each row says where the fact came from.
 | Public affiliate program | Run through Awin. $40 per enrollment. Not accepting paid-search or incentive traffic "at this time". US only. | Awin merchant page | Good, but terms change |
 | Credit-repair partner program | IDIQ runs a separate Partner program: clients enroll through your own link and you earn per enrollment. Terms are not public. | IDIQ site and its G2 listing | Exists; terms unknown |
 | Report data access | No public API. A third party's documentation shows partner endpoints exist (a partner token, and pulling a recent report). | The Credit Pros API reference | Suggestive only |
-| ITIN in place of SSN | Nothing found either way. | — | Unknown |
+| ITIN in place of SSN | Nothing found either way (searched again 2026-11-24). The app says "ask our team" for ITIN clients; see `docs/AFTERCARE.md`, "ITIN findings". | — | Unknown |
 
 ## What this changes
 

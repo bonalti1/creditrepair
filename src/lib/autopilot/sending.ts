@@ -1,5 +1,7 @@
 import type { FurnisherEntry } from "../mail/furnishers";
-import { formatDay, sendableRound, STAFF_TIME_ZONE } from "../staff/stage";
+import { firstWorkingDay } from "../agreement/businessDays";
+import { deadlineOf } from "../agreement/gate";
+import { clientAgreement, formatDay, sendableRound, STAFF_TIME_ZONE, workStartsAt } from "../staff/stage";
 import type { StaffClient, StaffRound } from "../staff/types";
 import { openHold } from "./followups";
 import { roundPlanKey } from "./planKey";
@@ -64,7 +66,16 @@ export function autoSendState(client: StaffClient, round: StaffRound, now: Date,
   const hold = openHold(client);
   if (hold) return { status: "held", at: null, text: en ? `On hold by ${hold.by}: “${hold.reason}”` : `Detenida por ${hold.by}: «${hold.reason}»` };
   const ready = round.readyAt ? new Date(round.readyAt) : now;
-  const at = new Date(ready.getTime() + settings.reviewWindowHours * HOUR_MS);
+  let at = new Date(ready.getTime() + settings.reviewWindowHours * HOUR_MS);
+  // Round 1 goes out on the first working day after the cancellation window (the date the client is shown:
+  // rounds/timing.ts, roundOneMailDate), not on a weekend or holiday night right after the deadline.
+  if (round.number === 1) {
+    const deadline = deadlineOf(clientAgreement(client));
+    if (deadline) {
+      const first = firstWorkingDay(deadline);
+      if (first.getTime() > at.getTime()) at = first;
+    }
+  }
   if (at.getTime() > now.getTime()) {
     const when = whenText(at, now, locale);
     return { status: "waiting", at: at.toISOString(), text: en ? `Goes out on its own ${when} unless someone holds it.` : `Sale sola ${when} si nadie la detiene.` };
@@ -84,4 +95,24 @@ export function autoSendCandidates(clients: StaffClient[], now: Date, settings: 
     const round = sendableRound(client, now, { furnishers });
     return round ? [{ client, round, state: autoSendState(client, round, now, settings) }] : [];
   });
+}
+
+/**
+ * Round 1 while the client is still inside their cancellation window: the
+ * round the console will list in "Listas para enviar" the moment work may start
+ * (the first working day after the window, staff/stage.ts: workStartsAt), when
+ * nothing else would hold it then. Null otherwise.
+ *
+ * Why: the review window counts from when the system first saw the round
+ * ready. Seen only once the window is over, round 1 would wait a further day
+ * (the default 24 hours). Noted while the window runs, its review window is
+ * over by then, and the first run of the first working day mails it. Nothing
+ * is mailed, charged or sent to the client before that day: send.ts still
+ * refuses every letter until the gate allows work (agreement/gate.ts).
+ */
+export function upcomingFirstRound(client: StaffClient, now: Date, furnishers: readonly FurnisherEntry[]): { round: StaffRound; startsAt: Date } | null {
+  const startsAt = workStartsAt(client, now);
+  if (!startsAt) return null;
+  const round = sendableRound(client, new Date(startsAt.getTime() + 1000), { furnishers });
+  return round && round.number === 1 ? { round, startsAt } : null;
 }

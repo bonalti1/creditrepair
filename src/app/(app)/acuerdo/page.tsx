@@ -5,12 +5,12 @@ import Link from "next/link";
 import AgreementDocumentCard, { Blocks, DraftBanner } from "@/components/agreement/AgreementDocument";
 import Icon, { type IconName } from "@/components/Icon";
 import IdentityDocs from "@/components/IdentityDocs";
-import { CharacterAvatar } from "@/components/Character";
 import { cancellationDeadline, firstWorkingDay } from "@/lib/agreement/businessDays";
 import { AGREEMENT_VERSION, agreementDocuments, type AgreementDocument } from "@/lib/agreement/documents";
 import { clockTime, deadlineMoment, longDate, recordMoment } from "@/lib/agreement/format";
 import { agreementPhase, canCancelWithoutPenalty, deadlineOf } from "@/lib/agreement/gate";
 import { agreementReadiness } from "@/lib/agreement/readiness";
+import { stateLaw } from "@/lib/compliance/states";
 import type { AgreementState } from "@/lib/agreement/record";
 import { isFullName, signerNameMatches } from "@/lib/agreement/signature";
 import { resolveTerms, withPlan, type ResolvedTerms } from "@/lib/agreement/terms";
@@ -134,10 +134,10 @@ function errorText(code: string, locale: L, profileName: string | null): string 
 
 export default function AcuerdoPage() {
   const { locale } = useLocale();
-  const { agreement, hydrated, signedIn, profileName, mode, plan, acknowledge, sign, cancel } = useAgreement();
+  const { agreement, hydrated, signedIn, profileName, mode, plan, stateDocuments, acknowledge, sign, cancel } = useAgreement();
   // Under a plan, the contract's payment terms are generated from it (billing/plans.ts).
   const terms = useMemo(() => withPlan(resolveTerms(), plan), [plan]);
-  const readiness = useMemo(() => agreementReadiness({ terms }), [terms]);
+  const readiness = useMemo(() => agreementReadiness({ terms, state: stateDocuments.state }), [terms, stateDocuments.state]);
   // A new agreement after a cancellation starts again at step 1.
   const [startOver, setStartOver] = useState(false);
   /** Re-reading the disclosures from step 2: shows step 1 without asking again. */
@@ -180,7 +180,7 @@ export default function AcuerdoPage() {
   }
 
   // A real database with unapproved text or missing terms: nobody signs.
-  if (mode === "blocked") return <NotReady locale={locale} />;
+  if (mode === "blocked") return <NotReady locale={locale} stateNeedsText={stateDocuments.status === "needs_attorney_text" ? stateDocuments.state : null} />;
 
   const documents = agreementDocuments(locale, terms);
   const find = (key: AgreementDocument["key"]) => documents.find((d) => d.key === key)!;
@@ -714,8 +714,10 @@ function Signed({
                       : "Your time to cancel at no cost is over. Your team prepares and mails your letters about what you confirm."}
                 </span>
               </span>
-              {/* The team's step: Alti stands for the team (never one person, never the AI). */}
-              <CharacterAvatar character="team" size={48} className="self-center" />
+              {/* The mailing step: an envelope, no character (the team prepares, the letters are mailed). */}
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center self-center rounded-full bg-blue-50 text-blue-700">
+                <Icon name="mail" size={22} />
+              </span>
             </li>
           </ol>
         </section>
@@ -884,17 +886,22 @@ function Cancelled({ agreement, locale, onStartOver }: { agreement: AgreementSta
 
 // ── Not ready (a real account, and the text is not approved yet) ────────
 
-function NotReady({ locale }: { locale: L }) {
+function NotReady({ locale, stateNeedsText = null }: { locale: L; stateNeedsText?: string | null }) {
   const es = locale === "es";
   const help = humanHelpHref(locale);
+  const stateName = stateNeedsText ? (stateLaw(stateNeedsText)?.name ?? stateNeedsText) : null;
   return (
     <main className="animate-rise space-y-5" data-testid="agreement-not-ready">
       <PageTitle
-        title={es ? "Estamos terminando tu acuerdo" : "We are finishing your agreement"}
+        title={stateName ? (es ? `Tu acuerdo para ${stateName} se está preparando` : `Your agreement for ${stateName} is being prepared`) : es ? "Estamos terminando tu acuerdo" : "We are finishing your agreement"}
         lead={
-          es
-            ? "Tu acuerdo de servicio está en su última revisión. En cuanto esté listo, una persona de nuestro equipo te va a escribir para que lo leas y lo firmes con calma."
-            : "Your service agreement is in its final review. As soon as it is ready, a person on our team will write to you so you can read and sign it calmly."
+          stateName
+            ? es
+              ? `Cada estado pide sus propios documentos. El abogado está escribiendo los de ${stateName}; en cuanto estén aprobados, una persona de nuestro equipo te escribe para que lo leas y lo firmes con calma.`
+              : `Each state asks for its own documents. Our attorney is writing the ones for ${stateName}; once they are approved, a person on our team will write to you so you can read and sign it calmly.`
+            : es
+              ? "Tu acuerdo de servicio está en su última revisión. En cuanto esté listo, una persona de nuestro equipo te va a escribir para que lo leas y lo firmes con calma."
+              : "Your service agreement is in its final review. As soon as it is ready, a person on our team will write to you so you can read and sign it calmly."
         }
       />
       <section className="card overflow-hidden">
@@ -911,7 +918,9 @@ function NotReady({ locale }: { locale: L }) {
       </section>
       {help && (
         <a href={help} target="_blank" rel="noopener noreferrer" className={SECONDARY}>
-          <CharacterAvatar character="team" size={32} decorative className="-ml-2 mr-2" />
+          <span className="-ml-2 mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-700 text-white">
+            <Icon name="person" size={16} strokeWidth={2.25} />
+          </span>
           {es ? "Hablar con una persona" : "Talk to a person"}
         </a>
       )}

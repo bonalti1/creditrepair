@@ -4,6 +4,7 @@ import type { ChargeStatus } from "../billing/types";
 import { formatCents } from "../billing/rules";
 import { isCertified } from "../mail/classes";
 import type { MailClass, MailStatus } from "../mail/types";
+import { ESTIMATED_CYCLE_DAYS, nextRoundDueForCaseRound, REINVESTIGATION_DAYS, roundOneMailDate } from "../rounds/timing";
 
 // "Mi caso": one honest timeline of the client's case, and the one sentence
 // that says where it stands ("¿Qué está pasando?").
@@ -23,9 +24,18 @@ export type L = "es" | "en";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** The bureaus' reinvestigation window, in days (FCRA § 611). The same number the journey uses. */
-export const CASE_RESPONSE_DAYS = 30;
-/** The team prepares the next round about this many days after a mailing. */
-export const CASE_NEXT_ROUND_DAYS = 40;
+export const CASE_RESPONSE_DAYS = REINVESTIGATION_DAYS;
+/**
+ * About how many days after a mailing the next round is prepared, with no tracking. The real date
+ * for a round is nextRoundAt (rounds/timing.ts): earlier with a certified delivery scan, never
+ * before the bureaus' 30 days from receipt, at most 45 days unless the window ends later.
+ */
+export const CASE_NEXT_ROUND_DAYS = ESTIMATED_CYCLE_DAYS;
+
+/** When the team prepares the next round after this mailed round (rounds/timing.ts, nextRoundDue). */
+export function nextRoundAt(round: CaseRoundFact): string {
+  return nextRoundDueForCaseRound(round)?.dueAt ?? addDays(round.mailedAt!, CASE_NEXT_ROUND_DAYS);
+}
 
 export interface CaseLetterFact {
   /** "Equifax", or the company's name. */
@@ -201,8 +211,7 @@ export function caseState(facts: CaseFacts, now: Date): CaseState {
   if (mailed && gate.allowed) {
     if (returnedLetters(mailed).length > 0) return "letter_returned";
     if (mailed.answers.length > 0) return "answers_in";
-    const nextRoundAt = time(addDays(mailed.mailedAt!, CASE_NEXT_ROUND_DAYS));
-    if (now.getTime() >= nextRoundAt) return "next_round_due";
+    if (now.getTime() >= time(nextRoundAt(mailed))) return "next_round_due";
     const due = time(addDays(responseWindowStart(mailed), CASE_RESPONSE_DAYS));
     if (now.getTime() >= due) return "window_over";
     return lastDelivery(mailed) ? "delivered" : "mailed";
@@ -315,7 +324,7 @@ export function caseStatusSentence(facts: CaseFacts, locale: L, now: Date = new 
       return s.answers_in(mailed!.number, latest?.from ?? null);
     }
     case "window_over":
-      return s.window_over(mailed!.number, caseDay(addDays(mailed!.mailedAt!, CASE_NEXT_ROUND_DAYS), locale));
+      return s.window_over(mailed!.number, caseDay(nextRoundAt(mailed!), locale));
     case "next_round_due":
       return s.next_round_due(mailed!.number + 1);
   }
@@ -595,11 +604,14 @@ export function caseNext(facts: CaseFacts, locale: L, now: Date = new Date()): C
     case "in_window": {
       const deadline = deadlineOf(facts.agreement!);
       const starts = deadline ? firstWorkingDay(deadline).toISOString() : null;
+      // Once the review is done, the date the client cares about: when round 1 goes out.
+      const reviewDone = facts.review.total > 0 && facts.review.reviewed >= facts.review.total && facts.review.confirmed > 0;
+      const roundOne = reviewDone ? roundOneLine(facts, locale, now) : null;
       return [
         ...(deadline
           ? [{ key: "cancel-until", at: deadline.toISOString(), title: es ? "Último día para cancelar sin costo" : "Last day to cancel at no cost", href: "/acuerdo" }]
           : []),
-        { key: "team-starts", at: starts, title: es ? "Tu equipo empieza a trabajar" : "Your team starts working" },
+        roundOne ?? { key: "team-starts", at: starts, title: es ? "Tu equipo empieza a trabajar" : "Your team starts working" },
       ];
     }
     case "report_waiting":
@@ -618,15 +630,18 @@ export function caseNext(facts: CaseFacts, locale: L, now: Date = new Date()): C
     }
     case "nothing_to_send":
       return [];
-    case "preparing":
+    case "preparing": {
+      const roundOne = round === 1 ? roundOneLine(facts, locale, now) : null;
+      if (roundOne) return [roundOne];
       return [{ key: "mail", at: null, title: es ? `Tu equipo envía las cartas de tu ronda ${round}` : `Your team mails your round ${round} letters`, detail: es ? "Te avisamos por WhatsApp cuando salgan." : "You get a WhatsApp message when they go out." }];
+    }
     case "mailed":
     case "delivered":
     case "letter_returned":
     case "answers_in":
     case "window_over": {
       const due = addDays(responseWindowStart(mailed!), CASE_RESPONSE_DAYS);
-      const nextRound = addDays(mailed!.mailedAt!, CASE_NEXT_ROUND_DAYS);
+      const nextRound = nextRoundAt(mailed!);
       const lines: CaseNext[] = [];
       if (time(due) > now.getTime()) {
         lines.push({ key: "answer-window", at: due, title: es ? "Fin del plazo de los burós para responder" : "End of the bureaus' time to answer", detail: es ? "Son unos 30 días. La ley les da ese tiempo." : "About 30 days. The law gives them that time." });
@@ -642,6 +657,28 @@ export function caseNext(facts: CaseFacts, locale: L, now: Date = new Date()): C
     case "next_round_due":
       return [{ key: "mail", at: null, title: es ? `Tu equipo prepara tu ronda ${mailed!.number + 1}` : `Your team prepares round ${mailed!.number + 1}` }];
   }
+}
+
+/**
+ * "Your round 1 letters go out on December 2": the first working day after the
+ * cancellation window (rounds/timing.ts, roundOneMailDate), with the round 2
+ * date that follows from it (the estimate before any tracking). Null once that
+ * day has come: from then the letters go out with the next run, and the line
+ * says no date it cannot keep.
+ */
+function roundOneLine(facts: CaseFacts, locale: L, now: Date): CaseNext | null {
+  const day = roundOneMailDate(facts.agreement, now);
+  if (!day || day.getTime() <= now.getTime()) return null;
+  const es = locale === "es";
+  const next = nextRoundAt({ number: 1, preparedAt: null, mailedAt: day.toISOString(), letters: [], answers: [] });
+  return {
+    key: "round-1",
+    at: day.toISOString(),
+    title: es ? `Tus cartas de la ronda 1 salen el ${caseDay(day, "es")}` : `Your round 1 letters go out on ${caseDay(day, "en")}`,
+    detail: es
+      ? `Es el primer día hábil después de tu plazo para cancelar. Tu siguiente ronda se prepara alrededor del ${caseDay(next, "es")}.`
+      : `It is the first working day after your time to cancel. Your next round is prepared around ${caseDay(next, "en")}.`,
+  };
 }
 
 export interface CaseTimeline {

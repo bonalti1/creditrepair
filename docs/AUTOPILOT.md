@@ -96,6 +96,66 @@ exactly as the staff send does: `requireAgreement: true`, the mail service
 - Billing is untouched: the charge still comes only from `/api/cron/billing`,
   for a round already mailed.
 
+## When the next round is due (rounds/timing.ts)
+
+There is no fixed 40-day cycle any more. `nextRoundDue(round, letters, tracking)`
+in `src/lib/rounds/timing.ts` works it out from the evidence, and every screen
+and job uses it: the client's journey and "Mi caso", the staff console's next
+steps and stage, the business dashboard ("behind their next-round date"), the
+partner view, `rounds/send.ts` (which records `next_round_due_at`), the
+triggers of migration 0028 (which move it when a delivery is scanned or a
+letter comes back) and the hourly re-pull (`/api/cron/rounds`, which also
+re-checks the rule from the letters before pulling).
+
+1. **Receipt.** The bureaus' 30 days run from the day they RECEIVE the dispute
+   (FCRA § 611(a)(1)(A); a furnisher's direct dispute the same, 12 C.F.R.
+   § 1022.43(e)). Per letter that reached someone: a certified letter's USPS
+   delivery scan; otherwise its mailing date + **5 days** (a First-Class
+   "delivered" from Lob is an estimate and may only move the date later). The
+   round counts from the latest receipt, so every letter gets its 30 days.
+2. **Window.** Receipt + **30 days**. Nothing is ever due before it.
+3. **Answer and refresh.** + **5 days** for the bureau's mailed results (it has
+   5 business days after finishing, § 611(a)(6)(A)) and the report to refresh.
+   Then the report is pulled again and the next round prepared.
+4. **Upper bound.** At most **45 days** from mailing, unless the legal window
+   itself ends later (then the window wins).
+
+| Round mailed Nov 2 | Receipt | Window ends | Next round | Days |
+| --- | --- | --- | --- | --- |
+| First class, no scan | Nov 7 (estimate) | Dec 7 | Dec 12 | 40 |
+| Certified, delivered Nov 5 | Nov 5 | Dec 5 | Dec 10 | 38 (35 from delivery) |
+| Certified, delivered Nov 14 | Nov 14 | Dec 14 | Dec 17 | 45 (upper bound) |
+| Certified, delivered Nov 22 | Nov 22 | Dec 22 | Dec 22 | 50 (legal window) |
+
+"Monitoring not sending a report" (`response_overdue`, the `monitoring_inactive`
+follow-up) now starts after that date, not on day 30: before it, nobody
+expects a new report. Copy that says "about 40 days" stays true: it is the
+date with no tracking (`ESTIMATED_CYCLE_DAYS`). The agreement's own text
+("about one round every 40 days") was not edited (it is versioned for the
+attorney).
+
+**Round 1** goes out the first working day after the cancellation window
+(`roundOneMailDate`). The run notes a round 1 that will be sendable then while
+the window is still open (`upcomingFirstRound`: recorded in
+`autopilot_ready_rounds`, nothing mailed, no message), so its review window is
+over by that day and the first hourly run of the first working day mails it;
+`autoSendState` never lets round 1 go before that day (not on a weekend or
+holiday night right after the deadline). The client sees "Your round 1
+letters go out on November 30", with the round 2 date that follows.
+
+For the attorney: (1) is preparing the next round at ~35 days from a
+certified delivery (38–40 from mailing) fine, given the 30-day window and the
+5 business days for results? (2) The 15-day extension (§ 611(a)(1)(B)) when
+the consumer sends more information during the window: our letters do not,
+but a client may write to a bureau directly; should the rule wait 45 days
+then? (3) § 612(a)(3) gives 45 days for a dispute made after a free annual
+report (and § 612(a)(2) 15 days to provide it): our disputes follow
+monitoring reports, not § 612 requests; confirm 45 days never applies.
+(4) The method-of-verification letters: § 611(a)(7) gives the bureau 15 days
+to describe its procedure; does any letter of ours start a shorter clock that
+should be tracked? (5) Is the system noting (not mailing) round 1 during the
+cancellation window "work" under CROA / Texas Fin. Code ch. 393?
+
 ## Safety rules, and where each is enforced
 
 | Rule | Where |
@@ -183,8 +243,9 @@ Every row below is one name with an **en_US** and an **es_MX** version.
 | `credalti_pago_pausa` | nombre, monto, ronda, enlace | The last retry declined; the case pauses; link to «Actualizar mi tarjeta» |
 | `credalti_pago_falta_metodo` | nombre, ronda, fecha, enlace | A mailed round and no payment method; link to «Actualizar mi tarjeta» |
 | `credalti_carta_reenviada` | nombre, destinatario, ronda, enlace | A returned letter went out again |
+| `credalti_resena` | nombre, enlace | The one review request per client (docs/REVIEWS.md). Likely category **Marketing** in Meta, not Utility |
 
-34 templates for clients, each in en_US and es_MX (68 versions). One for
+35 templates for clients, each in en_US and es_MX (70 versions). One for
 referral partners: `credalti_socio_avance` (nombre, avance), the milestone
 notice, in the partner's language (`partners.locale`, English unless they read
 their portal in Spanish): en_US "Hi, {{1}}. {{2}} More details in your Credalti

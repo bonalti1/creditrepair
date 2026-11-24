@@ -7,8 +7,9 @@ scripts, no dependency on the web app except the claim rules.
 ## Characters changed: the existing ads must be remade
 
 The capybara mascot ("Capi") was retired on 2026-11-21. The brand kit replaced
-it with two characters: **AltiBot**, the robot AI assistant (renamed by the owner on 2026-11-22; the kit's files use its earlier name), and **Alti**, the
-face of the human team (see `docs/BRAND.md`). Their locked art is recorded in
+it with the kit's characters. Since 2026-11-24 **Alti** is the AI assistant
+and the only voice, always labelled as AI; the kit's robot, **AltiBot**, is a
+small supporting cameo only (see `docs/BRAND.md`). New spots feature Alti. Their locked art is recorded in
 `brand/lock.json` → `characters`; the old `character` block and its reference
 stills are marked `"status": "retired"` and kept only as the record of what
 the existing ads used. Every video made so far, including the mechanic spot

@@ -63,9 +63,11 @@ export default function OnboardingSync() {
       const ref = read(KEYS.ref);
       // A partner's code from an invitation link (sales/invite.ts "p"). The /r/<code> cookie travels by itself.
       const partner = read("bonalti.partner");
-      if (!goal && !state && !assisted && !ref && !partner) return sendShare();
+      // Social Security number or ITIN: the kind only (src/lib/aftercare/itin.ts).
+      const idType = read("bonalti.idType");
+      if (!goal && !state && !assisted && !ref && !partner && !idType) return sendShare();
 
-      const fingerprint = [goal, state, assisted, ref, ...(partner ? [partner] : [])].join("|");
+      const fingerprint = [goal, state, assisted, ref, ...(partner ? [partner] : []), ...(idType ? [`id:${idType}`] : [])].join("|");
       if (read(SYNCED) === fingerprint) return sendShare();
 
       fetch("/api/profile/onboarding", {
@@ -77,6 +79,7 @@ export default function OnboardingSync() {
           assisted: assisted === null ? undefined : assisted === "1",
           referredBy: ref ?? undefined,
           partnerCode: partner ?? undefined,
+          idType: idType === "ssn" || idType === "itin" ? idType : undefined,
         }),
       })
         .then((res) => {

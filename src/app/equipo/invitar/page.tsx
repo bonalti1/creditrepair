@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
+import { ALL_STATES } from "@/lib/compliance/states";
+import { useOpenStates } from "@/lib/compliance/useOpenStates";
 import {
   buildInvitePath,
   GOALS,
@@ -40,6 +41,8 @@ const STATES = ["TX", ...ALL_STATES.filter((s) => s !== "TX")];
 const ME = "bonalti.salesName";
 
 export default function Invitar() {
+  // The states opened in /equipo/estados.
+  const openStates = useOpenStates();
   const { data, ready: loaded, viewer, can, locale, team, members, reload } = useStaff();
   const t = useTx();
   const [me, setMe] = useState("");
@@ -99,7 +102,7 @@ export default function Invitar() {
     void fetch("/api/staff/prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "invited", id: clientId }) }).catch(() => undefined);
   };
   const message = useMemo(() => inviteMessage({ name }, url, lang), [name, url, lang]);
-  const open = stateStatus(state) === "open";
+  const open = openStates.status(state) === "open";
   const ready = me.trim().length >= 2 && name.trim().length >= 2;
   const digits = phone.replace(/\D/g, "");
   const waNumber = digits.length === 10 ? `1${digits}` : digits;

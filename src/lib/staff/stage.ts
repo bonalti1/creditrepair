@@ -4,7 +4,7 @@ import { deadlineOf, workMayStart, type AgreementRecord, type GateResult } from 
 import { accountStanding, casePausedForPayment, unpaidCharge } from "../billing/dunning";
 import { billingOutlook, type BillingOutlook } from "../billing/outlook";
 import type { BillingContext } from "../billing/types";
-import { ROUND_CYCLE_DAYS } from "../domain/attack";
+import { nextRoundDueForStaffRound } from "../rounds/timing";
 import { FRESH_REPORT_DAYS } from "../monitoring/subscription";
 import { RESPONSE_WINDOW_DAYS } from "../ux/journey";
 import { itemLabel } from "../ux/itemDisplay";
@@ -597,13 +597,26 @@ export function identityTheftItemsWithoutReport(client: StaffClient, locale: Sta
   });
 }
 
+/**
+ * When the system pulls the report again for a mailed round and the next round
+ * is prepared: the round's next-round date (rounds/timing.ts, nextRoundDue:
+ * 30 days from receipt, plus the answer's buffer, at most 45 days from mailing
+ * unless the legal window ends later). Null for a round not mailed.
+ */
+export function roundRepullAt(round: StaffRound): Date | null {
+  const due = nextRoundDueForStaffRound(round);
+  return due ? new Date(due.dueAt) : null;
+}
+
 function responseOverdue(client: StaffClient, now: Date): StaffRound | null {
   const latest = latestRound(client);
   if (!latest || latest.status !== "mailed" || !latest.mailedAt) return null;
-  // The window runs from receipt when the post office recorded it (mail/tracking.ts: responseWindowStart).
-  const start = responseWindowStart(latest) ?? latest.mailedAt;
-  if (daysSince(start, now) <= RESPONSE_WINDOW_DAYS) return null;
+  // Overdue only once the system's own re-pull date has passed (rounds/timing.ts): before it, nobody
+  // expects a new report. The window itself runs from receipt (mail/tracking.ts: responseWindowStart).
+  const repull = roundRepullAt(latest);
+  if (!repull || now.getTime() <= repull.getTime()) return null;
   // A report pulled once the window closed would already show the answers.
+  const start = responseWindowStart(latest) ?? latest.mailedAt;
   const windowEnd = addDays(start, RESPONSE_WINDOW_DAYS);
   if (client.report && new Date(client.report.pulledAt).getTime() >= windowEnd.getTime()) return null;
   return latest;
@@ -862,7 +875,7 @@ function openExceptions(client: StaffClient, now: Date, context: StaffContext = 
       ),
       actionLabel: L("Pedirle que revise su monitoreo", "Ask them to check their monitoring"),
       action: "whatsapp",
-      since: addDays(overdueRound.mailedAt, RESPONSE_WINDOW_DAYS).toISOString(),
+      since: (roundRepullAt(overdueRound) ?? addDays(overdueRound.mailedAt, RESPONSE_WINDOW_DAYS)).toISOString(),
     });
   }
 
@@ -993,7 +1006,8 @@ function nextWorkStep(client: StaffClient, now: Date, locale: StaffLocale): Auto
   if (stage === "waiting_on_bureaus") {
     const round = latestRound(client);
     if (!round?.mailedAt || responseOverdue(client, now)) return null;
-    const due = addDays(responseWindowStart(round) ?? round.mailedAt, RESPONSE_WINDOW_DAYS);
+    // The re-pull date: 30 days from receipt plus the answer's buffer (rounds/timing.ts).
+    const due = roundRepullAt(round) ?? addDays(responseWindowStart(round) ?? round.mailedAt, RESPONSE_WINDOW_DAYS);
     const when = onDay(due, now, locale);
     return { text: es ? `Re-importar el reporte ${when}` : `Pull the report again ${when}`, at: due.toISOString() };
   }
@@ -1001,7 +1015,7 @@ function nextWorkStep(client: StaffClient, now: Date, locale: StaffLocale): Auto
   if (stage === "results_in") {
     const mailed = lastMailedRound(client);
     if (!mailed?.mailedAt) return null;
-    const cycleEnd = addDays(mailed.mailedAt, ROUND_CYCLE_DAYS);
+    const cycleEnd = roundRepullAt(mailed) ?? addDays(mailed.mailedAt, RESPONSE_WINDOW_DAYS);
     const due = cycleEnd.getTime() > now.getTime() ? cycleEnd : now;
     const when = onDay(due, now, locale);
     return {

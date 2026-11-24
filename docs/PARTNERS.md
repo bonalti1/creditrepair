@@ -187,6 +187,15 @@ and **will never** see, and a preview of the partner's screen built from the
 client's own case. A client can add a partner who did not refer them by typing
 the partner's code; the same choice and text follow.
 
+**Home-ready milestones (migration 0030, `docs/AFTERCARE.md`).** A client may
+also let a real estate agent or loan officer see their home-buying milestones
+(names and dates: documents, review, disputes, and the steps the client marks
+themselves; graduation). It is the same consent record with `home_ready` on
+and one more "will see" line, hashed with its own version; read only through
+`partner_home_ready()`. "Connect me with a loan officer" sends the client's
+name, phone and goal to the chosen partner with their consent
+(`loan_officer_requests`, `partner_intro_requests()`).
+
 ### How consent is recorded
 
 Like the service agreement (`src/lib/agreement`): the consent text is

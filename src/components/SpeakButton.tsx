@@ -22,7 +22,7 @@ export default function SpeakButton({
   className?: string;
   /** Icon-only variant for use beside chat bubbles. */
   compact?: boolean;
-  /** Whose words these are (src/lib/voice): AltiBot's, the team's, or plain app text. */
+  /** Whose words these are (src/lib/voice): Alti's (the AI assistant), the team's, or plain app text. */
   speaker?: VoiceSpeaker;
   /** What is read, for screen readers on the icon-only button ("Escuchar: tu estado"). */
   label?: string;

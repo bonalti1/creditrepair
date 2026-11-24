@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { reportError } from "@/lib/observability/errors";
-import { consentHash, partnerDisplay, SHARING_CONSENT_VERSION, type ShareHow } from "@/lib/partners/sharing";
+import { consentHash, homeReadyAllowed, partnerDisplay, SHARING_CONSENT_VERSION, type ShareHow } from "@/lib/partners/sharing";
 import { loadClientConsents, loadClientSharing, loadClientViews, loadPreviewCounts, partnerByCode } from "@/lib/partners/sharingServer";
 import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
@@ -36,6 +36,8 @@ const bodySchema = z.discriminatedUnion("action", [
     locale: z.enum(["es", "en"]),
     version: z.string().max(40),
     textHash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    // Also share the home-ready milestones (migration 0030): real estate agents and loan officers only.
+    homeReady: z.boolean().optional(),
   }),
 ]);
 
@@ -92,7 +94,7 @@ export async function POST(req: Request) {
     }
 
     const linked = await loadClientSharing(reader);
-    let partner: { id: string; name: string; company: string | null } | null = null;
+    let partner: { id: string; name: string; company: string | null; kind: string } | null = null;
     let how: ShareHow;
     const known = input.partnerId ? linked.find((p) => p.id === input.partnerId) : undefined;
     if (known) {
@@ -109,14 +111,25 @@ export async function POST(req: Request) {
     }
 
     const current = linked.find((p) => p.id === partner!.id)?.level ?? "none";
-    if (current === input.level) return NextResponse.json({ ok: true, unchanged: true, level: current });
+    // The home-ready choice is part of the same record: the newest one says it.
+    const history = await loadClientConsents(reader, user.id);
+    const currentHome = current !== "none" && (history.find((h) => h.partnerId === partner!.id)?.homeReady ?? false);
+    // The record says what the client saw: a screen that did not show the home-ready line records it off.
+    const homeReady = input.level !== "none" && input.homeReady === true;
+    if (homeReady && !homeReadyAllowed(partner.kind as Parameters<typeof homeReadyAllowed>[0])) {
+      return NextResponse.json({ error: "Home-ready milestones go only to a real estate agent or a loan officer.", code: "home_ready_not_allowed" }, { status: 409 });
+    }
+    // The same level from a screen without the home-ready line changes nothing.
+    if (current === input.level && (input.homeReady === undefined || currentHome === homeReady)) {
+      return NextResponse.json({ ok: true, unchanged: true, level: current, homeReady: currentHome });
+    }
 
     let textHash: string;
     if (input.level === "none") {
       textHash = consentHash("none", partner, input.locale);
     } else {
       if (input.version !== SHARING_CONSENT_VERSION) return NextResponse.json({ error: "The text changed. Reload the page.", code: "version_changed" }, { status: 409 });
-      textHash = consentHash(input.level, partner, input.locale);
+      textHash = consentHash(input.level, partner, input.locale, SHARING_CONSENT_VERSION, { homeReady });
       if (input.textHash !== textHash) return NextResponse.json({ error: "The text changed. Reload the page.", code: "text_changed" }, { status: 409 });
     }
 
@@ -131,8 +144,9 @@ export async function POST(req: Request) {
         locale: input.locale,
         text_hash: textHash,
         partner_name_shown: partnerDisplay(partner).slice(0, 210),
+        home_ready: homeReady,
       })
-      .select("level, previous_level, action, created_at")
+      .select("level, previous_level, action, home_ready, created_at")
       .single();
     if (error) {
       if (/approved partner/.test(error.message)) return NextResponse.json({ error: "This partner cannot receive it now.", code: "partner_unavailable" }, { status: 409 });

@@ -8,7 +8,7 @@ The person does only what needs a human, from one list, with the steps for
 each thing written next to it.
 
 This page is the day, start to finish, and the pieces that make it short:
-AltiBot's drafted replies, saved answers, the «Cómo se resuelve» cards, the
+Alti's drafted replies, saved answers, the «Cómo se resuelve» cards, the
 morning summary, the new-hire checklist and the phone layout. The console is in
 English unless the member chooses Spanish (see «Language» below); the screen
 names quoted here are the Spanish ones.
@@ -24,7 +24,7 @@ trabajo humano por cliente activo» is where real numbers will show.
 | --- | --- | --- |
 | 8:30 | **Morning summary** arrives (WhatsApp or email): "Hoy: 9 cosas · ~73 minutos", the first three, what the system did overnight, a link to «Siguiente» | 1 min to read |
 | 8:35 | Open the link: **focus mode** (`/equipo?siguiente=1`). One item at a time, overdue first. Each shows why it needs a person, what the system already tried, the one button, and its **«Cómo se resuelve»** card with «Hecho cuando…» | — |
-| | Questions from clients (≈5 min each): the conversation opens with the **saved answer** that matches, or **AltiBot's draft**. Read, edit if needed, **«Enviar así»**. If it will help the next client, **«Guardar como respuesta»** | 2–5 min each |
+| | Questions from clients (≈5 min each): the conversation opens with the **saved answer** that matches, or **Alti's draft**. Read, edit if needed, **«Enviar así»**. If it will help the next client, **«Guardar como respuesta»** | 2–5 min each |
 | | Calls after three automatic reminders (unsigned agreement, missing documents, stalled review, monitoring): the card says what to ask and what not to say | 5–6 min each |
 | | Money (payment past due, missing method): only after the client got every notice with the «Actualizar mi tarjeta» link and did not use it. The card shows the exact words they got. Call; never collect by hand, never ask for a card number | 5–8 min each, about 1 a day |
 | | A company's missing dispute address: **one item per company**, listing every client waiting on it, with the address the reports print as an unverified suggestion. Check it against a source, save it once in «Acreedores», and every waiting round can go | 8 min per company (not per client) |
@@ -35,7 +35,7 @@ trabajo humano por cliente activo» is where real numbers will show.
 A typical day for 100 clients: **about 1¼ to 1¾ hours of a person's work**
 (it was 1½ to 2 before the system began fixing addresses, returned letters,
 payments and documents by itself), the rest of the day free for calls, new
-clients or a second job role. As the saved-answer library grows, AltiBot
+clients or a second job role. As the saved-answer library grows, Alti
 answers more questions by itself and the question time falls.
 
 What changed, estimated for 100 clients (not measured):
@@ -52,13 +52,13 @@ The home screen says how much: **«Esta semana el sistema resolvió N cosas
 por su cuenta»**, with the count of each kind under «Resuelto solo»
 (`autopilot_resolutions`, migration 0022).
 
-## AltiBot's drafted replies
+## Alti's drafted replies
 
 `src/lib/staff/drafts.ts`, `src/lib/staff/draftModel.ts`, `POST /api/staff/drafts`,
 shown by `src/components/staff/ReplyAssist.tsx` inside the conversation.
 
-When a question is waiting (one AltiBot passed to the team, or the client's
-last message), the reply box opens with **"Borrador de AltiBot — revísalo antes
+When a question is waiting (one Alti passed to the team, or the client's
+last message), the reply box opens with **"Borrador de Alti — revísalo antes
 de enviar"**: an answer in the client's language, written from:
 
 - the question and the recent conversation (SSN-like numbers redacted, as for
@@ -94,7 +94,7 @@ per role, the retry, the no-key path, all with a mocked model) and
 `src/lib/__tests__/db/staffAssist.test.ts` (a draft over a case read through
 the specialist's own connection).
 
-## Saved answers, and what AltiBot answers by itself
+## Saved answers, and what Alti answers by itself
 
 `src/lib/staff/answers.ts`, `/equipo/respuestas`, `POST /api/staff/answers`,
 migration `0020_staff_assist.sql` (`saved_answers`, `saved_answer_events`).
@@ -111,7 +111,7 @@ migration `0020_staff_assist.sql` (`saved_answers`, `saved_answer_events`).
 - The console suggests the closest **approved** answer first: in the
   conversation, and in the queue on each waiting question.
 
-**AltiBot (the client's chat, `/api/coach`) answers by itself** when an
+**Alti (the client's chat, `/api/coach`) answers by itself** when an
 approved answer matches the new question closely: the words the two questions
 share must be at least 60% of all the words of both, and at least two
 (`libraryReplyFor`; "¿Las cartas salen por correo certificado?" does not match
@@ -246,9 +246,9 @@ question, a note, a refund reason) is quoted as typed.
 **What goes to a client is in the CLIENT's language**, whatever the member's:
 `clientLanguage(client)` (`profiles.locale`; a client with none is written to
 in English). That covers the drafted WhatsApp messages (`staff/messages.ts`),
-AltiBot's drafted replies (`drafts.ts`: the model is told to write in the
+Alti's drafted replies (`drafts.ts`: the model is told to write in the
 client's language), saved answers (each has a language, `saved_answers.language`;
-only answers in the client's language are suggested or sent by AltiBot), the
+only answers in the client's language are suggested or sent by Alti), the
 automatic reminders and the invite (the panel «Add client» and `/equipo/invitar`
 both ask for the client's language). Wherever a teammate writes to a client the
 console shows «Client's language: Spanish» (`ClientLanguageTag`).
@@ -272,7 +272,7 @@ Spanish words left in the English.
 - The template `credalti_resumen_equipo` must be approved in Meta before the
   summary goes by WhatsApp outside the 24-hour window.
 - In the demo, saved answers added in the browser are not seen by the
-  demo's AltiBot (the server uses the invented library).
+  demo's Alti (the server uses the invented library).
 - The minutes per notice are estimates until real handled times exist.
 - The checklist's ticks are kept per browser (its dismissal is per member).
 - Still Spanish in an English console: the invented demo data (names,

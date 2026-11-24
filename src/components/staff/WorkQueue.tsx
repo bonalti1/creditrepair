@@ -26,7 +26,7 @@ import { PlaybookCard, PlaybookToggle } from "@/components/staff/PlaybookCard";
 /** The approved saved answer that matches a waiting question, if any. */
 export type AnswerFor = (item: QueueItem) => AnswerMatch | null;
 
-/** For a client's question: answer it in the app, where the saved answer or AltiBot's draft is waiting. */
+/** For a client's question: answer it in the app, where the saved answer or Alti's draft is waiting. */
 function AnswerHint({ item, answerFor }: { item: QueueItem; answerFor?: AnswerFor }) {
   const t = useTx();
   if (item.exception.kind !== "question_waiting") return null;

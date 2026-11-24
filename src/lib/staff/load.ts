@@ -130,6 +130,13 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
   // Chargebacks (migration 0026): administrators read them; another role gets none.
   const chargebacks = await optionalRows(sel("chargebacks", "*"), "chargebacks");
 
+  // After-care (migration 0030): marks, graduation and introduction requests, as this member may read them.
+  const [aftercareMarks, completions, loanOfficerRequests] = await Promise.all([
+    optionalRows(sel("aftercare_marks", "seq, user_id, item_key, done, created_at"), "aftercare_marks"),
+    optionalRows(sel("program_completions", "*"), "program_completions"),
+    optionalRows(sel("loan_officer_requests", "user_id, partner_name_shown, how, created_at, withdrawn_at"), "loan_officer_requests"),
+  ]);
+
   // "¿Cómo vamos?" answers (migration 0018): the "staff read pulses" policy decides (admin, assigned specialist).
   const pulses = await optionalRows(sel("client_pulses", "user_id, moment, rating, comment, created_at"), "client_pulses");
 
@@ -191,6 +198,9 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     chargebacks,
     households,
     householdLinks,
+    aftercareMarks,
+    completions,
+    loanOfficerRequests,
   };
 }
 

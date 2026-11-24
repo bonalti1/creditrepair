@@ -27,7 +27,7 @@ export async function GET() {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("full_name, state").eq("id", user.id).maybeSingle(),
   ]);
   if (error) {
     await reportError(new Error(error.message), { where: "api/agreement", userId: user.id });
@@ -37,12 +37,13 @@ export async function GET() {
   // The plan the client would sign (read with the service role: the catalogue is not the client's to read).
   const admin = getAdminClient();
   const plan = admin ? await offeredSnapshot(admin, user.id).catch(() => null) : null;
-  const readiness = agreementReadiness({ terms: withPlan(resolveTerms(), plan) });
+  const state = typeof profile?.state === "string" ? (profile.state as string) : null;
+  const readiness = agreementReadiness({ terms: withPlan(resolveTerms(), plan), state });
   return NextResponse.json({
     plan,
     authenticated: true,
     agreement: row ? agreementFromRow(row as Record<string, unknown>) : null,
     profileName: (profile?.full_name as string | undefined) || null,
-    readiness: { mode: readiness.mode, canSign: readiness.canSign, version: readiness.version },
+    readiness: { mode: readiness.mode, canSign: readiness.canSign, version: readiness.version, stateDocuments: readiness.stateDocuments },
   });
 }

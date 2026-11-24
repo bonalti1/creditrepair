@@ -9,7 +9,9 @@ import type {
   ReportItem,
 } from "./types";
 
-// Attack engine (spec §4.2) — round-based, ~40-day cycles.
+// Attack engine (spec §4.2) — round-based. When each next round is due comes
+// from the evidence (certified delivery or mailing date), not a fixed count:
+// src/lib/rounds/timing.ts (nextRoundDue).
 //   Attack 1: personal-info cleanup letters to all 3 bureaus.
 //   Attack 2+: separate letters per category (accounts / inquiries / public records)
 //              per bureau, plus secondary-bureau scope.
@@ -19,8 +21,6 @@ import type {
 // "inaccurate, unverifiable, or outdated" may appear in any letter, whoever
 // prepares and mails it. The plan builder enforces it here and the approval
 // route enforces it again server-side.
-
-export const ROUND_CYCLE_DAYS = 40;
 
 const NEXT_STAGE: Record<EscalationStage, EscalationStage> = {
   dispute: "mov",

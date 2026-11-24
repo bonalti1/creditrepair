@@ -9,13 +9,15 @@ import {
   BRAND,
   BRAND_IMAGE_PATHS,
   BRAND_LOGO_PATHS,
+  CAMEO_NAME,
   COMPANY_NAME,
-  TEAM_MASCOT_NAME,
+  aiByline,
+  teamByline,
 } from "../brand";
 import { inviteMessageEs } from "../sales/invite";
 import { COACH_SYSTEM_PROMPT } from "../coach/systemPrompt";
 import { AFFILIATE_DISCLOSURE } from "../monitoring/offer";
-import { MARKETING } from "../i18n/marketing";
+import { SITE_COPY } from "../site/copy";
 
 // The company was renamed from the name spelled out below (in two halves, so
 // this file does not trip its own check) to Credalti.
@@ -66,14 +68,15 @@ function allFiles(dir: string): string[] {
 }
 
 describe("brand", () => {
-  it("is Credalti, with AltiBot as the assistant and Alti for the team", () => {
+  it("is Credalti, with Alti as the AI assistant and only voice, and the robot as a small cameo (owner, 2026-11-24)", () => {
     expect(BRAND.name).toBe("Credalti");
     expect(COMPANY_NAME).toBe("Credalti");
-    // The owner renamed the robot on 2026-11-22. Everything else interpolates this value.
-    expect(BRAND.assistant).toBe("AltiBot");
+    // "ALTI should be the one" answering (2026-11-24). Everything else interpolates these values.
+    expect(BRAND.assistant).toBe("Alti");
     expect(ASSISTANT_NAME).toBe(BRAND.assistant);
-    expect(TEAM_MASCOT_NAME).toBe(BRAND.teamMascot);
-    expect(BRAND.teamMascot).toBe("Alti");
+    // The robot, renamed on 2026-11-22, is a small cameo since 2026-11-24.
+    expect(BRAND.cameo).toBe(CAMEO_NAME);
+    expect("teamMascot" in BRAND).toBe(false);
     // The logo is a file, never typeset: there are no wordmark halves to set in a font.
     expect("wordmark" in BRAND).toBe(false);
   });
@@ -106,23 +109,22 @@ describe("brand", () => {
   });
 
   it("points at character images that exist, in @1x and @2x", () => {
-    // Four views of each character, each in two sizes.
-    expect(BRAND_IMAGE_PATHS).toHaveLength(16);
+    // Four views of each character plus Alti's six poses, each in two sizes.
+    expect(BRAND_IMAGE_PATHS).toHaveLength(28);
     for (const path of BRAND_IMAGE_PATHS) {
       expect(path, path).toMatch(/^\/brand\/characters\/.+@[12]x\.webp$/);
       expect(existsSync(join("public", path)), path).toBe(true);
     }
-    for (const set of [BRAND.assistantImages, BRAND.teamMascotImages]) {
+    for (const set of [BRAND.assistantImages, BRAND.assistantPoses, BRAND.cameoImages]) {
       for (const image of Object.values(set)) {
         expect(image.width, image.src).toBeGreaterThan(0);
         expect(image.height, image.src).toBeGreaterThan(0);
         expect(image.src2x).toBe(image.src.replace("@1x", "@2x"));
       }
     }
-    // The two roles never share art.
-    expect(BRAND.assistantImages.front.src).not.toBe(BRAND.teamMascotImages.front.src);
-    // The robot's files carry his current name.
-    expect(BRAND.assistantImages.front.src).toMatch(/^\/brand\/characters\/altibot_/);
+    // Alti's art is the assistant's; the robot's art is only the cameo's.
+    expect(BRAND.assistantImages.front.src).toMatch(/^\/brand\/characters\/alti_/);
+    expect(BRAND.cameoImages.front.src).toMatch(/^\/brand\/characters\/altibot_/);
   });
 
   it("uses the brand kit's logo, favicon and app icon files, byte for byte", () => {
@@ -177,18 +179,71 @@ describe("brand", () => {
     expect(gauge).toEqual([]);
   });
 
-  it("describes the assistant as AI and the team character as people, never the reverse", () => {
+  it("describes Alti as AI, never as a person, and labels every one of his messages", () => {
     for (const locale of ["es", "en"] as const) {
       expect(BRAND.assistantAlt[locale]).toContain(BRAND.assistant);
       expect(BRAND.assistantAlt[locale]).toMatch(/inteligencia artificial|artificial intelligence/);
-      expect(BRAND.teamMascotAlt[locale]).toContain(BRAND.teamMascot);
-      expect(BRAND.teamMascotAlt[locale]).not.toMatch(/\bIA\b|\bAI\b|artificial/i);
+      expect(BRAND.assistantAlt[locale]).toMatch(/no es una persona|not a person/);
     }
-    // The team character never labels a message: the chat signs a teammate's
-    // words with their own name (TeamMessage), and the console with theirs.
-    expect(readFileSync("src/components/TeamMessage.tsx", "utf8")).not.toMatch(/Character|teamMascot/);
-    const conversation = readFileSync("src/components/staff/Conversation.tsx", "utf8");
-    expect(conversation).not.toMatch(/character="team"/);
+    // The label on every message the assistant writes, and on the chat header.
+    expect(aiByline("en")).toBe("Alti · AI assistant");
+    expect(aiByline("es")).toBe("Alti · Asistente con IA");
+    // A teammate's message carries the teammate's own name, never Alti's.
+    expect(teamByline("Ana", "en")).toBe("Ana · Credalti team");
+    expect(teamByline("Ana", "es")).toBe("Ana · equipo Credalti");
+    for (const locale of ["es", "en"] as const) {
+      for (const line of [teamByline("Ana", locale), teamByline("", locale)]) {
+        expect(line).not.toMatch(new RegExp(`\\b(${ASSISTANT_NAME}|${CAMEO_NAME})\\b|\\bIA\\b|\\bAI\\b`));
+      }
+    }
+    // A teammate's words are never put beside a character: TeamMessage has none.
+    expect(readFileSync("src/components/TeamMessage.tsx", "utf8")).not.toMatch(/Character/);
+  });
+
+  it("the robot is a cameo in two places only, and never speaks or authors a message", () => {
+    // The only files that may name or show the robot: the website's mailing
+    // animation, the About page (with its copy), the brand's own files, and
+    // the two checks that keep the name out (letters, the website chat's replies).
+    const ALLOWED = new Set([
+      "src/lib/brand.ts",
+      "src/lib/letters/versions/validate.ts",
+      "src/lib/site/askAlti.ts",
+      "src/components/Character.tsx",
+      "src/components/site/MailCameo.tsx",
+      "src/app/nosotros/page.tsx",
+      "src/lib/site/copy.ts",
+    ]);
+    const uses = (text: string) => new RegExp(`\\b${CAMEO_NAME}\\b|character="cameo"|BRAND\\.cameo|CAMEO_NAME|cameoImages`).test(text);
+    const users = sourceFiles("src").filter((file) => uses(readFileSync(file, "utf8")));
+    expect(users.filter((file) => !ALLOWED.has(file))).toEqual([]);
+    expect(users).toContain("src/components/site/MailCameo.tsx");
+    // In the site copy, the name appears only in the About page's words and the mailing animation's caption.
+    const strings: Array<[string, string]> = [];
+    const walk = (value: unknown, path: string) => {
+      if (typeof value === "string") strings.push([path, value]);
+      else if (Array.isArray(value)) value.forEach((v, i) => walk(v, `${path}.${i}`));
+      else if (value && typeof value === "object") for (const [k, v] of Object.entries(value)) walk(v, `${path}.${k}`);
+    };
+    walk(SITE_COPY, "copy");
+    const named = strings.filter(([, text]) => new RegExp(`\\b${CAMEO_NAME}\\b`).test(text)).map(([path]) => path);
+    expect(named.length).toBeGreaterThan(0);
+    for (const path of named) expect(path, path).toMatch(/^copy\.(en|es)\.(about\.|home\.demo\.mail|meta\.about)/);
+    // Never a message author: the coach, the chat screens and the WhatsApp texts speak as Alti only.
+    expect(COACH_SYSTEM_PROMPT).not.toMatch(new RegExp(`\\b${CAMEO_NAME}\\b`));
+    const mail = readFileSync("src/components/site/MailCameo.tsx", "utf8");
+    expect(mail).not.toMatch(/byline|Bubble|aiByline/);
+  });
+
+  it("'talk to a person' never shows a character, and no screen uses the retired team character", () => {
+    const chat = readFileSync("src/app/(app)/asistente/page.tsx", "utf8");
+    const human = chat.slice(chat.indexOf("const humanLabel"), chat.indexOf("return (", chat.indexOf("const humanLabel")));
+    expect(human).not.toMatch(/CharacterAvatar/);
+    expect(human).toMatch(/name="person"/);
+    const offenders = sourceFiles("src").filter((file) => /character="team"|teamMascot|character="engine"/.test(readFileSync(file, "utf8")));
+    expect(offenders).toEqual([]);
+    // The client app and the staff console show no robot.
+    const appFiles = [...sourceFiles("src/app/(app)"), ...sourceFiles("src/app/equipo"), ...sourceFiles("src/components/staff")];
+    expect(appFiles.filter((file) => /character="cameo"|altibot_/.test(readFileSync(file, "utf8")))).toEqual([]);
   });
 
   it("the ad pipeline's end card shows the logo file, and the brand lock uses the new names", () => {
@@ -237,10 +292,11 @@ describe("brand", () => {
   it("customer-facing text reads the name from one place", () => {
     expect(inviteMessageEs({ name: "María" }, "https://x.test/onboarding")).toContain("para entrar a Credalti:");
     expect(COACH_SYSTEM_PROMPT).toContain(`Eres ${ASSISTANT_NAME}, el asistente de crédito con inteligencia artificial de Credalti`);
+    expect(ASSISTANT_NAME).toBe("Alti");
     expect(COACH_SYSTEM_PROMPT).toContain(`te llamas ${ASSISTANT_NAME} y SIEMPRE eres transparente en que eres una inteligencia artificial`);
     expect(AFFILIATE_DISCLOSURE.es).toContain("Credalti recibe una comisión");
-    expect(MARKETING.es.landing.footer).toContain("Credalti");
-    expect(MARKETING.en.landing.footer).toContain("Credalti");
+    expect(SITE_COPY.es.footer.disclaimer).toContain("Credalti");
+    expect(SITE_COPY.en.footer.disclaimer).toContain("Credalti");
     // The icon is the check only: no lettering to rename.
     expect(readFileSync("src/app/icon.svg", "utf8")).not.toMatch(/<text/);
   });

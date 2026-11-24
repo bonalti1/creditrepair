@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { BRAND } from "../brand";
 import { checkClaimGuardrails } from "../compliance/guardrails";
+import { ITIN_SAVED_ANSWERS } from "../aftercare/itin";
 import { checkStaffReply, MAX_REPLY_CHARS, type ReplyProblem } from "./conversation";
 import type { StaffRole } from "./types";
 import { STAFF_LOCALES, type StaffLocale, staffLocaleFallback } from "./i18n/locale";
@@ -15,8 +16,8 @@ import { STAFF_LOCALES, type StaffLocale, staffLocaleFallback } from "./i18n/loc
 //
 // What uses it:
 //   - the console: a waiting question shows the best matching approved answer
-//     first, before AltiBot's draft (bestMatch), and the queue says so;
-//   - AltiBot, the client's chat (/api/coach): an approved answer that
+//     first, before Alti's draft (bestMatch), and the queue says so;
+//   - Alti, the client's chat (/api/coach): an approved answer that
 //     matches a new question closely may answer it directly
 //     (libraryReplyFor), and only after the claim rules pass again. Anything
 //     else goes on exactly as before, to the model and, when it cannot answer,
@@ -199,15 +200,15 @@ export function similarity(a: string, b: string): { score: number; shared: strin
 /** Score at which the console suggests a saved answer first. */
 export const SUGGEST_MIN_SCORE = 0.4;
 /**
- * For AltiBot to answer a client with it by itself, stricter, because nobody
+ * For Alti to answer a client with it by itself, stricter, because nobody
  * reads it first: the words the two questions share must be most of the words
  * of BOTH (shared ÷ all), not just of the shorter one. "¿Las cartas salen por
  * correo certificado?" shares "cartas" and "salen" with "¿Cuándo salen mis
  * cartas?": a suggestion for a person, never an answer by itself.
  */
-export const ALTIBOT_MIN_OVERLAP = 0.6;
-/** And the words the two questions must share at least, for AltiBot. */
-export const ALTIBOT_MIN_SHARED = 2;
+export const ASSISTANT_MIN_OVERLAP = 0.6;
+/** And the words the two questions must share at least, for Alti. */
+export const ASSISTANT_MIN_SHARED = 2;
 
 export interface AnswerMatch {
   answer: SavedAnswer;
@@ -234,7 +235,7 @@ export function bestMatch(question: string, answers: readonly SavedAnswer[], min
 }
 
 /**
- * What AltiBot may send a client by itself from the library, or null (then
+ * What Alti may send a client by itself from the library, or null (then
  * the question goes on as before: to the model, and to a person when the
  * model cannot answer). Only an answer an administrator approved, only a
  * close match, and only if the claim rules pass again at the moment it is
@@ -242,7 +243,7 @@ export function bestMatch(question: string, answers: readonly SavedAnswer[], min
  */
 export function libraryReplyFor(question: string, answers: readonly SavedAnswer[], language?: StaffLocale): AnswerMatch | null {
   const match = bestMatch(question, answers, SUGGEST_MIN_SCORE, language);
-  if (!match || match.shared.length < ALTIBOT_MIN_SHARED || match.overlap < ALTIBOT_MIN_OVERLAP) return null;
+  if (!match || match.shared.length < ASSISTANT_MIN_SHARED || match.overlap < ASSISTANT_MIN_OVERLAP) return null;
   if (match.answer.status !== "approved" || !match.answer.approvedBy) return null;
   if (checkClaimGuardrails(match.answer.answer).length > 0) return null;
   if (answerProblems(match.answer).length > 0) return null;
@@ -254,7 +255,7 @@ export function answerLanguage(answer: Pick<SavedAnswer, "language"> | { languag
   return answer.language === "en" ? "en" : "es";
 }
 
-/** How AltiBot sends a library answer: marked as the team's approved answer, and still the AI's message. */
+/** How Alti sends a library answer: marked as the team's approved answer, and still the AI's message. */
 export function libraryReplyText(match: AnswerMatch, locale: "es" | "en" = "es"): string {
   return locale === "en"
     ? `${match.answer.answer}\n\n(An answer approved by the ${BRAND.name} team. If you need anything else, ask to talk to a person.)`
@@ -366,4 +367,8 @@ export const DEMO_SAVED_ANSWERS: readonly SavedAnswer[] = [
     "carmen",
     "en",
   ),
+  // ITIN clients (docs/AFTERCARE.md, src/lib/aftercare/itin.ts). Whether the
+  // monitoring service accepts an ITIN is still unconfirmed, so that question
+  // keeps only the proposed answer above: Alti never answers it alone.
+  ...ITIN_SAVED_ANSWERS.map((a) => demo(a.id, a.question, a.answer, "approved", "carmen", a.language)),
 ];

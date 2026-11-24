@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { checkClaimGuardrails, checkMarketingCopy } from "@/lib/compliance/guardrails";
 import { DROP_OFF_RULES, dropOffDate, ITEM_TYPES, parseAmount, parseMonth, utilization } from "@/lib/learn/calculators";
@@ -58,9 +59,13 @@ describe("lessons", () => {
     expect(LESSONS.find((l) => l.slug === "robo-de-identidad")!.body.es.join(" ")).toContain("IdentityTheft.gov");
   });
 
-  it("marks AltiBot's lessons and Alti's as the right characters", () => {
+  it("marks Alti's lessons (AI) and the team's own, and never puts a character on the team's", () => {
     for (const l of LESSONS) expect(["assistant", "team"]).toContain(l.character);
     expect(LESSONS.find((l) => l.slug === "estafas")!.character).toBe("team");
+    // The team's lessons show a team icon: Alti is the AI assistant, so he never stands for the people.
+    const view = readFileSync("src/components/learn/LessonView.tsx", "utf8");
+    expect(view).not.toMatch(/CharacterFigure|character="team"|character="engine"/);
+    expect(view).toMatch(/your AI assistant, explains/);
   });
 });
 

@@ -13,17 +13,18 @@ import { RESPONSE_WINDOW_DAYS, NEXT_ROUND_DAYS, nextAction, sessionJourneyState 
 import { letterCoverage, waitingListNote } from "@/lib/ux/roundCopy";
 import { sessionPlan } from "@/lib/ux/sessionPlan";
 import { roundMailedDate, teamRoundStatus } from "@/lib/ux/teamRound";
+import { nextRoundDue } from "@/lib/rounds/timing";
 import { clientLetterMail, clientResponseWindowStart, letterCameBack, letterMailLine } from "@/lib/mail/clientView";
 import { letterMailKey, useLetterMail } from "@/lib/ux/letterMail";
 import { isFullService } from "@/lib/service/mode";
 import { useLocale } from "@/lib/i18n";
 import Icon from "@/components/Icon";
-import { CharacterAvatar } from "@/components/Character";
 import { InfoNote } from "@/components/RoundNotes";
 import BureauLetterUpload from "@/components/BureauLetterUpload";
 
 // Rounds, with a real timeline: when letters mailed, when the FCRA ~30-day
-// response window closes, when the next round unlocks (~day 40). The waiting
+// response window closes, when the next round is due (rounds/timing.ts: about
+// day 35–45, from the certified delivery when known). The waiting
 // period is where Dispute Beast users feel abandoned — here the clock is always
 // visible and explained.
 //
@@ -98,7 +99,10 @@ export default function Rounds() {
   const windowDays = Math.max(0, Math.floor((Date.now() - windowStart.getTime()) / DAY_MS));
   const daysLeft = Math.max(0, RESPONSE_WINDOW_DAYS - windowDays);
   const responseDue = new Date(windowStart.getTime() + RESPONSE_WINDOW_DAYS * DAY_MS);
-  const nextRoundAt = new Date(mailedAt.getTime() + NEXT_ROUND_DAYS * DAY_MS);
+  // The next round's date, from the same evidence (rounds/timing.ts): 30 days from receipt (a
+  // certified delivery scan, else mailing + 5 days), plus 5 for the answer; at most 45 from mailing.
+  const nextRoundAt = new Date(nextRoundDue({ mailedAt: mailedAt.toISOString() }, letterMail)!.dueAt);
+  const cycleDays = Math.max(1, Math.round((nextRoundAt.getTime() - mailedAt.getTime()) / DAY_MS));
 
   // The items in this round's letters: the ones a bureau response will be about.
   const inRound = new Set(plan.letters.flatMap((l) => l.itemFingerprints));
@@ -137,7 +141,7 @@ export default function Rounds() {
                   {/* How far into the ~40-day cycle. A sliver on day 0: the clock has only just started. */}
                   <div
                     className="h-1.5 rounded-full bg-amber-400"
-                    style={{ width: `${Math.min(100, Math.max(4, Math.round((elapsedDays / NEXT_ROUND_DAYS) * 100)))}%` }}
+                    style={{ width: `${Math.min(100, Math.max(4, Math.round((elapsedDays / cycleDays) * 100)))}%` }}
                   />
                 </div>
                 <div className="mt-3 space-y-1 text-[13px] tabular-nums text-slate-500">
@@ -235,7 +239,9 @@ export default function Rounds() {
         <section className="card px-6 pb-6 pt-8 text-center">
           {/* Full service: the team mails the letters, so the team character stands here. */}
           {isFullService ? (
-            <CharacterAvatar character="team" size={72} className="mx-auto" />
+            <span className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-blue-50 text-blue-700">
+              <Icon name="mail" size={32} />
+            </span>
           ) : (
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-900">
               <Icon name="clock" size={26} />

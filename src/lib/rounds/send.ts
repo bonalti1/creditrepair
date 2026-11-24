@@ -1,11 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { workMayStart } from "../agreement/gate";
 import { loadAgreement } from "../agreement/server";
-import { buildAttackPlan, ROUND_CYCLE_DAYS } from "../domain/attack";
+import { buildAttackPlan } from "../domain/attack";
+import { nextRoundDue } from "./timing";
 import type { PlannedLetter, ReportItem, UserProfile } from "../domain/types";
 import { MailAddressError, mailLetter } from "../integrations/lob";
 import { sendWhatsApp } from "../integrations/whatsapp";
 import { ENCLOSURE_LABELS, isAttachableImage, letterHtml, type EnclosurePage } from "../letters/enclosures";
+import { enclosureLabelFor, parseIdType } from "../aftercare/itin";
 import { pickFont } from "../letters/fonts";
 import { varyLetterWording } from "../letters/variation";
 import { listLetterVersions } from "../letters/versions/server";
@@ -345,7 +347,8 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
   const enclosurePages: EnclosurePage[] = [];
   if (via === "mail") {
     for (const doc of docs) {
-      const label = ENCLOSURE_LABELS[String(doc.kind)];
+      // An ITIN client's number document is the IRS letter, never called a Social Security card (aftercare/itin.ts).
+      const label = enclosureLabelFor(String(doc.kind), parseIdType(profileRow.id_type), ENCLOSURE_LABELS);
       const path = String(doc.storage_path);
       if (!label || !isAttachableImage(path)) continue;
       const { data: signed } = await db.storage.from("identity-docs").createSignedUrl(path, 24 * 60 * 60);
@@ -483,7 +486,9 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
     mailedLetters.push({ id: letterId, target: planned.target.name, stage: planned.stage });
   }
 
-  const nextDue = new Date(now.getTime() + ROUND_CYCLE_DAYS * 24 * 60 * 60 * 1000);
+  // No delivery is known yet: the estimate (mailing + transit + 30 days + the answer's buffer). The
+  // Lob webhook and the hourly re-pull move it once a certified delivery is scanned (rounds/timing.ts).
+  const nextDue = new Date(nextRoundDue({ mailedAt: now.toISOString() }, mailedLetters.map(() => ({ mailedAt: now.toISOString() })))!.dueAt);
   const { error: roundError } = await db
     .from("attack_rounds")
     .update({

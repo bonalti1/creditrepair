@@ -1,6 +1,7 @@
 import { cancellationDeadline } from "../agreement/businessDays";
 import { sha256Hex } from "../agreement/sha256";
-import { caseDay, CASE_NEXT_ROUND_DAYS, CASE_RESPONSE_DAYS, latestMailedRound, responseWindowStart, type CaseFacts } from "../case/timeline";
+import { caseDay, CASE_RESPONSE_DAYS, latestMailedRound, nextRoundAt, responseWindowStart, type CaseFacts } from "../case/timeline";
+import { nextRoundDueForStaffRound } from "../rounds/timing";
 import { GOALS, type GoalKey } from "../sales/invite";
 import { REQUIRED_DOCUMENTS, type StaffClient } from "../staff/types";
 import { BRAND } from "../brand";
@@ -29,6 +30,29 @@ export type ShareHow = "referred" | "added_by_code";
 
 /** Change it whenever any word of the consent text changes. Stored with every record (partner_share_consents.text_version). */
 export const SHARING_CONSENT_VERSION = "2026-11-compartir-v1";
+
+/**
+ * The home-ready line (migration 0030, docs/AFTERCARE.md): an extension of the
+ * same consent, added only when the client also shares their home-ready
+ * milestones. Its own version is part of the hashed text, so the base text and
+ * its version stay unchanged for everyone who does not choose it.
+ */
+export const HOME_READY_CONSENT_VERSION = "2026-11-casa-v1";
+
+/** Home-ready milestones go only to a real estate agent or a loan officer (the database checks the same). */
+export function homeReadyAllowed(kind: PartnerKind): boolean {
+  return kind === "loan_officer" || kind === "realtor";
+}
+
+export interface ConsentOptions {
+  /** Also share the home-ready milestones. Needs a level other than "none". */
+  homeReady?: boolean;
+}
+
+const HOME_READY_LINE: Record<L, string> = {
+  en: "Your home-buying milestones and their dates: documents, review, disputes, and the steps you mark yourself (positive accounts, savings, loan officer). Never amounts, account details or scores.",
+  es: "Tus pasos para comprar casa y sus fechas: documentos, revisión, disputas, y los pasos que tú marcas (cuentas positivas, ahorro, oficial de préstamos). Nunca montos, datos de cuentas ni puntajes.",
+};
 
 export const SHARE_LEVEL_LABEL: Record<L, Record<ShareLevel, string>> = {
   es: { none: "No compartir", progress: "Solo el avance", summary: "Avance y resumen" },
@@ -64,7 +88,13 @@ export interface ConsentText {
  * Its hash is what the record keeps; the server recomputes it from the
  * partner's name in the database and refuses a choice made on other words.
  */
-export function consentText(level: ShareLevel, partner: Pick<SharePartner, "name" | "company">, locale: L): ConsentText {
+export function consentText(level: ShareLevel, partner: Pick<SharePartner, "name" | "company">, locale: L, options: ConsentOptions = {}): ConsentText {
+  const base = baseConsentText(level, partner, locale);
+  if (!options.homeReady || level === "none") return base;
+  return { ...base, will: [...base.will, HOME_READY_LINE[locale]] };
+}
+
+function baseConsentText(level: ShareLevel, partner: Pick<SharePartner, "name" | "company">, locale: L): ConsentText {
   const who = partnerDisplay(partner);
   const first = firstName(partner.name);
   if (locale === "en") {
@@ -132,15 +162,24 @@ export function consentText(level: ShareLevel, partner: Pick<SharePartner, "name
 }
 
 /** The text as one string, as it is hashed. */
-export function consentPlainText(level: ShareLevel, partner: Pick<SharePartner, "name" | "company">, locale: L): string {
-  const t = consentText(level, partner, locale);
+export function consentPlainText(level: ShareLevel, partner: Pick<SharePartner, "name" | "company">, locale: L, options: ConsentOptions = {}): string {
+  const t = consentText(level, partner, locale, options);
   const heads = locale === "es" ? ["Verá:", "Nunca verá:"] : ["Will see:", "Will never see:"];
   return [t.lead, heads[0], ...t.will.map((x) => `- ${x}`), heads[1], ...t.never.map((x) => `- ${x}`), ...t.notes].join("\n");
 }
 
 /** SHA-256 of exactly what the client was shown for this choice. */
-export function consentHash(level: ShareLevel, partner: Pick<SharePartner, "name" | "company">, locale: L, version: string = SHARING_CONSENT_VERSION): string {
-  return sha256Hex([`version: ${version}`, `locale: ${locale}`, `level: ${level}`, consentPlainText(level, partner, locale)].join("\n\n"));
+export function consentHash(
+  level: ShareLevel,
+  partner: Pick<SharePartner, "name" | "company">,
+  locale: L,
+  version: string = SHARING_CONSENT_VERSION,
+  options: ConsentOptions = {},
+): string {
+  const homeReady = Boolean(options.homeReady) && level !== "none";
+  return sha256Hex(
+    [`version: ${version}`, `locale: ${locale}`, `level: ${level}`, ...(homeReady ? [`home-ready: ${HOME_READY_CONSENT_VERSION}`] : []), consentPlainText(level, partner, locale, { homeReady })].join("\n\n"),
+  );
 }
 
 // ── What a partner sees ─────────────────────────────────────────────────
@@ -150,7 +189,7 @@ export interface PartnerRound {
   mailedAt: string;
   /** About 30 days after the round reached the bureaus. */
   answerDueAt: string;
-  /** About 40 days after mailing. */
+  /** When the next round is due (rounds/timing.ts): about 35 to 45 days after mailing. */
   nextRoundAt: string;
 }
 
@@ -392,7 +431,7 @@ export function progressFromCaseFacts(
   const documentsCompleteAt = REQUIRED_DOCUMENTS.every((k) => docs.has(k)) ? [...docs.entries()].filter(([k]) => (REQUIRED_DOCUMENTS as readonly string[]).includes(k)).map(([, at]) => at).sort().at(-1)! : null;
   const rounds = facts.rounds
     .filter((r) => r.mailedAt)
-    .map((r) => ({ number: r.number, mailedAt: r.mailedAt!, answerDueAt: addDays(responseWindowStart(r), CASE_RESPONSE_DAYS), nextRoundAt: addDays(r.mailedAt!, CASE_NEXT_ROUND_DAYS) }));
+    .map((r) => ({ number: r.number, mailedAt: r.mailedAt!, answerDueAt: addDays(responseWindowStart(r), CASE_RESPONSE_DAYS), nextRoundAt: nextRoundAt(r) }));
   const mailed = latestMailedRound(facts);
   return {
     clientId: who.clientId ?? "preview",
@@ -429,7 +468,7 @@ export function progressFromStaffClient(client: StaffClient, share: { level: Sha
         const cls = l.mail?.mailClass ?? l.mailClass;
         if ((cls === "certified" || cls === "certified_return_receipt") && l.mailStatus === "delivered" && ms(l.mail?.deliveredAt) > start) start = ms(l.mail?.deliveredAt);
       }
-      return { number: r.number, mailedAt: r.mailedAt!, answerDueAt: new Date(start + CASE_RESPONSE_DAYS * DAY_MS).toISOString(), nextRoundAt: addDays(r.mailedAt!, CASE_NEXT_ROUND_DAYS) };
+      return { number: r.number, mailedAt: r.mailedAt!, answerDueAt: new Date(start + CASE_RESPONSE_DAYS * DAY_MS).toISOString(), nextRoundAt: nextRoundDueForStaffRound(r)!.dueAt };
     })
     .sort((a, b) => a.number - b.number);
   const latest = [...mailed].sort((a, b) => b.number - a.number)[0];

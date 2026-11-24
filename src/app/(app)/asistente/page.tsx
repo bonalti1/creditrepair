@@ -28,7 +28,7 @@ import SpeakButton from "@/components/SpeakButton";
 import Icon from "@/components/Icon";
 import { InfoNote, WaitingNote } from "@/components/RoundNotes";
 import { CharacterAvatar } from "@/components/Character";
-import { ASSISTANT_NAME } from "@/lib/brand";
+import { ASSISTANT_NAME, BRAND, aiByline } from "@/lib/brand";
 import TeamMessage from "@/components/TeamMessage";
 import { markMilestone } from "@/lib/ux/firstWeek";
 
@@ -43,11 +43,15 @@ import { markMilestone } from "@/lib/ux/firstWeek";
 // When a teammate answers in the thread, their message is signed with their
 // first name and "del equipo" and looks different from the assistant's (TeamMessage).
 //
-// Faces: the assistant's messages and the header carry the robot, the AI
-// assistant. A teammate's message never gets a character: it is signed with
-// the real person's name, so nobody's words are put in a mascot's mouth. Alti,
-// the face of the team as a whole, appears only on the "Persona" button, which
-// leads to the team, not to any one message.
+// Faces and labels (owner's decision, 2026-11-24; docs/BRAND.md): Alti is the
+// AI assistant. The header reads "Alti · AI assistant", and every run of his
+// messages starts with the same label beside his face (each bubble also
+// carries it for screen readers), because he looks like a person and the law
+// asks that an AI never pass for one. A teammate's message never gets a
+// character: it is signed with the real person's name ("Ana · Credalti
+// team"), so nobody's words are put in a mascot's mouth. The "Person" button
+// shows a plain person icon, never Alti: he is not a person. No other
+// character ever appears in this chat.
 // The thread itself is saved (server-side when signed in), so the client picks
 // up the same conversation on any device.
 
@@ -136,8 +140,8 @@ export default function Asistente() {
     const opening: Msg[] = [
       line(
         "assistant",
-        `Hola 👋 Soy ${ASSISTANT_NAME}, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós: ${DICTS.es.dashboard.items(items.length)}, ${DICTS.es.dashboard.negatives(negatives)}.`,
-        `Hi 👋 I'm ${ASSISTANT_NAME}, your AI credit assistant. I already imported your 3-bureau report: ${DICTS.en.dashboard.items(items.length)}, ${DICTS.en.dashboard.negatives(negatives)}.`,
+        `Hola 👋 Soy ${ASSISTANT_NAME}, tu asistente de crédito con IA: soy una inteligencia artificial, no una persona. Ya importé tu reporte de los 3 burós: ${DICTS.es.dashboard.items(items.length)}, ${DICTS.es.dashboard.negatives(negatives)}.`,
+        `Hi 👋 I'm ${ASSISTANT_NAME}, your AI credit assistant: I'm artificial intelligence, not a person. I already imported your 3-bureau report: ${DICTS.en.dashboard.items(items.length)}, ${DICTS.en.dashboard.negatives(negatives)}.`,
       ),
     ];
     // What follows the review is said in the words of the service mode (reviewChatCopy.ts).
@@ -327,7 +331,7 @@ export default function Asistente() {
       const res = await fetch("/api/coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // The app's language: AltiBot answers in the language of the question, else in this one.
+        // The app's language: Alti answers in the language of the question, else in this one.
         body: JSON.stringify({ messages: [...context, { role: "user", content: q.slice(0, 4000) }], locale }),
       });
       if (res.ok) {
@@ -367,10 +371,12 @@ export default function Asistente() {
   const otherBureaus = current ? crossBureauNote(current, items, flags, locale) : null;
   const humanButton =
     "pressable flex h-11 shrink-0 items-center gap-2 rounded-full bg-slate-100 pl-1.5 pr-4 text-[14px] font-semibold text-slate-900";
-  // Alti stands for the team the button leads to; the button's label says what it does.
+  // A person icon, never a character: Alti is the AI, and this button leads to people.
   const humanLabel = (
     <>
-      <CharacterAvatar character="team" size={32} decorative />
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-700 text-white">
+        <Icon name="person" size={17} strokeWidth={2.25} />
+      </span>
       {es ? "Persona" : "Person"}
     </>
   );
@@ -380,12 +386,14 @@ export default function Asistente() {
       <header className="flex items-center gap-3 border-b hairline px-4 py-3">
         <CharacterAvatar character="assistant" size={44} decorative />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[16px] font-semibold leading-tight text-slate-900">
+          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[16px] font-semibold leading-tight text-slate-900" data-testid="chat-ai-title">
             {ASSISTANT_NAME}
+            <span className="sr-only">·</span>
+            <span className="rounded-full bg-amber-100 px-2 py-px text-[12px] font-semibold text-blue-900">{BRAND.aiLabel[locale]}</span>
           </span>
           <span className="flex items-center gap-1.5 text-xs text-slate-500">
             <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-            {es ? "Asistente con IA" : "AI assistant"}
+            {es ? "Inteligencia artificial, no una persona" : "Artificial intelligence, not a person"}
           </span>
         </span>
         {humanHref ? (
@@ -414,15 +422,20 @@ export default function Asistente() {
         {messages.map((m, i) => {
           const shown = messageText(m, locale);
           const voice = messageVoice(m, locale);
-          // The robot's face on the assistant's lines only, once per run of them (on the last).
+          // Alti's face on the assistant's lines only, once per run of them (on the last),
+          // and the AI label above the first line of every run.
           const next = messages[i + 1];
+          const prev = messages[i - 1];
           const lastOfRun = !next || messageVoice(next, locale).kind !== "assistant";
+          const firstOfRun = !prev || messageVoice(prev, locale).kind !== "assistant";
           return (
-            <div
-              key={i}
-              data-newest={i === messages.length - 1 ? "" : undefined}
-              className={`animate-rise flex items-end gap-1.5 ${voice.kind === "client" ? "justify-end" : ""}`}
-            >
+            <div key={i} data-newest={i === messages.length - 1 ? "" : undefined} className="animate-rise">
+            {voice.kind === "assistant" && firstOfRun && (
+              <p data-testid="ai-byline" className="mb-1 ml-9 flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                {aiByline(locale)}
+              </p>
+            )}
+            <div className={`flex items-end gap-1.5 ${voice.kind === "client" ? "justify-end" : ""}`}>
               {voice.kind === "assistant" &&
                 (lastOfRun ? (
                   <CharacterAvatar character="assistant" size={28} decorative className="mb-0.5" />
@@ -440,14 +453,16 @@ export default function Asistente() {
                       : "rounded-[22px] rounded-bl-md bg-slate-100 text-slate-900"
                   }`}
                 >
+                  {voice.kind === "assistant" && <span className="sr-only">{aiByline(locale)}: </span>}
                   {shown}
                 </div>
               )}
               {/* Read-aloud says who wrote a teammate's message before reading it. */}
               {voice.kind !== "client" && (
-                // AltiBot's words may get his own voice one day (src/lib/voice); a teammate's never get a character's.
+                // Alti's words may get his own voice one day (src/lib/voice); a teammate's never get a character's.
                 <SpeakButton text={voice.spoken} compact speaker={voice.kind === "assistant" ? "assistant" : "neutral"} />
               )}
+            </div>
             </div>
           );
         })}

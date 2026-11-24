@@ -7,6 +7,8 @@ import { REFERRAL_CODE } from "@/lib/partners/rules";
 import { rateLimit } from "@/lib/security/rateLimit";
 import { safeEqual } from "@/lib/security/signatures";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { loadOpenStates } from "@/lib/compliance/stateOpenings";
+import { stateStatus } from "@/lib/compliance/states";
 
 // A lead from a HighLevel workflow (docs/HIGHLEVEL.md). HighLevel captures the
 // lead (ad, form, funnel); this endpoint hands it to the app as a prospect, with
@@ -92,6 +94,16 @@ export async function POST(req: Request) {
     }
 
     const { lead } = parsed;
+    // A lead from a state we have not opened (/equipo/estados) goes on the waitlist, not to sales: no
+    // prospect, no invitation (compliance/states.ts). HighLevel sees "waitlisted".
+    if (stateStatus(lead.state, await loadOpenStates(db)) !== "open") {
+      const { error: waitError } = await db.from("waitlist").insert({ email: lead.email, phone_e164: lead.phone, state: lead.state, locale: "en", source: "highlevel" });
+      if (waitError) throw new Error(`waitlist: ${waitError.message}`);
+      await db
+        .from("webhook_receipts")
+        .upsert({ source: "highlevel", delivery_key: deliveryKey, outcome: "waitlisted", prospect_id: null, dropped_fields: parsed.dropped }, { onConflict: "source,delivery_key", ignoreDuplicates: true });
+      return NextResponse.json({ ok: true, outcome: "waitlisted", prospectId: null, dropped: parsed.dropped });
+    }
     let partner: { id: string; salesperson: string | null } | null = null;
     if (lead.partnerCode && REFERRAL_CODE.test(lead.partnerCode)) {
       const { data } = await db.from("partners").select("id, salesperson").eq("referral_code", lead.partnerCode).eq("status", "approved").maybeSingle();

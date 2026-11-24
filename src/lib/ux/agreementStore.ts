@@ -5,6 +5,7 @@ import { cancellationDeadline } from "../agreement/businessDays";
 import { AGREEMENT_VERSION, disclosureHash, documentHash, type AgreementLocale } from "../agreement/documents";
 import { canCancelWithoutPenalty } from "../agreement/gate";
 import { agreementReadiness, type AgreementMode } from "../agreement/readiness";
+import { agreementDocumentsFor, type StateDocumentsStatus } from "../agreement/stateDocuments";
 import { EMPTY_AGREEMENT, normalizeAgreement, type AgreementState } from "../agreement/record";
 import { resolveTerms, withPlan } from "../agreement/terms";
 import { demoOfferedPlan } from "../billing/planData";
@@ -30,7 +31,7 @@ interface ServerStatus {
   authenticated: boolean;
   agreement: unknown;
   profileName?: string | null;
-  readiness?: { mode: AgreementMode; canSign: boolean; version: string };
+  readiness?: { mode: AgreementMode; canSign: boolean; version: string; stateDocuments?: { state: string; status: StateDocumentsStatus } };
   /** The plan the client would sign (billing/plans.ts), or null when the catalogue has none. */
   plan?: unknown;
 }
@@ -45,6 +46,14 @@ async function post(path: string, body: unknown): Promise<{ status: number; data
   return { status: res.status, data };
 }
 
+function readDemoState(): string | null {
+  try {
+    return window.localStorage.getItem("bonalti.state");
+  } catch {
+    return null;
+  }
+}
+
 export function useAgreement() {
   const [agreement, setAgreement] = useState<AgreementState | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -53,6 +62,8 @@ export function useAgreement() {
   const [profileName, setProfileName] = useState<string | null>(null);
   /** Whether a signature can be taken: the server's answer when signed in, this build's otherwise. */
   const [mode, setMode] = useState<AgreementMode>(() => agreementReadiness().mode);
+  /** The client's state and whether the agreement has its documents (agreement/stateDocuments.ts). */
+  const [stateDocuments, setStateDocuments] = useState<{ state: string; status: StateDocumentsStatus }>(() => agreementDocumentsFor(null));
   /** The plan the client is offered: the server's answer when signed in, the demo catalogue's default otherwise. */
   const [plan, setPlan] = useState<PlanSnapshot | null>(null);
   const planRef = useRef<PlanSnapshot | null>(null);
@@ -75,6 +86,7 @@ export function useAgreement() {
           setSignedIn(true);
           setProfileName(data.profileName ?? null);
           if (data.readiness) setMode(data.readiness.mode);
+          if (data.readiness?.stateDocuments) setStateDocuments(data.readiness.stateDocuments);
           planRef.current = readPlanSnapshot(data.plan);
           setPlan(planRef.current);
           store(normalizeAgreement(data.agreement));
@@ -82,6 +94,10 @@ export function useAgreement() {
           planRef.current = demoOfferedPlan();
           setPlan(planRef.current);
           setAgreement(local);
+          // The demo: the state chosen in onboarding, on this device.
+          const state = readDemoState();
+          setStateDocuments(agreementDocumentsFor(state));
+          setMode(agreementReadiness({ state }).mode);
         }
       })
       .catch(() => {
@@ -207,5 +223,5 @@ export function useAgreement() {
     if (!synced.current) store(null);
   }, [store]);
 
-  return { agreement, hydrated, signedIn, profileName, mode, plan, acknowledge, sign, cancel, resetDemo };
+  return { agreement, hydrated, signedIn, profileName, mode, plan, stateDocuments, acknowledge, sign, cancel, resetDemo };
 }

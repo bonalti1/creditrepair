@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ASSISTANT_NAME, BRAND } from "@/lib/brand";
+import { ASSISTANT_NAME, BRAND, CAMEO_NAME } from "@/lib/brand";
 import { DEMO_RAW_REPORT } from "@/lib/demo";
 import { PRIMARY_BUREAUS } from "@/lib/domain/bureaus";
 import { parseReport } from "@/lib/domain/parser";
@@ -24,7 +24,7 @@ import { variationProblems } from "@/lib/letters/variation";
 
 // Names that never appear in a consumer's letter: the old company name, the
 // assistant, the internal project name and this company.
-const NOT_IN_A_LETTER = new RegExp(`\\bCreditCapi\\b|\\b${ASSISTANT_NAME}\\b|${BRAND.internalName}|\\b${BRAND.name}\\b|on behalf of`, "i");
+const NOT_IN_A_LETTER = new RegExp(`\\bCreditCapi\\b|\\b${ASSISTANT_NAME}\\b|\\b${CAMEO_NAME}\\b|${BRAND.internalName}|\\b${BRAND.name}\\b|on behalf of`, "i");
 
 // The same sample context the original letter tests use.
 const report = parseReport(DEMO_RAW_REPORT);

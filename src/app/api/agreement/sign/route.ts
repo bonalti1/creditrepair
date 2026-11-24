@@ -4,7 +4,7 @@ import { cancellationDeadline } from "@/lib/agreement/businessDays";
 import { AGREEMENT_VERSION, disclosureHash, documentHash } from "@/lib/agreement/documents";
 import { agreementReadiness } from "@/lib/agreement/readiness";
 import { agreementFromRow } from "@/lib/agreement/record";
-import { AGREEMENT_TABLE, loadAgreementRow } from "@/lib/agreement/server";
+import { AGREEMENT_TABLE, loadAgreementRow, loadSigningState } from "@/lib/agreement/server";
 import { isFullName, signerNameMatches } from "@/lib/agreement/signature";
 import { resolveTerms, withPlan } from "@/lib/agreement/terms";
 import { offeredSnapshot } from "@/lib/billing/planStore";
@@ -59,7 +59,12 @@ export async function POST(req: Request) {
   // The plan offered to this client, as the snapshot the signature keeps (terms.plan). The database
   // checks it is exactly an active, attorney-approved plan version (migration 0026).
   const terms = withPlan(resolveTerms(), await offeredSnapshot(db, user.id).catch(() => null));
-  const readiness = agreementReadiness({ terms });
+  // The client's state: opened by Credalti (migration 0030), and with its own agreement documents (stateDocuments.ts).
+  const signing = await loadSigningState(db, user.id);
+  if (!signing.open) {
+    return NextResponse.json({ error: "We are not taking clients in this state yet.", code: "state_not_open" }, { status: 409 });
+  }
+  const readiness = agreementReadiness({ terms, state: signing.state });
   if (!readiness.ready) {
     return NextResponse.json(
       { error: "The agreement is not ready to be signed yet.", code: "agreement_not_ready" },

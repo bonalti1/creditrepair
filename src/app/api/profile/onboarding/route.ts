@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { ALL_STATES } from "@/lib/compliance/states";
+import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
+import { loadOpenStates } from "@/lib/compliance/stateOpenings";
 import { GOALS } from "@/lib/sales/invite";
 import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
@@ -20,6 +21,8 @@ const bodySchema = z.object({
   assisted: z.boolean().optional(),
   referredBy: z.string().regex(/^[a-z0-9-]{2,30}$/).optional(),
   partnerCode: z.string().regex(/^[a-z0-9-]{3,30}$/).optional(),
+  // "Do you have a Social Security number or an ITIN?": the kind only, never the number (migration 0030).
+  idType: z.enum(["ssn", "itin"]).optional(),
 });
 
 export async function POST(req: Request) {
@@ -36,6 +39,13 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: z.flattenError(parsed.error) }, { status: 400 });
   const { goal, state, assisted, referredBy } = parsed.data;
 
+  // A state we have not opened (/equipo/estados, migration 0030) is not signed up: the screen offers the
+  // waitlist instead (compliance/states.ts). Checked here too, whatever the screen showed.
+  if (state) {
+    const status = stateStatus(state, await loadOpenStates(getAdminClient()));
+    if (status !== "open") return NextResponse.json({ error: "We are not taking clients in this state yet.", code: status === "blocked" ? "state_blocked" : "state_not_open" }, { status: 409 });
+  }
+
   const { data: existing } = await supabase
     .from("profiles")
     .select("referred_by")
@@ -46,6 +56,7 @@ export async function POST(req: Request) {
   if (goal) update.goal = goal;
   if (state) update.state = state;
   if (assisted !== undefined) update.assisted = assisted;
+  if (parsed.data.idType) update.id_type = parsed.data.idType;
   if (referredBy && !existing?.referred_by) update.referred_by = referredBy;
 
   const { error } = await supabase.from("profiles").upsert(update, { onConflict: "id" });

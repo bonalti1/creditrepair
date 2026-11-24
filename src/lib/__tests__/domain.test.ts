@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEMO_RAW_REPORT } from "@/lib/demo";
-import { buildAttackPlan, nextStageFor, ROUND_CYCLE_DAYS } from "@/lib/domain/attack";
+import { buildAttackPlan, nextStageFor } from "@/lib/domain/attack";
+import { ESTIMATED_CYCLE_DAYS, MAX_CYCLE_DAYS } from "@/lib/rounds/timing";
 import { PRIMARY_BUREAUS, SECONDARY_BUREAUS, UNVERIFIED_BUREAUS } from "@/lib/domain/bureaus";
 import { diffReports, diffSummary } from "@/lib/domain/diff";
 import { parseReport } from "@/lib/domain/parser";
@@ -189,8 +190,9 @@ describe("buildAttackPlan — rounds and escalation", () => {
     expect(plan.letters[0]!.templateKey).toBe("mov_request");
   });
 
-  it("uses a 40-day cycle", () => {
-    expect(ROUND_CYCLE_DAYS).toBe(40);
+  it("no fixed cycle: the estimate with no tracking is 40 days, the upper bound 45 (rounds/timing.ts)", () => {
+    expect(ESTIMATED_CYCLE_DAYS).toBe(40);
+    expect(MAX_CYCLE_DAYS).toBe(45);
   });
 });
 

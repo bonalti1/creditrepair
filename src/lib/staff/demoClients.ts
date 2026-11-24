@@ -366,7 +366,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   ];
   itzel.conversation = [
     ...thread("c04", ago(2, 3), [
-      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA. Para empezar activa tu monitoreo de crédito: en cuanto esté listo importo tu reporte y lo revisamos juntos.`],
+      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA: soy una inteligencia artificial, no una persona. Para empezar activa tu monitoreo de crédito: en cuanto esté listo importo tu reporte y lo revisamos juntos.`],
     ]),
     // Her question, at the moment the assistant passed it to the team.
     ...thread("c04", ago(1), [
@@ -384,7 +384,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
 
   fidel.conversation = [
     ...thread("c05", ago(2), [
-      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós. Vamos a revisarlo juntos, punto por punto: yo te explico cada uno y tú decides.`],
+      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA: soy una inteligencia artificial, no una persona. Ya importé tu reporte de los 3 burós. Vamos a revisarlo juntos, punto por punto: yo te explico cada uno y tú decides.`],
     ]),
     ...thread("c05", ago(0, 3), [
       ["client", "¿Qué es una consulta dura?"],
@@ -441,15 +441,26 @@ export function buildDemoClients(now: Date): StaffClient[] {
   graciela.rounds = [round(graciela, 1, "mailed", { mailedDaysAgo: 9 })];
   graciela.rounds[0]!.letters[1]!.mailStatus = "returned";
 
-  // 12. Mailed 35 days ago and no new report has come in. He answered before
-  // the reason picker existed: his answers count and carry no reason code.
+  // 12. Mailed 45 days ago, past the round's re-pull date (rounds/timing.ts), and
+  // no new report has come in. He answered before the reason picker existed:
+  // his answers count and carry no reason code.
   const heriberto = make({
     id: "c12", first: "Heriberto", last: "Solís", phone: "+12105550112", city: "San Antonio", zip: "78207",
-    salesperson: "ana", createdDaysAgo: 46, signedUpDaysAgo: 45, agreementDaysAgo: 44, documents: both,
-    report: { pulledDaysAgo: 40, shape: "base" }, answeredDaysAgo: 37, lastActivityDaysAgo: 21,
-    beforeReasons: true, paymentMethodDaysAgo: 38,
+    salesperson: "ana", createdDaysAgo: 56, signedUpDaysAgo: 55, agreementDaysAgo: 54, documents: both,
+    report: { pulledDaysAgo: 50, shape: "base" }, answeredDaysAgo: 47, lastActivityDaysAgo: 21,
+    beforeReasons: true, paymentMethodDaysAgo: 48,
   });
-  heriberto.rounds = [round(heriberto, 1, "mailed", { mailedDaysAgo: 35 })];
+  heriberto.rounds = [round(heriberto, 1, "mailed", { mailedDaysAgo: 45 })];
+  // After-care (docs/AFTERCARE.md): he has an ITIN, wants to buy a home, and
+  // shares his home-ready milestones with Laura (sharingDemo.ts).
+  heriberto.goal = "mortgage";
+  heriberto.idType = "itin";
+  heriberto.aftercareMarks = {
+    on_time: { done: true, at: ago(30) },
+    home_positive_accounts: { done: true, at: ago(12) },
+    home_savings: { done: true, at: ago(5) },
+  };
+  heriberto.loanOfficerRequest = { partnerName: "Jorge Treviño, Hipotecas del Valle", how: "accepting", at: ago(2) };
 
   // 13. Answers arrived two days ago; the system prepares round 2 next week.
   // She also answered before the reason picker existed.
@@ -522,7 +533,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   }
   dolores.conversation = [
     ...thread("c16", ago(3), [
-      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA. Ya importé tu reporte de los 3 burós. Vamos a revisarlo juntos, punto por punto: yo te explico cada uno y tú decides.`],
+      ["assistant", `Hola 👋 Soy ${BRAND.assistant}, tu asistente de crédito con IA: soy una inteligencia artificial, no una persona. Ya importé tu reporte de los 3 burós. Vamos a revisarlo juntos, punto por punto: yo te explico cada uno y tú decides.`],
     ]),
     ...thread("c16", ago(1), [
       ["assistant", "Anotado. Para este motivo hace falta un reporte de robo de identidad de la FTC. Una persona del equipo te va a contactar para seguir con ese paso."],

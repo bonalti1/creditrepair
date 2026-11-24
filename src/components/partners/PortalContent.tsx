@@ -58,6 +58,57 @@ interface PortalView {
   referrals: PartnerReferral[];
   commissions: null | { owedCents: number; paidCents: number; balanceCents: number; records: Array<{ id: string; kind: "owed" | "paid"; amountCents: number; note: string | null; recordedAt: string }> };
   clients: PartnerProgress[];
+  /** "Connect me with a loan officer" requests to this partner (migration 0030): name, phone, goal, date. */
+  introRequests?: IntroRequestView[];
+}
+
+interface IntroRequestView {
+  id: string;
+  name: string;
+  phone: string | null;
+  goal: string | null;
+  at: string;
+}
+
+/** Clients who asked this partner to contact them about buying a home: what they agreed to share, nothing else. */
+function IntroRequests({ requests, locale }: { requests: readonly IntroRequestView[]; locale: "es" | "en" }) {
+  if (requests.length === 0) return null;
+  const es = locale === "es";
+  return (
+    <div className="mt-6" data-testid="partner-intros">
+      <h2 className="px-1 pb-1 text-[13px] font-semibold uppercase tracking-wide text-slate-500">
+        {es ? "Quieren hablar contigo" : "Want to talk to you"} · {requests.length}
+      </h2>
+      <p className="px-1 pb-2 text-[13px] leading-snug text-slate-600">
+        {es
+          ? "Estos clientes pidieron que los contactes por su meta de comprar casa. Aceptaron compartir su nombre y teléfono contigo para esto. No hay pago por la presentación."
+          : "These clients asked you to contact them about buying a home. They agreed to share their name and phone with you for this. There is no payment for the introduction."}
+      </p>
+      <ul className="card overflow-hidden">
+        {requests.map((r, i) => (
+          <li key={r.id} className={`flex items-center justify-between gap-3 px-4 py-3 ${i > 0 ? "border-t hairline" : ""}`}>
+            <span className="min-w-0">
+              <span className="block text-[16px] font-semibold text-slate-900">{r.name}</span>
+              <span className="block text-[13px] text-slate-500">{new Date(r.at).toLocaleDateString(es ? "es-MX" : "en-US", { day: "numeric", month: "long" })}</span>
+            </span>
+            {r.phone && <span className="shrink-0 text-[15px] font-semibold tabular-nums text-blue-700">{r.phone}</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** The demo client's own introduction request (this browser), when it asked this partner. */
+function demoIntroRequests(partnerId: string): IntroRequestView[] {
+  try {
+    const raw = JSON.parse(window.localStorage.getItem("credalti.demoAftercare.v1") ?? "{}") as { introRequest?: { partnerId: string; at: string } | null };
+    const r = raw.introRequest;
+    if (!r || r.partnerId !== partnerId) return [];
+    return [{ id: "demo-intro", name: window.localStorage.getItem("bonalti.inviteName") || "Rosa Martínez", phone: "+1 (210) 555-0100", goal: "mortgage", at: r.at }];
+  } catch {
+    return [];
+  }
 }
 
 const DEMO_SENT = "credalti.demoPartnerReferrals";
@@ -120,6 +171,7 @@ async function demoView(): Promise<PortalView> {
     referrals,
     commissions: program.commissionsEnabled ? { ...commissionTotals(records), records: [...records].reverse() } : null,
     clients: local.termsAccepted ? demoPartnerClients(partner.id, clients, now) : [],
+    introRequests: local.termsAccepted ? demoIntroRequests(partner.id) : [],
   };
 }
 
@@ -379,6 +431,7 @@ export default function PortalContent() {
                   </ul>
                 )}
               </div>
+              <IntroRequests requests={view.introRequests ?? []} locale={locale} />
             </section>
           )}
 

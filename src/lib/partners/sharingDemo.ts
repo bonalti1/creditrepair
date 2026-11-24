@@ -2,6 +2,7 @@ import type { StaffClient } from "../staff/types";
 import { buildDemoPartners, DEMO_PORTAL_PARTNER } from "./demo";
 import { progressFromStaffClient, type PartnerProgress, type ShareHow, type ShareLevel, type SharingLevel } from "./sharing";
 import type { StaffShareRow, StaffViewRow } from "./sharingStaff";
+import { partnerHomeFromProgress, type PartnerHomeRow } from "../aftercare/homeReady";
 
 // ─────────────────────────────────────────────────────────────────────────
 // DEMO ONLY. Nobody here exists. Which invented clients chose to share their
@@ -128,4 +129,15 @@ export function demoClientViews(sharing: DemoClientSharing, now: Date): Array<{ 
 /** A demo partner by referral code (the welcome, the "Cómo funciona" page, adding by code). Approved partners only. */
 export function demoPartnerByCode(code: string, now: Date = new Date()) {
   return buildDemoPartners(now).find((p) => p.referralCode === code && p.status === "approved") ?? null;
+}
+
+// ── Home-ready milestones (migration 0030), demo only ───────────────────
+
+/** Which invented clients also share their home-ready milestones, and with whom. */
+const DEMO_HOME_SHARES: Array<[string, string]> = [["p-laura", "c12"]];
+
+/** The home-ready milestones a demo partner sees for one client, or [] when not shared. */
+export function demoPartnerHomeReady(partnerId: string, client: StaffClient, share: PartnerProgress): PartnerHomeRow[] {
+  if (!DEMO_HOME_SHARES.some(([p, c]) => p === partnerId && c === client.id)) return [];
+  return partnerHomeFromProgress(share, client.aftercareMarks ?? {}, client.graduation?.completedAt ?? null);
 }

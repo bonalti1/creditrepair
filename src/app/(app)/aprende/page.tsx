@@ -32,7 +32,13 @@ export default function AprendePage() {
           {LESSONS.map((lesson, i) => (
             <li key={lesson.slug} className={i > 0 ? "border-t hairline" : ""}>
               <Link href={`/aprende/${lesson.slug}`} className="pressable flex items-center gap-3.5 px-4 py-3.5 hover:bg-slate-50">
-                <CharacterAvatar character={lesson.character} size={40} decorative />
+                {lesson.character === "assistant" ? (
+                  <CharacterAvatar character="assistant" size={40} decorative />
+                ) : (
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-700 text-white">
+                    <Icon name="team" size={20} />
+                  </span>
+                )}
                 <span className="min-w-0 flex-1">
                   <span className="block text-[17px] font-medium leading-snug text-slate-900">{lesson.title[locale]}</span>
                   <span className="block text-[14px] leading-snug text-slate-600">{lesson.summary[locale]}</span>
@@ -44,8 +50,8 @@ export default function AprendePage() {
         </ol>
         <p className="px-1 pt-2 text-[13px] leading-relaxed text-slate-600">
           {es
-            ? `Las lecciones las presenta ${ASSISTANT_NAME}, nuestro asistente con IA, o las ilustra Alti, la cara de nuestro equipo. Las escribió el equipo de Credalti, con fuentes del gobierno.`
-            : `${ASSISTANT_NAME}, our AI assistant, presents the lessons, or Alti, the face of our team, illustrates them. The Credalti team wrote them, with government sources.`}
+            ? `La mayoría de las lecciones las presenta ${ASSISTANT_NAME}, nuestro asistente con IA; las de cuidarte son palabras del equipo. Las escribió el equipo de Credalti, con fuentes del gobierno.`
+            : `${ASSISTANT_NAME}, our AI assistant, presents most lessons; the ones on protecting yourself are the team's own words. The Credalti team wrote them, with government sources.`}
         </p>
       </section>
 

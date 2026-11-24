@@ -97,7 +97,7 @@ export async function loadClientViews(reader: SupabaseClient, userId: string): P
 export async function loadClientConsents(reader: SupabaseClient, userId: string) {
   const { data, error } = await reader
     .from("partner_share_consents")
-    .select("partner_id, level, previous_level, action, created_at")
+    .select("partner_id, level, previous_level, action, home_ready, created_at")
     .eq("user_id", userId)
     .order("seq", { ascending: false })
     .limit(50);
@@ -107,6 +107,7 @@ export async function loadClientConsents(reader: SupabaseClient, userId: string)
     level: String(r.level) as ShareLevel,
     previousLevel: String(r.previous_level) as ShareLevel,
     action: String(r.action) as "grant" | "change" | "revoke",
+    homeReady: r.home_ready === true,
     at: new Date(String(r.created_at)).toISOString(),
   }));
 }

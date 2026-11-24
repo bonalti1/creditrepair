@@ -418,7 +418,8 @@ describe("report import: a new report over an old one", () => {
     expect(round.status).toBe("mailed");
     expect(round.respondedAt).toBeNull();
     expect(clientStage(after, NOW)).toBe("waiting_on_bureaus");
-    expect(nextStep(after, NOW).text).toBe("Re-importar el reporte el 23 de diciembre");
+    // The re-pull date: 40 days after mailing with no certified scan (rounds/timing.ts), after the 30-day window.
+    expect(nextStep(after, NOW).text).toBe("Re-importar el reporte el 2 de enero");
     expect(after.reportImports![0]).toMatchObject({ removed: 1, added: 0, changed: 1, closedRound: null });
     // The letter still shows what was mailed.
     expect(round.letters[0]!.items).toHaveLength(2);
@@ -427,8 +428,12 @@ describe("report import: a new report over an old one", () => {
   it(`after the ${RESPONSE_WINDOW_DAYS}-day window: the report closes the round, and the stage, notices and next step follow`, () => {
     const before = mailedClient(35, 40);
     expect(clientStage(before, NOW)).toBe("waiting_on_bureaus");
-    expect(clientExceptions(before, NOW).map((e) => e.kind)).toEqual(["response_overdue"]);
-    expect(nextStep(before, NOW)).toMatchObject({ actor: "client" });
+    // Past the 30 days but before the round's re-pull date (rounds/timing.ts): nothing is late yet.
+    expect(clientExceptions(before, NOW).map((e) => e.kind)).toEqual([]);
+    expect(nextStep(before, NOW)).toMatchObject({ actor: "system", text: "Re-importar el reporte el 10 de diciembre" });
+    // Past the re-pull date with no new report: the client is asked to check their monitoring.
+    expect(clientExceptions(mailedClient(41, 46), NOW).map((e) => e.kind)).toEqual(["response_overdue"]);
+    expect(nextStep(mailedClient(41, 46), NOW)).toMatchObject({ actor: "client" });
 
     const preview = importPreview(before, reimport(0), AT);
     expect(preview.effects).toContain(
