@@ -1,6 +1,7 @@
 "use client";
 
-import { BRAND, type CharacterImage, type CharacterView } from "@/lib/brand";
+import { BRAND, type AssistantPose, type CharacterImage, type CharacterView } from "@/lib/brand";
+import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 
 // The brand's characters (src/lib/brand.ts; owner's decisions of 2026-11-24,
@@ -22,7 +23,10 @@ import { useLocale } from "@/lib/i18n";
 // .char-wave), never redrawing the art, and nothing moves for people who ask
 // for reduced motion.
 //
-// The art is locked (docs/BRAND.md): it is shown as delivered, only scaled.
+// Alti also has six poses (`pose="wave"`, "phone", "thumbsUp", "thinking",
+// "envelope", "celebrate") and a short waving loop (`AltiWaveLoop`).
+//
+// The art is shown as delivered, only scaled (docs/BRAND.md).
 // It is served as the kit's own @1x/@2x WebP files through srcSet, so a phone
 // with a retina screen gets the @2x file and nothing is re-encoded (next/image
 // would re-compress the art). Width and height are always set, so the layout
@@ -114,6 +118,7 @@ export function CharacterAvatar({
 export function CharacterFigure({
   character,
   view = "front",
+  pose,
   height,
   heightClassName,
   priority = false,
@@ -123,6 +128,8 @@ export function CharacterFigure({
 }: {
   character: Character;
   view?: Extract<CharacterView, "front" | "threeQuarter">;
+  /** One of Alti's poses instead of a view (the assistant only; AltiBot has none). */
+  pose?: AssistantPose;
   /** Subtle motion of the whole picture (transforms only). */
   motion?: CharacterMotion;
   /** Displayed height in px (CSS); the width keeps the art's proportions. */
@@ -138,7 +145,7 @@ export function CharacterFigure({
   className?: string;
 }) {
   const { locale } = useLocale();
-  const image = imagesOf(character)[view];
+  const image = pose && character === "assistant" ? BRAND.assistantPoses[pose] : imagesOf(character)[view];
   const width = Math.round((height * image.width) / image.height);
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -155,6 +162,63 @@ export function CharacterFigure({
       className={`block shrink-0 select-none ${heightClassName ? `${heightClassName} w-auto` : "h-auto"} ${MOTION_CLASS[motion]} ${className}`}
       style={heightClassName ? { aspectRatio: `${image.width} / ${image.height}` } : { width, aspectRatio: `${image.width} / ${image.height}` }}
       data-character={character}
+    />
+  );
+}
+
+/** The waving loop's frame size in px (the file is drawn at this size; shown at half for retina). */
+const WAVE_LOOP = { src: "/brand/characters/alti_wave_loop.webp", still: "/brand/characters/alti_wave_loop_still.webp", width: 309, height: 640 };
+
+/**
+ * Alti waving hello, a 4-second loop (an animated WebP with a transparent
+ * background, so it sits on any navy). The first frame (30 KB) shows at
+ * once; the loop (about 1.2 MB) loads after the page and swaps in, so it never
+ * slows the first paint. People who ask for reduced motion keep the still.
+ * Give it a display height; the width follows.
+ */
+export function AltiWaveLoop({
+  height,
+  heightClassName,
+  priority = false,
+  decorative = false,
+  className = "",
+}: {
+  height: number;
+  heightClassName?: string;
+  priority?: boolean;
+  decorative?: boolean;
+  className?: string;
+}) {
+  const { locale } = useLocale();
+  const [src, setSrc] = useState(WAVE_LOOP.still);
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    let live = true;
+    const loop = new window.Image();
+    loop.onload = () => {
+      if (live) setSrc(WAVE_LOOP.src);
+    };
+    loop.src = WAVE_LOOP.src;
+    return () => {
+      live = false;
+    };
+  }, []);
+  const width = Math.round((height * WAVE_LOOP.width) / WAVE_LOOP.height);
+  const ratio = `${WAVE_LOOP.width} / ${WAVE_LOOP.height}`;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      width={width}
+      height={height}
+      alt={decorative ? "" : altOf("assistant", locale)}
+      loading={priority ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : undefined}
+      draggable={false}
+      className={`block shrink-0 select-none ${heightClassName ? `${heightClassName} w-auto` : "h-auto"} ${className}`}
+      style={heightClassName ? { aspectRatio: ratio } : { width, aspectRatio: ratio }}
+      data-character="assistant"
+      data-loop={src === WAVE_LOOP.src ? "on" : "off"}
     />
   );
 }

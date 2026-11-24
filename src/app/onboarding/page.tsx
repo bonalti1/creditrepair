@@ -297,7 +297,7 @@ function Onboarding() {
         <div className="animate-rise flex flex-1 flex-col pt-10">
           {/* Alti, the AI assistant, stands on a white card, feet on its lower edge, labelled as AI. */}
           <div className="card flex items-end gap-5 overflow-hidden px-6 pt-5">
-            <CharacterFigure character="assistant" height={150} motion="wave" />
+            <CharacterFigure character="assistant" pose="wave" height={150} motion="idle" />
             <div className="self-center pb-5">
               <p className="font-display text-[19px] font-bold leading-tight text-blue-700" data-testid="welcome-ai-byline">{aiByline(locale)}</p>
               <p className="mt-1 text-[14px] leading-snug text-slate-600">

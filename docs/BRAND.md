@@ -343,12 +343,18 @@ AI assistant"; a teammate's carries their name and never "Alti"),
 Rules for the characters:
 
 - **The art is locked.** Never edit, redraw, recolour, re-crop or regenerate
-  either character. The files in `public/brand/characters/` are the kit's own
-  WebP files, copied unchanged (the robot's renamed from `bonalti_*` to
-  `altibot_*`, contents identical): four views per character (`front`,
-  `three_quarter`, `head_front`, `head_three_quarter`), each at @1x and @2x,
-  served with `srcSet` so retina screens get @2x. The round avatars show the
-  kit's head crops inside a circle; nothing is cropped into new files. Motion
+  AltiBot: his files in `public/brand/characters/` are the kit's own WebP
+  files, copied unchanged (renamed from `bonalti_*` to `altibot_*`, contents
+  identical). **Alti was redrawn once, at the owner's request (2026-11-24):**
+  "no droopy eyes", but "still a bit sarcastic". His eyes are now open, one
+  eyebrow is up and he has a small smirk; face, outfit and style are the
+  kit's. His two head views are crops of the new standing views. Six poses
+  were made with him (`alti_wave`, `alti_phone`, `alti_thumbsup`,
+  `alti_thinking`, `alti_envelope` with a yellow envelope, `alti_celebrate`;
+  `BRAND.assistantPoses`). Change his art again only when the owner asks.
+  Each character has four views (`front`, `three_quarter`, `head_front`,
+  `head_three_quarter`), each at @1x and @2x, served with `srcSet` so retina
+  screens get @2x. The round avatars show the head views inside a circle. Motion
   (`motion="idle"` / `"wave"` on `CharacterFigure`) moves the whole picture with
   CSS transforms only, and stops for visitors who ask for reduced motion.
 - **Surfaces:** navy or ivory/white. On very dark or saturated backgrounds a
@@ -402,7 +408,7 @@ do-it-yourself wording and its approve button, kept for later.
 | Colours | `@theme` block in `src/app/globals.css` | `blue-*` is navy, `amber-*` is gold, `slate-*` is neutral (see "Colours"). Edit the values; `tokens.test.ts` checks the brand values and the contrast. |
 | Names, logo paths, icons | `src/lib/brand.ts` | Company name, the page titles, the logo files (`logo`), the app icons and theme colour (`APP_ICONS`), the assistant `assistant` / `assistantImages` / `aiLabel` (Alti) with `aiByline` and `teamByline`, and the cameo `cameo` / `cameoImages` (AltiBot), with their image descriptions. |
 | Logo | `public/brand/logo/*.svg`, shown by `src/components/Logo.tsx` | The kit's files, byte for byte (see "Logo"). |
-| Characters | `public/brand/characters/*.webp`, drawn by `CharacterAvatar` (round head) and `CharacterFigure` (standing) in `src/components/Character.tsx` | Locked art from the brand kit; see "Characters". A test checks every path in `brand.ts` exists. |
+| Characters | `public/brand/characters/*.webp`, drawn by `CharacterAvatar` (round head) and `CharacterFigure` (standing) in `src/components/Character.tsx` | Brand kit art (Alti redrawn at the owner's request, 2026-11-24, plus six poses); see "Characters". A test checks every path in `brand.ts` exists. |
 | Favicon, app icons, manifest | `src/app/favicon.ico`, `icon.svg`, `apple-icon.png`, `manifest.ts`; `public/brand/icons/` | See "Favicon and app icons". |
 | Typefaces | `src/app/layout.tsx` | See "Typography". |
 
@@ -457,8 +463,7 @@ card and has to be assembled again before it runs.
   signage or ads.
 - **Alti's voice:** not chosen yet, for video; any voice must say it is AI.
 - **Ads:** every existing video shows the old mascot and must be remade.
-- **More poses:** the kit has four views per character (front, three-quarter,
-  side, back). Real poses such as waving would have to come from the owner as
-  new locked art; the site's "wave" is only a gentle sway of the whole picture.
+- **More poses:** Alti has six poses (2026-11-24) and a 4-second waving loop
+  on the home page. AltiBot has only the kit's views.
 - **AI-disclosure laws:** counsel to confirm the table above against the
   official texts.

@@ -24,9 +24,11 @@
 // - A real teammate's message always carries that person's own name ("Ana ·
 //   Credalti team", `teamByline`), never Alti's and never a character.
 //
-// The character art and the logo are locked: never edit, recolour, re-crop or
-// regenerate them. The files under public/brand/ are copied unchanged from the
-// kit.
+// The logo and AltiBot's art are locked: never edit, recolour, re-crop or
+// regenerate them; those files are copied unchanged from the kit. Alti's art
+// was redrawn once, at the owner's request on 2026-11-24 (eyes open, a bit
+// sarcastic), and his poses were added then; change it again only when the
+// owner asks.
 //
 // Not renamed on purpose: localStorage keys ("bonalti.*"), routes, database
 // objects, the package name and `internalName`. They come from the internal
@@ -106,12 +108,35 @@ const CAMEO_ART: Record<CharacterView, CharacterImage> = {
   headThreeQuarter: art("altibot_head_three_quarter", 304, 212),
 };
 
-/** The young man in the navy overshirt, from the brand kit's alti/ folder: the AI assistant. */
+/**
+ * The young man in the navy overshirt: the AI assistant. Redrawn on
+ * 2026-11-24 at the owner's request ("no droopy eyes", "still a bit
+ * sarcastic"): eyes open, one eyebrow up, a small smirk; same face, outfit
+ * and style as the kit. The head views are crops of the two standing views.
+ */
 const ASSISTANT_ART: Record<CharacterView, CharacterImage> = {
-  front: art("alti_front", 312, 768),
-  threeQuarter: art("alti_three_quarter", 289, 768),
+  front: art("alti_front", 276, 768),
+  threeQuarter: art("alti_three_quarter", 247, 768),
   headFront: art("alti_head_front", 127, 173),
-  headThreeQuarter: art("alti_head_three_quarter", 128, 173),
+  headThreeQuarter: art("alti_head_three_quarter", 127, 173),
+};
+
+/** Alti's poses (2026-11-24), same art as above, for the website's sections. */
+export type AssistantPose = "wave" | "phone" | "thumbsUp" | "thinking" | "envelope" | "celebrate";
+
+const ASSISTANT_POSES: Record<AssistantPose, CharacterImage> = {
+  /** Waving hello. */
+  wave: art("alti_wave", 335, 768),
+  /** Holding a phone and pointing at it (the screen shows only checkmarks: never a score). */
+  phone: art("alti_phone", 299, 768),
+  /** Thumbs up. */
+  thumbsUp: art("alti_thumbsup", 299, 768),
+  /** Hand on chin, thinking (questions, the FAQ). */
+  thinking: art("alti_thinking", 228, 768),
+  /** Holding a yellow envelope (letters, mailing). */
+  envelope: art("alti_envelope", 291, 768),
+  /** A small cheer (a finished step; never a promised result). */
+  celebrate: art("alti_celebrate", 364, 768),
 };
 
 // The display name, apart so the descriptions below can use it. Change it
@@ -132,6 +157,8 @@ export const BRAND = {
   assistant: ASSISTANT,
   /** The assistant's art (Alti). */
   assistantImages: ASSISTANT_ART,
+  /** The assistant's poses (wave, phone, thumbs up, thinking, envelope, celebrate). */
+  assistantPoses: ASSISTANT_POSES,
   /** Image description of the assistant, for screen readers: always says AI, never a person. */
   assistantAlt: {
     es: `${ASSISTANT}, tu asistente con inteligencia artificial (no es una persona)`,
@@ -182,7 +209,7 @@ export function teamByline(firstName: string, locale: BrandLocale): string {
 }
 
 /** Every character image the brand points at, for the check that they exist. */
-export const BRAND_IMAGE_PATHS: string[] = [BRAND.assistantImages, BRAND.cameoImages].flatMap((set) =>
+export const BRAND_IMAGE_PATHS: string[] = [BRAND.assistantImages, BRAND.assistantPoses, BRAND.cameoImages].flatMap((set) =>
   Object.values(set).flatMap((image) => [image.src, image.src2x]),
 );
 

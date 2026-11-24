@@ -109,13 +109,13 @@ describe("brand", () => {
   });
 
   it("points at character images that exist, in @1x and @2x", () => {
-    // Four views of each character, each in two sizes.
-    expect(BRAND_IMAGE_PATHS).toHaveLength(16);
+    // Four views of each character plus Alti's six poses, each in two sizes.
+    expect(BRAND_IMAGE_PATHS).toHaveLength(28);
     for (const path of BRAND_IMAGE_PATHS) {
       expect(path, path).toMatch(/^\/brand\/characters\/.+@[12]x\.webp$/);
       expect(existsSync(join("public", path)), path).toBe(true);
     }
-    for (const set of [BRAND.assistantImages, BRAND.cameoImages]) {
+    for (const set of [BRAND.assistantImages, BRAND.assistantPoses, BRAND.cameoImages]) {
       for (const image of Object.values(set)) {
         expect(image.width, image.src).toBeGreaterThan(0);
         expect(image.height, image.src).toBeGreaterThan(0);

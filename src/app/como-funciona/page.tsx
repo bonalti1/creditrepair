@@ -1,3 +1,4 @@
+import { CharacterFigure } from "@/components/Character";
 import { HomeReadyTeaser, HowScroll } from "@/components/site/islands";
 import { Reveal } from "@/components/site/motion";
 import { ONLINE_START } from "@/lib/site/cta";
@@ -29,7 +30,7 @@ export default async function HowItWorks() {
   return (
     <SiteShell>
       <main>
-        <PageHero eyebrow={h.eyebrow} title={h.title} lead={h.lead} />
+        <PageHero eyebrow={h.eyebrow} title={h.title} lead={h.lead} figure={<CharacterFigure character="assistant" pose="phone" height={250} decorative />} />
 
         {/* The journey as a scroll story: the phone stays, its screen follows the step (HowScroll). */}
         <section aria-label={h.eyebrow} className="py-14 sm:py-20" data-shot-width={SHOT.width}>

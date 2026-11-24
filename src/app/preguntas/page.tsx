@@ -1,3 +1,4 @@
+import { CharacterFigure } from "@/components/Character";
 import SiteShell from "@/components/site/SiteShell";
 import { Container, CtaGroup, Eyebrow, FaqList, Lead, PageHero, SectionTitle } from "@/components/site/ui";
 import { ReportQuiz, Tools } from "@/components/site/islands";
@@ -21,7 +22,7 @@ export default async function Faq() {
   return (
     <SiteShell>
       <main>
-        <PageHero eyebrow={f.eyebrow} title={f.title} lead={f.lead} />
+        <PageHero eyebrow={f.eyebrow} title={f.title} lead={f.lead} figure={<CharacterFigure character="assistant" pose="thinking" height={250} decorative />} />
         <section aria-label={f.title} className="py-12 sm:py-16">
           <Container narrow>
             <FaqList items={f.items} />

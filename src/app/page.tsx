@@ -1,5 +1,5 @@
 import Icon from "@/components/Icon";
-import { CharacterAvatar, CharacterFigure } from "@/components/Character";
+import { AltiWaveLoop, CharacterAvatar, CharacterFigure } from "@/components/Character";
 import SiteShell, { askClientCopy, askCtas } from "@/components/site/SiteShell";
 import { CompareToggle, HeroPhone, HomeReadyTeaser, HowScroll, ReportQuiz, Tools } from "@/components/site/islands";
 import { Reveal, StatPictogram } from "@/components/site/motion";
@@ -72,7 +72,7 @@ export default async function Home() {
             <div aria-labelledby="demo" className="relative">
               {/* Phones and tablets: Alti introduces the phone, labelled as AI. */}
               <div className="mb-6 flex items-end justify-center gap-4 lg:hidden">
-                <CharacterFigure character="assistant" view="threeQuarter" height={170} priority motion="wave" />
+                <AltiWaveLoop height={170} priority />
                 <p className="mb-6 max-w-[190px] rounded-2xl rounded-bl-md bg-white/10 px-3.5 py-2.5 text-[14px] font-semibold leading-snug text-white ring-1 ring-inset ring-white/15">
                   {byline}
                   <span className="mt-0.5 block text-[12.5px] font-medium text-blue-100">{live.ask.subtitle}</span>
@@ -117,7 +117,7 @@ export default async function Home() {
                 ))}
               </ul>
               <figure className="flex flex-col items-center">
-                <CharacterFigure character="assistant" view="threeQuarter" height={300} priority motion="idle" />
+                <AltiWaveLoop height={300} priority />
                 <figcaption data-on-navy className="mt-3 whitespace-nowrap rounded-full bg-white/10 px-3 py-1 text-[13px] font-semibold text-amber-300">
                   {byline}
                 </figcaption>
@@ -333,7 +333,7 @@ export default async function Home() {
         <section aria-labelledby="final" className="relative overflow-hidden bg-blue-900 py-16 text-white sm:py-24">
           <Container className="relative text-center">
             <div className="flex flex-col items-center">
-              <CharacterAvatar character="assistant" size={84} className="ring-4 ring-amber-400" />
+              <CharacterFigure character="assistant" pose="envelope" height={200} decorative />
               <p data-on-navy className="mt-3 text-[13px] font-semibold text-amber-300">
                 {BRAND.assistant} · {BRAND.aiLabel[locale]}
               </p>

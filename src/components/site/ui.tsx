@@ -113,11 +113,29 @@ export function ArrowLink({ href, children, onNavy = false }: { href: string; ch
 }
 
 /** The top of every inner page: navy, with its eyebrow, title and lead. One h1 per page. */
-export function PageHero({ eyebrow, title, lead, children }: { eyebrow: string; title: string; lead: string; children?: React.ReactNode }) {
+export function PageHero({
+  eyebrow,
+  title,
+  lead,
+  figure,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  lead: string;
+  /** A picture standing at the bottom right on wide screens (e.g. one of Alti's poses, decorative). */
+  figure?: React.ReactNode;
+  children?: React.ReactNode;
+}) {
   return (
     <section className="relative overflow-hidden bg-blue-900 text-white">
       <div aria-hidden className="pointer-events-none absolute -right-40 -top-40 h-[420px] w-[420px] rounded-full bg-blue-800/70 blur-3xl" />
       <Container className="relative pb-14 pt-10 sm:pb-20 sm:pt-16">
+        {figure && (
+          <div aria-hidden className="pointer-events-none absolute bottom-0 right-6 hidden lg:block">
+            {figure}
+          </div>
+        )}
         <Eyebrow onNavy>{eyebrow}</Eyebrow>
         <h1 className="mt-3 max-w-3xl font-display text-[34px] font-bold leading-[1.1] sm:text-[52px]">{title}</h1>
         <Lead onNavy className="mt-5 max-w-2xl">

@@ -1,3 +1,4 @@
+import { CharacterFigure } from "@/components/Character";
 import Icon, { type IconName } from "@/components/Icon";
 import SiteShell from "@/components/site/SiteShell";
 import { IncludedGrid } from "@/components/site/sections";
@@ -35,7 +36,7 @@ export default async function Pricing() {
   return (
     <SiteShell>
       <main>
-        <PageHero eyebrow={p.eyebrow} title={p.title} lead={p.lead} />
+        <PageHero eyebrow={p.eyebrow} title={p.title} lead={p.lead} figure={<CharacterFigure character="assistant" pose="thumbsUp" height={250} decorative />} />
 
         {/* Plans, or how they are explained */}
         <section aria-labelledby="plans" className="py-14 sm:py-20">

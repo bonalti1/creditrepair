@@ -32,11 +32,11 @@
   "characters": {
     "lockedOn": "2026-11-21",
     "source": "Owner's brand kit (2026-11-21), web-ready folder: transparent WebP at @1x and @2x.",
-    "rule": "Locked art: never edit, redraw, recolour, re-crop or regenerate the characters. Place them on navy or ivory/white; on very dark or saturated backgrounds a light 1-2 px rim may show.",
+    "rule": "AltiBot's art is locked: never edit, redraw, recolour, re-crop or regenerate it. Alti's art was redrawn once at the owner's request (2026-11-24: eyes open, not droopy, but still a bit sarcastic) and six poses were added; change it again only when the owner asks. Place characters on navy or ivory/white; on very dark or saturated backgrounds a light 1-2 px rim may show.",
     "assistant": {
       "name": "Alti",
       "role": "Credalti's AI assistant and the only voice (owner, 2026-11-24). Always labelled 'Alti · AI assistant' on every message he writes; never presented as a person or as a teammate.",
-      "look": "A young man in a navy overshirt with the Credalti logo, a lanyard badge reading ALTI, a gold shoulder strap with a checkmark device.",
+      "look": "A young man in a navy overshirt with the Credalti logo, a lanyard badge reading ALTI, a gold shoulder strap with a checkmark device. Eyes open (the upper lid just touches the top of the iris), one eyebrow slightly raised, a small one-sided smirk: awake, clever, a little sarcastic. Never droopy or half-closed eyes, never wide-eyed.",
       "files": {
         "front": [
           "public/brand/characters/alti_front@1x.webp",
@@ -53,7 +53,45 @@
         "headThreeQuarter": [
           "public/brand/characters/alti_head_three_quarter@1x.webp",
           "public/brand/characters/alti_head_three_quarter@2x.webp"
-        ]
+        ],
+        "poses": {
+          "wave": [
+            "public/brand/characters/alti_wave@1x.webp",
+            "public/brand/characters/alti_wave@2x.webp"
+          ],
+          "phone": [
+            "public/brand/characters/alti_phone@1x.webp",
+            "public/brand/characters/alti_phone@2x.webp"
+          ],
+          "thumbsUp": [
+            "public/brand/characters/alti_thumbsup@1x.webp",
+            "public/brand/characters/alti_thumbsup@2x.webp"
+          ],
+          "thinking": [
+            "public/brand/characters/alti_thinking@1x.webp",
+            "public/brand/characters/alti_thinking@2x.webp"
+          ],
+          "envelope": [
+            "public/brand/characters/alti_envelope@1x.webp",
+            "public/brand/characters/alti_envelope@2x.webp"
+          ],
+          "celebrate": [
+            "public/brand/characters/alti_celebrate@1x.webp",
+            "public/brand/characters/alti_celebrate@2x.webp"
+          ]
+        }
+      },
+      "redrawnOn": "2026-11-24",
+      "higgsfieldJobIds": {
+        "front": "4a58bad3-0437-424e-a4c2-49b6e9b41b09",
+        "threeQuarter": "7f280423-888d-4f2d-9934-06ea2a4ed8f6",
+        "wave": "33506dac-5784-4415-a97f-b1a4896575a2",
+        "phone": "93e97b96-f9c7-470e-bbf2-d838dedf424b",
+        "thumbsUp": "a6aa4ec7-2326-4b64-8f00-ae93090900e3",
+        "thinking": "d7f97bee-913b-4c5d-9bb8-40a7efdbdc3f",
+        "envelope": "cb14c3a1-900d-4aef-8353-f352ac5791e0",
+        "celebrate": "3509c89b-302f-4162-9755-6d2e553c2894",
+        "waveLoopVideo": "a3223bed-19ac-4a29-9bc3-e113c868ceb3"
       }
     },
     "cameo": {

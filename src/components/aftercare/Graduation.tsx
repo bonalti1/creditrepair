@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CharacterAvatar } from "@/components/Character";
+import { CharacterFigure } from "@/components/Character";
 import Icon from "@/components/Icon";
 import { GRADUATION_COPY, graduationStatus, graduationSummary, type GraduationStatus } from "@/lib/aftercare/graduation";
 import { useAftercare } from "@/lib/aftercare/useAftercare";
@@ -49,9 +49,9 @@ export default function GraduationCard({ caseView, locale, aftercare, where }: {
     const g = status.graduation;
     return (
       <section className="card overflow-hidden" data-testid="graduation" aria-labelledby="graduation-title">
-        <div className="flex items-center gap-4 bg-blue-900 px-5 py-5 text-white">
-          <CharacterAvatar character="assistant" size={56} />
-          <div className="min-w-0">
+        <div className="flex items-end gap-4 bg-blue-900 px-5 pt-4 text-white">
+          <CharacterFigure character="assistant" pose="celebrate" height={110} decorative className="-mb-px" />
+          <div className="min-w-0 pb-5">
             <h2 id="graduation-title" className="font-display text-[24px] font-bold leading-tight text-white">{c.doneTitle}</h2>
             <p className="mt-1 text-[15px] leading-snug text-white">{c.doneLead(caseDay(g.completedAt, locale))}</p>
           </div>
