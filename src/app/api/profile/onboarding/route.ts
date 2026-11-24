@@ -21,6 +21,8 @@ const bodySchema = z.object({
   assisted: z.boolean().optional(),
   referredBy: z.string().regex(/^[a-z0-9-]{2,30}$/).optional(),
   partnerCode: z.string().regex(/^[a-z0-9-]{3,30}$/).optional(),
+  // "Do you have a Social Security number or an ITIN?": the kind only, never the number (migration 0030).
+  idType: z.enum(["ssn", "itin"]).optional(),
 });
 
 export async function POST(req: Request) {
@@ -54,6 +56,7 @@ export async function POST(req: Request) {
   if (goal) update.goal = goal;
   if (state) update.state = state;
   if (assisted !== undefined) update.assisted = assisted;
+  if (parsed.data.idType) update.id_type = parsed.data.idType;
   if (referredBy && !existing?.referred_by) update.referred_by = referredBy;
 
   const { error } = await supabase.from("profiles").upsert(update, { onConflict: "id" });

@@ -86,6 +86,13 @@ export default function Mas() {
             desc={es ? "Todo lo que ha pasado y lo que sigue, con fechas." : "Everything that happened and what comes next, with dates."}
           />
           <Row
+            href="/construir"
+            icon="sparkle"
+            tint="bg-amber-500"
+            title={es ? "Construye tu crédito" : "Build your credit"}
+            desc={es ? "Tu plan de hábitos, el camino para comprar casa y la guía para ITIN." : "Your plan of habits, the path to buying a home, and the ITIN guide."}
+          />
+          <Row
             href="/aprende"
             icon="book"
             tint="bg-amber-600"

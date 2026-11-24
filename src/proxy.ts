@@ -27,6 +27,7 @@ const PROTECTED = [
   "/goal",
   "/caso",
   "/aprende",
+  "/construir",
   "/acuerdo",
   "/pagos",
   "/confirmar-direccion",
@@ -90,6 +91,8 @@ export const config = {
     // "Mi caso" and "Aprende" (the client app's timeline and lessons).
     "/caso/:path*",
     "/aprende/:path*",
+    // After-care: the build-your-credit plan, the home-ready path and the ITIN guide.
+    "/construir/:path*",
     // The service agreement: read, signed and cancelled only by the signed-in client.
     "/acuerdo/:path*",
     // "Mis pagos": the client's charges, receipts and payment method.

@@ -26,6 +26,8 @@ import { CLIENT_SHARING_COPY } from "@/lib/partners/sharingCopy";
 import { demoPartnerByCode, writeDemoClientSharing } from "@/lib/partners/sharingDemo";
 import { isDemoMode } from "@/lib/supabase/config";
 import { HOUSEHOLD_COPY, PENDING_HOUSEHOLD_KEY } from "@/lib/household/copy";
+import { ID_TYPE_QUESTION, itinMonitoringNote, parseIdType, type IdType } from "@/lib/aftercare/itin";
+import { ID_TYPE_KEY } from "@/lib/aftercare/useAftercare";
 import { checkHouseholdMember, householdInviteMessage, householdInvitePath, RELATIONSHIPS, RELATIONSHIP_LABEL, type HouseholdField, type HouseholdMember, type Relationship } from "@/lib/household/household";
 
 // Onboarding: goal (feeds the mortgage track) → state gate (v1 is TX-only;
@@ -95,7 +97,9 @@ function Onboarding() {
   const { locale } = useLocale();
   const c = MARKETING[locale].onboarding;
   const goalLabel = (g: (typeof GOALS)[number]) => (locale === "en" ? g.labelEn : g.label);
-  const [step, setStep] = useState<"welcome" | "share" | "goal" | "state" | "household" | "monitoring" | "assist" | "waitlist-done">("goal");
+  const [step, setStep] = useState<"welcome" | "share" | "goal" | "state" | "idtype" | "household" | "monitoring" | "assist" | "waitlist-done">("goal");
+  // "Do you have a Social Security number or an ITIN?" Only the kind is kept, never the number (src/lib/aftercare/itin.ts).
+  const [idType, setIdType] = useState<IdType | null>(null);
   // "Anyone at home joining too?": a household member of their own (src/lib/household).
   const [householdForm, setHouseholdForm] = useState(false);
   const [hh, setHh] = useState({ firstName: "", lastName: "", phone: "", email: "", relationship: "spouse" as Relationship, locale: "en" as "en" | "es" });
@@ -120,6 +124,11 @@ function Onboarding() {
 
   // Read the invite link once, on arrival.
   useEffect(() => {
+    try {
+      setIdType(parseIdType(window.localStorage.getItem(ID_TYPE_KEY)));
+    } catch {
+      // ignore
+    }
     const query = new URLSearchParams(window.location.search);
     // Back from signing the agreement: pick up at monitoring, with the same invitation.
     if (query.get("paso") === "monitoreo") {
@@ -216,7 +225,7 @@ function Onboarding() {
     if (!invite?.state) return setStep("state");
     save("bonalti.state", state);
     // A state we are not open in goes to the waitlist form, link or no link.
-    if (openStates.status(state) === "open") setStep("household");
+    if (openStates.status(state) === "open") setStep("idtype");
     else setStep("state");
   };
 
@@ -446,7 +455,7 @@ function Onboarding() {
               <button
                 onClick={() => {
                   save("bonalti.state", state);
-                  setStep("household");
+                  setStep("idtype");
                 }}
                 className={primaryButton}
               >
@@ -478,6 +487,55 @@ function Onboarding() {
             </form>
             )
           )}
+        </div>
+      )}
+
+      {step === "idtype" && (
+        <div className="animate-rise flex flex-1 flex-col pt-12" data-testid="onboarding-idtype">
+          <h1 className="font-display text-[30px] font-bold leading-tight text-blue-700">{ID_TYPE_QUESTION[locale].title}</h1>
+          <p className="mt-3 text-[17px] leading-relaxed text-slate-500">{ID_TYPE_QUESTION[locale].sub}</p>
+          <div className="card mt-8 overflow-hidden">
+            {(["ssn", "itin"] as const).map((kind, index) => (
+              <button
+                key={kind}
+                type="button"
+                onClick={() => setIdType(kind)}
+                aria-pressed={idType === kind}
+                data-testid={`idtype-${kind}`}
+                className={`pressable flex w-full items-center justify-between gap-3 px-5 py-4 text-left hover:bg-slate-50 ${index > 0 ? "border-t hairline" : ""}`}
+              >
+                <span className="min-w-0">
+                  <span className={`block text-[17px] text-slate-900 ${idType === kind ? "font-semibold" : ""}`}>{ID_TYPE_QUESTION[locale][kind]}</span>
+                  <span className="block text-[14px] leading-snug text-slate-500">{ID_TYPE_QUESTION[locale][kind === "ssn" ? "ssnSub" : "itinSub"]}</span>
+                </span>
+                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${idType === kind ? "bg-amber-400 text-blue-900" : "border-2 border-slate-300"}`}>
+                  {idType === kind && <Icon name="check" size={14} strokeWidth={3} />}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-4 text-[13px] leading-relaxed text-slate-500">{ID_TYPE_QUESTION[locale].note}</p>
+          {idType === "itin" && (
+            <p className="mt-4 rounded-2xl bg-blue-50 px-4 py-3 text-[15px] leading-snug text-blue-900" data-testid="idtype-itin-welcome">
+              {locale === "es"
+                ? "Bien. Te mostramos el camino para ITIN: monitoreo, cómo pedir tus reportes y cómo van tus cartas."
+                : "Good. We will show you the ITIN path: monitoring, how to get your reports, and how your letters work."}
+            </p>
+          )}
+          <div className="mt-auto pt-8">
+            <button
+              onClick={() => {
+                if (!idType) return;
+                save(ID_TYPE_KEY, idType);
+                setStep("household");
+              }}
+              disabled={!idType}
+              className={primaryButton}
+              data-testid="idtype-next"
+            >
+              {c.next}
+            </button>
+          </div>
         </div>
       )}
 
@@ -605,10 +663,26 @@ function Onboarding() {
               </div>
             ))}
           </div>
+          {idType === "itin" && (
+            <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3" data-testid="monitoring-itin">
+              <p className="text-[15px] font-semibold text-blue-900">{itinMonitoringNote(locale).title}</p>
+              <p className="mt-1 text-[14px] leading-snug text-blue-900">{itinMonitoringNote(locale).body}</p>
+              {whatsappNumber && (
+                <a
+                  href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(c.itinWhatsappText)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-flex h-10 items-center text-[15px] font-semibold text-blue-700 underline underline-offset-2"
+                >
+                  {c.itinLink}
+                </a>
+              )}
+            </div>
+          )}
           <p className="mt-4 text-[13px] leading-relaxed text-slate-500">
             {c.disclosure}
-            {/* Only where there is a number to write to. */}
-            {whatsappNumber && (
+            {/* Only where there is a number to write to, and only while we do not know which number they have. */}
+            {whatsappNumber && idType === null && (
               <>
                 {" "}
                 {c.itinQuestion}{" "}

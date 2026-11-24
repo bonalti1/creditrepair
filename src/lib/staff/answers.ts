@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { BRAND } from "../brand";
 import { checkClaimGuardrails } from "../compliance/guardrails";
+import { ITIN_SAVED_ANSWERS } from "../aftercare/itin";
 import { checkStaffReply, MAX_REPLY_CHARS, type ReplyProblem } from "./conversation";
 import type { StaffRole } from "./types";
 import { STAFF_LOCALES, type StaffLocale, staffLocaleFallback } from "./i18n/locale";
@@ -366,4 +367,8 @@ export const DEMO_SAVED_ANSWERS: readonly SavedAnswer[] = [
     "carmen",
     "en",
   ),
+  // ITIN clients (docs/AFTERCARE.md, src/lib/aftercare/itin.ts). Whether the
+  // monitoring service accepts an ITIN is still unconfirmed, so that question
+  // keeps only the proposed answer above: AltiBot never answers it alone.
+  ...ITIN_SAVED_ANSWERS.map((a) => demo(a.id, a.question, a.answer, "approved", "carmen", a.language)),
 ];

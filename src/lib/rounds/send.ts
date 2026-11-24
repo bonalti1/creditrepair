@@ -7,6 +7,7 @@ import type { PlannedLetter, ReportItem, UserProfile } from "../domain/types";
 import { MailAddressError, mailLetter } from "../integrations/lob";
 import { sendWhatsApp } from "../integrations/whatsapp";
 import { ENCLOSURE_LABELS, isAttachableImage, letterHtml, type EnclosurePage } from "../letters/enclosures";
+import { enclosureLabelFor, parseIdType } from "../aftercare/itin";
 import { pickFont } from "../letters/fonts";
 import { varyLetterWording } from "../letters/variation";
 import { listLetterVersions } from "../letters/versions/server";
@@ -346,7 +347,8 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
   const enclosurePages: EnclosurePage[] = [];
   if (via === "mail") {
     for (const doc of docs) {
-      const label = ENCLOSURE_LABELS[String(doc.kind)];
+      // An ITIN client's number document is the IRS letter, never called a Social Security card (aftercare/itin.ts).
+      const label = enclosureLabelFor(String(doc.kind), parseIdType(profileRow.id_type), ENCLOSURE_LABELS);
       const path = String(doc.storage_path);
       if (!label || !isAttachableImage(path)) continue;
       const { data: signed } = await db.storage.from("identity-docs").createSignedUrl(path, 24 * 60 * 60);

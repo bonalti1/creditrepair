@@ -68,6 +68,7 @@ import { ClientPulse } from "@/components/staff/PulseCards";
 import ReportImport from "@/components/staff/ReportImport";
 import ReportsTab from "@/components/staff/ReportsTab";
 import HouseholdMemberCard from "@/components/staff/HouseholdMember";
+import AftercareCard, { ItinBadge } from "@/components/staff/AftercareCard";
 import { RELATIONSHIP_LABEL } from "@/lib/household/household";
 import { reportHistoryOf } from "@/lib/reports/history";
 import { reappearedItems } from "@/lib/reports/reimport";
@@ -447,6 +448,7 @@ export default function ClientePage() {
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{fullName(client)}</h1>
         <StageChip stage={stage} />
+        <ItinBadge client={client} />
       </div>
       <p className="mt-1 text-[14px] text-slate-500">
         {client.state === "TX" ? "Texas" : client.state} ·{" "}
@@ -905,6 +907,8 @@ export default function ClientePage() {
           )}
 
           <LeadSourceCard source={client.leadSource} />
+
+          <AftercareCard client={client} now={now} />
 
           <AssignmentCard client={client} viewer={viewer} members={members} team={team} canAssign={can("clients.assign")} onChanged={reload} />
 

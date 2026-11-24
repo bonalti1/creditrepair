@@ -47,8 +47,9 @@ Legend: ✅ have it · 🟡 partly · ❌ missing · — not planned here
 | Business stats, activity log | Business dashboard (clients, work, money, team, sales, and the clients' «¿Cómo vamos?» pulse with recent comments) with a written definition for every number, including "Minutos de trabajo humano por cliente activo"; who-did-what log per client and for the team, with what the system did by itself | ✅ |
 | Zapier / API | n8n webhooks, scheduled runs (rounds, billing, autopilot, HighLevel sync, partner notices, morning summary), the HighLevel webhook in and stage sync out, and a health endpoint; no public API | 🟡 |
 | Monitoring partner and commissions | IdentityIQ link with disclosure; no commission tracking | 🟡 |
+| After-care, credit building, ITIN clients (vs. CRC and Credit Saint) | CRC gives staff an education area and calculators, and its users have an open feature request for ITIN support (CRC's Canny board); Credit Saint's site sells dispute plans (we did not find an after-care program or ITIN policy on it; not checked in depth). Credalti gives every client, from day one, a personal build-your-credit plan from their own report and goal (mark as done, sourced, no promises), optional partner offers ranked by cost to the client with affiliate disclosures (off by default), a home-ready path with lender information and milestones a consenting loan officer can follow, "Connect me with a loan officer", an ITIN path (onboarding question, reports by mail, letters never print a number, AltiBot answers), and graduation in Mi caso that stops billing (`docs/AFTERCARE.md`) | ✅ new |
 
-**Count:** 19 ✅ · 7 🟡 · 0 ❌ · 1 not planned, out of 27 (counted again row by row on Nov 22, after billing plans, ACH, the NMI and Authorize.Net adapters and chargebacks).
+**Count:** 20 ✅ · 7 🟡 · 0 ❌ · 1 not planned, out of 28 (counted again row by row on Nov 22, after billing plans, ACH, the NMI and Authorize.Net adapters and chargebacks; the after-care row added Nov 24).
 
 ## CRC changelog Sep–Nov 2026, checked Nov 23
 
@@ -97,6 +98,10 @@ November 2026, and where Credalti stands on each.
   away (or automatic for Spanish phones), on the client side and the staff
   console, with WhatsApp and an assistant that answers in the client's language. The staff console works on a phone too (a bottom tab bar, every
   screen checked at 390 px).
+- **After the disputes, a plan.** Every client builds credit from day one
+  toward their own goal, ITIN holders get a path that fits them, a home buyer
+  can let their loan officer follow their milestones, and finishing the
+  program is a clear moment that stops billing (`docs/AFTERCARE.md`).
 - **One person, not a back office.** Drafted replies, saved answers the
   assistant reuses, a card with the steps for every kind of notice and a
   morning summary keep one teammate's day to about two hours for 100 clients

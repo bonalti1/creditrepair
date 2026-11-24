@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { CaseStatus, CaseTimelineList } from "@/components/case/CaseViews";
 import { CharacterAvatar } from "@/components/Character";
+import GraduationCard from "@/components/aftercare/Graduation";
+import { useAftercare } from "@/lib/aftercare/useAftercare";
 import { clearDemoCase, loadExampleCase } from "@/lib/case/demo";
 import { useCase } from "@/lib/case/useCase";
 import { useLocale } from "@/lib/i18n";
@@ -18,9 +20,12 @@ export default function CasoPage() {
   const { locale } = useLocale();
   const es = locale === "es";
   const view = useCase(locale);
+  // After-care: graduation lives here (src/lib/aftercare/graduation.ts).
+  const aftercare = useAftercare();
   const [busy, setBusy] = useState(false);
 
-  if (!view.ready) return null;
+  if (!view.ready || !aftercare.state) return null;
+  const graduated = aftercare.state.graduation !== null;
 
   const reload = (change: () => void) => {
     setBusy(true);
@@ -40,9 +45,14 @@ export default function CasoPage() {
         </p>
       </header>
 
-      <CaseStatus view={view} showLink={false} />
+      {/* Once the client finished the program, the graduation says where things stand. */}
+      {!graduated && <CaseStatus view={view} showLink={false} />}
+
+      <GraduationCard caseView={view} locale={locale} aftercare={aftercare} where="top" />
 
       <CaseTimelineList timeline={view.timeline} />
+
+      <GraduationCard caseView={view} locale={locale} aftercare={aftercare} where="bottom" />
 
       <section className="flex items-start gap-3 px-1">
         <CharacterAvatar character="team" size={40} />

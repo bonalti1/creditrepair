@@ -670,7 +670,10 @@ describe("team: what the staff routes accept", () => {
     expect(read("src/app/api/staff/reviews/reply/route.ts")).toMatch(/requireCapability\("clients\.reply"\)/);
     // States (migration 0030): opening one is an administrator's.
     expect(read("src/app/api/staff/states/route.ts")).toMatch(/requireCapability\("states\.manage"\)/);
-    expect(staffRoutes.length).toBe(25);
+    
+    // Partner offers and loan officers accepting new clients (migration 0030): administrators.
+    expect(read("src/app/api/staff/offers/route.ts")).toMatch(/requireCapability\("partners\.manage"\)/);
+    expect(staffRoutes.length).toBe(26);
   });
 });
 

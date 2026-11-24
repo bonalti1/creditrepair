@@ -31,6 +31,29 @@ export type ShareHow = "referred" | "added_by_code";
 /** Change it whenever any word of the consent text changes. Stored with every record (partner_share_consents.text_version). */
 export const SHARING_CONSENT_VERSION = "2026-11-compartir-v1";
 
+/**
+ * The home-ready line (migration 0030, docs/AFTERCARE.md): an extension of the
+ * same consent, added only when the client also shares their home-ready
+ * milestones. Its own version is part of the hashed text, so the base text and
+ * its version stay unchanged for everyone who does not choose it.
+ */
+export const HOME_READY_CONSENT_VERSION = "2026-11-casa-v1";
+
+/** Home-ready milestones go only to a real estate agent or a loan officer (the database checks the same). */
+export function homeReadyAllowed(kind: PartnerKind): boolean {
+  return kind === "loan_officer" || kind === "realtor";
+}
+
+export interface ConsentOptions {
+  /** Also share the home-ready milestones. Needs a level other than "none". */
+  homeReady?: boolean;
+}
+
+const HOME_READY_LINE: Record<L, string> = {
+  en: "Your home-buying milestones and their dates: documents, review, disputes, and the steps you mark yourself (positive accounts, savings, loan officer). Never amounts, account details or scores.",
+  es: "Tus pasos para comprar casa y sus fechas: documentos, revisión, disputas, y los pasos que tú marcas (cuentas positivas, ahorro, oficial de préstamos). Nunca montos, datos de cuentas ni puntajes.",
+};
+
 export const SHARE_LEVEL_LABEL: Record<L, Record<ShareLevel, string>> = {
   es: { none: "No compartir", progress: "Solo el avance", summary: "Avance y resumen" },
   en: { none: "Don't share", progress: "Progress only", summary: "Progress and summary" },
@@ -65,7 +88,13 @@ export interface ConsentText {
  * Its hash is what the record keeps; the server recomputes it from the
  * partner's name in the database and refuses a choice made on other words.
  */
-export function consentText(level: ShareLevel, partner: Pick<SharePartner, "name" | "company">, locale: L): ConsentText {
+export function consentText(level: ShareLevel, partner: Pick<SharePartner, "name" | "company">, locale: L, options: ConsentOptions = {}): ConsentText {
+  const base = baseConsentText(level, partner, locale);
+  if (!options.homeReady || level === "none") return base;
+  return { ...base, will: [...base.will, HOME_READY_LINE[locale]] };
+}
+
+function baseConsentText(level: ShareLevel, partner: Pick<SharePartner, "name" | "company">, locale: L): ConsentText {
   const who = partnerDisplay(partner);
   const first = firstName(partner.name);
   if (locale === "en") {
@@ -133,15 +162,24 @@ export function consentText(level: ShareLevel, partner: Pick<SharePartner, "name
 }
 
 /** The text as one string, as it is hashed. */
-export function consentPlainText(level: ShareLevel, partner: Pick<SharePartner, "name" | "company">, locale: L): string {
-  const t = consentText(level, partner, locale);
+export function consentPlainText(level: ShareLevel, partner: Pick<SharePartner, "name" | "company">, locale: L, options: ConsentOptions = {}): string {
+  const t = consentText(level, partner, locale, options);
   const heads = locale === "es" ? ["Verá:", "Nunca verá:"] : ["Will see:", "Will never see:"];
   return [t.lead, heads[0], ...t.will.map((x) => `- ${x}`), heads[1], ...t.never.map((x) => `- ${x}`), ...t.notes].join("\n");
 }
 
 /** SHA-256 of exactly what the client was shown for this choice. */
-export function consentHash(level: ShareLevel, partner: Pick<SharePartner, "name" | "company">, locale: L, version: string = SHARING_CONSENT_VERSION): string {
-  return sha256Hex([`version: ${version}`, `locale: ${locale}`, `level: ${level}`, consentPlainText(level, partner, locale)].join("\n\n"));
+export function consentHash(
+  level: ShareLevel,
+  partner: Pick<SharePartner, "name" | "company">,
+  locale: L,
+  version: string = SHARING_CONSENT_VERSION,
+  options: ConsentOptions = {},
+): string {
+  const homeReady = Boolean(options.homeReady) && level !== "none";
+  return sha256Hex(
+    [`version: ${version}`, `locale: ${locale}`, `level: ${level}`, ...(homeReady ? [`home-ready: ${HOME_READY_CONSENT_VERSION}`] : []), consentPlainText(level, partner, locale, { homeReady })].join("\n\n"),
+  );
 }
 
 // ── What a partner sees ─────────────────────────────────────────────────
