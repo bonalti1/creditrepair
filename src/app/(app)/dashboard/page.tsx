@@ -98,6 +98,20 @@ export default function Home() {
 
       <CaseCard view={caseView} />
 
+      {/* After-care for every client, from day one (src/lib/aftercare/plan.ts). */}
+      <Link href="/construir" className="card pressable flex items-center gap-3.5 px-4 py-4" data-testid="home-build">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-blue-900">
+          <Icon name="sparkle" size={22} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[17px] font-semibold text-slate-900">{es ? "Construye tu crédito" : "Build your credit"}</span>
+          <span className="block text-[14px] leading-snug text-slate-600">
+            {es ? "Tu lista de hábitos, según tu reporte y tu meta. Gratis." : "Your checklist of habits, for your report and your goal. Free."}
+          </span>
+        </span>
+        <Icon name="chevron" size={18} className="shrink-0 text-slate-400" />
+      </Link>
+
       <section className="grid grid-cols-4 gap-3">
         {shortcuts.map((s) => (
           <Link key={s.href} href={s.href} className="card pressable flex flex-col items-center gap-2 px-2 py-4">

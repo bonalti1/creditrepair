@@ -504,3 +504,18 @@ export interface StaffClientHouseholdFields {
 }
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StaffClient extends StaffClientHouseholdFields {}
+
+// ── After-care (migration 0030, docs/AFTERCARE.md) ──────────────────────
+
+export interface StaffClientAftercareFields {
+  /** Social Security number or ITIN: the kind only, never the number. Absent or null: not answered. */
+  idType?: "ssn" | "itin" | null;
+  /** The client's "Mark as done" marks on the build-your-credit plan and the home-ready track. */
+  aftercareMarks?: import("../aftercare/plan").MarkState;
+  /** The client finished the program (graduation). */
+  graduation?: import("../aftercare/graduation").Graduation | null;
+  /** The open "Connect me with a loan officer" request. */
+  loanOfficerRequest?: { partnerName: string; how: "referred" | "accepting"; at: string } | null;
+}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientAftercareFields {}

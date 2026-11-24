@@ -6,7 +6,9 @@ import { useLocale } from "@/lib/i18n";
 import { DEMO_PORTAL_PARTNER } from "@/lib/partners/demo";
 import type { PartnerProgress } from "@/lib/partners/sharing";
 import { PARTNER_SHARING_COPY } from "@/lib/partners/sharingCopy";
-import { demoPartnerClients } from "@/lib/partners/sharingDemo";
+import { demoPartnerClients, demoPartnerHomeReady } from "@/lib/partners/sharingDemo";
+import type { PartnerHomeRow } from "@/lib/aftercare/homeReady";
+import PartnerHomeReady from "./PartnerHomeReady";
 import { getStaffData } from "@/lib/staff/data";
 import { isDemoMode } from "@/lib/supabase/config";
 import Icon from "@/components/Icon";
@@ -25,6 +27,7 @@ export default function PartnerClientContent({ id }: { id: string }) {
   const s = PARTNER_SHARING_COPY[locale];
   const demo = isDemoMode();
   const [client, setClient] = useState<PartnerProgress | null | "missing">(null);
+  const [homeReady, setHomeReady] = useState<PartnerHomeRow[]>([]);
   const [now] = useState(() => new Date());
   const [text, setText] = useState("");
   const [send, setSend] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -35,13 +38,20 @@ export default function PartnerClientContent({ id }: { id: string }) {
       if (demo) {
         const clients = await getStaffData().listClients();
         const found = demoPartnerClients(DEMO_PORTAL_PARTNER, clients, new Date()).find((c) => c.clientId === id);
-        if (!cancelled) setClient(found ?? "missing");
+        const record = clients.find((c) => c.id === id);
+        if (!cancelled) {
+          setClient(found ?? "missing");
+          setHomeReady(found && record ? demoPartnerHomeReady(DEMO_PORTAL_PARTNER, record, found) : []);
+        }
         return;
       }
       const res = await fetch(`/api/partners/clients/${encodeURIComponent(id)}`, { cache: "no-store" }).catch(() => null);
       if (res?.status === 403) return window.location.assign("/socios/portal");
-      const body = res?.ok ? ((await res.json()) as { client: PartnerProgress }) : null;
-      if (!cancelled) setClient(body?.client ?? "missing");
+      const body = res?.ok ? ((await res.json()) as { client: PartnerProgress; homeReady?: PartnerHomeRow[] }) : null;
+      if (!cancelled) {
+        setClient(body?.client ?? "missing");
+        setHomeReady(body?.homeReady ?? []);
+      }
     })();
     return () => {
       cancelled = true;
@@ -80,6 +90,7 @@ export default function PartnerClientContent({ id }: { id: string }) {
         {client && client !== "missing" && (
           <>
             <ClientProgressView progress={client} locale={locale} now={now} />
+            {homeReady.length > 0 && <PartnerHomeReady rows={homeReady} locale={locale} />}
             <section className="card p-5" aria-labelledby="escribir" data-testid="partner-write">
               <h2 id="escribir" className="text-[17px] font-semibold text-slate-900">{s.writeTitle}</h2>
               <p className="mt-1 text-[13.5px] leading-snug text-slate-600">{s.writeHelp}</p>

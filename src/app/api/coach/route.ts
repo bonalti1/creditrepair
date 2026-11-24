@@ -3,6 +3,7 @@ import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { COACH_SAFE_FALLBACK, replyLanguage } from "@/lib/coach/language";
 import { coachSystemPrompt, replyLanguageLine } from "@/lib/coach/systemPrompt";
+import { containsTaxpayerNumber } from "@/lib/aftercare/itin";
 import { checkClaimGuardrails } from "@/lib/compliance/guardrails";
 import { DEMO_SAVED_ANSWERS, libraryReplyFor, libraryReplyText, type SavedAnswer } from "@/lib/staff/answers";
 import { loadApprovedAnswers } from "@/lib/staff/answersServer";
@@ -99,7 +100,8 @@ export async function POST(req: Request) {
   }
 
   const violations = checkClaimGuardrails(reply);
-  if (violations.length > 0 || !reply) {
+  // Never a full Social Security number or ITIN in a reply (src/lib/aftercare/itin.ts).
+  if (violations.length > 0 || !reply || containsTaxpayerNumber(reply)) {
     console.warn("Coach guardrail violation, replacing reply:", violations.map((v) => v.rule));
     reply = COACH_SAFE_FALLBACK[language];
   }

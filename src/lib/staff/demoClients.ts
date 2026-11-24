@@ -450,6 +450,16 @@ export function buildDemoClients(now: Date): StaffClient[] {
     beforeReasons: true, paymentMethodDaysAgo: 38,
   });
   heriberto.rounds = [round(heriberto, 1, "mailed", { mailedDaysAgo: 35 })];
+  // After-care (docs/AFTERCARE.md): he has an ITIN, wants to buy a home, and
+  // shares his home-ready milestones with Laura (sharingDemo.ts).
+  heriberto.goal = "mortgage";
+  heriberto.idType = "itin";
+  heriberto.aftercareMarks = {
+    on_time: { done: true, at: ago(30) },
+    home_positive_accounts: { done: true, at: ago(12) },
+    home_savings: { done: true, at: ago(5) },
+  };
+  heriberto.loanOfficerRequest = { partnerName: "Jorge Treviño, Hipotecas del Valle", how: "accepting", at: ago(2) };
 
   // 13. Answers arrived two days ago; the system prepares round 2 next week.
   // She also answered before the reason picker existed.

@@ -61,6 +61,17 @@ export async function GET(req: Request) {
     }
     const accepted = ((terms.data as Row[] | null) ?? []).length > 0;
     const clients = accepted ? await loadPartnerClients(reader) : [];
+    // "Connect me with a loan officer" (migration 0030): only what the client agreed to send.
+    const intros = accepted ? await reader.rpc("partner_intro_requests") : { data: [], error: null };
+    const introRequests = intros.error
+      ? []
+      : ((intros.data as Row[] | null) ?? []).map((r) => ({
+          id: String(r.request_id),
+          name: String(r.display_name ?? "").trim(),
+          phone: typeof r.phone_e164 === "string" ? r.phone_e164 : null,
+          goal: typeof r.goal === "string" ? r.goal : null,
+          at: new Date(String(r.requested_at)).toISOString(),
+        }));
     const settings = (own.data as Row | null) ?? {};
     const p = member.partner;
     return NextResponse.json({
@@ -80,6 +91,7 @@ export async function GET(req: Request) {
       referrals: list,
       commissions,
       clients,
+      introRequests,
     });
   } catch (error) {
     await reportError(error, { where: "api/partners/portal", userId: member.userId });
