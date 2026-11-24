@@ -15,7 +15,7 @@ import {
 import { inviteMessageEs } from "../sales/invite";
 import { COACH_SYSTEM_PROMPT } from "../coach/systemPrompt";
 import { AFFILIATE_DISCLOSURE } from "../monitoring/offer";
-import { MARKETING } from "../i18n/marketing";
+import { SITE_COPY } from "../site/copy";
 
 // The company was renamed from the name spelled out below (in two halves, so
 // this file does not trip its own check) to Credalti.
@@ -239,8 +239,8 @@ describe("brand", () => {
     expect(COACH_SYSTEM_PROMPT).toContain(`Eres ${ASSISTANT_NAME}, el asistente de crédito con inteligencia artificial de Credalti`);
     expect(COACH_SYSTEM_PROMPT).toContain(`te llamas ${ASSISTANT_NAME} y SIEMPRE eres transparente en que eres una inteligencia artificial`);
     expect(AFFILIATE_DISCLOSURE.es).toContain("Credalti recibe una comisión");
-    expect(MARKETING.es.landing.footer).toContain("Credalti");
-    expect(MARKETING.en.landing.footer).toContain("Credalti");
+    expect(SITE_COPY.es.footer.disclaimer).toContain("Credalti");
+    expect(SITE_COPY.en.footer.disclaimer).toContain("Credalti");
     // The icon is the check only: no lettering to rename.
     expect(readFileSync("src/app/icon.svg", "utf8")).not.toMatch(/<text/);
   });

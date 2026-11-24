@@ -2,8 +2,9 @@ import { BRAND } from "../brand";
 import { AFFILIATE_DISCLOSURE, MONITORING_OFFER, monitoringName } from "../monitoring/offer";
 import type { Locale } from "./dictionaries";
 
-// Copy for the pages a visitor sees before the app: the landing page, the
-// /empezar funnel page and onboarding. English first, Spanish if needed
+// Copy for the pages a visitor sees before the app: the /empezar funnel page
+// and onboarding. (The public website's words, the home page included, are in
+// src/lib/site/copy.ts, under the same rules.) English first, Spanish if needed
 // (src/lib/i18n/detect.ts): a visitor sees English unless their browser
 // prefers Spanish or they chose it. The two say the same thing: the same
 // claims, the same disclaimers and the same commission disclosure, with
@@ -24,24 +25,6 @@ const brand = BRAND.name;
 const assistant = BRAND.assistant;
 
 export interface MarketingCopy {
-  landing: {
-    signIn: string;
-    assistantHello: string;
-    /** Name tags under the two characters in the hero. */
-    assistantTag: string;
-    teamTag: string;
-    headline: string;
-    headlineAccent: string;
-    lead: string;
-    /** The main button when there is a WhatsApp number to write to. */
-    talk: string;
-    /** The main button when there is none (the demo): it leads to onboarding. */
-    start: string;
-    whatsappText: string;
-    demo: string;
-    cards: Array<[title: string, body: string]>;
-    footer: string;
-  };
   empezar: {
     headline: string;
     headlineAccent: string;
@@ -111,34 +94,6 @@ export interface MarketingCopy {
 }
 
 const es: MarketingCopy = {
-  landing: {
-    signIn: "Entrar",
-    assistantHello: `Hola, soy ${assistant}, tu asistente con IA`,
-    assistantTag: `${assistant} · IA`,
-    teamTag: `Tu equipo ${brand}`,
-    headline: "Tu crédito,",
-    headlineAccent: "con un equipo a tu lado.",
-    lead: "Tú nos dices qué está mal en tu reporte. Nuestro equipo prepara y envía las cartas por ti y te mantiene al tanto.",
-    talk: "Habla con nuestro equipo",
-    start: "Empezar",
-    whatsappText: `¡Hola! Quiero saber cómo funciona ${brand}.`,
-    demo: "Ver la demo",
-    cards: [
-      [
-        "Tú dices qué está mal",
-        `Revisas tu reporte punto por punto con ${assistant}, tu asistente con IA. Solo se disputa lo que tú nos dices que es inexacto.`,
-      ],
-      [
-        "Nosotros enviamos las cartas",
-        "Nuestro equipo prepara las cartas, las envía por correo y te avisa cómo va cada ronda.",
-      ],
-      [
-        "En inglés o en español, y por escrito",
-        "La app y nuestro equipo te atienden en inglés o en español, como prefieras. Antes de que firmes, el equipo te explica el plan.",
-      ],
-    ],
-    footer: `${brand} es una empresa de servicios de crédito. Tú decides qué es inexacto en tu reporte; nuestro equipo prepara y envía las cartas por ti. No garantizamos resultados: los burós de crédito deciden, y los resultados varían según cada caso. ${assistant} es un asistente de inteligencia artificial. Disponible en Texas. Esto no es asesoría legal.`,
-  },
   empezar: {
     headline: "Tú nos dices qué está mal.",
     headlineAccent: "Nosotros enviamos las cartas.",
@@ -279,31 +234,6 @@ const es: MarketingCopy = {
 };
 
 const en: MarketingCopy = {
-  landing: {
-    signIn: "Sign in",
-    assistantHello: `Hi, I'm ${assistant}, your AI assistant`,
-    assistantTag: `${assistant} · AI`,
-    teamTag: `Your ${brand} team`,
-    headline: "Your credit,",
-    headlineAccent: "with a team by your side.",
-    lead: "You tell us what is wrong on your report. Our team prepares and mails the letters for you and keeps you posted.",
-    talk: "Talk to our team",
-    start: "Get started",
-    whatsappText: `Hi! I want to know how ${brand} works.`,
-    demo: "See the demo",
-    cards: [
-      [
-        "You say what is wrong",
-        `You go through your report item by item with ${assistant}, your AI assistant. Only what you tell us is inaccurate gets disputed.`,
-      ],
-      ["We mail the letters", "Our team prepares the letters, mails them and tells you how each round is going."],
-      [
-        "In English or Spanish, and in writing",
-        "The app and our team work with you in English or Spanish, whichever you prefer. Before you sign, the team explains the plan.",
-      ],
-    ],
-    footer: `${brand} is a credit services company. You decide what is inaccurate on your report; our team prepares and mails the letters for you. We do not guarantee results: the credit bureaus decide, and results vary case by case. ${assistant} is an artificial intelligence assistant. Available in Texas. This is not legal advice.`,
-  },
   empezar: {
     headline: "You tell us what is wrong.",
     headlineAccent: "We mail the letters.",
@@ -454,8 +384,7 @@ export function marketingStrings(locale: Locale): string[] {
     else if (Array.isArray(value)) value.forEach(walk);
     else if (value && typeof value === "object") Object.values(value).forEach(walk);
   };
-  const { landing, empezar, onboarding } = MARKETING[locale];
-  walk(landing);
+  const { empezar, onboarding } = MARKETING[locale];
   walk({ ...empezar, step: empezar.step(1) });
   walk({
     ...onboarding,

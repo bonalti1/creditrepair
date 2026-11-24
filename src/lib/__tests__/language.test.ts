@@ -14,6 +14,7 @@ import {
   resolveLocale,
 } from "@/lib/i18n/detect";
 import { MARKETING } from "@/lib/i18n/marketing";
+import { SITE_COPY } from "@/lib/site/copy";
 import { buildInvitePath, inviteMessage, inviteMessageEn, parseInvite } from "@/lib/sales/invite";
 
 // English first, Spanish if needed (src/lib/i18n/detect.ts). The order:
@@ -111,7 +112,12 @@ describe("the page's declared language", () => {
     const layout = readFileSync("src/app/layout.tsx", "utf8");
     expect(layout).toMatch(/<html lang=\{lang\}/);
     expect(layout).not.toMatch(/lang="es"/);
-    for (const page of ["src/app/page.tsx", "src/app/empezar/page.tsx", "src/app/socios/page.tsx", "src/app/conoce/[code]/page.tsx", "src/app/(app)/layout.tsx", "src/app/onboarding/layout.tsx", "src/app/login/layout.tsx"]) {
+    // The public website's pages get it through their shared frame (SiteShell).
+    expect(readFileSync("src/components/site/SiteShell.tsx", "utf8")).toContain("RequestLocaleProvider");
+    for (const page of ["src/app/page.tsx", "src/app/precios/page.tsx", "src/app/como-funciona/page.tsx", "src/app/preguntas/page.tsx", "src/app/nosotros/page.tsx", "src/app/derechos/page.tsx", "src/app/socios/page.tsx", "src/components/site/LegalPage.tsx"]) {
+      expect(readFileSync(page, "utf8"), page).toContain("<SiteShell>");
+    }
+    for (const page of ["src/components/site/SiteShell.tsx", "src/app/empezar/page.tsx", "src/app/conoce/[code]/page.tsx", "src/app/(app)/layout.tsx", "src/app/onboarding/layout.tsx", "src/app/login/layout.tsx"]) {
       expect(readFileSync(page, "utf8"), page).toContain("RequestLocaleProvider");
     }
     expect(readFileSync("src/app/global-error.tsx", "utf8")).toContain('<html lang="en">');
@@ -176,12 +182,11 @@ describe("the salesperson's invitation carries the language", () => {
 });
 
 describe("positioning: bilingual, not Spanish-first", () => {
-  it("the landing card says English or Spanish, in both languages", () => {
-    const cardTitles = (l: "es" | "en") => MARKETING[l].landing.cards.map(([title]) => title);
-    expect(cardTitles("en")).toContain("In English or Spanish, and in writing");
-    expect(cardTitles("es")).toContain("En inglés o en español, y por escrito");
+  it("the home page says English or Spanish, in both languages", () => {
+    expect(SITE_COPY.en.home.eyebrow).toBe("Credit report help, in English or Spanish");
+    expect(SITE_COPY.es.home.eyebrow).toBe("Ayuda con tu reporte de crédito, en inglés o en español");
     for (const locale of ["es", "en"] as const) {
-      const all = JSON.stringify(MARKETING[locale]);
+      const all = JSON.stringify(MARKETING[locale]) + JSON.stringify(SITE_COPY[locale]);
       expect(all).not.toMatch(/Todo en español|Everything in Spanish|Spanish-first|español primero/i);
     }
   });

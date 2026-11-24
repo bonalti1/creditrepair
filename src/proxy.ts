@@ -110,5 +110,13 @@ export const config = {
     "/socios",
     "/conoce/:path*",
     "/baja",
+    // The public website (src/lib/site/routes.ts): ?lang= is each page's language-specific URL.
+    "/precios",
+    "/como-funciona",
+    "/preguntas",
+    "/nosotros",
+    "/derechos",
+    "/privacidad",
+    "/terminos",
   ],
 };

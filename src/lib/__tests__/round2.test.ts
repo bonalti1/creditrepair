@@ -9,6 +9,7 @@ import { parseReport } from "@/lib/domain/parser";
 import type { ReportItem } from "@/lib/domain/types";
 import { DICTS } from "@/lib/i18n/dictionaries";
 import { MARKETING, marketingStrings } from "@/lib/i18n/marketing";
+import { SITE_COPY } from "@/lib/site/copy";
 import { monitoringName } from "@/lib/monitoring/offer";
 import { GOALS } from "@/lib/sales/invite";
 import { resetRateLimits } from "@/lib/security/rateLimit";
@@ -533,10 +534,11 @@ describe("G. the first pages in English", () => {
   const es = MARKETING.es;
 
   it("passes the advertising claim rules: hero, steps, FAQ, footer and every other English string", () => {
+    const site = SITE_COPY.en;
     const hero = [
-      en.landing.headline,
-      en.landing.headlineAccent,
-      en.landing.lead,
+      site.home.headline,
+      site.home.headlineAccent,
+      site.home.lead,
       en.empezar.headline,
       en.empezar.headlineAccent,
       `${en.empezar.leadBefore} ${en.empezar.leadStrong} ${en.empezar.leadAfter}`,
@@ -544,7 +546,7 @@ describe("G. the first pages in English", () => {
     ];
     const steps = en.empezar.steps.flatMap((s) => [s.title, s.body, s.alt]);
     const faq = en.empezar.faq.flat();
-    const footers = [en.landing.footer, en.empezar.footer, en.empezar.more];
+    const footers = [site.footer.disclaimer, site.footer.aiDisclosure, en.empezar.footer, en.empezar.more];
     for (const line of [...hero, ...steps, ...faq, ...footers]) clean(line);
     const all = marketingStrings("en");
     expect(all.length).toBeGreaterThan(90);
@@ -554,7 +556,7 @@ describe("G. the first pages in English", () => {
   });
 
   it("is the same page in both languages: same sections, same number of lines", () => {
-    expect(en.landing.cards).toHaveLength(es.landing.cards.length);
+    expect(SITE_COPY.en.home.how.steps).toHaveLength(SITE_COPY.es.home.how.steps.length);
     expect(en.empezar.steps).toHaveLength(es.empezar.steps.length);
     expect(en.empezar.community).toHaveLength(es.empezar.community.length);
     expect(en.empezar.faq).toHaveLength(es.empezar.faq.length);
@@ -568,7 +570,7 @@ describe("G. the first pages in English", () => {
   });
 
   it("keeps the same disclaimers and the commission disclosure in English", () => {
-    for (const footer of [en.landing.footer, en.empezar.footer]) {
+    for (const footer of [SITE_COPY.en.footer.disclaimer, en.empezar.footer]) {
       // Who decides what, who does the work, and no promise about how it ends.
       expect(footer).toMatch(/You decide what is inaccurate on your report/);
       expect(footer).toMatch(/our team prepares and mails the letters for you/);
@@ -577,7 +579,7 @@ describe("G. the first pages in English", () => {
       expect(footer).toMatch(/Available in Texas/);
       expect(footer).toMatch(/This is not legal advice/);
     }
-    expect(en.landing.footer).toMatch(/artificial intelligence assistant/);
+    expect(SITE_COPY.en.footer.aiDisclosure).toMatch(/artificial intelligence assistant/);
     expect(en.empezar.footer).toMatch(/No one can take correct, current information off a credit report/);
     expect(en.empezar.footer).toMatch(/Credalti earns a commission on that subscription/);
     expect(en.onboarding.disclosure).toBe("Disclosure: Credalti earns a commission from the monitoring service when you subscribe.");
@@ -613,7 +615,7 @@ describe("I. small copy changes", () => {
       "Tú decides qué es inexacto en tu reporte; nuestro equipo prepara y envía las cartas por ti.",
     ];
     for (const sentence of sentences) clean(sentence);
-    for (const footer of [MARKETING.es.landing.footer, MARKETING.es.empezar.footer]) {
+    for (const footer of [SITE_COPY.es.footer.disclaimer, MARKETING.es.empezar.footer]) {
       expect(footer.startsWith(sentences.join(" "))).toBe(true);
       expect(footer).toMatch(/No garantizamos resultados/);
       // The old positioning is gone from the footers.

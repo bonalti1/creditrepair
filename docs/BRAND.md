@@ -59,7 +59,9 @@ Where it appears:
 
 | Where | Version | Height |
 | --- | --- | --- |
-| Landing (`/`) and `/empezar`, on the navy hero | white | 30 px |
+| The public website's header (`SiteShell`: `/`, `/precios`, `/como-funciona`…) | white | 28 px |
+| The website's footer, `/empezar`, on navy | white | 30 px |
+| Open Graph image (`src/app/opengraph-image.tsx`), on navy | white | 84 px |
 | Client app header (`AppNav`), onboarding | navy | 24 px |
 | Staff console header (`StaffShell`) | navy | 24 px |
 | Staff "no access" page (`equipo/layout.tsx`) | navy | 28 px |
@@ -70,7 +72,8 @@ Where it appears:
 Not shown on paper: the printed agreement copy (`/acuerdo/copia`) and the
 staff print batch hide the app header, and the attorney letter packet
 (`scripts/letters-packet.ts`) is Markdown with no logo. There is no Open Graph
-or social image yet.
+image other than the website's (`src/app/opengraph-image.tsx`, the white
+logo file on brand navy; docs/WEBSITE.md).
 
 Rules (from the kit):
 
@@ -269,9 +272,12 @@ The brand kit's "web-ready" folder brought two characters.
 
 Where each one appears today:
 
-- **Landing page:** both, side by side in the hero (Alti and AltiBot turned
-  toward each other, with name tags). Below the buttons on a phone, beside the
-  headline on a wide screen. AltiBot's head is also in the "Hola, soy…" pill.
+- **Website home (`/`):** AltiBot's head in the eyebrow pill and in the
+  example phone's header (labelled AI); on a phone, Alti and AltiBot stand
+  together above the example, with name tags; on a wide screen AltiBot stands
+  at the phone's corner and Alti beside it. The final call shows both heads.
+  `/como-funciona`: AltiBot beside the review screen, Alti beside the letters.
+  `/nosotros`: both, each with what they are (team; AI). See docs/WEBSITE.md.
 - **`/empezar`:** both heads at the top; AltiBot beside step 2 (the assistant
   explains the report), Alti beside step 3 (the team prepares and mails).
 - **Onboarding:** Alti on the invited welcome; on "how do you want to do your
