@@ -1,6 +1,7 @@
 import type { IconName } from "@/components/Icon";
 import type { Capability } from "./permissions";
 import type { SHELL_TEXT } from "./i18n/ui/shell";
+import { callsEnabled } from "../calls/config";
 
 // The console's destinations: the top bar and the phone's tab bar
 // (components/staff/StaffShell.tsx) and the console's search (search.ts) read
@@ -37,6 +38,8 @@ export const MORE_NAV: NavItem[] = [
   { href: "/equipo/cobros", label: "invoices", icon: "doc", needs: "billing.plans" },
   { href: "/equipo/resenas", label: "reviews", icon: "chat" },
   { href: "/equipo/estados", label: "states", icon: "globe" },
+  // Calls with a person (src/lib/calls): only when turned on (off by default).
+  ...(callsEnabled() ? [{ href: "/equipo/llamadas", label: "calls" as const, icon: "clock" as const, needs: "calls.manage" as const }] : []),
   { href: "/equipo/perfil", label: "profile", icon: "person" },
   { href: "/equipo/bienvenida", label: "welcome", icon: "book" },
 ];

@@ -73,6 +73,8 @@ export interface SiteCopy {
     ctaWhatsapp: string;
     ctaOnline: string;
     ctaOnlineAlt: string;
+    /** The chat signup with Alti (/registro), offered beside the main button. */
+    ctaChat: string;
     whatsappText: string;
     secondary: string;
     underCta: string;
@@ -266,6 +268,7 @@ const en: SiteCopy = {
     ctaWhatsapp: "Start my review",
     ctaOnline: "Start my review",
     ctaOnlineAlt: "Or start online",
+    ctaChat: `Or sign up in a chat with ${BRAND.assistant}, in about 10 minutes`,
     whatsappText: `Hi! I want to start my credit report review with ${brand}.`,
     secondary: "See how it works",
     underCta: "Nothing is charged until work is done · 3 business days to cancel at no cost · Results vary",
@@ -764,6 +767,7 @@ const es: SiteCopy = {
     ctaWhatsapp: "Empezar mi revisión",
     ctaOnline: "Empezar mi revisión",
     ctaOnlineAlt: "O empieza en línea",
+    ctaChat: `O regístrate en un chat con ${BRAND.assistant}, en unos 10 minutos`,
     whatsappText: `¡Hola! Quiero empezar la revisión de mi reporte de crédito con ${brand}.`,
     secondary: "Ver cómo funciona",
     underCta: "No se cobra nada hasta que el trabajo está hecho · 3 días hábiles para cancelar sin costo · Los resultados varían",

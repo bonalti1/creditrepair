@@ -94,6 +94,11 @@ export function CtaGroup({
           </Link>
         </p>
       )}
+      <p className="mt-3 text-[15px]">
+        <Link href={cta.chat.href} className={`font-semibold underline underline-offset-4 ${onNavy ? "text-white" : "text-blue-700"}`} data-testid="cta-chat">
+          {cta.chat.label}
+        </Link>
+      </p>
       <p className={`mt-4 text-[13px] leading-relaxed ${onNavy ? "text-blue-200" : "text-slate-500"}`}>{c.underCta}</p>
     </div>
   );

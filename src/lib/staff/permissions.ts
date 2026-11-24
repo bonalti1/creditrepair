@@ -62,6 +62,8 @@ export const CAPABILITIES = [
   "reviews.manage",
   // Which states Credalti sells in (src/lib/compliance/stateRules.ts, migration 0030).
   "states.manage",
+  // Calls with a person (src/lib/calls, migration 0032; off by default): set when the team takes calls, see and close bookings.
+  "calls.manage",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -104,6 +106,7 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "billing.plans": "Planes de cobro, facturas, exportaciones y contracargos",
   "reviews.manage": "Sitios de reseñas, pedidos de reseña y calificaciones",
   "states.manage": "Abrir y cerrar estados",
+  "calls.manage": "Fijar los horarios de llamadas y atender las reservas",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -128,6 +131,7 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "billing.plans": "Billing plans, invoices, exports and chargebacks",
   "reviews.manage": "Review sites, review requests and ratings",
   "states.manage": "Open and close states",
+  "calls.manage": "Set call hours and handle booked calls",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -168,6 +172,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "billing.plans": false,
       "reviews.manage": false,
       "states.manage": false,
+      "calls.manage": false,
     },
   },
   sales: {
@@ -195,6 +200,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "billing.plans": false,
       "reviews.manage": false,
       "states.manage": false,
+      // Sales talks with leads before they sign up: the calls are theirs (questions only).
+      "calls.manage": true,
     },
   },
 };

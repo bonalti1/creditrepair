@@ -347,6 +347,8 @@ const SUBJECT: Record<string, Record<MessageLocale, string>> = {
   payment_method_needed: { es: "Tu método de pago", en: "Your payment method" },
   letter_remailed: { es: "Enviamos tu carta de nuevo", en: "We mailed your letter again" },
   review_request: { es: "¿Cómo ha sido tu experiencia?", en: "How has your experience been?" },
+  // A booked call's confirmation and reminder (src/lib/calls/messages.ts).
+  call_booked: { es: "Tu llamada con nuestro equipo", en: "Your call with our team" },
 };
 
 /** The email's subject line for a message's topic. */

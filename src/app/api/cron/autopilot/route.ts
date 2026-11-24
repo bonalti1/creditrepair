@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { runAutopilot } from "@/lib/autopilot/server";
+import { callsEnabled } from "@/lib/calls/config";
+import { runCallMessages } from "@/lib/calls/server";
 import { reportError } from "@/lib/observability/errors";
 import { hasSharedSecret } from "@/lib/security/signatures";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -15,6 +17,9 @@ import { getAdminClient } from "@/lib/supabase/admin";
 //   3. sends the messages that are due: status messages, then the follow-up
 //      reminders, under opt-out, quiet hours, the daily cap and the WhatsApp
 //      24-hour rule.
+//   4. when calls are turned on (NEXT_PUBLIC_CALLS_ENABLED; off by default),
+//      the confirmations and reminders of booked calls (src/lib/calls), under
+//      the same opt-out and quiet-hour rules, WhatsApp or email only.
 // Running it twice sends nothing twice: rounds already mailed are refused by
 // send.ts, and every message is claimed under its unique dedupe key first.
 
@@ -25,7 +30,10 @@ export async function POST(req: Request) {
   const db = getAdminClient();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   try {
-    return NextResponse.json(await runAutopilot(db, new Date(), { base: process.env.NEXT_PUBLIC_APP_URL }));
+    const now = new Date();
+    const summary = await runAutopilot(db, now, { base: process.env.NEXT_PUBLIC_APP_URL });
+    if (!callsEnabled()) return NextResponse.json(summary);
+    return NextResponse.json({ ...summary, calls: await runCallMessages(db, now) });
   } catch (error) {
     await reportError(error, { where: "api/cron/autopilot" });
     return NextResponse.json({ error: "The autopilot run stopped. What it already did is recorded; the next run continues." }, { status: 500 });
