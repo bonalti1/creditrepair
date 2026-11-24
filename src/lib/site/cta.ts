@@ -13,6 +13,9 @@ const SUPPORT_PHONE = process.env.NEXT_PUBLIC_COMPANY_PHONE || null;
 
 export const ONLINE_START = "/onboarding";
 
+/** The chat signup with Alti (docs/SIGNUP-CHAT.md): one more way in, offered beside the main button. */
+export const CHAT_START = "/registro";
+
 export interface Cta {
   href: string;
   label: string;
@@ -20,6 +23,8 @@ export interface Cta {
   external: boolean;
   /** When the main button is WhatsApp: the online start, as a second way in. */
   alternate: { href: string; label: string } | null;
+  /** Always: sign up in a chat with Alti. */
+  chat: { href: string; label: string };
 }
 
 export function whatsappHref(text: string, number: string | null = WHATSAPP): string | null {
@@ -29,9 +34,10 @@ export function whatsappHref(text: string, number: string | null = WHATSAPP): st
 export function primaryCta(locale: Locale, number: string | null = WHATSAPP): Cta {
   const c = SITE_COPY[locale].common;
   const wa = whatsappHref(c.whatsappText, number);
+  const chat = { href: CHAT_START, label: c.ctaChat };
   return wa
-    ? { href: wa, label: c.ctaWhatsapp, external: true, alternate: { href: ONLINE_START, label: c.ctaOnlineAlt } }
-    : { href: ONLINE_START, label: c.ctaOnline, external: false, alternate: null };
+    ? { href: wa, label: c.ctaWhatsapp, external: true, alternate: { href: ONLINE_START, label: c.ctaOnlineAlt }, chat }
+    : { href: ONLINE_START, label: c.ctaOnline, external: false, alternate: null, chat };
 }
 
 /** The support line, only when the owner set one. */

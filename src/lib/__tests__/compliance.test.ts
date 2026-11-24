@@ -156,7 +156,7 @@ describe("wording", () => {
 // but only as plain current numbers from the report (docs/BRAND.md, "Scores in
 // the client app"). The staff console keeps its numbers and is not scanned.
 describe("scores in the client app", () => {
-  const CLIENT_DIRS = ["src/app/(app)", "src/app/onboarding", "src/components", "src/lib/ux"];
+  const CLIENT_DIRS = ["src/app/(app)", "src/app/onboarding", "src/app/registro", "src/components", "src/lib/ux", "src/lib/signup"];
   const CLIENT_FILES = ["src/lib/i18n/dictionaries.ts", "src/lib/demo.ts", "src/lib/integrations/whatsapp.ts"];
 
   async function clientSources(): Promise<Array<{ file: string; text: string }>> {

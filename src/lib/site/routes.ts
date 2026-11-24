@@ -82,6 +82,7 @@ export const PRIVATE_PATHS = [
   "/documentos",
   "/confirmar-direccion",
   "/onboarding",
+  "/registro",
   "/login",
   "/auth/",
   "/baja",

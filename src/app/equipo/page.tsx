@@ -37,6 +37,7 @@ import { clientLanguage } from "@/lib/staff/i18n/locale";
 import { useSavedAnswers } from "@/lib/staff/useSavedAnswers";
 import Icon from "@/components/Icon";
 import NewLeadsCard from "@/components/staff/NewLeadsCard";
+import { HomeCalls } from "@/components/staff/CallsQueue";
 import {
   PRIMARY_BUTTON,
   PRIMARY_BUTTON_COMPACT,
@@ -270,6 +271,8 @@ export default function EquipoHome() {
               )}
             </p>
           )}
+          {/* Booked calls with a person (src/lib/calls), with their case reference. Off by default: renders nothing. */}
+          <HomeCalls allowed={can("calls.manage")} now={now} />
         </section>
 
         <div className="space-y-6">

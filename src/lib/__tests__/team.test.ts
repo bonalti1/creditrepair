@@ -673,7 +673,9 @@ describe("team: what the staff routes accept", () => {
     
     // Partner offers and loan officers accepting new clients (migration 0030): administrators.
     expect(read("src/app/api/staff/offers/route.ts")).toMatch(/requireCapability\("partners\.manage"\)/);
-    expect(staffRoutes.length).toBe(26);
+    // Calls with a person (migration 0032, off by default): whoever handles calls (administrators and sales).
+    expect(read("src/app/api/staff/calls/route.ts")).toMatch(/requireCapability\("calls\.manage"\)/);
+    expect(staffRoutes.length).toBe(27);
   });
 });
 

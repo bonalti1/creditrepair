@@ -109,6 +109,8 @@ export const config = {
     "/",
     "/empezar",
     "/onboarding/:path*",
+    // The chat signup with Alti and its call booking (docs/SIGNUP-CHAT.md): public, for ?lang= only.
+    "/registro/:path*",
     "/login",
     "/socios",
     "/conoce/:path*",
