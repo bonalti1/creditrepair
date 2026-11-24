@@ -5,6 +5,8 @@ import { COACH_SYSTEM_PROMPT, coachSystemPrompt } from "@/lib/coach/systemPrompt
 import { assertClaimGuardrails, checkClaimGuardrails, checkMarketingCopy } from "@/lib/compliance/guardrails";
 import { DICTS } from "@/lib/i18n/dictionaries";
 import { MARKETING, marketingStrings } from "@/lib/i18n/marketing";
+import { primaryCta } from "@/lib/site/cta";
+import { SITE_COPY } from "@/lib/site/copy";
 import { CLIENT_FALLBACK_REPLIES, CLIENT_FALLBACK_REPLY, LEAD_GREETING, LEAD_GREETINGS, renderMessage, type WhatsAppEvent } from "@/lib/integrations/whatsapp";
 import { inviteMessageEs, SALES_MAY_NOT_SAY, SALES_MAY_SAY } from "@/lib/sales/invite";
 import { isFullService, SERVICE_MODE, type ServiceMode } from "@/lib/service/mode";
@@ -229,16 +231,13 @@ describe("what a prospect reads, under full service", () => {
     }
   });
 
-  it("says what the service is, in the same words on the landing page and on /empezar", () => {
-    const { landing, empezar } = MARKETING.es;
-    expect(landing.lead).toBe(
-      "Tú nos dices qué está mal en tu reporte. Nuestro equipo prepara y envía las cartas por ti y te mantiene al tanto.",
-    );
+  it("says what the service is, in the same words on the home page and on /empezar", () => {
+    const { empezar } = MARKETING.es;
+    // The home page (src/lib/site/copy.ts): the client says what is wrong, the team prepares and mails.
+    expect(SITE_COPY.es.home.lead).toMatch(/^Tú nos dices qué está mal\. Nuestro equipo prepara y envía las cartas de disputa/);
+    expect(SITE_COPY.en.home.lead).toMatch(/^You tell us what's wrong\. Our team prepares and mails the dispute letters/);
     expect(`${empezar.headline} ${empezar.headlineAccent}`).toBe("Tú nos dices qué está mal. Nosotros enviamos las cartas.");
     expect(empezar.leadStrong).toBe("Nuestro equipo prepara y envía las cartas por ti");
-    expect(MARKETING.en.landing.lead).toBe(
-      "You tell us what is wrong on your report. Our team prepares and mails the letters for you and keeps you posted.",
-    );
     // Results are never promised, and the pages say so.
     expect(empezar.leadAfter).toMatch(/Los resultados varían/);
     expect(MARKETING.en.empezar.leadAfter).toMatch(/Results vary/);
@@ -246,14 +245,18 @@ describe("what a prospect reads, under full service", () => {
 
   it("leads with talking to the team", () => {
     for (const locale of ["es", "en"] as const) {
-      const { landing, empezar } = MARKETING[locale];
-      expect(`${landing.talk} ${empezar.ctaWhatsapp}`).toMatch(/equipo|team/);
+      const { empezar } = MARKETING[locale];
+      expect(empezar.ctaWhatsapp).toMatch(/equipo|team/);
       expect(empezar.steps[0]!.title).toMatch(/Habla con nuestro equipo|Talk to our team/);
+      // The website's main button opens a chat with the team when a number is set, else starts online.
+      const cta = primaryCta(locale, "15551234567");
+      expect(cta.href).toMatch(/^https:\/\/wa\.me\/15551234567\?text=/);
+      expect(cta.alternate?.href).toBe("/onboarding");
+      expect(primaryCta(locale, null)).toMatchObject({ href: "/onboarding", external: false, alternate: null });
+      expect(SITE_COPY[locale].home.how.steps[0]!.title).toMatch(/Habla con nosotros|Talk to us/);
     }
-    // The landing page uses the same button mechanics as /empezar.
-    const landing = readFileSync("src/components/marketing/LandingContent.tsx", "utf8");
-    expect(landing).toContain("NEXT_PUBLIC_WHATSAPP_NUMBER");
-    expect(landing).toContain("c.talk");
+    // The website uses the same button mechanics as /empezar.
+    expect(readFileSync("src/lib/site/cta.ts", "utf8")).toContain("NEXT_PUBLIC_WHATSAPP_NUMBER");
   });
 
   it("never says the service is free, or that monitoring is the only cost", () => {
@@ -272,8 +275,8 @@ describe("what a prospect reads, under full service", () => {
       return out;
     };
     for (const locale of ["es", "en"] as const) {
-      const { landing, empezar } = MARKETING[locale];
-      for (const line of [...walk(landing), ...walk({ ...empezar, step: empezar.step(1) })]) {
+      const { empezar } = MARKETING[locale];
+      for (const line of [...walk({ ...empezar, step: empezar.step(1) })]) {
         expect(line, line).not.toMatch(/\$|\d+\s*(dólares|dollars|usd)|\/\s*(mes|month)|\bal mes\b|\ba month\b/i);
       }
     }
@@ -307,7 +310,8 @@ describe("what a prospect reads, under full service", () => {
   it("takes the company name from the brand file", () => {
     const source = readFileSync("src/lib/i18n/marketing.ts", "utf8");
     expect(source).not.toMatch(/Credalti/);
-    expect(MARKETING.es.landing.footer.startsWith("Credalti es una empresa de servicios de crédito.")).toBe(true);
+    expect(readFileSync("src/lib/site/copy.ts", "utf8")).not.toMatch(/Credalti/);
+    expect(SITE_COPY.es.footer.disclaimer.startsWith("Credalti es una empresa de servicios de crédito.")).toBe(true);
   });
 
   it("describes the page the same way in the page metadata", () => {

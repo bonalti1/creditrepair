@@ -4,6 +4,7 @@ import "./globals.css";
 import { APP_ICONS, BRAND } from "@/lib/brand";
 import { TEXT_SIZE_SCRIPT } from "@/lib/ux/textSizeCore";
 import { documentLang, inRequestLocale } from "@/lib/i18n/server";
+import { siteUrl } from "@/lib/site/routes";
 
 // The brand kit's typefaces (brand/typography/TYPOGRAPHY.md, confirmed by the
 // owner): Inter for body and interface text, Poppins for headings and display
@@ -29,8 +30,10 @@ const poppins = Poppins({
 // Icons come from Next's file conventions in this folder: favicon.ico,
 // icon.svg and apple-icon.png (the brand kit's favicon set, unchanged), and
 // manifest.ts. Nothing to list here.
+// metadataBase: the site's public origin (src/lib/site/routes.ts), so the
+// Open Graph image (opengraph-image.tsx) and the canonical links are absolute.
 export async function generateMetadata(): Promise<Metadata> {
-  return inRequestLocale({
+  const text = await inRequestLocale({
     en: {
       title: BRAND.title,
       description:
@@ -42,6 +45,7 @@ export async function generateMetadata(): Promise<Metadata> {
         "Servicio de crédito en inglés y en español. Tú nos dices qué está mal en tu reporte; nuestro equipo prepara y envía las cartas por ti. Los resultados varían.",
     },
   });
+  return { ...text, metadataBase: new URL(siteUrl()) };
 }
 
 export const viewport: Viewport = {

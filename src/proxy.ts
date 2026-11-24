@@ -115,5 +115,13 @@ export const config = {
     "/baja",
     // The review sites, the same for everyone (src/lib/reviews): the request message links here with ?lang=.
     "/opina",
+    // The public website (src/lib/site/routes.ts): ?lang= is each page's language-specific URL.
+    "/precios",
+    "/como-funciona",
+    "/preguntas",
+    "/nosotros",
+    "/derechos",
+    "/privacidad",
+    "/terminos",
   ],
 };

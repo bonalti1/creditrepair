@@ -10,11 +10,11 @@ import { checkPartnerApplication, PARTNER_KIND_LABEL, PARTNER_KINDS, type Partne
 import { isDemoMode } from "@/lib/supabase/config";
 import { ALL_STATES } from "@/lib/compliance/states";
 import Icon from "@/components/Icon";
-import LocaleToggle from "@/components/LocaleToggle";
-import Logo from "@/components/Logo";
 
-// /socios: what the partner program is, its rules, and the application. Every
-// string is in src/lib/partners/copy.ts (ES and EN, checked by the claim rules).
+// /socios: the program's steps, its rules, and the application, under the
+// website's partner section (src/app/socios/page.tsx), inside the site's
+// header and footer. Every string is in src/lib/partners/copy.ts (ES and EN,
+// checked by the claim rules).
 // While "Comisiones a socios" is off (program.ts), the rules and the box below
 // them say the program pays no referral fees instead of how to disclose one.
 
@@ -85,23 +85,7 @@ export default function SociosContent() {
     ) : null;
 
   return (
-    <main className="min-h-dvh bg-slate-50">
-      <section className="bg-gradient-to-b from-blue-800 to-blue-900 px-4 pb-12 pt-5 text-white sm:px-6">
-        <div className="mx-auto max-w-3xl">
-          <div className="flex items-center justify-between gap-3">
-            <Link href="/" aria-label="Inicio">
-              <Logo size={28} tone="dark" priority />
-            </Link>
-            <LocaleToggle tone="dark" />
-          </div>
-          <p className="mt-9 text-[13px] font-semibold uppercase tracking-wide text-blue-200">{c.eyebrow}</p>
-          <h1 className="mt-2 font-display text-[32px] font-bold leading-[1.1] sm:text-[44px]">{c.title}</h1>
-          <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-blue-100">{c.lead}</p>
-          <a href="#solicitud" className="pressable mt-7 inline-flex h-13 items-center rounded-full bg-amber-400 px-7 py-3.5 text-[16px] font-semibold text-blue-900 hover:bg-amber-300">
-            {c.formTitle}
-          </a>
-        </div>
-      </section>
+    <div className="bg-slate-50">
 
       <div className="mx-auto max-w-3xl space-y-8 px-4 py-10 sm:px-6">
         <section aria-labelledby="como">
@@ -221,6 +205,6 @@ export default function SociosContent() {
           </Link>
         </p>
       </div>
-    </main>
+    </div>
   );
 }
