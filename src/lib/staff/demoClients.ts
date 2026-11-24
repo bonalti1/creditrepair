@@ -441,15 +441,16 @@ export function buildDemoClients(now: Date): StaffClient[] {
   graciela.rounds = [round(graciela, 1, "mailed", { mailedDaysAgo: 9 })];
   graciela.rounds[0]!.letters[1]!.mailStatus = "returned";
 
-  // 12. Mailed 35 days ago and no new report has come in. He answered before
-  // the reason picker existed: his answers count and carry no reason code.
+  // 12. Mailed 45 days ago, past the round's re-pull date (rounds/timing.ts), and
+  // no new report has come in. He answered before the reason picker existed:
+  // his answers count and carry no reason code.
   const heriberto = make({
     id: "c12", first: "Heriberto", last: "Solís", phone: "+12105550112", city: "San Antonio", zip: "78207",
-    salesperson: "ana", createdDaysAgo: 46, signedUpDaysAgo: 45, agreementDaysAgo: 44, documents: both,
-    report: { pulledDaysAgo: 40, shape: "base" }, answeredDaysAgo: 37, lastActivityDaysAgo: 21,
-    beforeReasons: true, paymentMethodDaysAgo: 38,
+    salesperson: "ana", createdDaysAgo: 56, signedUpDaysAgo: 55, agreementDaysAgo: 54, documents: both,
+    report: { pulledDaysAgo: 50, shape: "base" }, answeredDaysAgo: 47, lastActivityDaysAgo: 21,
+    beforeReasons: true, paymentMethodDaysAgo: 48,
   });
-  heriberto.rounds = [round(heriberto, 1, "mailed", { mailedDaysAgo: 35 })];
+  heriberto.rounds = [round(heriberto, 1, "mailed", { mailedDaysAgo: 45 })];
 
   // 13. Answers arrived two days ago; the system prepares round 2 next week.
   // She also answered before the reason picker existed.

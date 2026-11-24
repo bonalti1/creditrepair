@@ -38,6 +38,8 @@ export const STATUS_KINDS = [
   "payment_method_needed",
   // A letter that came back went out again to the corrected address.
   "letter_remailed",
+  // The one review request per client, at a milestone everyone reaches (src/lib/reviews, migration 0029).
+  "review_request",
 ] as const;
 
 export type StatusKind = (typeof STATUS_KINDS)[number];

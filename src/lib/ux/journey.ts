@@ -3,6 +3,7 @@ import { formatAgreementDay, workMayStart, type AgreementRecord } from "../agree
 import { SERVICE_MODE, type ServiceMode } from "../service/mode";
 import { readStoredAgreement } from "./agreementLocal";
 import { readPaymentMethodOnFile } from "./billingLocal";
+import { ESTIMATED_CYCLE_DAYS, nextRoundDue, REINVESTIGATION_DAYS } from "../rounds/timing";
 
 // The journey engine — the single biggest UX bet against Dispute Beast:
 // at any moment the app tells the user exactly ONE next step, in plain
@@ -33,6 +34,11 @@ export interface JourneyState {
   roundApproved: boolean;
   /** ISO date the current round mailed, if any. */
   mailedAt?: string | null;
+  /**
+   * When the next round is due for the mailed round (rounds/timing.ts, nextRoundDue), when the
+   * caller knows its letters' tracking. Missing: worked out from the mailing date alone.
+   */
+  nextRoundDueAt?: string | null;
   /** Full service: the client's agreement as on record. Null or missing means none. */
   agreement?: AgreementRecord | null;
   /**
@@ -52,8 +58,9 @@ export interface JourneyStep {
   href: string;
 }
 
-export const RESPONSE_WINDOW_DAYS = 30; // FCRA reinvestigation window
-export const NEXT_ROUND_DAYS = 40;
+export const RESPONSE_WINDOW_DAYS = REINVESTIGATION_DAYS; // FCRA reinvestigation window
+/** The next round's date with no tracking (mailing + 5 days' transit + 30 + 5): rounds/timing.ts. */
+export const NEXT_ROUND_DAYS = ESTIMATED_CYCLE_DAYS;
 
 const COPY = {
   es: {
@@ -302,7 +309,7 @@ export function nextAction(s: JourneyState, locale: Locale = "en", options: Jour
 
 function roundTiming(s: JourneyState, now: Date): { beforeNextRound: boolean; daysLeft: number } {
   const mailed = s.mailedAt ? new Date(s.mailedAt) : now;
-  const nextRound = new Date(mailed.getTime() + NEXT_ROUND_DAYS * 24 * 60 * 60 * 1000);
+  const nextRound = new Date(s.nextRoundDueAt ?? nextRoundDue({ mailedAt: mailed.toISOString() })!.dueAt);
   const responseDue = new Date(mailed.getTime() + RESPONSE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
   return {
     beforeNextRound: now < nextRound,

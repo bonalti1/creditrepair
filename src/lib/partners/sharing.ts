@@ -1,6 +1,7 @@
 import { cancellationDeadline } from "../agreement/businessDays";
 import { sha256Hex } from "../agreement/sha256";
-import { caseDay, CASE_NEXT_ROUND_DAYS, CASE_RESPONSE_DAYS, latestMailedRound, responseWindowStart, type CaseFacts } from "../case/timeline";
+import { caseDay, CASE_RESPONSE_DAYS, latestMailedRound, nextRoundAt, responseWindowStart, type CaseFacts } from "../case/timeline";
+import { nextRoundDueForStaffRound } from "../rounds/timing";
 import { GOALS, type GoalKey } from "../sales/invite";
 import { REQUIRED_DOCUMENTS, type StaffClient } from "../staff/types";
 import { BRAND } from "../brand";
@@ -150,7 +151,7 @@ export interface PartnerRound {
   mailedAt: string;
   /** About 30 days after the round reached the bureaus. */
   answerDueAt: string;
-  /** About 40 days after mailing. */
+  /** When the next round is due (rounds/timing.ts): about 35 to 45 days after mailing. */
   nextRoundAt: string;
 }
 
@@ -392,7 +393,7 @@ export function progressFromCaseFacts(
   const documentsCompleteAt = REQUIRED_DOCUMENTS.every((k) => docs.has(k)) ? [...docs.entries()].filter(([k]) => (REQUIRED_DOCUMENTS as readonly string[]).includes(k)).map(([, at]) => at).sort().at(-1)! : null;
   const rounds = facts.rounds
     .filter((r) => r.mailedAt)
-    .map((r) => ({ number: r.number, mailedAt: r.mailedAt!, answerDueAt: addDays(responseWindowStart(r), CASE_RESPONSE_DAYS), nextRoundAt: addDays(r.mailedAt!, CASE_NEXT_ROUND_DAYS) }));
+    .map((r) => ({ number: r.number, mailedAt: r.mailedAt!, answerDueAt: addDays(responseWindowStart(r), CASE_RESPONSE_DAYS), nextRoundAt: nextRoundAt(r) }));
   const mailed = latestMailedRound(facts);
   return {
     clientId: who.clientId ?? "preview",
@@ -429,7 +430,7 @@ export function progressFromStaffClient(client: StaffClient, share: { level: Sha
         const cls = l.mail?.mailClass ?? l.mailClass;
         if ((cls === "certified" || cls === "certified_return_receipt") && l.mailStatus === "delivered" && ms(l.mail?.deliveredAt) > start) start = ms(l.mail?.deliveredAt);
       }
-      return { number: r.number, mailedAt: r.mailedAt!, answerDueAt: new Date(start + CASE_RESPONSE_DAYS * DAY_MS).toISOString(), nextRoundAt: addDays(r.mailedAt!, CASE_NEXT_ROUND_DAYS) };
+      return { number: r.number, mailedAt: r.mailedAt!, answerDueAt: new Date(start + CASE_RESPONSE_DAYS * DAY_MS).toISOString(), nextRoundAt: nextRoundDueForStaffRound(r)!.dueAt };
     })
     .sort((a, b) => a.number - b.number);
   const latest = [...mailed].sort((a, b) => b.number - a.number)[0];

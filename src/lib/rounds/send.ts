@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { workMayStart } from "../agreement/gate";
 import { loadAgreement } from "../agreement/server";
-import { buildAttackPlan, ROUND_CYCLE_DAYS } from "../domain/attack";
+import { buildAttackPlan } from "../domain/attack";
+import { nextRoundDue } from "./timing";
 import type { PlannedLetter, ReportItem, UserProfile } from "../domain/types";
 import { MailAddressError, mailLetter } from "../integrations/lob";
 import { sendWhatsApp } from "../integrations/whatsapp";
@@ -483,7 +484,9 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
     mailedLetters.push({ id: letterId, target: planned.target.name, stage: planned.stage });
   }
 
-  const nextDue = new Date(now.getTime() + ROUND_CYCLE_DAYS * 24 * 60 * 60 * 1000);
+  // No delivery is known yet: the estimate (mailing + transit + 30 days + the answer's buffer). The
+  // Lob webhook and the hourly re-pull move it once a certified delivery is scanned (rounds/timing.ts).
+  const nextDue = new Date(nextRoundDue({ mailedAt: now.toISOString() }, mailedLetters.map(() => ({ mailedAt: now.toISOString() })))!.dueAt);
   const { error: roundError } = await db
     .from("attack_rounds")
     .update({

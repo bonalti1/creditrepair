@@ -12,6 +12,7 @@ import {
   openAddressCheck,
   overdueResponseRound,
   reviewProgress,
+  roundRepullAt,
   workStartsAt,
   type ExceptionKind,
 } from "../staff/stage";
@@ -275,7 +276,8 @@ export function openSituations(client: StaffClient, now: Date): Situation[] {
     const reportAge = (now.getTime() - new Date(client.report.pulledAt).getTime()) / (24 * HOUR_MS);
     const overdue = overdueResponseRound(client, now);
     if (overdue?.mailedAt) {
-      const start = addDays(responseWindowStart(overdue) ?? overdue.mailedAt, RESPONSE_WINDOW_DAYS).toISOString();
+      // From the system's own re-pull date (rounds/timing.ts): before it, no new report is expected.
+      const start = (roundRepullAt(overdue) ?? addDays(responseWindowStart(overdue) ?? overdue.mailedAt, RESPONSE_WINDOW_DAYS)).toISOString();
       add("monitoring_inactive", start, `r${overdue.number}`);
     } else if (Math.floor(reportAge) > FRESH_REPORT_DAYS && latestRound(client)?.status !== "mailed") {
       const start = addDays(client.report.pulledAt, FRESH_REPORT_DAYS).toISOString();

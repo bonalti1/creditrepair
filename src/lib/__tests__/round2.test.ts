@@ -4,7 +4,7 @@ import { POST as coachPost } from "@/app/api/coach/route";
 import { ATTESTATION_TEXT } from "@/lib/compliance/attestation";
 import { checkMarketingCopy } from "@/lib/compliance/guardrails";
 import { DEMO_RAW_REPORT, DEMO_REPORT, DEMO_SCORE_HISTORY } from "@/lib/demo";
-import { ROUND_CYCLE_DAYS } from "@/lib/domain/attack";
+import { ESTIMATED_CYCLE_DAYS } from "@/lib/rounds/timing";
 import { parseReport } from "@/lib/domain/parser";
 import type { ReportItem } from "@/lib/domain/types";
 import { DICTS } from "@/lib/i18n/dictionaries";
@@ -269,8 +269,8 @@ describe("B. what this round mails and what waits", () => {
     expect(en.body).toBe(
       "This round covers your personal information first (2). Your Midland Credit Management collection and your Auto Finance Corp inquiry are confirmed and go in your next round, about 40 days after these letters are mailed. Personal information goes first because the bureaus use it to identify your file.",
     );
-    expect(es.body).toContain(`${ROUND_CYCLE_DAYS} días`);
-    expect(en.body).toContain(`${ROUND_CYCLE_DAYS} days`);
+    expect(es.body).toContain(`${ESTIMATED_CYCLE_DAYS} días`);
+    expect(en.body).toContain(`${ESTIMATED_CYCLE_DAYS} days`);
   });
 
   it("uses the singular for one waiting item and tells two bureaus apart", () => {

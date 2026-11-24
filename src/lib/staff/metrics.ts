@@ -7,7 +7,7 @@ import { collectedCents, feeEstimateCents } from "../billing/invoices";
 import type { PlanType } from "../billing/plans";
 import { feeToCents } from "../billing/rules";
 import { upcomingCharges } from "../billing/schedule";
-import { ROUND_CYCLE_DAYS } from "../domain/attack";
+import { nextRoundDueForStaffRound } from "../rounds/timing";
 import { actorHandle } from "./activity";
 import { pulseSummary, type PulseSummary } from "../pulse/pulse";
 import { clientBilling, clientBillingOutlook, clientExceptions, clientStage, daysSince, roundItemCount, STAFF_TIME_ZONE } from "./stage";
@@ -159,8 +159,9 @@ const METRIC_INFO_ES: Record<MetricKey, MetricInfo> = {
     definition: "Promedio de días entre la firma del acuerdo y el envío de la primera ronda, para las primeras rondas enviadas en el periodo. Incluye los 3 días hábiles en que no se puede empezar.",
   },
   roundsOverdue: {
-    label: `Atrasadas vs. ciclo de ${ROUND_CYCLE_DAYS} días`,
-    definition: `Hoy: clientes con trabajo en curso cuya última ronda salió hace más de ${ROUND_CYCLE_DAYS} días y no tienen otra enviada.`,
+    label: "Atrasadas vs. su fecha de siguiente ronda",
+    definition:
+      "Hoy: clientes con trabajo en curso cuya última ronda ya pasó su fecha de siguiente ronda y no tienen otra enviada. La fecha sale de la regla de rounds/timing.ts: 30 días desde que el buró recibió las cartas (entrega certificada, o envío + 5 días), más 5 días para su respuesta; nunca más de 45 días desde el envío salvo que el plazo legal termine después.",
   },
   charged: { label: "Cobrado", definition: "Cobros que pasaron en el periodo, por su fecha de cobro. Incluye los que después se devolvieron." },
   refunded: { label: "Reembolsado", definition: "Reembolsos hechos en el periodo, por su fecha. Siempre el cobro completo." },
@@ -235,8 +236,9 @@ const METRIC_INFO_EN: Record<MetricKey, MetricInfo> = {
       "Average days between signing the agreement and mailing the first round, for first rounds mailed in the period. Includes the 3 business days when work can't start.",
   },
   roundsOverdue: {
-    label: `Behind the ${ROUND_CYCLE_DAYS}-day cycle`,
-    definition: `Today: clients with work in progress whose last round went out more than ${ROUND_CYCLE_DAYS} days ago and who have no newer one mailed.`,
+    label: "Behind their next-round date",
+    definition:
+      "Today: clients with work in progress whose last round is past its next-round date and who have no newer one mailed. The date comes from rounds/timing.ts: 30 days from when the bureau received the letters (certified delivery, or mailing + 5 days), plus 5 days for its answer; never more than 45 days from mailing unless the legal window ends later.",
   },
   charged: { label: "Charged", definition: "Charges that went through in the period, by charge date. Includes ones refunded later." },
   refunded: { label: "Refunded", definition: "Refunds made in the period, by their date. Always the full charge." },
@@ -304,10 +306,12 @@ function lastMailed(client: StaffClient): StaffRound | null {
   return client.rounds.filter(isMailed).reduce<StaffRound | null>((latest, r) => (!latest || r.number > latest.number ? r : latest), null);
 }
 
-/** True when the client's last round went out more than one cycle ago and nothing has gone out since. */
+/** True when the client's last round is past its next-round date (rounds/timing.ts) and nothing has gone out since. */
 export function behindCycle(client: StaffClient, now: Date): boolean {
   const last = lastMailed(client);
-  return Boolean(last?.mailedAt) && isActiveClient(client, now) && daysSince(last!.mailedAt!, now) > ROUND_CYCLE_DAYS;
+  if (!last?.mailedAt || !isActiveClient(client, now)) return false;
+  const due = nextRoundDueForStaffRound(last);
+  return due !== null && now.getTime() > Date.parse(due.dueAt);
 }
 
 // ── The dashboard ───────────────────────────────────────────────────────

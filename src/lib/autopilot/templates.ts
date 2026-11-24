@@ -304,6 +304,16 @@ export const STATUS_TEMPLATES: Record<StatusKind | "report_new" | "payment_pause
     "Hola {{1}}, el correo devolvió tu carta para {{2}} de la ronda {{3}}. Revisamos la dirección con los datos del correo y la enviamos de nuevo. Es parte de la misma ronda: tu cobro no cambia. En la app ves cómo va: {{4}}",
     "Hi {{1}}, the post office returned your letter to {{2}} from round {{3}}. We checked the address against the post office's data and mailed it again. It is part of the same round: your charge does not change. You can follow it in the app: {{4}}",
   ),
+  // The review request (src/lib/reviews/reviews.ts): once per client, at a milestone every client reaches, whatever
+  // they think of the service. No incentive, no "if you are happy", "good or bad" said out loud. In Meta this one is
+  // likely category MARKETING, not UTILITY (docs/REVIEWS.md).
+  review_request: T(
+    "credalti_resena",
+    "Pedido de reseña: una sola vez por cliente, en un momento al que llegan todos, sin importar cómo le va.",
+    ["nombre", "enlace"],
+    "Hola {{1}}, gracias por confiar en nosotros. Si tienes un minuto, ¿nos cuentas en una reseña cómo ha sido tu experiencia con Credalti, buena o mala? Aquí están los sitios: {{2}} Tu opinión honesta ayuda a otras personas a decidir. No damos nada a cambio, y dejarla o no, no cambia en nada tu servicio.",
+    "Hi {{1}}, thank you for trusting us. If you have a minute, would you share in a review how your experience with Credalti has been, good or bad? Here are the sites: {{2}} Honest reviews help other people decide. We give nothing in exchange, and leaving one or not changes nothing about your service.",
+  ),
 };
 
 /** Every template, for the settings screen and the docs. */
@@ -336,6 +346,7 @@ const SUBJECT: Record<string, Record<MessageLocale, string>> = {
   payment_declined: { es: "Tu cobro no pasó", en: "Your payment did not go through" },
   payment_method_needed: { es: "Tu método de pago", en: "Your payment method" },
   letter_remailed: { es: "Enviamos tu carta de nuevo", en: "We mailed your letter again" },
+  review_request: { es: "¿Cómo ha sido tu experiencia?", en: "How has your experience been?" },
 };
 
 /** The email's subject line for a message's topic. */

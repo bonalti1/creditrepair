@@ -1,4 +1,4 @@
-import { ROUND_CYCLE_DAYS } from "../domain/attack";
+import { ESTIMATED_CYCLE_DAYS } from "../rounds/timing";
 import type { PlannedLetter, ReportItem } from "../domain/types";
 import type { Locale } from "../i18n/dictionaries";
 import { letterPrintsReasons } from "../letters/templates";
@@ -124,7 +124,7 @@ export function waitingNote(session: Pick<SessionPlan, "roundNumber" | "inRound"
       title: "No todo lo que confirmaste va en estas cartas",
       body: [
         roundNumber <= 1 ? `Esta ronda trata primero tus datos personales (${inRound.length}).` : "",
-        `${list} ya ${one ? "tiene" : "tienen"} tu confirmación y ${one ? "va" : "van"} en tu siguiente ronda, unos ${ROUND_CYCLE_DAYS} días después de enviar estas cartas.`,
+        `${list} ya ${one ? "tiene" : "tienen"} tu confirmación y ${one ? "va" : "van"} en tu siguiente ronda, unos ${ESTIMATED_CYCLE_DAYS} días después de enviar estas cartas.`,
         roundNumber <= 1 ? "Los datos personales van primero porque los burós los usan para identificar tu expediente." : "",
       ]
         .filter(Boolean)
@@ -135,7 +135,7 @@ export function waitingNote(session: Pick<SessionPlan, "roundNumber" | "inRound"
     title: "Not everything you confirmed is in these letters",
     body: [
       roundNumber <= 1 ? `This round covers your personal information first (${inRound.length}).` : "",
-      `${list} ${one ? "is" : "are"} confirmed and ${one ? "goes" : "go"} in your next round, about ${ROUND_CYCLE_DAYS} days after these letters are mailed.`,
+      `${list} ${one ? "is" : "are"} confirmed and ${one ? "goes" : "go"} in your next round, about ${ESTIMATED_CYCLE_DAYS} days after these letters are mailed.`,
       roundNumber <= 1 ? "Personal information goes first because the bureaus use it to identify your file." : "",
     ]
       .filter(Boolean)
@@ -146,8 +146,8 @@ export function waitingNote(session: Pick<SessionPlan, "roundNumber" | "inRound"
 /** One line under the "waiting" heading on the rounds page. */
 export function waitingListNote(locale: Locale): string {
   return locale === "es"
-    ? `Ya tienen tu confirmación. No van en las cartas de esta ronda: van en la siguiente, unos ${ROUND_CYCLE_DAYS} días después de enviar estas cartas.`
-    : `They are confirmed. They are not in this round's letters: they go in the next one, about ${ROUND_CYCLE_DAYS} days after these letters are mailed.`;
+    ? `Ya tienen tu confirmación. No van en las cartas de esta ronda: van en la siguiente, unos ${ESTIMATED_CYCLE_DAYS} días después de enviar estas cartas.`
+    : `They are confirmed. They are not in this round's letters: they go in the next one, about ${ESTIMATED_CYCLE_DAYS} days after these letters are mailed.`;
 }
 
 /**
@@ -173,8 +173,8 @@ export function approvedMessage(
     const list = joinList(itemPhrases(waiting, locale), locale);
     parts.push(
       es
-        ? `\nNo van en estas cartas y esperan a tu siguiente ronda, unos ${ROUND_CYCLE_DAYS} días después: ${list}. Ya ${waiting.length === 1 ? "tiene" : "tienen"} tu confirmación.`
-        : `\nNot in these letters, waiting for your next round about ${ROUND_CYCLE_DAYS} days later: ${list}. ${waiting.length === 1 ? "It is" : "They are"} already confirmed.`,
+        ? `\nNo van en estas cartas y esperan a tu siguiente ronda, unos ${ESTIMATED_CYCLE_DAYS} días después: ${list}. Ya ${waiting.length === 1 ? "tiene" : "tienen"} tu confirmación.`
+        : `\nNot in these letters, waiting for your next round about ${ESTIMATED_CYCLE_DAYS} days later: ${list}. ${waiting.length === 1 ? "It is" : "They are"} already confirmed.`,
     );
   }
   parts.push(

@@ -665,7 +665,12 @@ describe("team: what the staff routes accept", () => {
     expect(read("src/app/api/staff/billing/evidence/route.ts")).toMatch(/requireCapability\("billing\.plans"\)/);
     // Household signup (migration 0027): whoever adds leads, for the people they may see.
     expect(read("src/app/api/staff/household/route.ts")).toMatch(/requireCapability\("clients\.add"\)/);
-    expect(staffRoutes.length).toBe(22);
+    // Reviews (migration 0029): the sites and ratings for an administrator; a reply draft for whoever answers clients.
+    expect(read("src/app/api/staff/reviews/route.ts")).toMatch(/requireCapability\("reviews\.manage"\)/);
+    expect(read("src/app/api/staff/reviews/reply/route.ts")).toMatch(/requireCapability\("clients\.reply"\)/);
+    // States (migration 0030): opening one is an administrator's.
+    expect(read("src/app/api/staff/states/route.ts")).toMatch(/requireCapability\("states\.manage"\)/);
+    expect(staffRoutes.length).toBe(25);
   });
 });
 

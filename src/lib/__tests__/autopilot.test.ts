@@ -356,7 +356,8 @@ describe("autopilot: every automatic message passes the claim rules", () => {
   const filled = (params: readonly string[]) => params.map((p, i) => (p === "enlace" ? "https://app.credalti.test/acuerdo" : i === 0 ? "Rosa" : "3"));
 
   it("each template, in Spanish and English: no promise, no score, no pressure; says it is automatic and how to stop", () => {
-    expect(ALL_TEMPLATES.length).toBe(34);
+    // 34, plus the one review request (src/lib/reviews, migration 0029).
+    expect(ALL_TEMPLATES.length).toBe(35);
     expect(new Set(ALL_TEMPLATES.map((t) => t.name)).size).toBe(ALL_TEMPLATES.length);
     for (const t of ALL_TEMPLATES) {
       expect(t.name).toMatch(/^credalti_[a-z_0-9]+$/);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { ALL_STATES } from "@/lib/compliance/states";
+import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
+import { loadOpenStates } from "@/lib/compliance/stateOpenings";
 import { GOALS } from "@/lib/sales/invite";
 import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
@@ -35,6 +36,13 @@ export async function POST(req: Request) {
   const parsed = bodySchema.safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ error: z.flattenError(parsed.error) }, { status: 400 });
   const { goal, state, assisted, referredBy } = parsed.data;
+
+  // A state we have not opened (/equipo/estados, migration 0030) is not signed up: the screen offers the
+  // waitlist instead (compliance/states.ts). Checked here too, whatever the screen showed.
+  if (state) {
+    const status = stateStatus(state, await loadOpenStates(getAdminClient()));
+    if (status !== "open") return NextResponse.json({ error: "We are not taking clients in this state yet.", code: status === "blocked" ? "state_blocked" : "state_not_open" }, { status: 409 });
+  }
 
   const { data: existing } = await supabase
     .from("profiles")

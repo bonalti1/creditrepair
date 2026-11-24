@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadOpenStates } from "../compliance/stateOpenings";
+import { isStateOpen } from "../compliance/states";
 import { agreementFromRow, type AgreementState } from "./record";
 
 // Reading a client's agreement on the server. Rows are written only by the
@@ -46,4 +48,15 @@ export async function notifyTeam(text: string): Promise<void> {
   } catch {
     // The record is already saved and shows in the staff console; a missed ping must not fail the request.
   }
+}
+
+/**
+ * The client's state for the agreement (profiles.state; none on record reads
+ * as the launch state) and whether Credalti has opened it (/equipo/estados,
+ * migration 0030). A state not opened cannot acknowledge or sign.
+ */
+export async function loadSigningState(db: SupabaseClient, userId: string): Promise<{ state: string | null; open: boolean }> {
+  const { data } = await db.from("profiles").select("state").eq("id", userId).maybeSingle();
+  const state = typeof (data as Record<string, unknown> | null)?.state === "string" ? String((data as Record<string, unknown>).state) : null;
+  return { state, open: isStateOpen(state ?? "TX", await loadOpenStates(db)) };
 }

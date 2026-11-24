@@ -6,12 +6,19 @@ import { hasSharedSecret } from "@/lib/security/signatures";
 import { workMayStart } from "@/lib/agreement/gate";
 import { loadAgreement } from "@/lib/agreement/server";
 import { isFullService } from "@/lib/service/mode";
+import { nextRoundDueFromRows } from "@/lib/rounds/timing";
 
-// The ~40-day round loop (spec §4.4), as one idempotent endpoint that n8n (or
-// any cron) hits hourly with the shared secret:
+// The round loop (spec §4.4), as one idempotent endpoint that n8n (or any
+// cron) hits hourly with the shared secret:
 //   find mailed rounds past next_round_due_at → re-pull via the monitoring
 //   adapter → import + diff (the import pipeline queues the client's factual
 //   status message) → mark the round complete.
+// next_round_due_at is the evidence-based date (src/lib/rounds/timing.ts;
+// kept by the triggers of migration 0028): 30 days from the bureaus' receipt
+// (certified delivery scan, else mailing + 5 days), plus 5 for the answer, at
+// most 45 days from mailing unless the window ends later. Before pulling, the
+// rule is worked out again from the letters themselves, so a stale stored date
+// can never pull before the legal window has ended.
 
 export async function POST(req: Request) {
   if (!hasSharedSecret(req, process.env.N8N_WEBHOOK_SECRET)) {
@@ -34,6 +41,17 @@ export async function POST(req: Request) {
 
   for (const round of dueRounds ?? []) {
     try {
+      // The same rule, from the letters as they are now: never before the 30 days from receipt.
+      const [{ data: roundRow }, { data: letterRows }] = await Promise.all([
+        db.from("attack_rounds").select("mailed_at").eq("id", round.id).maybeSingle(),
+        db.from("letters").select("id, mail_class, mail_status, mailed_at, delivered_at").eq("round_id", round.id),
+      ]);
+      const due = nextRoundDueFromRows((roundRow as Record<string, unknown> | null)?.mailed_at, (letterRows as Array<Record<string, unknown>> | null) ?? []);
+      if (!due || Date.parse(due.dueAt) > Date.now()) {
+        if (due) await db.from("attack_rounds").update({ next_round_due_at: due.dueAt }).eq("id", round.id);
+        processed.push({ userId: round.user_id, round: round.round_number, ok: false, error: "not_due_yet" });
+        continue;
+      }
       // Full service: a client who cancelled, or asked to end the service, gets
       // no more work done, and that includes pulling their report again. The
       // round stays as it is for a person to close.

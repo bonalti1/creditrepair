@@ -110,5 +110,7 @@ export const config = {
     "/socios",
     "/conoce/:path*",
     "/baja",
+    // The review sites, the same for everyone (src/lib/reviews): the request message links here with ?lang=.
+    "/opina",
   ],
 };

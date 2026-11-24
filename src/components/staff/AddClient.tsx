@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
+import { ALL_STATES } from "@/lib/compliance/states";
+import { useOpenStates } from "@/lib/compliance/useOpenStates";
 import { buildInvitePath, GOALS, inviteMessage, type GoalKey } from "@/lib/sales/invite";
 import { whatsappHref } from "@/lib/staff/messages";
 import type { Viewer } from "@/lib/staff/permissions";
@@ -44,6 +45,8 @@ export default function AddClient({
   onClose: () => void;
   onAdded: (client: StaffClient) => Promise<void> | void;
 }) {
+  // The states opened in /equipo/estados.
+  const openStates = useOpenStates();
   const sellers = members.filter((m) => m.active && (m.role === "sales" || m.role === "admin"));
   const { locale } = useStaffLocale();
   const t = useTx();
@@ -105,7 +108,7 @@ export default function AddClient({
         <p className="whitespace-pre-line break-words rounded-2xl bg-slate-50 p-4 text-[15px] leading-relaxed text-slate-900">
           {message.split(url).flatMap((part, i) => (i === 0 ? [part] : [<span key={i} className="break-all">{url}</span>, part]))}
         </p>
-        {stateStatus(added.state) !== "open" && (
+        {openStates.status(added.state) !== "open" && (
           <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900">
             {t(
               `Todavía no abrimos en ${added.state}. El enlace lo llevará a la lista de espera, no a la app.`,

@@ -8,7 +8,8 @@ sends an invitation into the app. The client signs a service agreement,
 uploads ID and proof of address, connects credit monitoring (IdentityIQ), and
 reviews each item on their report, saying which ones are inaccurate and why.
 From there Credalti's staff prepares and mails the dispute letters for the
-client, in rounds about every 40 days, from the staff console at `/equipo`
+client, in rounds whose timing follows the evidence (30 days from the bureaus'
+receipt plus 5 for their answer, about 35–45 days; `src/lib/rounds/timing.ts`), from the staff console at `/equipo`
 (see `src/lib/staff/`), with software automated enough for two staff to run
 fulfillment. The client can read the letters and follow their status.
 
@@ -120,6 +121,9 @@ triggers) · WhatsApp Cloud API · Lob (letter printing/mailing) · Claude API
 | `src/lib/staff/drafts.ts`, `draftModel.ts`, `answers.ts`, `playbook.ts`, `digest.ts`, `src/app/equipo/{respuestas,perfil,bienvenida}`, `src/app/api/staff/{drafts,answers,preferences}`, `src/app/api/cron/staff-digest`, `supabase/migrations/0020_staff_assist.sql` | The one-person console: AltiBot's drafted replies (checked before they are shown), saved answers (AltiBot answers a close match with an approved one), «Cómo se resuelve» cards, the morning summary, new-hire mode, the phone layout — see `docs/STAFF.md` |
 | `src/lib/domain/personalInfo.ts`, `src/lib/reports/reimport.ts`, `src/lib/reports/history.ts` | Re-imports: repeated personal info skipped (normalized per bureau), "Already disputed", "Reappeared" (FCRA § 611(a)(5)(B)), personal info changes; every report in one list (the staff Reports tab, the client's "My reports") |
 | `src/lib/billing/cardBrands.ts`, `src/lib/household/`, `src/lib/staff/search.ts`, `supabase/migrations/0027_cards_households.sql` | Accepted card brands (Amex/Discover off by default), household signup (a member of their own, linked for the discount, no shared data), the console's search (Ctrl/Cmd+K) |
+| `src/lib/rounds/timing.ts`, `supabase/migrations/0028_round_timing.sql` | When the next round is due, from the evidence: 30 days from receipt (certified delivery, else mailing + 5), + 5 for the answer, at most 45 days unless the window ends later; round 1 on the first working day after the cancellation window. Replaces the fixed 40 days everywhere — `docs/AUTOPILOT.md` |
+| `src/lib/reviews/`, `src/app/equipo/resenas`, `src/app/opina`, `supabase/migrations/0029_reviews.sql` | Review requests: once per client at a milestone everyone reaches, never gated by sentiment, no incentives (FTC 16 C.F.R. Part 465); ratings typed in; AltiBot's reply drafts — `docs/REVIEWS.md` |
+| `src/lib/compliance/stateRules.ts`, `src/app/equipo/estados`, `supabase/migrations/0030_state_openings.sql` | The 50-state + DC checklist (sourced, dated, verified or not), the per-state "opened" switch the app enforces (waitlist otherwise), state agreement documents — `docs/STATES.md` |
 | `docs/DATABASE.md`, `supabase/first-admin.sql` | The owner's checklist to go from demo to database, and the first administrator |
 
 ## Load-bearing invariants
@@ -227,7 +231,7 @@ reports what is configured and what is missing.
   date and corrected (Innovis, Clarity), SageStream was folded into LexisNexis,
   and ARS could not be confirmed and is not mailed. A person should open each
   source link once before the first real mailing.
-- v1 = Texas only. Out-of-state marketing is a legal project, not a config change.
+- v1 = Texas only. Out-of-state is a legal project: each state is researched in `docs/STATES.md` and opened in `/equipo/estados` only with the attorney's review on record; its agreement documents must exist before anyone there can sign.
 
 *This repository is not legal advice; the compliance features implement the spec's
 "Armor" but Phase 0 attorney review gates launch.*

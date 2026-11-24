@@ -869,7 +869,7 @@ describe("mail: returned letters and the response window", () => {
     expect(responseWindowStart(back)).toBe(movRound.mailedAt);
   });
 
-  it("the system re-imports the report 30 days after the certified delivery, not after mailing", () => {
+  it("the system re-imports the report 35 days after the certified delivery (30 + 5 for the answer), not 40 after mailing", () => {
     const ernesto = base.find((c) => c.id === "c10")!;
     const mailedAt = ernesto.rounds[0]!.mailedAt!;
     const deliveredAt = new Date(new Date(mailedAt).getTime() + 3 * DAY).toISOString();
@@ -887,7 +887,10 @@ describe("mail: returned letters and the response window", () => {
     const before = nextAutomaticStep(ernesto, later)!;
     const after = nextAutomaticStep(certified, later)!;
     expect(before.text).toMatch(/Re-importar/);
-    expect(new Date(after.at).getTime() - new Date(before.at).getTime()).toBe(3 * DAY);
+    // No scan: mailing + 5 days' transit + 30 + 5 = 40. Delivered on day 3: 3 + 30 + 5 = 38 (rounds/timing.ts).
+    expect(new Date(before.at).getTime() - new Date(mailedAt).getTime()).toBe(40 * DAY);
+    expect(new Date(after.at).getTime() - new Date(deliveredAt).getTime()).toBe(35 * DAY);
+    expect(new Date(after.at).getTime() - new Date(before.at).getTime()).toBe(-2 * DAY);
   });
 });
 

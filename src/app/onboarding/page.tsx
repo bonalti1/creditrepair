@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ALL_STATES, stateStatus } from "@/lib/compliance/states";
+import { ALL_STATES, NOT_OPEN_COPY, stateLaw } from "@/lib/compliance/states";
+import { useOpenStates } from "@/lib/compliance/useOpenStates";
 import Icon from "@/components/Icon";
 import LocaleToggle from "@/components/LocaleToggle";
 import Logo from "@/components/Logo";
@@ -106,6 +107,8 @@ function Onboarding() {
   const [ready, setReady] = useState(false);
   const [goal, setGoal] = useState<string | null>(null);
   const [state, setState] = useState("TX");
+  // The states opened in /equipo/estados (Texas alone until the server answers).
+  const openStates = useOpenStates();
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -213,7 +216,7 @@ function Onboarding() {
     if (!invite?.state) return setStep("state");
     save("bonalti.state", state);
     // A state we are not open in goes to the waitlist form, link or no link.
-    if (stateStatus(state) === "open") setStep("household");
+    if (openStates.status(state) === "open") setStep("household");
     else setStep("state");
   };
 
@@ -433,12 +436,12 @@ function Onboarding() {
           >
             {STATES.map((s) => (
               <option key={s} value={s}>
-                {s === "TX" ? "Texas (TX)" : s}
+                {`${stateLaw(s)?.name ?? s} (${s})`}
               </option>
             ))}
           </select>
 
-          {stateStatus(state) === "open" ? (
+          {openStates.status(state) === "open" ? (
             <div className="mt-auto pt-8">
               <button
                 onClick={() => {
@@ -451,9 +454,15 @@ function Onboarding() {
               </button>
             </div>
           ) : (
-            <form onSubmit={joinWaitlist} className="card mt-6 p-5">
-              <p className="text-[17px] font-semibold text-slate-900">{c.notYetTitle}</p>
-              <p className="mt-1 text-[15px] text-slate-500">{c.notYetBody}</p>
+            openStates.status(state) === "blocked" ? (
+              <div className="card mt-6 p-5" data-testid="state-blocked">
+                <p className="text-[17px] font-semibold text-slate-900">{NOT_OPEN_COPY[locale].title(stateLaw(state)?.name ?? state)}</p>
+                <p className="mt-1 text-[15px] text-slate-500">{NOT_OPEN_COPY[locale].blocked}</p>
+              </div>
+            ) : (
+            <form onSubmit={joinWaitlist} className="card mt-6 p-5" data-testid="state-waitlist">
+              <p className="text-[17px] font-semibold text-slate-900">{NOT_OPEN_COPY[locale].title(stateLaw(state)?.name ?? state)}</p>
+              <p className="mt-1 text-[15px] text-slate-500">{NOT_OPEN_COPY[locale].body}</p>
               <input
                 type="email"
                 required
@@ -467,6 +476,7 @@ function Onboarding() {
                 {c.notifyMe}
               </button>
             </form>
+            )
           )}
         </div>
       )}

@@ -1,11 +1,12 @@
 import { isDemoMode } from "../supabase/config";
 import { AGREEMENT_VERSION } from "./documents";
 import { STATUTE_TEXTS } from "./statutes";
+import { agreementDocumentsFor, type StateDocumentsStatus } from "./stateDocuments";
 import { missingTerms, resolveTerms, TERM_ENV, type ResolvedTerms, type TermKey, type TermsSource } from "./terms";
 
 // Can a real client sign today?
 //
-// Only when all three are true:
+// Only when all of these are true (the fourth since migration 0030):
 //   1. every business term is filled in (terms.ts), so the contract shows no
 //      placeholder;
 //   2. every passage copied from a statute has been compared word for word
@@ -14,6 +15,9 @@ import { missingTerms, resolveTerms, TERM_ENV, type ResolvedTerms, type TermKey,
 //      by setting NEXT_PUBLIC_AGREEMENT_APPROVED_VERSION to the version string.
 //      Any change to the text changes the version, so an approval never
 //      carries over to text the attorney did not read.
+//   4. the agreement has documents for the client's state (stateDocuments.ts:
+//      Texas today). Another state shows "needs attorney text" and cannot be
+//      signed, in the demo too.
 //
 // The demo (no database configured) is the one exception: there the agreement
 // can be signed for demonstration, on this device only, under a banner that
@@ -51,6 +55,8 @@ export interface AgreementReadiness {
   plan: { key: string; version: number } | null;
   /** True when no plan is offered, or the offered plan version carries the attorney's approval. */
   planApproved: boolean;
+  /** The client's state and whether the agreement has its documents (stateDocuments.ts). */
+  stateDocuments: { state: string; status: StateDocumentsStatus };
 }
 
 export interface ReadinessInput {
@@ -59,6 +65,8 @@ export interface ReadinessInput {
   demo?: boolean;
   /** Defaults to what statutes.ts says today. */
   unverifiedStatutes?: string[];
+  /** The client's state (profiles.state). Missing: the launch state, Texas. */
+  state?: string | null;
 }
 
 /** Statutory passages in statutes.ts still marked as not verified. */
@@ -86,8 +94,11 @@ export function agreementReadiness(input: ReadinessInput = {}): AgreementReadine
   // A plan's payment terms are part of the contract: its version needs the attorney's approval too.
   const plan = terms.plan ?? null;
   const planApproved = plan === null || plan.attorneyApproved;
-  const ready = termsComplete && approved && unverifiedStatutes.length === 0 && planApproved;
-  const mode: AgreementMode = ready ? "ready" : demo ? "demo_draft" : "blocked";
+  const stateDocuments = agreementDocumentsFor(input.state);
+  const stateBuilt = stateDocuments.status === "built";
+  const ready = termsComplete && approved && unverifiedStatutes.length === 0 && planApproved && stateBuilt;
+  // A state without its documents is blocked everywhere, the demo too: there is no text to show.
+  const mode: AgreementMode = ready ? "ready" : demo && stateBuilt ? "demo_draft" : "blocked";
 
   return {
     ready,
@@ -102,6 +113,7 @@ export function agreementReadiness(input: ReadinessInput = {}): AgreementReadine
     canSign: mode !== "blocked",
     plan: plan ? { key: plan.key, version: plan.version } : null,
     planApproved,
+    stateDocuments,
   };
 }
 

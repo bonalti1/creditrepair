@@ -5,6 +5,7 @@ import { reportError } from "@/lib/observability/errors";
 import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { recordInAppReviewRequest } from "@/lib/reviews/server";
 import { getServerSupabase, getSessionUser } from "@/lib/supabase/server";
 
 // "¿Cómo vamos?" (src/lib/pulse/pulse.ts, migration 0018).
@@ -73,5 +74,8 @@ export async function POST(req: Request) {
     await reportError(error, { where: "api/pulse POST", userId: user.id });
     return NextResponse.json({ error: "Could not save." }, { status: 500 });
   }
-  return NextResponse.json({ ok: true });
+  // Any face: the screen now shows the same review links (src/lib/reviews/reviews.ts, no gating), and that
+  // is this client's one review ask. The rating is not passed: it plays no part in who is asked.
+  const review = await recordInAppReviewRequest(db, user.id, moment);
+  return NextResponse.json({ ok: true, reviewLinksShown: review === "claimed" });
 }

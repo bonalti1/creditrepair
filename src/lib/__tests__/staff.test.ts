@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ASSISTANT_NAME } from "../brand";
 import { checkClaimGuardrails } from "../compliance/guardrails";
 import { DEMO_RAW_REPORT } from "../demo";
-import { ROUND_CYCLE_DAYS } from "../domain/attack";
+import { ESTIMATED_CYCLE_DAYS } from "../rounds/timing";
 import { parseReport } from "../domain/parser";
 import type { NormalizedReport } from "../domain/types";
 import { FRESH_REPORT_DAYS } from "../monitoring/subscription";
@@ -324,21 +324,23 @@ describe("staff: clientExceptions", () => {
     expect(kinds(asked(ago(1)))).toEqual([]);
   });
 
-  it(`no new report once the ${RESPONSE_WINDOW_DAYS}-day response window has passed`, () => {
+  it(`no new report once the round's re-pull date has passed (the ${RESPONSE_WINDOW_DAYS}-day window plus the answer's buffer)`, () => {
     const waiting = (mailedDays: number, reportDays: number) => {
       const r = report(reportDays);
       return client({ report: r, answers: answers(r), rounds: [round(1, "mailed", mailedDays)] });
     };
     expect(RESPONSE_WINDOW_DAYS).toBe(30);
-    expect(kinds(waiting(30, 34))).toEqual([]);
-    expect(kinds(waiting(31, 35))).toEqual(["response_overdue"]);
+    // No delivery scan: re-pulled 40 days after mailing (5 transit + 30 + 5, rounds/timing.ts). Until then, nothing is late.
+    expect(kinds(waiting(31, 35))).toEqual([]);
+    expect(kinds(waiting(40, 44))).toEqual([]);
+    expect(kinds(waiting(41, 45))).toEqual(["response_overdue"]);
     // A report pulled after the window closed already shows the answers.
-    expect(kinds(waiting(33, 2))).toEqual([]);
+    expect(kinds(waiting(41, 2))).toEqual([]);
     // One pulled while the bureaus were still working does not.
-    expect(kinds(waiting(33, 10))).toEqual(["response_overdue"]);
+    expect(kinds(waiting(41, 15))).toEqual(["response_overdue"]);
     // Very late: still one exception, not a second one for the old report.
     expect(kinds(waiting(60, 64))).toEqual(["response_overdue"]);
-    expect(clientExceptions(waiting(31, 35), NOW)[0]!.sentence).toMatch(/^La ronda 1 se envió hace 31 días y no ha llegado un reporte nuevo\./);
+    expect(clientExceptions(waiting(41, 45), NOW)[0]!.sentence).toMatch(/^La ronda 1 se envió hace 41 días y no ha llegado un reporte nuevo\./);
   });
 
   it("lists the most serious first, and every exception carries a sentence, a severity and one action", () => {
@@ -389,29 +391,29 @@ describe("staff: clientExceptions", () => {
 });
 
 describe("staff: nextAutomaticStep", () => {
-  it("re-imports the report 30 days after mailing, with the date", () => {
-    // Mailed 28 November, read on 5 December: due 28 December.
+  it("re-imports the report on the round's next-round date (40 days after mailing with no delivery scan), with the date", () => {
+    // Mailed 28 November, read on 5 December, no certified scan: due 7 January (rounds/timing.ts).
     const c = client({ rounds: [{ ...round(1, "mailed"), mailedAt: "2026-11-28T18:00:00.000Z" }] });
     const step = nextAutomaticStep(c, NOW)!;
-    expect(step.text).toBe("Re-importar el reporte el 28 de diciembre");
-    expect(step.at).toBe("2026-12-28T18:00:00.000Z");
+    expect(step.text).toBe("Re-importar el reporte el 7 de enero");
+    expect(step.at).toBe("2027-01-07T18:00:00.000Z");
     expect(nextStep(c, NOW)).toEqual({ actor: "system", text: step.text, at: step.at });
   });
 
-  it("says 'hoy' on the last day of the window and stops once it has passed", () => {
+  it("says 'hoy' on the re-pull day and stops once it has passed", () => {
     const waiting = (days: number, hours = 0) => {
-      const r = report(40);
+      const r = report(50);
       return client({ report: r, answers: answers(r), rounds: [{ ...round(1, "mailed"), mailedAt: ago(days, hours) }] });
     };
-    expect(nextAutomaticStep(waiting(29, 23), NOW)!.text).toBe("Re-importar el reporte hoy");
-    expect(nextAutomaticStep(waiting(30), NOW)!.text).toBe("Re-importar el reporte hoy");
-    // Past the window with no new report: a person has to step in.
-    expect(nextAutomaticStep(waiting(31), NOW)).toBeNull();
-    expect(nextStep(waiting(31), NOW).actor).toBe("client");
+    expect(nextAutomaticStep(waiting(39, 23), NOW)!.text).toBe("Re-importar el reporte hoy");
+    expect(nextAutomaticStep(waiting(40), NOW)!.text).toBe("Re-importar el reporte hoy");
+    // Past the re-pull date with no new report: a person has to step in.
+    expect(nextAutomaticStep(waiting(41), NOW)).toBeNull();
+    expect(nextStep(waiting(41), NOW).actor).toBe("client");
   });
 
-  it(`prepares the next round ${ROUND_CYCLE_DAYS} days after the last one was mailed`, () => {
-    expect(ROUND_CYCLE_DAYS).toBe(40);
+  it(`prepares the next round on its next-round date: ${ESTIMATED_CYCLE_DAYS} days after mailing with no delivery scan`, () => {
+    expect(ESTIMATED_CYCLE_DAYS).toBe(40);
     const answered = (mailedAt: string, extra: StaffRound[] = []) =>
       client({ rounds: [{ ...round(1, "responded"), mailedAt }, ...extra] });
     // Mailed 3 November: 40 days later is 13 December.

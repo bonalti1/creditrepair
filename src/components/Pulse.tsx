@@ -5,6 +5,9 @@ import type { CaseFacts, CaseState } from "@/lib/case/timeline";
 import { useLocale } from "@/lib/i18n";
 import { duePulse, PULSE_COMMENT_MAX, PULSE_COPY, PULSE_RATINGS, type PulseMoment, type PulseRating } from "@/lib/pulse/pulse";
 import { usePulseStore } from "@/lib/pulse/store";
+import { afterPulseFace, REVIEW_COPY } from "@/lib/reviews/reviews";
+import { useReviewLinks } from "@/lib/reviews/store";
+import { ReviewSiteButtons, TalkToTeam } from "@/components/reviews/ReviewLinks";
 
 // "¿Cómo vamos?": three faces after a key moment, asked once. One tap saves
 // the answer; a comment can follow, and "Ahora no" closes it for good.
@@ -22,10 +25,51 @@ export function Face({ rating, size = 34 }: { rating: PulseRating; size?: number
   );
 }
 
+/**
+ * What follows a face. The review sites are the SAME after every face (no
+ * review gating: src/lib/reviews/reviews.ts); a sad or neutral face is also
+ * offered the line to the team, first, never instead of the sites.
+ */
+function AfterFace({ rating, moment, platforms }: { rating: PulseRating; moment: PulseMoment; platforms: Parameters<typeof ReviewSiteButtons>[0]["platforms"] }) {
+  const { locale } = useLocale();
+  const r = REVIEW_COPY[locale];
+  const { reviewLinks: links, talkToTeam } = afterPulseFace(rating, moment, platforms.length > 0);
+  if (!talkToTeam) {
+    if (!links) return null;
+    return (
+      <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-4" data-testid="pulse-review">
+        <p className="text-[15px] leading-snug text-slate-700">{r.pulseHappy}</p>
+        <div className="mt-3">
+          <ReviewSiteButtons platforms={platforms} />
+        </div>
+        <p className="mt-3 text-[13px] leading-snug text-slate-500">{r.noIncentive}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-4" data-testid="pulse-talk">
+      <p className="text-[15px] leading-snug text-slate-700">{r.pulseUnhappy}</p>
+      <div className="mt-3">
+        <TalkToTeam prominent />
+      </div>
+      {links && (
+        <div data-testid="pulse-review">
+          <p className="mt-4 text-[15px] leading-snug text-slate-700">{r.pulseUnhappyLinks}</p>
+          <div className="mt-3">
+            <ReviewSiteButtons platforms={platforms} />
+          </div>
+          <p className="mt-3 text-[13px] leading-snug text-slate-500">{r.noIncentive}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Pulse({ state, facts }: { state: CaseState; facts: CaseFacts }) {
   const { locale } = useLocale();
   const c = PULSE_COPY[locale];
   const store = usePulseStore();
+  const reviews = useReviewLinks();
   // The moment on screen stays put after it is answered, so the thanks and the comment can show.
   const [active, setActive] = useState<PulseMoment | null>(null);
   const [picked, setPicked] = useState<PulseRating | null>(null);
@@ -88,6 +132,7 @@ export default function Pulse({ state, facts }: { state: CaseState; facts: CaseF
               <p role="status" className="text-[15px] font-medium text-slate-900">
                 {c.thanks}
               </p>
+              <AfterFace rating={picked} moment={moment} platforms={reviews.platforms} />
               <label htmlFor="pulse-comment" className="mt-3 block text-[15px] text-slate-700">
                 {c.commentLabel}
               </label>
