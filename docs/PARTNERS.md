@@ -1,7 +1,8 @@
 # Referral partners
 
-Realtors, loan officers and tax preparers meet people who need help with their
-credit before a mortgage, a car or a tax refund. Credit Repair Cloud calls them
+Realtors, loan officers, tax preparers, car dealers, attorneys and others meet
+people who need help with their credit before a mortgage, a car, a tax refund
+or a fresh start. Credit Repair Cloud calls them
 affiliates; we call them **socios**. A partner refers; the team does the rest.
 
 Code: `src/lib/partners/` (rules, copy, QR, demo, metrics, server),
@@ -21,10 +22,23 @@ Client sharing and the commission switch (below): `src/lib/partners/sharing.ts`
 Tests: `src/lib/__tests__/partnerSharing.test.ts` and
 `src/lib/__tests__/db/partnerSharing.test.ts` (row level security).
 
+The partner portal's dashboard, "who is taking care of your client", "ask to
+follow progress", the notes with the team, the weekly summary and the partner
+kit (below, "The partner portal"): `src/lib/partners/portal.ts` (pure rules
+and words), `portalCopy.ts`, `portalServer.ts`, `portalDemo.ts`,
+`PartnerLocaleProvider.tsx`; `src/components/partners/PortalPipeline.tsx`,
+`PartnerKit.tsx`, `PartnerFlyer.tsx`, `ShareRequestCard.tsx`,
+`ReferredShareOffer.tsx`, `PartnerClientContent.tsx`;
+`src/components/staff/PartnerThreadCard.tsx`; `src/app/conoce/[code]/imprimir`
+(the flyer), `src/app/api/staff/partner-notes`. Database: migration
+`0033_partner_portal.sql`. Tests: `src/lib/__tests__/partnerPortal.test.ts`
+and `src/lib/__tests__/db/partnerPortal.test.ts`.
+
 ## How it works
 
-1. **Apply** at `/socios` (Spanish, with an English toggle): name, company,
-   what they do, phone, email, state, and the partner rules accepted. It becomes
+1. **Apply** at `/socios` (English first, Spanish one tap away): name, company,
+   what they do (real estate agent, loan officer, tax preparer, car dealer,
+   attorney, or other), phone, email, state, and the partner rules accepted. It becomes
    a *pending* partner. Nothing is granted yet.
 2. **An administrator approves** on `/equipo/socios`. Approval gives the
    partner a referral code (`laura-benitez`) and link (`/r/laura-benitez`), and
@@ -39,8 +53,10 @@ Tests: `src/lib/__tests__/partnerSharing.test.ts` and
      decoder during development);
    - **Enviar un referido**: first name, last name, phone, and a checkbox that
      the person agreed to be contacted on WhatsApp (stored with the prospect);
-   - **their referrals**, each with a first name, last initial, date and one of
-     four statuses: *Contactado*, *Firmó*, *Activo*, *No siguió*;
+   - **their pipeline and their people** (below, "The partner portal"): each
+     referral with a first name, last initial, date, the step (*Referred*,
+     *Contacted*, *Signed*, *Active*, *Finished*, or *Did not continue*), who
+     on the team looks after them and when sales reached out;
    - the **commission** an administrator recorded (registered, paid, balance);
    - the rules, again.
 4. **Sales follows up** the referral like any prospect: it appears in `/equipo`
@@ -79,8 +95,11 @@ Enforced in the database (row level security, migration 0017), not only on the
 screen:
 
 - **Can:** their own partner row, their own commission records, and
-  `partner_referrals()`: first name, last initial, date and the coarse status
-  of the people they referred.
+  `partner_referrals()` (rebuilt in migration 0033): first name, last initial,
+  date and the coarse step of the people they referred, when sales first
+  reached out (the invitation), the first name and role of the teammate who
+  looks after them, whether they have an account, when the partner last asked
+  them to share, and the client id only while they share.
 - **Cannot:** any profile, prospect row, report, report item, answer, letter,
   round, agreement, document, conversation, charge or payment method — of
   their referrals or anyone else. Not another partner. Never a client's score,
@@ -97,14 +116,20 @@ screen:
   touch, so it cannot be used to learn who is a client; someone already in
   touch is not credited to the partner.
 
-The statuses (the same in `src/lib/partners/rules.ts` and the SQL function):
+The statuses, the partner's pipeline (the same in `src/lib/partners/rules.ts`
+and the SQL function of migration 0033):
 
 | Status | Meaning |
 | --- | --- |
-| Contactado | Sales is in touch, or they have an account without a signed agreement |
-| Firmó | Signed the service agreement; no round mailed yet |
-| Activo | At least one round mailed and the service goes on |
-| No siguió | Cancelled, asked to end the service, or sales closed them |
+| Referred | A lead the team has not reached yet: no invitation sent, no account |
+| Contacted | Sales sent the invitation, or they have an account without a signed agreement |
+| Signed | Signed the service agreement; no round mailed yet |
+| Active | At least one round mailed and the service goes on |
+| Finished | Finished the program (graduation, `program_completions`); after-care goes on |
+| Did not continue | Cancelled, asked to end the service, or sales closed them |
+
+Graduation also records the end of the service; the function checks it first,
+so a graduate reads *Finished*, never *Did not continue*.
 
 ## Commissions
 
@@ -267,10 +292,9 @@ administrators see it on `/equipo/socios`. Nobody else, and not the partner.
   before sending); only milestones from the last 3 days and after sharing
   began; the words carry only what the partner may see anyway. Run by
   `POST /api/cron/partners` with the shared secret.
-- **Escribir al equipo**: a note on the client in the staff console
-  (`staff_notes`, author "Socio · <name>"), read by whoever may see the client
-  (the assigned specialist); never shown to the client unless staff choose to
-  reply to them. Only about a client who currently shares.
+- **Write to the team**: since migration 0033, a two-way thread on the
+  client's page (below, "Notes with the team"). It used to be a one-way note in
+  `staff_notes`; notes written before stay there.
 
 ### Co-branding
 
@@ -289,6 +313,168 @@ for the referral.
 and since when (administrators and sales), the view log (administrators), the
 logos to review, the "Comisiones a socios" switch, and suspension, which cuts
 all of a partner's access at once.
+
+## The partner portal (migration 0033)
+
+The owner's goal: partners (realtors, lenders, anyone who refers) feel their
+clients are in good hands and see their status. Built on everything above; the
+consent model, the levels and the "never" list are unchanged.
+
+### English first
+
+`/socios`, the portal, a client's page, `/conoce` and the flyer start in
+English and are fully in Spanish one tap away (the site's locale system,
+`src/lib/i18n`). A signed-in partner's own pages start in the language they
+saved (`partners.locale`) unless this device chose one: `PartnerLocaleProvider`
+passes it as the first render's language (`detect.ts` keeps a server choice
+read from a saved language). Their notices, summaries and the consent text
+stored with a referral are in that language. The copy files list English
+first (`copy.ts`, `sharingCopy.ts`, `portalCopy.ts`; a test checks).
+
+### The dashboard
+
+`/socios/portal`, phone first, two columns on a wide screen:
+
+- **Your pipeline**: five tiles, Referred → Contacted → Signed → Active →
+  Finished, with counts; "N did not continue" beside them. A tile is a toggle
+  button (`aria-pressed`) that filters the list.
+- **Your people**: each referral, and each client who added the partner by
+  code. Per row, only what that person's consent allows:
+  - *Don't share* (default): first name and last initial, the step and its
+    words. Never more.
+  - *Progress only* / *Progress and summary*: their full name, their stage in a
+    sentence and the next date, and a link to their page.
+  - Always (the team's own facts, not the client's): **who is taking care of
+    them** ("Ana · Credit specialist, Credalti team": the assigned specialist,
+    else the teammate the lead was given to, else their salesperson; first name
+    and role only), "Referred Nov 24" and **"Contacted Nov 24, 3:03 PM"** (the
+    first time sales sent the invitation, `prospects.invited_at`), or "The team
+    reaches out within 1 business day" while nobody has yet.
+  - **Ask to follow progress** (below), or "Requested on <date>", or "They can
+    choose to share once they create their account".
+- **How the team takes care of your clients**: the team's promise in process
+  words (`TEAM_PROMISE`, `portal.ts`): a person reaches out to each new
+  referral and answers the client's questions within 1 business day, the client
+  decides what to dispute, nobody can promise results.
+- **Share Credalti** (the partner kit), the referral form, notices and the
+  weekly summary, the logo, commissions or "no referral fees", the rules.
+
+### Who is taking care of your client
+
+On the client's page, from `partner_client_care(client)`: the assigned
+teammate's first name and role, only while the client shares, only for an
+approved partner with current terms. Role words: Team lead, Credit specialist,
+Enrollment advisor (`CARE_ROLE_LABEL`). Two lines of the promise under it.
+
+### Ask to follow progress
+
+A partner asks a person they referred, who has an account and does not share,
+to share their progress:
+
+- The partner sees what the person will receive and confirms; then only
+  "Requested on <date>".
+- The client gets **a card on their home** ("Laura asked to follow your
+  progress. It is your choice…", *See what they would see* / *Not now*) and
+  **one message**: WhatsApp (approved template `credalti_socio_pide_avance`,
+  en_US "Hi {{1}}, {{2}} asked to follow your progress with Credalti. It is
+  your choice: nothing is shared unless you turn it on, and you can stop any
+  time. To decide, open your app: More, then Who can see your progress." and
+  the same in es_MX) or email (with the signed unsubscribe link); never SMS.
+  Not to a client who opted out (skipped; the card still shows), never in quiet
+  hours on the client's clock (it waits for the hourly partner cron), sent once
+  (claimed queued → sending before sending).
+- The client decides on **More → Who can see your progress**, which says
+  "Laura asked on November 24…" and opens that partner's choice, off by
+  default, with the consent of migration 0023 (versioned text, hash,
+  append-only record). The card goes away once they choose, tap *Not now*
+  (recorded), or after 14 days.
+- **Rules held by the database** (`partner_share_requests`): only the partner
+  who referred the client, only while approved, never to a client who already
+  shares, at most one request per client every 14 days, never edited or
+  deleted (only *Not now* once, and the message's delivery forward). The client
+  reads their own requests; staff by the client's scope; a partner never reads
+  the table.
+
+**In the signup flows:** `/onboarding` with a partner's code already offered
+the choice. `/registro` (the chat) now does too: once the person is signed in,
+before their documents, `ReferredShareOffer` shows the same `ShareChoice` with
+*Don't share* selected, the consent text and the preview; a choice is
+recorded through `/api/sharing` like any other; *I'll decide later* moves on.
+
+### Notes with the team
+
+On a client who shares, the partner's page has **Notes with the team**: the
+partner writes, the team answers, both see the thread. In the console, the
+client's page has **Notes with the partner** (`PartnerThreadCard`, any role
+that follows up the client: `clients.followup`, and only for clients the
+member may see), with a reply box.
+
+- `partner_team_notes`, append-only. The database refuses a note while the
+  client does not share with that partner, from anyone but the partner's own
+  sign-in or an active teammate in the role written, and any edit.
+- Read by staff under the client's scope; by the partner only through
+  `partner_team_thread(client)` (only while sharing; revoked, the thread is
+  gone at once and comes back if they share again); **never by the client**.
+  To tell the client something, staff write in the client's conversation.
+- Both sides pass the same checks before sending, on the screen and again on
+  the server (`teamNoteProblems`): the staff reply claim rules (no promises of
+  results, points, dates or approvals) and no credit data (scores, amounts,
+  account or long numbers, Social Security numbers, dates of birth).
+
+### Weekly summary (opt-in)
+
+In **Progress notices**: *Weekly summary* Off / WhatsApp / Email
+(`partners.digest_channel`, off by default; never SMS). On Mondays from 9:00
+on the partner's clock, outside quiet hours, once per partner and ISO week
+(`partner_digests`, claimed before sending), only weeks with news: the last 7
+days' milestones of clients who share, since they began sharing, in the same
+words as the milestone notices. WhatsApp template `credalti_socio_resumen`
+(en_US "Hi, {{1}}. Your weekly Credalti summary: {{2}} More details in your
+Credalti partner portal.", es_MX likewise) or email with the portal as the
+unsubscribe link. Run by the same `POST /api/cron/partners` (hourly is
+enough), which also sends share-request messages that waited for quiet hours.
+
+### The partner kit
+
+**Share Credalti** on the portal: the link and its QR code; **ready-to-send
+messages** (a WhatsApp text, an email and a social post, in English and in
+Spanish, each with the link and the fee line: "I receive no payment for
+recommending Credalti." while commissions are off, the commission disclosure
+when on; worded for the partner's kind, never realtor-only; every line passes
+`checkMarketingCopy`, no "free", no outcome); the **printable flyer**
+(`/conoce/<code>/imprimir`: their name and approved logo, Alti in the
+thumbs-up pose labelled "Alti · AI assistant", the QR code, the process and
+the fee line; print styles fit one Letter page; AltiBot never appears); and
+the "How Credalti works" page.
+
+### Partner types
+
+`realtor`, `loan_officer`, `tax_preparer`, `car_dealer`, `attorney`, `other`
+(the database check, the application form, the labels and the kit). The
+website's partner page names all of them. Home-ready milestones remain only for
+real estate agents and loan officers (migration 0030).
+
+### Demo
+
+Without a database the portal shows the invented partner Laura: her pipeline,
+who looks after each person (the demo team), contact times, an example thread
+with Marta, and "you" (this device's own demo case, which Laura referred):
+asking on the portal puts the card on this device's home, and a choice made on
+`/mas/compartir` shows on the portal at once. Requests and notes are kept in
+this browser, shared by the portal, the client app and the staff console.
+
+### For the owner
+
+1. Confirm the promise "within 1 business day" (`TEAM_RESPONSE_BUSINESS_DAYS`
+   in `portal.ts`), or change it there; it is shown to every partner.
+2. Approve the WhatsApp templates `credalti_socio_pide_avance` and
+   `credalti_socio_resumen` in Meta (en_US and es_MX) and add them to
+   `WHATSAPP_APPROVED_TEMPLATES`; until then those messages go by email or are
+   skipped (the client's card still shows).
+3. The partner cron (`/api/cron/partners`) should run hourly for the summary.
+4. "Contacted" is the invitation time. If sales first reaches out another way
+   (a call, a HighLevel message), record it with *Sent the invitation* or the
+   partner sees "The team reaches out within 1 business day".
 
 ## Questions for the attorney
 
@@ -349,3 +535,24 @@ About client sharing (migration 0023):
 - **Partner terms** (`src/lib/partners/terms.ts`, attorney-pending draft): the
   confidentiality, no-promises, no-SSN, no-pressure and fee clauses, and
   whether an electronic acceptance with the text's hash is enough.
+
+About the partner portal (migration 0033):
+
+- **The request to share** (a partner asks their client): is one message on
+  the client's channel, plus a card in the app, consistent with "no pressure"
+  and with TCPA/CAN-SPAM for an existing client (it goes as a service message,
+  honours opt-outs and quiet hours)? Is once every 14 days the right limit?
+- **The team's name and role, and the contact time, at the default level**:
+  we treat who on our team looks after a person and when we reached out as our
+  own facts, shown even when the client shares nothing. Confirm this is not
+  nonpublic personal information that needs the client's opt-in (GLBA), or
+  hide it behind consent.
+- **Notes with the team**: a channel between a partner and the team about a
+  client who shares. Any duty to keep or disclose them, and whether staff may
+  answer a loan officer's questions there without the client's further consent.
+- **The partner kit and the flyer**: FTC Endorsement Guides wording of the fee
+  line ("I receive no payment for recommending Credalti"), and whether partners
+  who are attorneys or car dealers raise state rules on referral relationships.
+- **RESPA Section 8**: the kit, the flyer and the weekly summary are given to
+  every partner at no charge; confirm they are not a thing of value exchanged
+  for referrals.

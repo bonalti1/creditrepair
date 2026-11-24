@@ -6,7 +6,7 @@ import { sendEmail } from "../integrations/email";
 import { sendWhatsAppTemplate } from "../integrations/whatsapp";
 import { reportError } from "../observability/errors";
 import { programFromRow, type PartnerProgram } from "./program";
-import type { PartnerKind } from "./rules";
+import { partnerKindOf, type PartnerKind } from "./rules";
 import { noticesDue, partnerNoticeKey, progressFromRow, type PartnerMilestone, type PartnerProgress, type ShareHow, type ShareLevel } from "./sharing";
 
 // Partner sharing on the server (migration 0023).
@@ -46,7 +46,7 @@ export function publicPartnerFromRow(row: Row): PublicPartner {
     id: String(row.partner_id),
     name: String(row.name),
     company: typeof row.company === "string" && row.company ? row.company : null,
-    kind: (["realtor", "loan_officer", "tax_preparer"].includes(kind) ? kind : "other") as PartnerKind,
+    kind: partnerKindOf(kind),
     logo: typeof row.logo_data === "string" && row.logo_data ? row.logo_data : null,
   };
 }

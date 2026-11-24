@@ -1,4 +1,4 @@
-import RequestLocaleProvider from "@/lib/i18n/RequestLocaleProvider";
+import PartnerLocaleProvider from "@/lib/partners/PartnerLocaleProvider";
 import { BRAND } from "@/lib/brand";
 import { inRequestLocale } from "@/lib/i18n/server";
 import PortalContent from "@/components/partners/PortalContent";
@@ -16,8 +16,8 @@ export const dynamic = "force-dynamic";
 
 export default function SociosPortal() {
   return (
-    <RequestLocaleProvider>
+    <PartnerLocaleProvider>
       <PortalContent />
-    </RequestLocaleProvider>
+    </PartnerLocaleProvider>
   );
 }

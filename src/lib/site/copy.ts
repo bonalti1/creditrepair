@@ -244,7 +244,7 @@ const en: SiteCopy = {
     },
     partners: {
       title: `For partners · ${brand}`,
-      description: `Realtors, loan officers and tax preparers: refer clients to ${brand} and, with their OK, follow their progress.`,
+      description: `Realtors, loan officers, tax preparers, car dealers, attorneys and more: refer clients to ${brand} and, with their OK, follow their progress.`,
     },
     about: {
       title: `About us · ${brand}`,
@@ -438,7 +438,7 @@ const en: SiteCopy = {
       cta: "How pricing works",
     },
     partners: {
-      title: "Realtors, loan officers and tax preparers",
+      title: "Realtors, loan officers, tax preparers and more",
       lead: "Refer a client and, if they choose to share it, follow their progress: the steps and the dates, never their credit information.",
       cta: "The partner program",
     },
@@ -637,11 +637,14 @@ const en: SiteCopy = {
   partners: {
     eyebrow: "For partners",
     title: "Help your clients get ready, without the paperwork",
-    lead: `You meet people who need help with their credit report before a mortgage, a car or a tax refund. Refer them to ${brand}; our team does the rest.`,
+    lead: `You meet people who need help with their credit report before a mortgage, a car, a tax refund or a fresh start. Refer them to ${brand}; our team does the rest, and you can see who on the team takes care of them.`,
     who: [
       { title: "Realtors", body: "Buyers who found something wrong on their report get a team that handles the letters." },
       { title: "Loan officers", body: "With your client's OK, follow each round's dates so you know when to look again." },
       { title: "Tax preparers", body: "Point clients to help in English or Spanish, at a time when they think about money." },
+      { title: "Car dealers", body: "A buyer who thinks their report has a mistake gets a team that explains the process first." },
+      { title: "Attorneys", body: "Clients with questions about their credit report get a team that works only on what they say is wrong." },
+      { title: "Anyone who helps with money", body: "Counselors, coaches, community groups: refer the people who ask you about their report." },
     ],
     sharingTitle: "Progress sharing, with your client's consent",
     sharing: [
@@ -743,7 +746,7 @@ const es: SiteCopy = {
     },
     partners: {
       title: `Para socios · ${brand}`,
-      description: `Agentes de bienes raíces, oficiales de préstamos y preparadores de impuestos: refieran clientes a ${brand} y, si ellos aceptan, sigan su avance.`,
+      description: `Agentes, oficiales de préstamos, preparadores de impuestos, concesionarios, abogados y más: refieran clientes a ${brand} y sigan su avance si ellos aceptan.`,
     },
     about: {
       title: `Nosotros · ${brand}`,
@@ -937,7 +940,7 @@ const es: SiteCopy = {
       cta: "Cómo funcionan los precios",
     },
     partners: {
-      title: "Agentes de bienes raíces, oficiales de préstamos y preparadores de impuestos",
+      title: "Agentes de bienes raíces, oficiales de préstamos, preparadores de impuestos y más",
       lead: "Refiere a un cliente y, si decide compartirlo, sigue su avance: los pasos y las fechas, nunca su información de crédito.",
       cta: "El programa de socios",
     },
@@ -1136,11 +1139,14 @@ const es: SiteCopy = {
   partners: {
     eyebrow: "Para socios",
     title: "Ayuda a tus clientes a prepararse, sin el papeleo",
-    lead: `Conoces a personas que necesitan ayuda con su reporte de crédito antes de una hipoteca, un auto o su reembolso de impuestos. Refiérelas a ${brand}; nuestro equipo hace el resto.`,
+    lead: `Conoces a personas que necesitan ayuda con su reporte de crédito antes de una hipoteca, un auto, su reembolso de impuestos o un nuevo comienzo. Refiérelas a ${brand}; nuestro equipo hace el resto, y ves quién del equipo las atiende.`,
     who: [
       { title: "Agentes de bienes raíces", body: "Los compradores que encontraron algo mal en su reporte tienen un equipo que se encarga de las cartas." },
       { title: "Oficiales de préstamos", body: "Si tu cliente acepta, sigues las fechas de cada ronda y sabes cuándo volver a revisar." },
       { title: "Preparadores de impuestos", body: "Recomienda ayuda en inglés o en español, en un momento en que tus clientes piensan en su dinero." },
+      { title: "Concesionarios de autos", body: "Un comprador que cree que su reporte tiene un error tiene un equipo que primero le explica el proceso." },
+      { title: "Abogados", body: "Los clientes con dudas sobre su reporte de crédito tienen un equipo que trabaja solo en lo que ellos digan que está mal." },
+      { title: "Quien ayude con el dinero", body: "Consejeros, asesores, grupos de la comunidad: refiere a las personas que te preguntan por su reporte." },
     ],
     sharingTitle: "Avance compartido, con el permiso de tu cliente",
     sharing: [

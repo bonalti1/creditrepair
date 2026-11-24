@@ -106,7 +106,9 @@ export function resolveClientLocale(input: {
   if (fromLink) return { locale: fromLink, source: "link" };
   const saved = parseLocale(input.cookie) ?? parseLocale(input.stored);
   if (saved) return { locale: saved, source: "saved" };
-  if (input.server?.source === "browser") return input.server;
+  // The server's guess from the browser's header, or from a saved language it
+  // read for a signed-in person (a partner's portal: partners.locale), holds.
+  if (input.server?.source === "browser" || input.server?.source === "profile") return input.server;
   const browser = preferredFromLanguages(input.languages);
   if (browser) return { locale: browser, source: "browser" };
   return { locale: DEFAULT_LOCALE, source: "default" };

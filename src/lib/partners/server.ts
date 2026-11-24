@@ -40,6 +40,7 @@ export function partnerFromRow(row: Row): Partner {
     decidedAt: str(row.decided_at),
     logoStatus: (["pending", "approved", "rejected"].includes(String(row.logo_status)) ? row.logo_status : "none") as Partner["logoStatus"],
     logo: str(row.logo_data),
+    locale: row.locale === "es" ? "es" : "en",
   };
 }
 

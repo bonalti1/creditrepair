@@ -42,6 +42,7 @@ import type { PublicPlan } from "@/lib/site/plans";
 import AgreementFlow, { type SheetKind } from "./AgreementSheets";
 import { AltiRun, Transcript, TypingDots, YouBubble } from "./Bubbles";
 import PhoneSignIn from "./PhoneSignIn";
+import ReferredShareOffer from "@/components/partners/ReferredShareOffer";
 import SignupProgressBar from "./SignupProgressBar";
 import TalkToPerson, { PersonIcon } from "./TalkToPerson";
 
@@ -470,7 +471,9 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
           </div>
         );
       case "identity":
+        // Referred by a partner (their code in the link): first, whether they may follow the progress. Off by default.
         return (
+          <ReferredShareOffer locale={locale} name={`${a.firstName ?? ""} ${a.lastName ?? ""}`.trim()} goal={a.goal}>
           <div className={`${CARD} space-y-4`} data-testid="identity-step">
             <MailingAddress />
             <IdentityDocs />
@@ -483,6 +486,7 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
               </button>
             </div>
           </div>
+          </ReferredShareOffer>
         );
       case "plan":
         return (

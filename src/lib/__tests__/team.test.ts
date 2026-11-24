@@ -675,7 +675,9 @@ describe("team: what the staff routes accept", () => {
     expect(read("src/app/api/staff/offers/route.ts")).toMatch(/requireCapability\("partners\.manage"\)/);
     // Calls with a person (migration 0032, off by default): whoever handles calls (administrators and sales).
     expect(read("src/app/api/staff/calls/route.ts")).toMatch(/requireCapability\("calls\.manage"\)/);
-    expect(staffRoutes.length).toBe(27);
+    // Notes with a referral partner about a client (migration 0033): whoever follows up a client.
+    expect(read("src/app/api/staff/partner-notes/route.ts")).toMatch(/requireCapability\("clients\.followup"\)/);
+    expect(staffRoutes.length).toBe(28);
   });
 });
 
