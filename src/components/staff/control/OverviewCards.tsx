@@ -135,8 +135,8 @@ function Card({ card }: { card: DeptCard }) {
       {card.key === "health" && (
         <p className="mt-2 text-[12px] leading-relaxed text-slate-500">
           {t(
-            "Solo lo que ya se puede revisar: cuándo pasó cada cosa por última vez. Las alertas de caídas y la revisión completa llegan en la fase 3.",
-            "Only what can be checked today: when each thing last happened. Outage alerts and the full check-up come in phase 3.",
+            "Cuándo pasó cada cosa por última vez. Cada servicio, cada tarea programada y «Revisar ahora» están en «Listo para lanzar» · Salud del sistema.",
+            "When each thing last happened. Every service, every scheduled job and “Check now” are in Launch readiness · System health.",
           )}
         </p>
       )}

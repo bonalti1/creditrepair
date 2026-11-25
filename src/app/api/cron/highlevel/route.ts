@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safeBeat } from "@/lib/control/heartbeat";
 import { deliverOutbox, queueStageEvents } from "@/lib/highlevel/server";
 import { stageWebhookUrl } from "@/lib/highlevel/stages";
 import { reportError } from "@/lib/observability/errors";
@@ -29,12 +30,15 @@ export async function POST(req: Request) {
     const url = stageWebhookUrl();
     if (!url) {
       // Events wait in the outbox; they go out once a destination is set (within the lookback window).
+      await safeBeat(db, "highlevel", now, { ok: true, detail: { destination: false } });
       return NextResponse.json({ queued, delivery: null, message: "HIGHLEVEL_INBOUND_WEBHOOK_URL (or SALES_WEBHOOK_URL) is not set: nothing was sent." });
     }
     const delivery = await deliverOutbox(db, url, now);
+    await safeBeat(db, "highlevel", now, { ok: true });
     return NextResponse.json({ queued, delivery });
   } catch (error) {
     await reportError(error, { where: "api/cron/highlevel" });
+    await safeBeat(db, "highlevel", now, { ok: false, error: error instanceof Error ? error.message : "error" });
     return NextResponse.json({ error: "Sync failed; it will run again." }, { status: 500 });
   }
 }

@@ -3,6 +3,13 @@
 The software is finished as far as it can go without real accounts. This is
 the list of what only the owner can do, with the messages already written.
 
+**The checklist, checked:** once the database is on, open
+`/equipo/lanzamiento` («Listo para lanzar», administrators only). It shows how
+many required items are ready, the next three things to do, what is blocked by
+what, and a system health view, from the real settings (only "set" or "not
+set", never a key), the database, the scheduled jobs' heartbeats and your own
+ticks for what the software cannot know. See `docs/LAUNCH.md`.
+
 **One rule about keys:** every key and password below goes into the hosting
 settings (Render → your service → Environment), under the exact
 name shown. Never paste a key into a chat or an email.
@@ -165,7 +172,8 @@ In short:
 
 ## Step 4 — Check it
 
-Ask the developer (or Claude) to open `https://YOUR-APP/api/health` with the
+Open `/equipo/lanzamiento`: every item should say Ready. For the same check
+from outside the console, ask the developer (or Claude) to open `https://YOUR-APP/api/health` with the
 header `x-webhook-secret`. It lists every integration as set or missing, checks
 the database tables, and says whether the app is ready for customers. It never
 shows a key.

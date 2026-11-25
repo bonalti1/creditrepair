@@ -36,6 +36,10 @@ export const MORE_NAV: NavItem[] = [
   { href: "/equipo/actividad", label: "activity", icon: "clock" },
   { href: "/equipo/piloto", label: "autopilot", icon: "sparkle", needs: "rounds.send" },
   { href: "/equipo/negocio", label: "business", icon: "chart", needs: "business.view" },
+  // Ideas and experiments (src/lib/ideas, docs/IDEAS.md): everyone sees and adds; an administrator approves.
+  { href: "/equipo/ideas", label: "ideas", icon: "bulb", needs: "ideas.add" },
+  // Launch readiness and system health (src/lib/launch, docs/LAUNCH.md): administrators only.
+  { href: "/equipo/lanzamiento", label: "launch", icon: "rocket", needs: "launch" },
   { href: "/equipo/socios", label: "partners", icon: "link", needs: "partners.view" },
   { href: "/equipo/ofertas", label: "offers", icon: "sparkle", needs: "partners.manage" },
   { href: "/equipo/equipo", label: "team", icon: "team", needs: "team.manage" },
@@ -56,8 +60,8 @@ export const MORE_NAV: NavItem[] = [
 // The console's side menu, the phone's tab bar and its «More» sheet show the
 // destinations above in ten numbered groups, in the order the business works
 // (ALTO Control's GROUPS): 0 Overview → 1 My day → 2 Content → 3 Leads →
-// 4 Fulfillment → 5 Money → 6 Letters & rules → 7 Partners → 8 Business
-// numbers → 9 Team & settings. A group holds one or more destinations; a group
+// 4 Fulfillment → 5 Money → 6 Letters & rules → 7 Partners → 8 Ideas &
+// numbers → 9 Team & settings (Launch readiness first, for the owner). A group holds one or more destinations; a group
 // with two or more the member may open shows them as sub-tabs under the top
 // bar. A group shows only when the member may open at least one of its pages
 // (the same `needs` as above), and opens on the first of them.
@@ -84,8 +88,8 @@ export const NAV_GROUPS: NavGroup[] = [
   { key: "money", number: "5", icon: "calc", hrefs: ["/equipo/contabilidad", "/equipo/cobros", "/equipo/planes"] },
   { key: "library", number: "6", icon: "book", hrefs: ["/equipo/cartas", "/equipo/acreedores", "/equipo/estados"] },
   { key: "partners", number: "7", icon: "link", hrefs: ["/equipo/socios", "/equipo/ofertas"] },
-  { key: "business", number: "8", icon: "chart", hrefs: ["/equipo/negocio"] },
-  { key: "settings", number: "9", icon: "team", hrefs: ["/equipo/equipo", "/equipo/alertas", "/equipo/perfil", "/equipo/bienvenida"] },
+  { key: "business", number: "8", icon: "chart", hrefs: ["/equipo/negocio", "/equipo/ideas"] },
+  { key: "settings", number: "9", icon: "team", hrefs: ["/equipo/lanzamiento", "/equipo/equipo", "/equipo/alertas", "/equipo/perfil", "/equipo/bienvenida"] },
 ];
 
 /** Every destination, by href. */

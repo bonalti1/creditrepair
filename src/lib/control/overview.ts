@@ -158,6 +158,7 @@ const T = {
       late: (h: number) => `Expected at least every ${h} h`,
     },
     unavailableDemo: "The demo has no database, so there is nothing to read.",
+    healthLink: "Full check-up: System health",
   },
   es: {
     noData: "Todavía sin datos",
@@ -228,6 +229,7 @@ const T = {
       late: (h: number) => `Debería pasar al menos cada ${h} h`,
     },
     unavailableDemo: "La demo no tiene base de datos, así que no hay nada que leer.",
+    healthLink: "Revisión completa: Salud del sistema",
   },
 } as const;
 
@@ -436,6 +438,8 @@ export function overviewCards(input: OverviewInput): DeptCard[] {
           )
         : [noData("health", t.cards.health, unavailable ?? t.unavailableDemo)],
       needsYou: { count: signals ? signals.filter(late).length : null, href: "/equipo/control#health", label: t.needsYou },
+      // Launch readiness has the full check-up (src/lib/launch/health.ts): every service and every job.
+      ...(input.can("launch") ? { link: { href: "/equipo/lanzamiento?vista=salud", label: t.healthLink } } : {}),
     });
   }
   return cards;

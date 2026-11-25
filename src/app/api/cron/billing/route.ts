@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safeBeat } from "@/lib/control/heartbeat";
 import { getPaymentGateway } from "@/lib/billing/gateway";
 import { billingCandidates, runBillingForUser, type UserBillingSummary } from "@/lib/billing/server";
 import { reportError } from "@/lib/observability/errors";
@@ -31,10 +32,12 @@ export async function POST(req: Request) {
   }
 
   const resolution = getPaymentGateway();
+  const db = getAdminClient();
   if (!resolution.configured) {
+    // The clock is working even with nothing to charge: the heartbeat says so (Launch readiness lists the processor apart).
+    if (db) await safeBeat(db, "billing", new Date(), { ok: true, detail: { gateway: "not_configured" } });
     return NextResponse.json({ error: resolution.message, code: "gateway_not_configured", charged: 0 }, { status: 503 });
   }
-  const db = getAdminClient();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
   const now = new Date();
@@ -43,6 +46,7 @@ export async function POST(req: Request) {
     candidates = await billingCandidates(db, now);
   } catch (error) {
     await reportError(error, { where: "api/cron/billing" });
+    await safeBeat(db, "billing", now, { ok: false, error: error instanceof Error ? error.message : "error" });
     return NextResponse.json({ error: "Could not read what is due. Nothing was charged." }, { status: 500 });
   }
 
@@ -58,6 +62,7 @@ export async function POST(req: Request) {
     }
   }
 
+  await safeBeat(db, "billing", now, failed.length === 0 ? { ok: true, detail: { looked: candidates.length } } : { ok: false, error: `${failed.length} client(s) could not be billed this run` });
   return NextResponse.json({
     gateway: resolution.gateway.name,
     live: resolution.gateway.live,

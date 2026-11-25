@@ -69,9 +69,18 @@ partner kit), Accounting (`accounting`), Partners (`partners.view`) and
 Reviews (everyone), with the card's «Needs you» on the tile when there is
 one. Three to a row on a phone, one row from 768 px.
 
-Tech health is a phase-1 stub of what is checkable now (last times, a
-heartbeat for the leads job: `cron_heartbeats`). Outage alerts and a full
-check-up are phase 3.
+Tech health shows what is checkable at a glance (last times, the leads
+job's heartbeat in `cron_heartbeats`). The full check-up is in Launch
+readiness → System health (`/equipo/lanzamiento?vista=salud`,
+`docs/LAUNCH.md`): every service, every scheduled job's heartbeat (every
+`/api/cron` route now records one) and «Check now»; the card links there for
+an administrator. Outage alerts are still phase 3.
+
+**Launch readiness on the Overview.** While the business is not live (any
+required item not ready), an administrator sees a compact card under the
+departments strip: "9 · Launch readiness: N of M ready", the next item, and a
+link to `/equipo/lanzamiento`. It goes away by itself once every required item
+is ready, and comes back if one stops being ready.
 
 ## Today
 

@@ -687,7 +687,11 @@ describe("team: what the staff routes accept", () => {
     // The accounting department (migration 0036): the accounting capability.
     expect(read("src/app/api/staff/accounting/route.ts")).toMatch(/requireCapability\("accounting"\)/);
     expect(read("src/app/api/staff/accounting/receipt/route.ts")).toMatch(/requireCapability\("accounting"\)/);
-    expect(staffRoutes.length).toBe(38);
+    // Launch readiness (administrators) and Ideas (everyone adds; ideas.approve decides), migration 0040.
+    expect(read("src/app/api/staff/launch/route.ts")).toMatch(/requireCapability\("launch"\)/);
+    expect(read("src/app/api/staff/ideas/route.ts")).toMatch(/requireCapability\(capabilityFor\(input\.action\)\)/);
+    expect(read("src/app/api/staff/ideas/route.ts")).toMatch(/requireCapability\("ideas\.add"\)/);
+    expect(staffRoutes.length).toBe(40);
   });
 });
 

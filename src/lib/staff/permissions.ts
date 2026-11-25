@@ -74,6 +74,11 @@ export const CAPABILITIES = [
   "content.share",
   // The accounting department (src/lib/accounting, migration 0036): the books, expenses, reconciliation, month close.
   "accounting",
+  // Launch readiness (src/lib/launch, migration 0040): what is ready to go live, ticks, system health and its checks.
+  "launch",
+  // Ideas and experiments (src/lib/ideas, migration 0040): everyone sees and adds; an administrator approves, runs and decides tests and asks Alti.
+  "ideas.add",
+  "ideas.approve",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -124,6 +129,9 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "content.publish": "Conectar las redes sociales y activar la publicación",
   "content.share": "Ver el kit de marca y el material aprobado para socios",
   accounting: "Contabilidad: libros, gastos, conciliación y cierre de mes",
+  launch: "Ver qué falta para lanzar, marcar pasos y revisar el sistema",
+  "ideas.add": "Ver las ideas y agregar nuevas",
+  "ideas.approve": "Aprobar ideas, decidir pruebas y pedirle ideas a Alti",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -156,6 +164,9 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "content.publish": "Connect social accounts and turn publishing on",
   "content.share": "See the brand kit and the approved partner material",
   accounting: "Accounting: the books, expenses, reconciliation and month close",
+  launch: "See what's missing to launch, tick steps and check the system",
+  "ideas.add": "See the ideas and add new ones",
+  "ideas.approve": "Approve ideas, decide tests and ask Alti for ideas",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -206,6 +217,11 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "content.publish": false,
       "content.share": true,
       accounting: false,
+      // Launch readiness is the owner's (keys, the attorney's approvals, the system's health).
+      launch: false,
+      // Ideas (migration 0040): everyone sees the board and adds ideas; only an administrator approves and decides.
+      "ideas.add": true,
+      "ideas.approve": false,
     },
   },
   sales: {
@@ -244,6 +260,9 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "content.publish": false,
       "content.share": true,
       accounting: false,
+      launch: false,
+      "ideas.add": true,
+      "ideas.approve": false,
     },
   },
 };
