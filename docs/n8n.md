@@ -54,6 +54,20 @@ The app exposes everything n8n needs; n8n only provides the clock.
   it starts off), retries temporary errors, and reads the numbers of recent
   posts. Running it twice posts nothing twice. See `docs/CONTENT.md`.
 
+## Workflow 8: SEO, Search Console and site health (once a day)
+
+- **Trigger:** Cron, once a day (any hour; early morning Texas time is
+  fine).
+- **Node:** HTTP Request → `POST {APP_URL}/api/cron/seo`, header
+  `x-webhook-secret: {N8N_WEBHOOK_SECRET}`. Allow it up to 5 minutes.
+- Reads the last 10 days of final Search Console numbers (clicks,
+  impressions, position per day, page and query) into `seo_search_rows`,
+  read-only (nothing when Search Console is not connected; the variables are
+  in `docs/SEO.md`), then reads the public site from `NEXT_PUBLIC_SITE_URL`
+  and keeps the site-health result for `/equipo/seo` and the red count on the
+  menu. Running it twice stores nothing twice (rows are upserted by day, page
+  and query; the health result is replaced). See `docs/SEO.md`.
+
 ## Workflow 2 (optional): notification relays
 
 For ad-hoc messages (e.g. manual "attack ready" nudges), call

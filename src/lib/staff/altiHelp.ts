@@ -45,7 +45,11 @@ const JOBS: Partial<Record<NavGroupKey, AltiJob[]>> = {
     { id: "client_draft", icon: "sparkle", needs: "clients.reply", href: "/equipo/clientes?aviso=question_waiting", gate: "draft" },
     { id: "saved_answers", icon: "chat", needs: "clients.reply", href: "/equipo/respuestas", gate: "approved" },
   ],
-  content: [{ id: "content_words", icon: "doc", needs: "content.edit", href: "/equipo/contenido", gate: "words" }],
+  content: [
+    { id: "content_words", icon: "doc", needs: "content.edit", href: "/equipo/contenido", gate: "words" },
+    // SEO (src/lib/seo/draft.ts): a guide's outline and article, a draft a person edits and an administrator publishes.
+    { id: "seo_guide_draft", icon: "sparkle", needs: "seo.edit", href: "/equipo/seo?vista=guias", gate: "draft" },
+  ],
 };
 
 /** What Alti already does in this section, for this member. */
@@ -91,6 +95,10 @@ export const ALTI_HELP_TEXT = defineText({
       content_words: {
         title: "Write a piece's words",
         desc: "Open a piece and use my writing assistant: hooks, script and caption in English and Spanish, checked against the claim and brand rules. A person edits, saves and asks for approval.",
+      },
+      seo_guide_draft: {
+        title: "Draft a guide for the website",
+        desc: "In SEO → Guides, give me the topic, the brief and the search phrase: I write the outline and the guide in English and Spanish, with an official source for every legal fact. It passes the claim rules; a person checks the sources and an administrator publishes it.",
       },
     },
     searchLabel: "Search the team's playbook",
@@ -141,6 +149,10 @@ export const ALTI_HELP_TEXT = defineText({
       content_words: {
         title: "Escribir las palabras de una pieza",
         desc: "Abre una pieza y usa mi asistente de escritura: ganchos, guion y texto en inglés y español, revisados con las reglas de lo que se puede decir y de la marca. Una persona edita, guarda y pide la aprobación.",
+      },
+      seo_guide_draft: {
+        title: "Borrador de una guía para el sitio",
+        desc: "En SEO → Guías, dame el tema, el encargo y la frase de búsqueda: escribo el esquema y la guía en inglés y español, con una fuente oficial para cada dato legal. Pasa las reglas de lo que se puede decir; una persona revisa las fuentes y un administrador la publica.",
       },
     },
     searchLabel: "Buscar en la guía del equipo",

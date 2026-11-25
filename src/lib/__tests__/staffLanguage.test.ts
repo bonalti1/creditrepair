@@ -37,6 +37,7 @@ import {
 import { MESSAGE_EN, staffMessage } from "../staff/i18n/messages";
 import { SHELL_TEXT } from "../staff/i18n/ui/shell";
 import { ALTI_HELP_TEXT } from "../staff/altiHelp";
+import { SEO_TEXT } from "../seo/text";
 import { DIMENSION_LABELS, OUTCOME_DEFINITION_TEXT } from "../staff/learning";
 import { exceptionMessage, MESSAGE_BODIES, STAFF_MESSAGE_RULE_TEXT } from "../staff/messages";
 import { METRIC_INFOS, PERIOD_LABELS } from "../staff/metrics";
@@ -109,6 +110,7 @@ function shape(value: unknown): unknown {
 const BILINGUAL_TABLES: Record<string, Record<StaffLocale, unknown>> = {
   SHELL_TEXT,
   ALTI_HELP_TEXT,
+  SEO_TEXT,
   STAGE_TEXT,
   EXCEPTION_LABELS,
   ACTOR_LABELS,

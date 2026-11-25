@@ -74,6 +74,10 @@ export const CAPABILITIES = [
   "content.share",
   // The accounting department (src/lib/accounting, migration 0036): the books, expenses, reconciliation, month close.
   "accounting",
+  // SEO (src/lib/seo, migration 0039): site health, guides, Search Console, keywords and the local checklist; publishing guides.
+  "seo.view",
+  "seo.edit",
+  "seo.publish",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -124,6 +128,9 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "content.publish": "Conectar las redes sociales y activar la publicación",
   "content.share": "Ver el kit de marca y el material aprobado para socios",
   accounting: "Contabilidad: libros, gastos, conciliación y cierre de mes",
+  "seo.view": "Ver el SEO: salud del sitio, guías, búsquedas y palabras clave",
+  "seo.edit": "Escribir guías, seguir frases y marcar la lista local",
+  "seo.publish": "Publicar guías en el sitio y conectar Search Console",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -156,6 +163,9 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "content.publish": "Connect social accounts and turn publishing on",
   "content.share": "See the brand kit and the approved partner material",
   accounting: "Accounting: the books, expenses, reconciliation and month close",
+  "seo.view": "See SEO: site health, guides, search numbers and keywords",
+  "seo.edit": "Write guides, track phrases and tick the local checklist",
+  "seo.publish": "Publish guides on the website and connect Search Console",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -206,6 +216,10 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "content.publish": false,
       "content.share": true,
       accounting: false,
+      // SEO (migration 0039): a specialist writes guides and tracks phrases; only an administrator publishes.
+      "seo.view": true,
+      "seo.edit": true,
+      "seo.publish": false,
     },
   },
   sales: {
@@ -244,6 +258,10 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "content.publish": false,
       "content.share": true,
       accounting: false,
+      // SEO: not sales' work (the website's words are the content team's).
+      "seo.view": false,
+      "seo.edit": false,
+      "seo.publish": false,
     },
   },
 };

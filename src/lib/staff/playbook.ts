@@ -462,6 +462,7 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
   },
   "/equipo/cartas": { title: "Cartas", what: "Las plantillas de las cartas.", steps: ["Solo un administrador las edita."], playbooks: [] },
   "/equipo/contenido": { title: "Contenido", what: "Las piezas de marketing, de la idea a los resultados, con la revisión de cumplimiento y marca.", steps: ["Crea la pieza (en blanco, con plantilla o con Alti) y corrige lo que marque la revisión.", "Marca la lista y mándala a revisión; solo un administrador aprueba.", "Publícala (o prográmala) y agrega los resultados reales."], playbooks: [] },
+  "/equipo/seo": { title: "SEO", what: "Cómo encuentran el sitio: salud del sitio, guías, números de Search Console, frases seguidas y la lista local. Sin puntaje: cada revisión pasa o dice qué arreglar.", steps: ["Corre la revisión del sitio y arregla lo que liste, lo más importante primero.", "Escribe una guía (en blanco o con el borrador de Alti), da a cada dato legal una fuente oficial, marca la lista y mándala a aprobación; solo un administrador publica.", "Sigue las frases que importan (solo Texas), convierte los huecos de contenido en encargos, y avanza con el dueño la lista local."], playbooks: [] },
   "/equipo/planes": {
     title: "Planes de cobro",
     what: "Los planes que se ofrecen a los clientes, como en Credit Repair Cloud, y la vista previa de cuándo se cobra.",
@@ -591,6 +592,7 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
   },
   "/equipo/cartas": { title: "Letters", what: "The letter templates.", steps: ["Only an administrator edits them."], playbooks: [] },
   "/equipo/contenido": { title: "Content", what: "Marketing pieces, from the idea to the results, with the compliance and brand check.", steps: ["Create the piece (blank, from a template or with Alti) and fix what the check marks.", "Tick the checklist and send it for review; only an administrator approves.", "Post it (or schedule it) and add the real results."], playbooks: [] },
+  "/equipo/seo": { title: "SEO", what: "How the website is found: site health, guides, Search Console numbers, tracked phrases and the local checklist. No score: each check passes or says what to fix.", steps: ["Run the site check and fix what it lists, most important first.", "Write a guide (blank or drafted by Alti), give every legal fact an official source, tick the checklist and send it for approval; only an administrator publishes.", "Track the phrases that matter (Texas only), turn content gaps into briefs, and work through the local to-dos with the owner."], playbooks: [] },
   "/equipo/planes": {
     title: "Billing plans",
     what: "The plans offered to clients, as in Credit Repair Cloud, with a preview of when each charge happens.",
