@@ -194,6 +194,20 @@ that screen (`SCREEN_HELP`) with the cards that matter there.
   the file, with what it changed, and Open / Print / Download; see
   `src/lib/reports/history.ts`). `?pestana=reportes` opens the second.
 
+## Accounting
+
+«Contabilidad» / «Accounting» (`/equipo/contabilidad`, under «Más») is the
+accounting department, for the owner and administrators only (the capability
+`accounting`; specialists and sales see why they can't open it, and the
+routes and the database refuse them). Dashboard, the income ledger built from
+billing (test charges never counted), expenses with receipts and monthly
+rules, bank CSV import with a mapping step, reconciliation against the NMI or
+Authorize.Net export, collections (WhatsApp or email reminders a person sends,
+never SMS), unit economics, partner commissions and the 1099-NEC list,
+reports with the QuickBooks / Xero file and the printable monthly report,
+month close, and a tax set-aside estimate with the year's dates. Everything,
+including the questions for the CPA, is in `docs/ACCOUNTING.md`.
+
 ## The morning summary
 
 `src/lib/staff/digest.ts` (the words and when), `src/lib/staff/digestServer.ts`

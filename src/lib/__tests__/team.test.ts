@@ -684,7 +684,10 @@ describe("team: what the staff routes accept", () => {
     expect(read("src/app/api/staff/control/route.ts")).toMatch(/requireCapability\("clients\.followup"\)/);
     // Content (migration 0035): the board, files, Alti's assistant and connecting accounts.
     expect(read("src/app/api/staff/content/assist/route.ts")).toMatch(/requireCapability\("content\.edit"\)/);
-    expect(staffRoutes.length).toBe(36);
+    // The accounting department (migration 0036): the accounting capability.
+    expect(read("src/app/api/staff/accounting/route.ts")).toMatch(/requireCapability\("accounting"\)/);
+    expect(read("src/app/api/staff/accounting/receipt/route.ts")).toMatch(/requireCapability\("accounting"\)/);
+    expect(staffRoutes.length).toBe(38);
   });
 });
 

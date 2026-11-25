@@ -46,6 +46,7 @@ export const MORE_NAV: NavItem[] = [
   // Calls with a person (src/lib/calls): only when turned on (off by default).
   ...(callsEnabled() ? [{ href: "/equipo/llamadas", label: "calls" as const, icon: "clock" as const, needs: "calls.manage" as const }] : []),
   { href: "/equipo/alertas", label: "alerts", icon: "bell" },
+  { href: "/equipo/contabilidad", label: "accounting", icon: "calc", needs: "accounting" },
   { href: "/equipo/perfil", label: "profile", icon: "person" },
   { href: "/equipo/bienvenida", label: "welcome", icon: "book" },
 ];

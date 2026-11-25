@@ -72,6 +72,8 @@ export const CAPABILITIES = [
   "content.approve",
   "content.publish",
   "content.share",
+  // The accounting department (src/lib/accounting, migration 0036): the books, expenses, reconciliation, month close.
+  "accounting",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -121,6 +123,7 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "content.approve": "Aprobar contenido o pedir cambios",
   "content.publish": "Conectar las redes sociales y activar la publicación",
   "content.share": "Ver el kit de marca y el material aprobado para socios",
+  accounting: "Contabilidad: libros, gastos, conciliación y cierre de mes",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -152,6 +155,7 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "content.approve": "Approve content or ask for changes",
   "content.publish": "Connect social accounts and turn publishing on",
   "content.share": "See the brand kit and the approved partner material",
+  accounting: "Accounting: the books, expenses, reconciliation and month close",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -201,6 +205,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "content.approve": false,
       "content.publish": false,
       "content.share": true,
+      accounting: false,
     },
   },
   sales: {
@@ -238,6 +243,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "content.approve": false,
       "content.publish": false,
       "content.share": true,
+      accounting: false,
     },
   },
 };
