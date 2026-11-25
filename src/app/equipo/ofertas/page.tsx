@@ -156,7 +156,7 @@ export default function OfertasPage() {
   return (
     <main className="animate-rise space-y-8" data-testid="staff-offers">
       <header>
-        <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Ofertas de socios", "Partner offers")}</h1>
+        <h1 className="page-title">{t("Ofertas de socios", "Partner offers")}</h1>
         <p className="mt-1 max-w-3xl text-[15px] leading-relaxed text-slate-600">
           {t(
             "Productos para construir crédito que los clientes pueden ver en «Construye tu crédito». Opcionales, nunca requeridos, y ordenados por lo que le cuestan al cliente y luego por nombre, nunca por comisión. Si Credalti puede recibir un pago, el cliente ve el aviso junto a la oferta.",
@@ -180,7 +180,7 @@ export default function OfertasPage() {
 
       {message && <p className="rounded-xl bg-blue-50 px-4 py-3 text-[14px] text-blue-900" role="status">{message}</p>}
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
         <section aria-labelledby="list">
           <SectionTitle aside={!form && <button type="button" className={ROW_BUTTON} onClick={() => setForm({ ...EMPTY })} data-testid="offer-add">{t("Agregar oferta", "Add offer")}</button>}>
             <span id="list">{t("Ofertas, en el orden que las ven los clientes", "Offers, in the order clients see them")}</span>

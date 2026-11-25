@@ -202,7 +202,7 @@ function LetterList({ versions, data, reload, allowUnapproved }: { versions: Let
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
         <div className="card px-5 py-4">
           <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Aprobadas", "Approved")}</p>
-          <p className="mt-1 text-[28px] font-semibold tabular-nums text-slate-900" data-testid="approved-count">
+          <p className="mt-1 font-display text-[28px] font-semibold tabular-nums text-slate-900" data-testid="approved-count">
             {approved} <span className="text-[16px] font-medium text-slate-500">{t("de", "of")} {LETTER_CATALOGUE.length}</span>
           </p>
           <p className="text-[13px] text-slate-500">
@@ -211,7 +211,7 @@ function LetterList({ versions, data, reload, allowUnapproved }: { versions: Let
         </div>
         <div className="card px-5 py-4">
           <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Con el abogado", "With the attorney")}</p>
-          <p className="mt-1 text-[28px] font-semibold tabular-nums text-slate-900">{pending.length}</p>
+          <p className="mt-1 font-display text-[28px] font-semibold tabular-nums text-slate-900">{pending.length}</p>
           {pending.length > 0 ? (
             <Link href="/equipo/cartas/paquete" className="text-[14px] font-medium text-blue-700">
               {t("Ver el paquete para el abogado", "See the attorney's packet")}
@@ -222,7 +222,7 @@ function LetterList({ versions, data, reload, allowUnapproved }: { versions: Let
         </div>
         <div className="card px-5 py-4">
           <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Borradores", "Drafts")}</p>
-          <p className="mt-1 text-[28px] font-semibold tabular-nums text-slate-900">{drafts.length}</p>
+          <p className="mt-1 font-display text-[28px] font-semibold tabular-nums text-slate-900">{drafts.length}</p>
           <p className="text-[13px] text-slate-500">{t("Sin enviar al abogado todavía.", "Not sent to the attorney yet.")}</p>
         </div>
       </div>
@@ -611,7 +611,7 @@ function LetterEditor({
       </Link>
       <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[28px]">{meta.title[locale]}</h1>
+          <h1 className="page-title">{meta.title[locale]}</h1>
           <p className="mt-1 text-[14px] text-slate-500">
             {CATEGORY_LABELS[meta.category][locale]} · {RECIPIENT_LABELS[locale][meta.recipient]} · <span className="font-mono text-[13px]">{key}</span>
           </p>
@@ -921,7 +921,7 @@ function Cartas() {
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Cartas", "Letters")}</h1>
+      <h1 className="page-title">{t("Cartas", "Letters")}</h1>
       <p className="mt-1 max-w-3xl text-[15px] leading-relaxed text-slate-500">
         {t(
           `Las ${LETTER_CATALOGUE.length} cartas de la biblioteca. Cambia el texto de una carta aquí; cada cambio es una versión nueva que revisa el abogado, y solo una versión aprobada se envía a los clientes.`,

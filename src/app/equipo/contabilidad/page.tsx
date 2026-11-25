@@ -7,7 +7,7 @@ import { isClosed } from "@/lib/accounting/expenses";
 import { isMonthKey, monthLabel, monthOf, monthsEnding } from "@/lib/accounting/periods";
 import { deniedReason } from "@/lib/staff/permissions";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
-import { Chip, NoAccess, QUIET_BUTTON } from "@/components/staff/ui";
+import { Chip, NoAccess, pillTab, QUIET_BUTTON } from "@/components/staff/ui";
 import BankImport from "@/components/staff/accounting/BankImport";
 import Collections from "@/components/staff/accounting/Collections";
 import Commissions from "@/components/staff/accounting/Commissions";
@@ -68,7 +68,7 @@ function Accounting() {
     <main className="animate-rise min-w-0" data-testid="accounting">
       <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
         <div className="min-w-0">
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Contabilidad", "Accounting")}</h1>
+          <h1 className="page-title">{t("Contabilidad", "Accounting")}</h1>
           <p className="mt-0.5 text-[14px] text-slate-500">
             {t("Números reales de los cobros y de lo que registras. Base de caja, hora de Texas.", "Real numbers from billing and what you enter. Cash basis, Texas time.")}
           </p>
@@ -96,7 +96,7 @@ function Accounting() {
       )}
 
       <nav className="-mx-4 mt-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 print:hidden" aria-label={t("Secciones", "Sections")}>
-        <div className="flex w-max gap-1 rounded-full bg-slate-100 p-1" role="tablist">
+        <div className="flex w-max gap-1.5" role="tablist">
           {TABS.map((k) => (
             <button
               key={k}
@@ -104,7 +104,7 @@ function Accounting() {
               role="tab"
               aria-selected={tab === k}
               onClick={() => go({ tab: k })}
-              className={`h-10 whitespace-nowrap rounded-full px-3.5 text-[14px] font-medium ${tab === k ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+              className={pillTab(tab === k)}
               data-testid={`tab-${k}`}
             >
               {TAB_LABEL[k][locale]}

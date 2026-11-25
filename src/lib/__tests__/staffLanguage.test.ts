@@ -36,6 +36,7 @@ import {
 } from "../staff/i18n/locale";
 import { MESSAGE_EN, staffMessage } from "../staff/i18n/messages";
 import { SHELL_TEXT } from "../staff/i18n/ui/shell";
+import { ALTI_HELP_TEXT } from "../staff/altiHelp";
 import { DIMENSION_LABELS, OUTCOME_DEFINITION_TEXT } from "../staff/learning";
 import { exceptionMessage, MESSAGE_BODIES, STAFF_MESSAGE_RULE_TEXT } from "../staff/messages";
 import { METRIC_INFOS, PERIOD_LABELS } from "../staff/metrics";
@@ -107,6 +108,7 @@ function shape(value: unknown): unknown {
 // The tables that hold both languages, keyed by locale.
 const BILINGUAL_TABLES: Record<string, Record<StaffLocale, unknown>> = {
   SHELL_TEXT,
+  ALTI_HELP_TEXT,
   STAGE_TEXT,
   EXCEPTION_LABELS,
   ACTOR_LABELS,

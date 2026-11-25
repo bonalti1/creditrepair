@@ -67,7 +67,7 @@ export default function AlertsPage() {
 
   return (
     <main className="animate-rise max-w-3xl">
-      <h1 className="font-display text-[28px] font-semibold tracking-tight text-slate-900">{t("Alertas al teléfono", "Phone alerts")}</h1>
+      <h1 className="page-title">{t("Alertas al teléfono", "Phone alerts")}</h1>
       <p className="mt-1 text-[15px] leading-relaxed text-slate-500">
         {t("Tú eliges qué te avisa. Todo empieza apagado. Las alertas llevan lo mínimo: un nombre y una inicial, nunca datos de crédito.", "You choose what pings you. Everything starts off. Alerts carry the least: a first name and an initial, never credit details.")}
       </p>

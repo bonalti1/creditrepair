@@ -55,7 +55,7 @@ export default function StaffReportPage() {
   if (!client) {
     return (
       <main className="animate-rise">
-        <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("No encontramos a este cliente", "We couldn't find this client")}</h1>
+        <h1 className="page-title">{t("No encontramos a este cliente", "We couldn't find this client")}</h1>
         <Link href="/equipo/clientes" className="mt-4 inline-block text-[15px] font-medium text-blue-700">
           {t("Volver a clientes", "Back to clients")}
         </Link>
@@ -75,7 +75,7 @@ export default function StaffReportPage() {
       </Link>
       <header className="mt-2">
         <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Auditoría de crédito", "Credit audit")}</p>
-        <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-tight text-slate-900">{fullName(client)}</h1>
+        <h1 className="mt-1 page-title">{fullName(client)}</h1>
         {entry && (
           <p className="mt-1 text-[15px] text-slate-600">
             {t(`Reporte del ${longDay(entry.reportDate, "es")}`, `Report from ${longDay(entry.reportDate, "en")}`)}

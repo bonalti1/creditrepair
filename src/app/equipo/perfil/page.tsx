@@ -52,7 +52,7 @@ export default function Perfil() {
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Tu perfil", "Your profile")}</h1>
+      <h1 className="page-title">{t("Tu perfil", "Your profile")}</h1>
       <div className="card mt-5 flex items-center gap-4 px-5 py-4">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-900 text-[16px] font-semibold text-white">
           {viewer.name

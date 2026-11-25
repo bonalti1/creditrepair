@@ -161,7 +161,7 @@ export default function ResenasPage() {
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Reseñas", "Reviews")}</h1>
+      <h1 className="page-title">{t("Reseñas", "Reviews")}</h1>
       <p className="mt-1 max-w-3xl text-[15px] leading-relaxed text-slate-500">
         {t(
           "A cada cliente se le pide una reseña una sola vez, en un momento al que llegan todos, le vaya como le vaya. Las mismas ligas para todos, en el mismo orden. Nunca damos nada a cambio y nunca pedimos solo a los contentos.",
@@ -182,7 +182,7 @@ export default function ResenasPage() {
       <section className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4" aria-label={t("Números", "Numbers")} data-testid="review-numbers">
         <div className="card px-5 py-4">
           <p className="text-[13px] font-medium text-slate-500">{t("Calificación (todos los sitios)", "Rating (all sites)")}</p>
-          <p className="mt-1 text-[32px] font-semibold tabular-nums text-slate-900" data-testid="overall-rating">
+          <p className="mt-1 font-display text-[32px] font-semibold tabular-nums text-slate-900" data-testid="overall-rating">
             {overall.rating === null ? "—" : overall.rating.toFixed(1)}
             <span className="text-[16px] font-medium text-slate-400"> / 5</span>
           </p>
@@ -192,17 +192,17 @@ export default function ResenasPage() {
         </div>
         <div className="card px-5 py-4">
           <p className="text-[13px] font-medium text-slate-500">{t("Pedidos de reseña", "Review requests")}</p>
-          <p className="mt-1 text-[32px] font-semibold tabular-nums text-slate-900">{summary.total}</p>
+          <p className="mt-1 font-display text-[32px] font-semibold tabular-nums text-slate-900">{summary.total}</p>
           <p className="text-[12px] text-slate-500">{t(`${summary.last30Days} en los últimos 30 días`, `${summary.last30Days} in the last 30 days`)}</p>
         </div>
         <div className="card px-5 py-4">
           <p className="text-[13px] font-medium text-slate-500">{t("Por WhatsApp o correo", "By WhatsApp or email")}</p>
-          <p className="mt-1 text-[32px] font-semibold tabular-nums text-slate-900">{summary.byChannel.whatsapp_or_email}</p>
+          <p className="mt-1 font-display text-[32px] font-semibold tabular-nums text-slate-900">{summary.byChannel.whatsapp_or_email}</p>
           <p className="text-[12px] text-slate-500">{t("Con baja, horario, tope diario y sin repetir", "With opt-out, quiet hours, daily cap, never twice")}</p>
         </div>
         <div className="card px-5 py-4">
           <p className="text-[13px] font-medium text-slate-500">{t("En la app (después de «¿Cómo vamos?»)", "In the app (after “How are we doing?”)")}</p>
-          <p className="mt-1 text-[32px] font-semibold tabular-nums text-slate-900">{summary.byChannel.in_app}</p>
+          <p className="mt-1 font-display text-[32px] font-semibold tabular-nums text-slate-900">{summary.byChannel.in_app}</p>
           <p className="text-[12px] text-slate-500">{t("Con cualquier carita", "After any face")}</p>
         </div>
       </section>

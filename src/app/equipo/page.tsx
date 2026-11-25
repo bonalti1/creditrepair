@@ -44,6 +44,7 @@ import {
   QUIET_BUTTON,
   SECONDARY_BUTTON_COMPACT,
   SectionTitle,
+  EmptyState,
 } from "@/components/staff/ui";
 
 // The team's home. One queue of what truly needs a person, in the order to
@@ -190,7 +191,7 @@ export default function EquipoHome() {
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">
+      <h1 className="page-title">
         {greeting(now, locale)}
         {viewer ? `, ${viewer.name.split(" ")[0]}` : ""}
       </h1>
@@ -198,12 +199,12 @@ export default function EquipoHome() {
         {today}. {summary.join(" · ")}.
       </p>
 
-      <section className="card mt-5 flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="hoy" data-testid="today-work">
+      <section className="mt-5 flex flex-col gap-4 rounded-[14px] bg-blue-900 px-5 py-5 text-white shadow-[0_6px_20px_rgba(18,33,58,0.12)] sm:flex-row sm:items-center sm:justify-between md:px-6" aria-labelledby="hoy" data-testid="today-work">
         <div className="min-w-0">
-          <h2 id="hoy" className="text-[22px] font-semibold leading-tight tracking-tight text-slate-900 tabular-nums">
+          <h2 id="hoy" className="font-display text-[22px] font-semibold leading-tight text-amber-400 tabular-nums" data-on-navy>
             {t(`Trabajo de hoy: ${count(work.count, "cosa", "cosas")} · ~${work.minutes} minutos`, `Today's work: ${count(work.count, "thing", "things")} · ~${work.minutes} minutes`)}
           </h2>
-          <p className="mt-1 text-[14px] leading-snug text-slate-600">
+          <p className="mt-1 text-[14px] leading-snug text-blue-100">
             {work.count === 0
               ? t("Nada necesita una persona ahora.", "Nothing needs a person right now.")
               : work.overdue > 0
@@ -217,7 +218,7 @@ export default function EquipoHome() {
               : t("Los recordatorios automáticos están apagados: los avisos llegan aquí como antes.", "Automatic reminders are off: notices come here as before.")}
           </p>
           {view.resolved.total > 0 && (
-            <p className="mt-1 text-[14px] font-medium leading-snug text-green-700" data-testid="resolved-line">
+            <p className="mt-1 text-[14px] font-medium leading-snug text-green-300" data-testid="resolved-line">
               {t(`Esta semana el sistema resolvió ${count(view.resolved.total, "cosa", "cosas")} por su cuenta.`, `This week the system settled ${count(view.resolved.total, "thing", "things")} on its own.`)}
             </p>
           )}
@@ -254,11 +255,10 @@ export default function EquipoHome() {
           </SectionTitle>
 
           {view.queue.length === 0 ? (
-            <div className="card flex items-center gap-3 px-5 py-6 text-[15px] text-slate-600">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-50 text-green-700">
-                <Icon name="check" size={18} />
-              </span>
-              {t("Nada necesita una persona ahora.", "Nothing needs a person right now.")}
+            <div className="card">
+              <EmptyState pose="thumbsUp" title={t("Nada necesita una persona ahora.", "Nothing needs a person right now.")}>
+                {t("El sistema sigue con lo demás. Lo nuevo aparece aquí.", "The system carries on with the rest. Anything new shows up here.")}
+              </EmptyState>
             </div>
           ) : (
             <QueueList items={view.queue} now={now} onHandled={markHandled} answerFor={answerFor} />

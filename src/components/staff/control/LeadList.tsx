@@ -4,7 +4,13 @@ import { effectiveStage, firstTouchLine, HANDOFF_LABELS, LEAD_FILTERS_ORDER, lea
 import type { Lead } from "@/lib/leads/types";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import { LANGUAGE_NAME } from "@/lib/staff/i18n/locale";
+import Icon from "@/components/Icon";
 import { stageTone } from "./LeadBits";
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "")).toUpperCase();
+}
 
 // The lead inbox's list: every prospect conversation, newest first. On each
 // row: name (or number), where they came from, their language, the stage,
@@ -25,10 +31,15 @@ export function LeadRow({ lead, now, selected, onOpen, members }: { lead: Lead; 
         type="button"
         onClick={onOpen}
         aria-current={selected ? "true" : undefined}
-        className={`pressable block w-full border-t hairline px-4 py-3 text-left first:border-t-0 ${selected ? "bg-blue-50" : "hover:bg-slate-50"}`}
+        className={`pressable flex w-full gap-3 border-t hairline px-4 py-3 text-left first:border-t-0 ${selected ? "bg-blue-50 shadow-[inset_3px_0_0_var(--color-amber-400)]" : "hover:bg-slate-50"}`}
         data-testid="lead-row"
         data-lead={lead.id}
       >
+        {/* ALTO's chat list: the person's initials in a grey circle (a number alone: a person icon). */}
+        <span aria-hidden="true" className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[14px] font-semibold text-slate-600">
+          {/[a-zA-ZÀ-ÿ]/.test(leadName(lead)) ? initialsOf(leadName(lead)) : <Icon name="person" size={20} />}
+        </span>
+        <span className="block min-w-0 flex-1">
         <span className="flex items-start justify-between gap-3">
           <span className="min-w-0">
             <span className="block truncate text-[15px] font-semibold text-slate-900">{leadName(lead)}</span>
@@ -57,6 +68,7 @@ export function LeadRow({ lead, now, selected, onOpen, members }: { lead: Lead; 
           <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">{LANGUAGE_NAME[locale][language]}</span>
           <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">{lead.salesperson ? (members.get(lead.salesperson) ?? lead.salesperson) : t("Sin asignar", "Unassigned")}</span>
         </span>
+        </span>
       </button>
     </li>
   );
@@ -75,7 +87,7 @@ export function FilterBar({ filter, onFilter, counts }: { filter: LeadFilter; on
           type="button"
           aria-pressed={filter === f}
           onClick={() => onFilter(f)}
-          className={`pressable h-11 shrink-0 whitespace-nowrap rounded-full px-3.5 text-[13px] font-semibold md:h-9 ${filter === f ? "bg-slate-900 text-white" : "bg-white text-slate-700 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-slate-50"}`}
+          className={`pressable h-11 shrink-0 whitespace-nowrap rounded-full border px-3.5 text-[13px] font-semibold md:h-9 ${filter === f ? "border-blue-900 bg-blue-900 text-white" : "border-slate-300 bg-white text-slate-700 hover:border-amber-500"}`}
           data-testid={`filter-${f}`}
         >
           {label(f)}

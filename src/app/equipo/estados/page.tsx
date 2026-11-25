@@ -81,7 +81,7 @@ export default function EstadosPage() {
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Estados", "States")}</h1>
+      <h1 className="page-title">{t("Estados", "States")}</h1>
       <p className="mt-1 max-w-3xl text-[15px] leading-relaxed text-slate-500">
         {t(
           "Dónde se puede vender, qué pide la ley de cada estado y el interruptor que lo abre. Un estado sin abrir no recibe prospectos, invitaciones ni registros: se les ofrece la lista de espera. Cada estado necesita la revisión del abogado antes de abrir.",
@@ -102,12 +102,12 @@ export default function EstadosPage() {
       <section className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-5" data-testid="state-counts">
         <div className="card px-4 py-3">
           <p className="text-[13px] text-slate-500">{t("Abiertos", "Opened")}</p>
-          <p className="text-[26px] font-semibold tabular-nums text-slate-900">{opened.length}</p>
+          <p className="font-display text-[26px] font-semibold tabular-nums text-slate-900">{opened.length}</p>
         </div>
         {(Object.keys(counts) as StateLawStatus[]).map((k) => (
           <div key={k} className="card px-4 py-3">
             <p className="text-[13px] text-slate-500">{L[k]}</p>
-            <p className="text-[26px] font-semibold tabular-nums text-slate-900">{counts[k]}</p>
+            <p className="font-display text-[26px] font-semibold tabular-nums text-slate-900">{counts[k]}</p>
           </div>
         ))}
       </section>

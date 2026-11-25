@@ -4,6 +4,7 @@ import { aiByline, teamByline } from "@/lib/brand";
 import { shortDateTime } from "@/lib/staff/format";
 import type { LeadMessage, LeadStage } from "@/lib/leads/types";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
+import { CharacterAvatar } from "@/components/Character";
 
 // Small pieces of the lead inbox.
 
@@ -50,13 +51,16 @@ export function Bubble({ message }: { message: LeadMessage }) {
         : message.source === "highlevel"
           ? "bg-slate-200 text-slate-900"
           : "bg-amber-50 text-slate-900 shadow-[0_0_0_1px_rgba(239,181,55,0.45)]";
+  const alti = message.role !== "user" && message.source !== "human" && message.source !== "highlevel";
   return (
-    <li className={`flex ${mine ? "justify-end" : "justify-start"}`} data-testid="lead-message" data-source={message.source}>
-      <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 sm:max-w-[75%] ${tone} ${mine ? "rounded-br-md" : "rounded-bl-md"}`}>
+    <li className={`flex items-end gap-2 ${mine ? "justify-end" : "justify-start"}`} data-testid="lead-message" data-source={message.source}>
+      <div className={`max-w-[85%] rounded-[12px] px-3.5 py-2.5 sm:max-w-[75%] ${tone} ${mine ? "rounded-br-[4px]" : "rounded-bl-[4px]"}`}>
         {who && <p className={`mb-0.5 text-[11.5px] font-semibold ${message.source === "human" ? "text-blue-100" : "text-slate-500"}`}>{who}</p>}
         <p className="whitespace-pre-wrap break-words text-[14.5px] leading-snug">{text}</p>
         <p className={`mt-1 text-right text-[11px] tabular-nums ${message.source === "human" ? "text-blue-200" : "text-slate-500"}`}>{shortDateTime(message.at, locale)}</p>
       </div>
+      {/* Alti's face beside what he wrote (his name and the AI label are the bubble's first line). */}
+      {alti && <CharacterAvatar character="assistant" size={28} tone="navy" decorative className="mb-0.5" />}
     </li>
   );
 }

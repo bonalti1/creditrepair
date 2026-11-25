@@ -22,7 +22,10 @@ import DepartmentStrip from "@/components/staff/control/DepartmentStrip";
 import OverviewCards from "@/components/staff/control/OverviewCards";
 import SafeBoundary from "@/components/staff/control/SafeBoundary";
 import TodayList from "@/components/staff/control/TodayList";
-import { PRIMARY_BUTTON } from "@/components/staff/ui";
+import { pillTab, PRIMARY_BUTTON_COMPACT } from "@/components/staff/ui";
+import { AltiWaveLoop, CharacterAvatar } from "@/components/Character";
+import { aiByline } from "@/lib/brand";
+import { publishBadges } from "@/lib/staff/navBadges";
 
 // Credalti Control (docs/CONTROL.md): the business at a glance. A tab of its
 // own beside «Home», because Home is the specialist's day (the work queue,
@@ -120,6 +123,22 @@ export default function ControlPage() {
   );
   const tiles = useMemo(() => (ready ? departmentTiles({ can, cards, today: items, locale }) : []), [ready, cards, items, locale, viewer]);
 
+  // The red circles on the menu (lib/staff/navBadges.ts): the same «Needs you» counts as the cards.
+  useEffect(() => {
+    if (!ready) return;
+    const needs = (key: string) => cards.find((c) => c.key === key)?.needsYou.count ?? null;
+    const books = tiles.find((x) => x.key === "accounting")?.count ?? null;
+    const money = needs("money");
+    publishBadges("overview", {
+      day: needs("clients"),
+      leads: needs("leads"),
+      clients: needs("support"),
+      money: money === null && books === null ? null : (money ?? 0) + (books ?? 0),
+      content: needs("content"),
+      partners: needs("partners"),
+    });
+  }, [ready, cards, tiles]);
+
   if (!ready) return null;
 
   const weekday = now.toLocaleDateString(dateLocale(locale), { weekday: "long", day: "numeric", month: "long" });
@@ -150,59 +169,97 @@ export default function ControlPage() {
     await load();
   };
 
+  const firstName = viewer?.name.split(" ")[0] ?? "";
+  const hour = Number(now.toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: "America/Chicago" }));
+  const hello =
+    hour < 12 ? t(`Buenos días, ${firstName}.`, `Good morning, ${firstName}.`) : hour < 18 ? t(`Buenas tardes, ${firstName}.`, `Good afternoon, ${firstName}.`) : t(`Buenas noches, ${firstName}.`, `Good evening, ${firstName}.`);
+  const needsOf = (key: string) => cards.find((c) => c.key === key)?.needsYou.count;
+  const kpis = [
+    can("leads.work") ? { key: "leads", label: t("Prospectos esperando", "Leads waiting"), value: needsOf("leads"), href: "/equipo/leads?filtro=waiting" } : null,
+    { key: "support", label: t("Preguntas de clientes", "Client questions"), value: needsOf("support"), href: "/equipo/clientes?aviso=question_waiting" },
+    can("billing.view") ? { key: "money", label: t("Avisos de pago", "Payment notices"), value: needsOf("money"), href: "/equipo/clientes?aviso=payment_past_due" } : null,
+    can("content.view") ? { key: "content", label: t("Contenido", "Content"), value: needsOf("content"), href: "/equipo/contenido" } : null,
+  ].filter((k): k is { key: string; label: string; value: number | null | undefined; href: string } => k !== null);
+
   return (
     <main className="animate-rise">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-[28px] font-semibold tracking-tight text-slate-900">{t("Resumen", "Overview")}</h1>
-          <p className="mt-1 text-[15px] leading-relaxed text-slate-500">
-            {weekday.charAt(0).toUpperCase() + weekday.slice(1)}. {t("Todo el negocio en una pantalla, con números reales.", "The whole business on one screen, with real numbers.")}
-          </p>
+      {/* ALTO's navy band, with Alti greeting the member (the AI assistant, labelled as AI) and today's numbers. */}
+      <section className="relative overflow-hidden rounded-[14px] bg-blue-900 text-white shadow-[0_6px_20px_rgba(18,33,58,0.12)]" data-testid="overview-hero">
+        <div className="flex items-stretch gap-4 px-5 pt-5 md:gap-6 md:px-6">
+          <AltiWaveLoop height={176} decorative className="-mb-px hidden shrink-0 self-end sm:block" />
+          <div className="min-w-0 flex-1 pb-5">
+            <h1 className="page-title text-white">{weekday.charAt(0).toUpperCase() + weekday.slice(1)}</h1>
+            <p className="mt-1 text-[14.5px] leading-snug text-blue-100">{t("Todo el negocio en una pantalla, con números reales.", "The whole business on one screen, with real numbers.")}</p>
+            <div className="mt-3 flex items-start gap-2.5" data-testid="alti-greeting">
+              <CharacterAvatar character="assistant" size={36} tone="ivory" decorative className="sm:hidden" />
+              <div className="min-w-0 rounded-[14px] rounded-tl-[4px] bg-white/10 px-3.5 py-2.5">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-amber-300" data-on-navy>{aiByline(locale)}</p>
+                <p className="mt-0.5 text-[15px] leading-snug text-white">
+                  {hello} {items.length === 0 ? t("Nada necesita a una persona ahora.", "Nothing needs a person right now.") : t("Lo que no puede esperar va primero en Hoy.", "What can't wait is first in Today.")}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex rounded-full bg-slate-100 p-1" role="tablist" aria-label={t("Vista", "View")}>
-          {(["overview", "today"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              role="tab"
-              aria-selected={view === v}
-              onClick={() => {
-                setView(v);
-                window.history.replaceState(null, "", v === "today" ? "/equipo/control?vista=hoy" : "/equipo/control");
-              }}
-              className={`pressable h-10 rounded-full px-4 text-[14px] font-semibold ${view === v ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
-              data-testid={`view-${v}`}
-            >
-              {v === "overview" ? t("Resumen", "Overview") : `${t("Hoy", "Today")} · ${items.length}`}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <SafeBoundary>
-        <DepartmentStrip tiles={tiles} />
-      </SafeBoundary>
-
-      {view === "overview" ? (
-        <>
-          <section className="card mt-5 flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" data-testid="today-summary">
+        <div className={`grid grid-cols-2 gap-px border-t border-white/10 bg-white/10 ${["lg:grid-cols-1", "lg:grid-cols-1", "lg:grid-cols-2", "lg:grid-cols-3", "lg:grid-cols-4"][kpis.length]}`}>
+          <div className="col-span-2 flex flex-col gap-3 bg-blue-900 px-5 py-4 sm:flex-row sm:items-center sm:justify-between md:px-6 lg:col-span-full" data-testid="today-summary">
             <div>
-              <h2 className="text-[19px] font-semibold leading-tight text-slate-900 tabular-nums">
+              <h2 className="font-display text-[22px] font-semibold leading-tight text-amber-400 tabular-nums" data-on-navy>
                 {t(`Hoy: ${count(items.length, "cosa", "cosas")} · ~${minutes} minutos`, `Today: ${count(items.length, "thing", "things")} · ~${minutes} minutes`)}
               </h2>
-              <p className="mt-1 text-[14px] leading-snug text-slate-600">
+              <p className="mt-1 text-[13px] leading-snug text-blue-100">
                 {items.length === 0
                   ? t("Nada necesita una persona ahora.", "Nothing needs a person right now.")
                   : t("En orden: lo que no puede esperar primero. Cada cosa trae sus pasos.", "In order: what can't wait comes first. Each item carries its steps.")}
               </p>
             </div>
             {items.length > 0 && (
-              <button type="button" onClick={() => setView("today")} className={`${PRIMARY_BUTTON} shrink-0 gap-2`} data-testid="open-today">
+              <button type="button" onClick={() => setView("today")} className={`${PRIMARY_BUTTON_COMPACT} shrink-0 gap-1.5 px-4`} data-testid="open-today">
                 {t("Abrir Hoy", "Open Today")}
-                <Icon name="chevron" size={18} />
+                <Icon name="chevron" size={16} />
               </button>
             )}
-          </section>
+          </div>
+          {kpis.map((k) => (
+            <Link key={k.key} href={k.href} className="group bg-blue-900 px-5 py-4 hover:bg-blue-800 md:px-6" data-testid={`kpi-${k.key}`}>
+              <p className="text-[12px] font-semibold uppercase leading-tight tracking-[0.08em] text-blue-200">{k.label}</p>
+              {k.value === null || k.value === undefined ? (
+                <p className="mt-1.5 text-[13px] font-semibold text-blue-100">{t("Todavía sin datos", "No data yet")}</p>
+              ) : (
+                <p className="mt-0.5 font-display text-[28px] font-semibold leading-tight tabular-nums text-white">{k.value}</p>
+              )}
+              <p className="mt-0.5 text-[12px] text-blue-200 group-hover:text-white">{t("te necesitan", "need you")} ›</p>
+            </Link>
+          ))}
+          {kpis.length % 2 === 1 && <div className="bg-blue-900 lg:hidden" aria-hidden="true" />}
+        </div>
+      </section>
+
+      <SafeBoundary>
+        <DepartmentStrip tiles={tiles} />
+      </SafeBoundary>
+      <div className="mt-5 flex flex-wrap gap-1.5" role="tablist" aria-label={t("Vista", "View")}>
+        {(["overview", "today"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            aria-selected={view === v}
+            onClick={() => {
+              setView(v);
+              window.history.replaceState(null, "", v === "today" ? "/equipo/control?vista=hoy" : "/equipo/control");
+            }}
+            className={pillTab(view === v)}
+            data-testid={`view-${v}`}
+          >
+            {v === "overview" ? t("Resumen", "Overview") : `${t("Hoy", "Today")} · ${items.length}`}
+          </button>
+        ))}
+      </div>
+
+
+      {view === "overview" ? (
+        <>
           <div className="mt-5">
             <OverviewCards cards={cards} />
           </div>

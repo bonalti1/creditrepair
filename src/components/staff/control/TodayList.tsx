@@ -6,7 +6,7 @@ import type { TodayItem } from "@/lib/control/today";
 import { ago } from "@/lib/control/overview";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import Icon from "@/components/Icon";
-import { QUIET_BUTTON, ROW_BUTTON, SECONDARY_BUTTON_COMPACT } from "@/components/staff/ui";
+import { EmptyState, QUIET_BUTTON, ROW_BUTTON, SECONDARY_BUTTON_COMPACT } from "@/components/staff/ui";
 import SafeBoundary from "./SafeBoundary";
 
 // The Today list (src/lib/control/today.ts): one list, top to bottom. Each
@@ -170,11 +170,10 @@ export default function TodayList({ items, now, actions }: { items: TodayItem[];
   const t = useTx();
   if (items.length === 0) {
     return (
-      <div className="card flex items-center gap-3 px-5 py-6 text-[15px] text-slate-600" data-testid="today-empty">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-50 text-green-700">
-          <Icon name="check" size={18} />
-        </span>
-        {t("Nada necesita una persona ahora. Si te sobra tiempo, revisa los prospectos de la semana en Prospectos.", "Nothing needs a person right now. If you have time, look over this week's leads in Leads.")}
+      <div className="card" data-testid="today-empty">
+        <EmptyState pose="celebrate" title={t("Nada necesita una persona ahora.", "Nothing needs a person right now.")}>
+          {t("Si te sobra tiempo, revisa los prospectos de la semana en Prospectos.", "If you have time, look over this week's leads in Leads.")}
+        </EmptyState>
       </div>
     );
   }

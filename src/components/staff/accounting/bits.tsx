@@ -38,7 +38,7 @@ export function Tile({ label, definition, children, note, testId }: { label: str
         <p className="min-w-0 text-[13px] leading-snug text-slate-500">{label}</p>
         {definition && <Definition label={label} text={definition} />}
       </div>
-      <div className="mt-1 text-[22px] font-semibold leading-tight tracking-tight text-slate-900 tabular-nums sm:text-[24px]">{children}</div>
+      <div className="mt-1 font-display text-[22px] font-semibold leading-tight text-blue-900 tabular-nums sm:text-[26px]">{children}</div>
       {note && <div className="mt-1 text-[12.5px] leading-snug text-slate-500">{note}</div>}
     </div>
   );

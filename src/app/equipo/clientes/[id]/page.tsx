@@ -79,6 +79,7 @@ import {
   Chip,
   ClientLanguageTag,
   DeniedNote,
+  pillTab,
   PRIMARY_BUTTON,
   QUIET_BUTTON,
   ROW_BUTTON,
@@ -350,7 +351,7 @@ export default function ClientePage() {
   if (!client) {
     return (
       <main className="animate-rise">
-        <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("No encontramos a este cliente", "We couldn't find this client")}</h1>
+        <h1 className="page-title">{t("No encontramos a este cliente", "We couldn't find this client")}</h1>
         <p className="mt-2 text-[15px] text-slate-500">
           {t("Puede que no exista o que no esté entre los clientes que tu rol te deja ver.", "They may not exist, or they aren't among the clients your role lets you see.")}
         </p>
@@ -447,7 +448,7 @@ export default function ClientePage() {
         {t("Clientes", "Clients")}
       </Link>
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{fullName(client)}</h1>
+        <h1 className="page-title">{fullName(client)}</h1>
         <StageChip stage={stage} />
         <ItinBadge client={client} />
       </div>
@@ -473,7 +474,7 @@ export default function ClientePage() {
       )}
 
       {caseView && (
-        <div className="mt-5 flex gap-1 rounded-2xl bg-slate-100 p-1 sm:inline-flex" role="tablist" aria-label={t("Secciones del cliente", "Client sections")} data-testid="client-tabs">
+        <div className="mt-5 flex gap-1.5 sm:inline-flex" role="tablist" aria-label={t("Secciones del cliente", "Client sections")} data-testid="client-tabs">
           {(
             [
               ["case", t("Caso", "Case")],
@@ -493,7 +494,7 @@ export default function ClientePage() {
                 else url.searchParams.delete("pestana");
                 window.history.replaceState(null, "", url.toString());
               }}
-              className={`pressable h-11 flex-1 rounded-xl px-4 text-[14px] font-semibold sm:flex-none md:h-9 ${tab === key ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+              className={`${pillTab(tab === key)} flex-1 sm:flex-none`}
             >
               {label}
             </button>

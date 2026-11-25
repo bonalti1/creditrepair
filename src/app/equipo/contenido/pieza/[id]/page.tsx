@@ -93,7 +93,7 @@ function Piece() {
   if (!piece || !draft || !merged) {
     return (
       <main className="animate-rise">
-        <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("No se encontró la pieza", "Piece not found")}</h1>
+        <h1 className="page-title">{t("No se encontró la pieza", "Piece not found")}</h1>
         <Link href="/equipo/contenido" className="mt-4 inline-flex h-11 items-center text-[15px] font-medium text-blue-700">
           {t("Volver al tablero", "Back to the board")}
         </Link>
@@ -138,7 +138,7 @@ function Piece() {
       </Link>
       <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-slate-900 [text-wrap:balance]">{piece.title}</h1>
+          <h1 className="page-title">{piece.title}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <StatusChip status={piece.status} />
             <Tag>{TYPE_LABEL[locale][piece.type]}</Tag>

@@ -41,7 +41,7 @@ function Stat({ metric, value, note }: { metric: MetricKey; value: string; note?
         <p className="min-w-0 text-[13px] leading-snug text-slate-500">{info.label}</p>
         <Definition label={info.label} text={info.definition} />
       </div>
-      <p className="mt-1 text-[26px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">{value}</p>
+      <p className="mt-1 font-display text-[26px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">{value}</p>
       {note && <p className="mt-1.5 text-[12.5px] leading-snug text-slate-500">{note}</p>}
     </div>
   );
@@ -188,7 +188,7 @@ function Dashboard() {
     <main className="animate-rise">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Negocio", "Business")}</h1>
+          <h1 className="page-title">{t("Negocio", "Business")}</h1>
           <p className="mt-0.5 text-[14px] text-slate-500">
             {t("De los mismos registros que la consola. Toca «?» para ver cómo se cuenta cada número.", "From the same records as the console. Tap “?” to see how each number is counted.")}
           </p>

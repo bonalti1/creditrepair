@@ -19,7 +19,7 @@ function Tile({ label, value, sub, definition, why, testId }: { label: string; v
           {QUALITY_TEXT[locale].noData}
         </p>
       ) : (
-        <p className="mt-1 text-[24px] font-semibold leading-tight text-slate-900 tabular-nums">{value}</p>
+        <p className="mt-1 font-display text-[24px] font-semibold leading-tight text-slate-900 tabular-nums">{value}</p>
       )}
       {sub && <p className="text-[12.5px] text-slate-500 tabular-nums">{sub}</p>}
       {why && <p className="mt-1 text-[12.5px] leading-snug text-slate-600">{why}</p>}

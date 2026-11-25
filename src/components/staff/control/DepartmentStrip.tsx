@@ -24,13 +24,13 @@ export default function DepartmentStrip({ tiles }: { tiles: DepartmentTile[] }) 
             <li key={tile.key} className="min-w-0">
               <Link
                 href={tile.href}
-                className="pressable card flex h-full min-h-[76px] flex-col items-start justify-center gap-1.5 px-3 py-2.5 hover:bg-slate-50 md:min-h-14 md:flex-row md:items-center md:justify-start md:gap-2.5 md:px-3 md:py-2.5"
+                className="pressable card flex h-full min-h-[76px] flex-col items-start justify-center gap-1.5 px-3 py-2.5 hover:shadow-[0_0_0_1px_var(--color-amber-500)] md:min-h-14 md:flex-row md:items-center md:justify-start md:gap-2.5 md:px-3 md:py-2.5"
                 data-testid={`department-${tile.key}`}
               >
-                <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-blue-50 text-blue-700">
                   <Icon name={tile.icon} size={17} />
                   {count !== null && (
-                    <span className="absolute -right-2 -top-1.5 min-w-5 rounded-full bg-amber-400 px-1.5 text-center text-[11.5px] font-semibold leading-5 text-blue-900 tabular-nums ring-2 ring-white" aria-hidden="true">
+                    <span className="absolute -right-2 -top-2 min-w-5 rounded-full bg-red-600 px-1.5 text-center text-[11.5px] font-semibold leading-5 text-white tabular-nums ring-2 ring-white" aria-hidden="true">
                       {count}
                     </span>
                   )}

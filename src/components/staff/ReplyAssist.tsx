@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BRAND } from "@/lib/brand";
+import { aiByline, BRAND } from "@/lib/brand";
 import type { AnswerMatch } from "@/lib/staff/answers";
 import type { ReplyProblem } from "@/lib/staff/conversation";
 import type { StaffRole } from "@/lib/staff/types";
 import { CharacterAvatar } from "@/components/Character";
 import Icon from "@/components/Icon";
 import { PRIMARY_BUTTON_COMPACT, SECONDARY_BUTTON_COMPACT } from "@/components/staff/ui";
-import { useTx } from "@/lib/staff/i18n/StaffLocale";
+import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import type { StaffLocale } from "@/lib/staff/i18n/locale";
 
 // What waits above the reply box when a client's question is open: the
@@ -110,7 +110,7 @@ export function useDraft(clientId: string, questionKey: string | null, role: Sta
 
 function Card({ tone, children, testId }: { tone: "saved" | "draft"; children: React.ReactNode; testId: string }) {
   return (
-    <div className={`mb-3 rounded-2xl px-4 py-3 ${tone === "saved" ? "bg-green-50" : "border border-amber-200 bg-amber-50/60"}`} data-testid={testId}>
+    <div className={`mb-3 rounded-[12px] px-4 py-3 ${tone === "saved" ? "bg-green-50" : "border border-amber-200 bg-amber-50/60"}`} data-testid={testId}>
       {children}
     </div>
   );
@@ -147,6 +147,7 @@ export default function ReplyAssist({
   sendDisabled: boolean;
 }) {
   const t = useTx();
+  const { locale } = useStaffLocale();
   return (
     <div data-testid="reply-assist">
       {match && (
@@ -165,9 +166,12 @@ export default function ReplyAssist({
 
       {draft && (
         <Card tone="draft" testId="ai-draft">
-          <p className="flex items-center gap-2 text-[13px] font-semibold text-blue-900">
-            <CharacterAvatar character="assistant" size={22} decorative />
-            {t(`Borrador de ${BRAND.assistant} — revísalo antes de enviar`, `${BRAND.assistant}'s draft — review it before sending`)}
+          <p className="flex items-center gap-2.5 text-[13px] font-semibold text-blue-900">
+            <CharacterAvatar character="assistant" size={32} tone="navy" decorative />
+            <span>
+              <span className="block" data-testid="ai-draft-byline">{aiByline(locale)}</span>
+              <span className="block font-medium">{t(`Borrador de ${BRAND.assistant} — revísalo antes de enviar`, `${BRAND.assistant}'s draft — review it before sending`)}</span>
+            </span>
           </p>
           {draft.status === "loading" && (
             <p className="mt-2 text-[14px] text-slate-600" role="status">

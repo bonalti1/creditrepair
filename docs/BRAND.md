@@ -51,7 +51,7 @@ the logo:
 | --- | --- |
 | `credalti-logo-navy.svg` | On white and light backgrounds: navy `#12213A` wordmark, gold check. |
 | `credalti-logo-white.svg` | On navy and other dark backgrounds: white wordmark, gold check. |
-| `credalti-check.svg` | The check alone (square). Not used on a screen yet. |
+| `credalti-check.svg` | The check alone (square). The staff console's phone top bar and its folded side menu. |
 
 `src/components/Logo.tsx` shows them as `<img>` with `alt="Credalti"`, the
 width from the file's own viewBox (254.93 × 70.04), so it is never stretched.
@@ -66,7 +66,9 @@ Where it appears:
 | The website's footer, `/empezar`, on navy | white | 30 px |
 | Open Graph image (`src/app/opengraph-image.tsx`), on navy | white | 84 px |
 | Client app header (`AppNav`), onboarding | navy | 24 px |
-| Staff console header (`StaffShell`) | navy | 24 px |
+| Staff console side menu (`StaffShell`), on navy | white | 30 px |
+| Staff console phone «More» sheet, on navy | white | 26 px |
+| Staff console phone top bar and folded side menu | the check alone | 26–30 px |
 | Staff "no access" page (`equipo/layout.tsx`) | navy | 28 px |
 | Login | navy | 32 px |
 | Ad end card (`content/pipeline/assemble.ts`) | white | 190–200 px |
@@ -162,6 +164,13 @@ Rules:
 - Navy is for headings, links and active states on light backgrounds, and for
   the hero field on landing pages.
 - The browser's theme colour and the manifest use the brand navy `#12213A`.
+- **The staff console** (ALTO Control's layout, docs/STAFF.md «The console's
+  design system»): the navy side menu and the phone's navy bar and sheet carry
+  the white logo; gold there marks the active section (a bar, the icon) and
+  is text only on navy (`data-on-navy`); the "needs you" circles are red-600
+  with white figures (4.8:1); the light page `#F5F6F8` with white cards. The
+  word "Control" beside the logo is set in spaced Poppins capitals, apart from
+  the logo, never as part of it.
 
 ## Favicon and app icons
 
@@ -337,8 +346,13 @@ AI assistant"; a teammate's carries their name and never "Alti"),
   build-your-credit plan and on graduation. "Talk to a person" (chat, Más,
   agreement, onboarding): a person icon. Waiting and status screens ("your
   report is being imported", the empty rounds screen, Mi caso's note): icons.
-- **Staff console:** Alti's head beside each "Alti (IA)" message and his drafts.
-  No robot.
+- **Staff console:** Alti's head beside each "Alti (IA)" message and his drafts
+  (the byline "Alti · AI assistant" on top); at the foot of the side menu and
+  in «Ask Alti», the helper of every section (labelled "Alti · AI assistant";
+  it points at the team's help and at Alti's existing features and writes
+  nothing); waving on the Overview's navy band over his greeting; and in empty
+  states with a fitting pose (a picture beside a person's words, never
+  speaking). No robot. See docs/STAFF.md, «The console's design system».
 
 Rules for the characters:
 

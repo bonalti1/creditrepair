@@ -143,7 +143,7 @@ export default function Invitar() {
 
   return (
     <main className="animate-rise mx-auto max-w-md pb-6">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Invitar a un cliente", "Invite a client")}</h1>
+      <h1 className="page-title">{t("Invitar a un cliente", "Invite a client")}</h1>
       <p className="mt-2 text-[15px] leading-relaxed text-slate-500">
         {t(
           "Llena esto al terminar la conversación. El cliente abre el enlace y ya no repite sus respuestas.",

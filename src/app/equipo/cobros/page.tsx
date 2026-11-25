@@ -82,7 +82,7 @@ function Invoices() {
     <main className="animate-rise" data-testid="invoices">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Facturas", "Invoices")}</h1>
+          <h1 className="page-title">{t("Facturas", "Invoices")}</h1>
           <p className="mt-0.5 text-[14px] text-slate-500">
             {t("Cada cobro es una factura, por trabajo ya hecho. Las comisiones del procesador son un estimado.", "Every charge is an invoice, for work already done. Processor fees are an estimate.")}
           </p>
@@ -108,7 +108,7 @@ function Invoices() {
         ].map(([label, value]) => (
           <div key={label} className="px-4 py-3.5">
             <p className="text-[12.5px] text-slate-500">{label}</p>
-            <p className="mt-0.5 text-[22px] font-semibold tabular-nums text-slate-900">{value}</p>
+            <p className="mt-0.5 font-display text-[22px] font-semibold tabular-nums text-slate-900">{value}</p>
           </div>
         ))}
       </div>

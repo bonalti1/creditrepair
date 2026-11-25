@@ -44,7 +44,7 @@ function Packet() {
         </Link>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Paquete para el abogado", "Attorney's packet")}</h1>
+            <h1 className="page-title">{t("Paquete para el abogado", "Attorney's packet")}</h1>
             <p className="mt-1 max-w-2xl text-[15px] leading-relaxed text-slate-500">
               {entries.length === 0
                 ? t("No hay versiones esperando al abogado.", "No versions are waiting on the attorney.")

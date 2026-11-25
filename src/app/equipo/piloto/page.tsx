@@ -84,7 +84,7 @@ export default function PilotoPage() {
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Piloto automático", "Autopilot")}</h1>
+      <h1 className="page-title">{t("Piloto automático", "Autopilot")}</h1>
       <p className="mt-1 max-w-2xl text-[15px] leading-relaxed text-slate-500">
         {t(
           "Lo que el sistema hace solo, para que el equipo atienda solo lo que necesita una persona. Ninguna regla de envío cambia: el acuerdo, el periodo de cancelación, lo que el cliente confirmó, las direcciones y los cobros se revisan igual antes de cada carta.",

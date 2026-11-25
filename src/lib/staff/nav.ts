@@ -50,3 +50,71 @@ export const MORE_NAV: NavItem[] = [
   { href: "/equipo/perfil", label: "profile", icon: "person" },
   { href: "/equipo/bienvenida", label: "welcome", icon: "book" },
 ];
+
+// ── The grouped menu (ALTO Control's navigation model) ──────────────────
+//
+// The console's side menu, the phone's tab bar and its «More» sheet show the
+// destinations above in ten numbered groups, in the order the business works
+// (ALTO Control's GROUPS): 0 Overview → 1 My day → 2 Content → 3 Leads →
+// 4 Fulfillment → 5 Money → 6 Letters & rules → 7 Partners → 8 Business
+// numbers → 9 Team & settings. A group holds one or more destinations; a group
+// with two or more the member may open shows them as sub-tabs under the top
+// bar. A group shows only when the member may open at least one of its pages
+// (the same `needs` as above), and opens on the first of them.
+
+export type NavGroupKey = keyof (typeof SHELL_TEXT)["en"]["groups"];
+
+export interface NavGroup {
+  key: NavGroupKey;
+  /** "0" to "9", shown beside the name like ALTO Control's menu. */
+  number: string;
+  icon: IconName;
+  /** Its destinations, in sub-tab order (each one an href of PRIMARY_NAV or MORE_NAV). */
+  hrefs: string[];
+  /** Pages that belong to the group without a sub-tab of their own (opened from inside it). */
+  also?: string[];
+}
+
+export const NAV_GROUPS: NavGroup[] = [
+  { key: "overview", number: "0", icon: "dashboard", hrefs: ["/equipo/control"] },
+  { key: "day", number: "1", icon: "home", hrefs: ["/equipo", "/equipo/actividad"] },
+  { key: "content", number: "2", icon: "speaker", hrefs: ["/equipo/contenido", "/equipo/resenas"] },
+  { key: "leads", number: "3", icon: "inbox", hrefs: ["/equipo/leads", "/equipo/invitar"] },
+  { key: "clients", number: "4", icon: "person", hrefs: ["/equipo/clientes", "/equipo/respuestas", "/equipo/piloto", "/equipo/llamadas"], also: ["/equipo/enviar", "/equipo/imprimir"] },
+  { key: "money", number: "5", icon: "calc", hrefs: ["/equipo/contabilidad", "/equipo/cobros", "/equipo/planes"] },
+  { key: "library", number: "6", icon: "book", hrefs: ["/equipo/cartas", "/equipo/acreedores", "/equipo/estados"] },
+  { key: "partners", number: "7", icon: "link", hrefs: ["/equipo/socios", "/equipo/ofertas"] },
+  { key: "business", number: "8", icon: "chart", hrefs: ["/equipo/negocio"] },
+  { key: "settings", number: "9", icon: "team", hrefs: ["/equipo/equipo", "/equipo/alertas", "/equipo/perfil", "/equipo/bienvenida"] },
+];
+
+/** Every destination, by href. */
+export const NAV_BY_HREF: ReadonlyMap<string, NavItem> = new Map([...PRIMARY_NAV, ...MORE_NAV].map((n) => [n.href, n]));
+
+/** True when `pathname` is this destination or a page inside it ("/equipo" only matches itself). */
+export function navMatches(href: string, pathname: string): boolean {
+  return href === "/equipo" ? pathname === "/equipo" : pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** The group a page belongs to (the longest destination that matches it); Overview when none does. */
+export function groupOfPath(pathname: string): NavGroup {
+  let best: { group: NavGroup; length: number } | null = null;
+  for (const group of NAV_GROUPS) {
+    for (const href of [...group.hrefs, ...(group.also ?? [])]) {
+      if (navMatches(href, pathname) && (!best || href.length > best.length)) best = { group, length: href.length };
+    }
+  }
+  return best?.group ?? NAV_GROUPS[0]!;
+}
+
+/** The phone's tab bar: the groups of the everyday destinations (PRIMARY_NAV) first, four at most, filled with the next groups. */
+export function phoneMainGroups(groups: readonly NavGroup[], allowedHrefs: ReadonlySet<string>): NavGroup[] {
+  const main: NavGroup[] = [];
+  for (const item of PRIMARY_NAV) {
+    if (!allowedHrefs.has(item.href)) continue;
+    const group = groups.find((g) => g.hrefs.includes(item.href));
+    if (group && !main.includes(group) && main.length < 4) main.push(group);
+  }
+  for (const group of groups) if (main.length < 4 && !main.includes(group)) main.push(group);
+  return main;
+}

@@ -12,7 +12,7 @@ import { memberName } from "@/lib/staff/team";
 import { useSavedAnswers, type AnswerResult } from "@/lib/staff/useSavedAnswers";
 import { useStaff } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
-import { Chip, NoAccess, PRIMARY_BUTTON_COMPACT, QUIET_BUTTON, SectionTitle } from "@/components/staff/ui";
+import { Chip, EmptyState, NoAccess, PRIMARY_BUTTON_COMPACT, QUIET_BUTTON, SectionTitle } from "@/components/staff/ui";
 
 // "Respuestas guardadas": the library of approved answers to the questions
 // clients keep asking (src/lib/staff/answers.ts).
@@ -219,7 +219,7 @@ export default function SavedAnswers() {
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Respuestas guardadas", "Saved answers")}</h1>
+      <h1 className="page-title">{t("Respuestas guardadas", "Saved answers")}</h1>
       <p className="mt-1 max-w-3xl text-[15px] leading-relaxed text-slate-500">
         {t(
           `Respuestas a preguntas que se repiten. Una aprobada aparece primero cuando un cliente pregunta algo parecido, y ${BRAND.assistant} puede usarla para responderle sin pasar la pregunta al equipo, siempre que vuelva a pasar las reglas. Solo un administrador aprueba. Cada respuesta va solo a clientes que leen su idioma.`,
@@ -276,9 +276,9 @@ export default function SavedAnswers() {
           <span id="aprobadas">{t("Aprobadas", "Approved")}</span>
         </SectionTitle>
         {approved.length === 0 ? (
-          <p className="card px-5 py-4 text-[14px] text-slate-500">
-            {words ? t("Ninguna coincide con esa búsqueda.", "None match that search.") : t("Todavía no hay respuestas aprobadas.", "No approved answers yet.")}
-          </p>
+          <div className="card">
+            <EmptyState pose={words ? "thinking" : "envelope"} title={words ? t("Ninguna coincide con esa búsqueda.", "None match that search.") : t("Todavía no hay respuestas aprobadas.", "No approved answers yet.")} />
+          </div>
         ) : (
           <ul className="card overflow-hidden" data-testid="approved-answers">
             {approved.map((a) => (

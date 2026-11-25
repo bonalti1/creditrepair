@@ -8,7 +8,7 @@ on its cards and in its Today list (see «The home of the business» below).
 
 | What | Where | Who |
 | --- | --- | --- |
-| **Overview** and **Today** | `/equipo/control` (tab «Overview») | everyone on the team; each card by role |
+| **Overview** and **Today** | `/equipo/control` (section 0 «Overview» of the side menu) | everyone on the team; each card by role |
 | **Leads**: the lead inbox, pipeline, numbers, autopilot switch | `/equipo/leads` (tab «Leads») | administrators and sales (`leads.work`) |
 | **Lead autopilot** (OFF) | `/equipo/leads?vista=autopilot` | read by whoever works leads; switched only by an administrator (`autopilot.manage`) |
 | **Phone alerts** (OFF for everyone) | `/equipo/alertas` (under «More») | each member, for themselves |
@@ -136,8 +136,9 @@ anything itself:
   travel, gift and car expenses), not tax advice; the close
   checklist still asks for every receipt. **Failed charges are not added**:
   they already come from billing through the work queue's payment notices.
-- **Navigation**: the top bar is unchanged (five tabs); under «More»,
-  Content and Accounting now come first, on the desk and on the phone.
+- **Navigation**: since the console took ALTO Control's layout (docs/STAFF.md,
+  «Navigation and the phone»), Content is section 2 and Accounting section 5
+  of the side menu, each with its red circle; on a phone both are in «More».
 
 ## Leads
 
@@ -295,10 +296,12 @@ English first, Spanish with the member's switch (inline pairs and `{en, es}`
 tables; a test walks them). What goes to a lead is in the lead's language.
 Brand navy and gold, Poppins and Inter, the console's own components. Every
 screen was checked at 390 px (no sideways scroll, 44 px controls) and at 1440.
-The top bar now carries five tabs (Home, Overview, Leads, Clients, Answers):
-from 1280 px with their names, below that as icons with the name on hover and
-for screen readers; search and "What do I do here?" are icons (Ctrl/Cmd+K
-still opens search). The phone's bottom bar has the same five plus More.
+The console now has ALTO Control's own layout too: a navy side menu with
+numbered sections and red circles, a top bar with «Ask Alti» (Alti's panel:
+the screen's help, his existing features there, the team's playbook) and
+search (Ctrl/Cmd+K), sub-tabs per section, and on a phone a navy bottom bar
+with four sections and a «More» sheet; see docs/STAFF.md, «Navigation and the
+phone» and «The console's design system».
 
 ## What ALTO taught, and what is different here
 

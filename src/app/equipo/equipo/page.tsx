@@ -162,7 +162,7 @@ export default function EquipoPage() {
     <main className="animate-rise">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Equipo", "Team")}</h1>
+          <h1 className="page-title">{t("Equipo", "Team")}</h1>
           <p className="mt-0.5 text-[14px] text-slate-500">
             {t(
               `${members.filter((m) => m.active).length} activos · nadie se borra: quien se va se desactiva y su nombre queda en su trabajo.`,

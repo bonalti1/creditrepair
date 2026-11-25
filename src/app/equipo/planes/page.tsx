@@ -616,7 +616,7 @@ export default function PlanesPage() {
     <main className="animate-rise" data-testid="planes">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Planes de cobro", "Manage plans")}</h1>
+          <h1 className="page-title">{t("Planes de cobro", "Manage plans")}</h1>
           <p className="mt-0.5 max-w-3xl text-[14px] leading-snug text-slate-500">
             {t(
               "Como en Credit Repair Cloud, con una diferencia que manda la ley: cada cobro se hace solo después del trabajo que paga. Cada cliente queda con la versión exacta que firmó.",

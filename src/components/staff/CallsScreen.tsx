@@ -58,7 +58,7 @@ export default function CallsScreen() {
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Llamadas", "Calls")}</h1>
+      <h1 className="page-title">{t("Llamadas", "Calls")}</h1>
       <p className="mt-1 max-w-3xl text-[15px] leading-relaxed text-slate-500">
         {t(
           "Cuándo atiende llamadas el equipo y las llamadas reservadas. La persona elige una hora libre en la app y acepta que la llamemos a ese número.",

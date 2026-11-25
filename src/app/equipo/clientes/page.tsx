@@ -16,7 +16,7 @@ import { sourceLine } from "@/lib/leads/source";
 import { useStaff } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
 import AddClient from "@/components/staff/AddClient";
-import { ActorTag, DeniedNote, SeverityDot, StageChip } from "@/components/staff/ui";
+import { ActorTag, DeniedNote, EmptyState, SeverityDot, StageChip } from "@/components/staff/ui";
 
 // Every client this member may see, findable in a few keystrokes. Filters live
 // in the address, so a stage on the home screen links straight to its clients
@@ -178,7 +178,7 @@ function ClientList() {
     <main className="animate-rise">
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{title}</h1>
+          <h1 className="page-title">{title}</h1>
           <p className="mt-0.5 text-[14px] tabular-nums text-slate-500" role="status">
             {scopeLine ? `${scopeLine} ` : ""}
             {filtered ? t(`${shown.length} de ${base.length}`, `${shown.length} of ${base.length}`) : t(`${base.length} en total`, `${base.length} total`)}
@@ -379,13 +379,16 @@ function ClientList() {
         </div>
 
         {shown.length === 0 ? (
-          <p className="px-5 py-8 text-center text-[15px] text-slate-500">
-            {base.length === 0
-              ? scope === "assigned"
-                ? t("Todavía no tienes clientes asignados.", "You don't have any assigned clients yet.")
-                : t("Todavía no hay clientes aquí.", "No clients here yet.")
-              : t("Ningún cliente coincide con estos filtros.", "No clients match these filters.")}
-          </p>
+          <EmptyState
+            pose={base.length === 0 ? "envelope" : "thinking"}
+            title={
+              base.length === 0
+                ? scope === "assigned"
+                  ? t("Todavía no tienes clientes asignados.", "You don't have any assigned clients yet.")
+                  : t("Todavía no hay clientes aquí.", "No clients here yet.")
+                : t("Ningún cliente coincide con estos filtros.", "No clients match these filters.")
+            }
+          />
         ) : (
           <ul>
             {shown.map(({ client, stage: s, exceptions, step }, index) => (

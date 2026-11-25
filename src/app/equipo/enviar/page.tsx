@@ -172,7 +172,7 @@ function SendView() {
         {t("Inicio", "Home")}
       </Link>
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{t("Enviar por correo", "Send by mail")}</h1>
+        <h1 className="page-title">{t("Enviar por correo", "Send by mail")}</h1>
         {mode === "simulated" && <SimulatedPill />}
       </div>
       <p className="mt-1 text-[15px] leading-relaxed text-slate-500">
@@ -241,7 +241,7 @@ function SendView() {
         <aside className="min-w-0 space-y-4 lg:sticky lg:top-20">
           <section className="card px-5 py-5" aria-label={t("Resumen del envío", "Send summary")}>
             <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Este envío", "This send")}</p>
-            <p className="mt-1 text-[32px] font-semibold leading-none tabular-nums text-slate-900" data-testid="batch-total">
+            <p className="mt-1 font-display text-[32px] font-semibold leading-none tabular-nums text-slate-900" data-testid="batch-total">
               {formatMills(batch.totalMills + batch.verificationMills)}
             </p>
             <p className="mt-1 text-[13px] text-slate-500">

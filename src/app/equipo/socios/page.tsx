@@ -26,7 +26,7 @@ import { useStaffLocale, useTx, type Tx } from "@/lib/staff/i18n/StaffLocale";
 import { staffMessage } from "@/lib/staff/i18n/messages";
 import { dateLocale, type StaffLocale } from "@/lib/staff/i18n/locale";
 import Icon from "@/components/Icon";
-import { Chip, DeniedNote, NoAccess, QUIET_BUTTON, ROW_BUTTON, SectionTitle } from "@/components/staff/ui";
+import { Chip, DeniedNote, EmptyState, NoAccess, QUIET_BUTTON, ROW_BUTTON, SectionTitle } from "@/components/staff/ui";
 
 // Referral partners: realtors, loan officers and tax preparers who send people
 // to Credalti. Administrators and sales see the list; only an administrator
@@ -177,7 +177,7 @@ export default function SociosStaff() {
     <main className="animate-rise">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Socios", "Partners")}</h1>
+          <h1 className="page-title">{t("Socios", "Partners")}</h1>
           <p className="mt-0.5 text-[14px] text-slate-500">
             {t(
               "Agentes de bienes raíces, oficiales de préstamos y preparadores de impuestos que nos refieren personas. Ven solo el paso en que va cada referido, nunca su crédito.",
@@ -204,7 +204,9 @@ export default function SociosStaff() {
           <span id="por-revisar">{t("Solicitudes por revisar", "Applications to review")}</span>
         </SectionTitle>
         {pending.length === 0 ? (
-          <div className="card px-5 py-5 text-[14px] text-slate-500">{t("No hay solicitudes nuevas.", "No new applications.")}</div>
+          <div className="card">
+            <EmptyState pose="thumbsUp" title={t("No hay solicitudes nuevas.", "No new applications.")} />
+          </div>
         ) : (
           <ul className="card overflow-hidden">
             {pending.map((p, i) => (

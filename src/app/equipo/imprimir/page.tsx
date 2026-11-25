@@ -328,7 +328,7 @@ function PrintView() {
           <Icon name="chevron" size={16} className="rotate-180" />
           {t("Inicio", "Home")}
         </Link>
-        <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{t("Imprimir cartas", "Print letters")}</h1>
+        <h1 className="mt-2 page-title">{t("Imprimir cartas", "Print letters")}</h1>
 
         {counts.letters === 0 ? (
           <div className="card mt-5 px-5 py-6 text-[15px] leading-snug text-slate-600" data-testid="print-empty">
