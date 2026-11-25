@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safeBeat } from "@/lib/control/heartbeat";
 import { runContentPublishing } from "@/lib/content/publish/run";
 import { reportError } from "@/lib/observability/errors";
 import { hasSharedSecret } from "@/lib/security/signatures";
@@ -19,9 +20,12 @@ export async function POST(req: Request) {
   const db = getAdminClient();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   try {
-    return NextResponse.json(await runContentPublishing(db, new Date(), { http: fetch, env: process.env }));
+    const result = await runContentPublishing(db, new Date(), { http: fetch, env: process.env });
+    await safeBeat(db, "content", new Date(), { ok: true });
+    return NextResponse.json(result);
   } catch (error) {
     await reportError(error, { where: "api/cron/content" });
+    await safeBeat(db, "content", new Date(), { ok: false, error: error instanceof Error ? error.message : "error" });
     return NextResponse.json({ error: "The content run stopped. What it already did is recorded; the next run continues." }, { status: 500 });
   }
 }

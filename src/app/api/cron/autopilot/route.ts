@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safeBeat } from "@/lib/control/heartbeat";
 import { runAutopilot } from "@/lib/autopilot/server";
 import { callsEnabled } from "@/lib/calls/config";
 import { runCallMessages } from "@/lib/calls/server";
@@ -32,10 +33,13 @@ export async function POST(req: Request) {
   try {
     const now = new Date();
     const summary = await runAutopilot(db, now, { base: process.env.NEXT_PUBLIC_APP_URL });
-    if (!callsEnabled()) return NextResponse.json(summary);
-    return NextResponse.json({ ...summary, calls: await runCallMessages(db, now) });
+    const calls = callsEnabled() ? await runCallMessages(db, now) : null;
+    // The heartbeat for Launch readiness and Tech health (src/lib/control/heartbeat.ts).
+    await safeBeat(db, "autopilot", now, { ok: true });
+    return NextResponse.json(calls ? { ...summary, calls } : summary);
   } catch (error) {
     await reportError(error, { where: "api/cron/autopilot" });
+    await safeBeat(db, "autopilot", new Date(), { ok: false, error: error instanceof Error ? error.message : "error" });
     return NextResponse.json({ error: "The autopilot run stopped. What it already did is recorded; the next run continues." }, { status: 500 });
   }
 }

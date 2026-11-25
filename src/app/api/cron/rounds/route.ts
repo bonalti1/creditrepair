@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safeBeat } from "@/lib/control/heartbeat";
 import { getMonitoringAdapter } from "@/lib/monitoring";
 import { importReportForUser } from "@/lib/domain/importReport";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -34,7 +35,10 @@ export async function POST(req: Request) {
     .eq("status", "mailed")
     .lte("next_round_due_at", new Date().toISOString())
     .limit(50);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    await safeBeat(db, "rounds", new Date(), { ok: false, error: error.message });
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   const adapter = getMonitoringAdapter();
   const processed: Array<{ userId: string; round: number; ok: boolean; error?: string }> = [];
@@ -94,5 +98,7 @@ export async function POST(req: Request) {
     }
   }
 
+  // The heartbeat for Launch readiness and Tech health (src/lib/control/heartbeat.ts).
+  await safeBeat(db, "rounds", new Date(), { ok: true, detail: { due: dueRounds?.length ?? 0, done: processed.filter((p) => p.ok).length } });
   return NextResponse.json({ due: dueRounds?.length ?? 0, processed });
 }

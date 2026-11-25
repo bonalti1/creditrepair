@@ -195,7 +195,7 @@ Connect it (the owner, once):
    Google's OAuth 2.0 Playground with "Use your own OAuth credentials"), and
    set `GOOGLE_SEARCH_CONSOLE_SITE`, `GOOGLE_SEARCH_CONSOLE_CLIENT_ID`,
    `GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET`, `GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN`.
-4. Schedule n8n Workflow 8 (`POST /api/cron/seo`, `docs/n8n.md`).
+4. Schedule n8n Workflow 9 (`POST /api/cron/seo`, `docs/n8n.md`).
 
 Only the read-only scope is asked; nothing in Search Console can be changed
 from the app. No dependency: the service account's token request is a JWT
@@ -268,7 +268,7 @@ db:setup-sql` rebuilds `supabase/setup.sql`.
 ## What the owner must do
 
 1. Search Console: verify the domain and connect it (service account or
-   OAuth, above), then schedule Workflow 8.
+   OAuth, above), then schedule Workflow 9.
 2. Google Business Profile: create and verify it, and tick the local list.
 3. Set the company variables the agreement uses, and `NEXT_PUBLIC_SITE_URL`.
 4. Read each starter guide, open every source link, tick the boxes and

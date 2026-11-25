@@ -103,6 +103,10 @@ export const SECONDARY_BUTTON_COMPACT = `${SECONDARY_LOOK} h-12 whitespace-nowra
 export const ROW_BUTTON =
   "pressable inline-flex h-11 items-center justify-center whitespace-nowrap rounded-[10px] border border-slate-300 bg-white px-4 text-[14px] font-semibold text-blue-900 hover:border-amber-500 hover:bg-slate-50";
 
+/** The one gold action of a row (approve, mark as done): navy text on gold, the same size as ROW_BUTTON. */
+export const GOLD_ROW_BUTTON =
+  "pressable inline-flex h-11 items-center justify-center whitespace-nowrap rounded-[10px] bg-amber-400 px-4 text-[14px] font-semibold text-blue-900 hover:bg-amber-500 disabled:bg-slate-200 disabled:text-slate-500";
+
 /** A text link or button that stands alone: 44 px tall on a phone, its own height on a laptop. */
 export const TAP = "inline-flex min-h-11 items-center md:min-h-0";
 

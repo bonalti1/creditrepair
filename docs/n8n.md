@@ -78,6 +78,40 @@ The app exposes everything n8n needs; n8n only provides the clock.
   menu. Running it twice stores nothing twice (rows are upserted by day, page
   and query; the health result is replaced). See `docs/SEO.md`.
 
+## Workflow 10 (optional): Alti's weekly ideas (once a week)
+
+- `POST {APP_URL}/api/cron/ideas`, same header, once a week (Monday morning
+  is a good time). Alti, the AI assistant, reads the business's aggregate
+  numbers (the dashboard, the lead inbox, content) and leaves 3 to 5 proposed
+  experiments in `/equipo/ideas` → «Alti's proposals» for an administrator to
+  add to the board or dismiss. Nothing is acted on. It asks at most once in
+  six days (a person's «Ask Alti for ideas» counts), so calling it more often
+  costs nothing. Without `ANTHROPIC_API_KEY` it does nothing and says so. See
+  `docs/IDEAS.md`.
+
+## Workflow 11: partner notices and summaries (hourly)
+
+- `POST {APP_URL}/api/cron/partners`, same header, every hour. Milestone
+  notices to partners who opted in, the "ask to follow progress" messages that
+  waited for quiet hours, and the Monday summary. Running it twice sends
+  nothing twice. See `docs/PARTNERS.md`.
+
+## Workflow 12 (only with HighLevel): stage sync (every 15 to 60 minutes)
+
+- `POST {APP_URL}/api/cron/highlevel`, same header. Sends each person's stage
+  changes back to HighLevel. Leave it off unless HighLevel is used. See
+  `docs/HIGHLEVEL.md`.
+
+## Heartbeats: is each workflow running?
+
+Every `/api/cron/*` route records one heartbeat per run in `cron_heartbeats`
+(`src/lib/control/heartbeat.ts`): when it last ran, when it last ran without
+an error, and the error (at most 300 characters). `/equipo/lanzamiento` →
+«System health» lists every workflow above with its last good run, and
+Launch readiness marks a required one as missing (never ran), late (no good
+run in three of its intervals) or failing (the last run failed). The
+Overview's Tech health card keeps reading the leads job's own heartbeat.
+
 ## Workflow 2 (optional): notification relays
 
 For ad-hoc messages (e.g. manual "attack ready" nudges), call

@@ -26,6 +26,9 @@ import { pillTab, PRIMARY_BUTTON_COMPACT } from "@/components/staff/ui";
 import { AltiWaveLoop, CharacterAvatar } from "@/components/Character";
 import { aiByline } from "@/lib/brand";
 import { publishBadges } from "@/lib/staff/navBadges";
+import { getLaunchData } from "@/lib/launch/data";
+import type { LaunchReport } from "@/lib/launch/status";
+import { LaunchOverviewCard } from "@/components/staff/launch/parts";
 
 // Credalti Control (docs/CONTROL.md): the business at a glance. A tab of its
 // own beside «Home», because Home is the specialist's day (the work queue,
@@ -71,6 +74,21 @@ export default function ControlPage() {
     if (new URLSearchParams(window.location.search).get("vista") === "hoy") setView("today");
     setEscalated(readEscalated());
   }, []);
+
+  // Launch readiness (docs/LAUNCH.md): a compact card for an administrator while the business is not live.
+  const [launch, setLaunch] = useState<LaunchReport | null>(null);
+  const seesLaunch = can("launch");
+  useEffect(() => {
+    if (!viewer || !seesLaunch) return;
+    let alive = true;
+    getLaunchData(viewer)
+      .load()
+      .then((v) => alive && setLaunch(v.report))
+      .catch(() => alive && setLaunch(null));
+    return () => {
+      alive = false;
+    };
+  }, [viewer, seesLaunch]);
 
   const load = useCallback(async () => {
     let list: Lead[] | null = null;
@@ -238,6 +256,11 @@ export default function ControlPage() {
       <SafeBoundary>
         <DepartmentStrip tiles={tiles} />
       </SafeBoundary>
+      {launch && !launch.summary.live && (
+        <SafeBoundary>
+          <LaunchOverviewCard report={launch} />
+        </SafeBoundary>
+      )}
       <div className="mt-5 flex flex-wrap gap-1.5" role="tablist" aria-label={t("Vista", "View")}>
         {(["overview", "today"] as const).map((v) => (
           <button

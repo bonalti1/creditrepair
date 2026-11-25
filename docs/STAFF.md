@@ -180,8 +180,9 @@ design system» below).
   Llamadas; the send and print screens belong here too) · **5 Payments &
   Accounting** (Contabilidad, Facturas, Planes) · **6 Letters & Rules**
   (Cartas, Acreedores, Estados) · **7 Partners** (Socios, Ofertas) ·
-  **8 Business numbers** (Negocio) · **9 Team & Settings** (Equipo, Alertas al
-  teléfono, Mi perfil, Bienvenida). A group shows only when the role may open
+  **8 Ideas & numbers** (Negocio, Ideas: `docs/IDEAS.md`) · **9 Team &
+  Settings** (Listo para lanzar, for administrators: `docs/LAUNCH.md`;
+  Equipo, Alertas al teléfono, Mi perfil, Bienvenida). A group shows only when the role may open
   one of its pages (the same `needs` as `PRIMARY_NAV` / `MORE_NAV`, which stay
   the list of destinations and their capabilities), and opens on the first of
   them; a group with two or more shows them as **sub-tabs** under the top bar.

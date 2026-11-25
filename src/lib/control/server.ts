@@ -95,7 +95,7 @@ export async function loadControlExtras(reader: SupabaseClient, db: SupabaseClie
       newest(db, "webhook_receipts", "received_at"),
       newest(db, "mail_events", "received_at"),
       newest(db, "outbound_messages", "sent_at"),
-      newest(db, "cron_heartbeats", "last_run_at"),
+      newest(db, "cron_heartbeats", "last_run_at", [["job", "leads"]]),
       newest(db, "staff_digests", "sent_at"),
     ]);
     health = [
@@ -135,12 +135,5 @@ export async function loadContentSummary(reader: SupabaseClient, now: Date): Pro
   }
 }
 
-/** The leads job's heartbeat, for the Tech health card. */
-export async function beat(db: SupabaseClient, job: string, now: Date, outcome: { ok: boolean; error?: string; detail?: Record<string, unknown> }): Promise<void> {
-  await db.from("cron_heartbeats").upsert({
-    job,
-    last_run_at: now.toISOString(),
-    ...(outcome.ok ? { last_ok_at: now.toISOString(), last_error: null } : { last_error: (outcome.error ?? "error").slice(0, 300) }),
-    detail: outcome.detail ?? {},
-  });
-}
+/** The leads job's heartbeat, for the Tech health card (now in heartbeat.ts, shared by every cron route). */
+export { beat } from "./heartbeat";

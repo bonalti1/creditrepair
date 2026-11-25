@@ -82,6 +82,11 @@ export const CAPABILITIES = [
   "seo.view",
   "seo.edit",
   "seo.publish",
+  // Launch readiness (src/lib/launch, migration 0040): what is ready to go live, ticks, system health and its checks.
+  "launch",
+  // Ideas and experiments (src/lib/ideas, migration 0040): everyone sees and adds; an administrator approves, runs and decides tests and asks Alti.
+  "ideas.add",
+  "ideas.approve",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -137,6 +142,9 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "seo.view": "Ver el SEO: salud del sitio, guías, búsquedas y palabras clave",
   "seo.edit": "Escribir guías, seguir frases y marcar la lista local",
   "seo.publish": "Publicar guías en el sitio y conectar Search Console",
+  launch: "Ver qué falta para lanzar, marcar pasos y revisar el sistema",
+  "ideas.add": "Ver las ideas y agregar nuevas",
+  "ideas.approve": "Aprobar ideas, decidir pruebas y pedirle ideas a Alti",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -174,6 +182,9 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "seo.view": "See SEO: site health, guides, search numbers and keywords",
   "seo.edit": "Write guides, track phrases and tick the local checklist",
   "seo.publish": "Publish guides on the website and connect Search Console",
+  launch: "See what's missing to launch, tick steps and check the system",
+  "ideas.add": "See the ideas and add new ones",
+  "ideas.approve": "Approve ideas, decide tests and ask Alti for ideas",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -231,6 +242,11 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "seo.view": true,
       "seo.edit": true,
       "seo.publish": false,
+      // Launch readiness is the owner's (keys, the attorney's approvals, the system's health).
+      launch: false,
+      // Ideas (migration 0040): everyone sees the board and adds ideas; only an administrator approves and decides.
+      "ideas.add": true,
+      "ideas.approve": false,
     },
   },
   sales: {
@@ -276,6 +292,9 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "seo.view": false,
       "seo.edit": false,
       "seo.publish": false,
+      launch: false,
+      "ideas.add": true,
+      "ideas.approve": false,
     },
   },
 };

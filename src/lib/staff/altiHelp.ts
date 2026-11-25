@@ -25,7 +25,7 @@ import { HOUSE_RULE_TEXT, PLAYBOOKS, SCREEN_HELPS } from "./playbook";
 //     needs the claim rules (src/lib/compliance/guardrails.ts) beyond what the
 //     playbook already passes.
 
-export type AltiJobGate = "draft" | "approved" | "fixed" | "words";
+export type AltiJobGate = "draft" | "approved" | "fixed" | "words" | "proposal";
 
 export interface AltiJob {
   id: string;
@@ -53,6 +53,8 @@ const JOBS: Partial<Record<NavGroupKey, AltiJob[]>> = {
     // SEO (src/lib/seo/draft.ts): a guide's outline and article, a draft a person edits and an administrator publishes.
     { id: "seo_guide_draft", icon: "sparkle", needs: "seo.edit", href: "/equipo/seo?vista=guias", gate: "draft" },
   ],
+  // Ideas (src/lib/ideas, docs/IDEAS.md): experiments proposed from the console's own numbers, for an administrator to add or dismiss.
+  business: [{ id: "ideas_proposals", icon: "bulb", needs: "ideas.approve", href: "/equipo/ideas?vista=alti", gate: "proposal" }],
 };
 
 /** What Alti already does in this section, for this member. */
@@ -73,6 +75,7 @@ export const ALTI_HELP_TEXT = defineText({
       approved: "Approved text only · checked again",
       fixed: "Off until an administrator turns it on",
       words: "Words only · a person saves them",
+      proposal: "A proposal · a person decides",
     },
     jobs: {
       client_draft_focus: {
@@ -107,6 +110,10 @@ export const ALTI_HELP_TEXT = defineText({
         title: "Draft a guide for the website",
         desc: "In SEO → Guides, give me the topic, the brief and the search phrase: I write the outline and the guide in English and Spanish, with an official source for every legal fact. It passes the claim rules; a person checks the sources and an administrator publishes it.",
       },
+      ideas_proposals: {
+        title: "Propose experiments from the numbers",
+        desc: "Tap “Ask Alti for ideas”: I read the dashboard, the lead inbox and content, and propose a few tests, each with the figures it is based on, the metric to watch and a length. An administrator adds them to the board or dismisses them.",
+      },
     },
     searchLabel: "Search the team's playbook",
     searchPlaceholder: "e.g. returned letter, missing documents",
@@ -115,6 +122,7 @@ export const ALTI_HELP_TEXT = defineText({
     fromPlaybook: "From the team's playbook",
     fromScreen: "Screen help",
     fromRules: "House rules",
+    fromLearnings: "From a finished test",
     noResults: "Nothing in the playbook matches those words. Try other words, or ask an administrator.",
     doneWhen: "Done when:",
     welcome: "Welcome: the screens, the rules and the 5-minute tour",
@@ -131,6 +139,7 @@ export const ALTI_HELP_TEXT = defineText({
       approved: "Solo texto aprobado · se revisa otra vez",
       fixed: "Apagado hasta que un administrador lo encienda",
       words: "Solo palabras · las guarda una persona",
+      proposal: "Una propuesta · decide una persona",
     },
     jobs: {
       client_draft_focus: {
@@ -153,6 +162,10 @@ export const ALTI_HELP_TEXT = defineText({
         title: "Enviar respuestas guardadas aprobadas",
         desc: "Cuando la pregunta de un cliente se parece mucho a una respuesta aprobada, la envío en el chat de la app después de revisarla otra vez. Las propuestas nunca se envían.",
       },
+      ideas_proposals: {
+        title: "Proponer pruebas a partir de los números",
+        desc: "Toca «Pedirle ideas a Alti»: leo el tablero, la bandeja de prospectos y el contenido, y propongo algunas pruebas, cada una con las cifras en que se basa, el número a vigilar y la duración. Un administrador las agrega al tablero o las descarta.",
+      },
       content_words: {
         title: "Escribir las palabras de una pieza",
         desc: "Abre una pieza y usa mi asistente de escritura: ganchos, guion y texto en inglés y español, revisados con las reglas de lo que se puede decir y de la marca. Una persona edita, guarda y pide la aprobación.",
@@ -173,6 +186,7 @@ export const ALTI_HELP_TEXT = defineText({
     fromPlaybook: "De la guía del equipo",
     fromScreen: "Ayuda de pantalla",
     fromRules: "Reglas de la casa",
+    fromLearnings: "De una prueba terminada",
     noResults: "Nada en la guía coincide con esas palabras. Prueba con otras, o pregúntale a un administrador.",
     doneWhen: "Listo cuando:",
     welcome: "Bienvenida: las pantallas, las reglas y el recorrido de 5 minutos",
@@ -183,7 +197,7 @@ export const ALTI_HELP_TEXT = defineText({
 
 export interface PlaybookHit {
   id: string;
-  kind: "card" | "screen" | "rule";
+  kind: "card" | "screen" | "rule" | "learning";
   title: string;
   lines: string[];
   doneWhen?: string;
@@ -207,14 +221,26 @@ function hits(query: string[], text: string[]): number {
   return n;
 }
 
-/** The team's written help that shares the most words with the query, best first. Empty query: nothing. */
-export function searchPlaybook(query: string, locale: StaffLocale, limit = 6): PlaybookHit[] {
+/** A finished test from the learnings library (src/lib/ideas), written by the team. */
+export interface LearningEntry {
+  id: string;
+  title: string;
+  lines: string[];
+}
+
+/**
+ * The team's written help that shares the most words with the query, best
+ * first, and the learnings of finished tests when the caller passes them (the
+ * team wrote those too). Empty query: nothing.
+ */
+export function searchPlaybook(query: string, locale: StaffLocale, limit = 6, learnings: readonly LearningEntry[] = []): PlaybookHit[] {
   const q = [...new Set(words(query))];
   if (q.length === 0) return [];
   const entries: Omit<PlaybookHit, "score">[] = [
     ...Object.entries(PLAYBOOKS[locale]).map(([kind, card]) => ({ id: `card:${kind}`, kind: "card" as const, title: card.title, lines: card.steps, doneWhen: card.doneWhen })),
     ...Object.entries(SCREEN_HELPS[locale]).map(([path, help]) => ({ id: `screen:${path}`, kind: "screen" as const, title: help.title, lines: [help.what, ...help.steps] })),
     ...HOUSE_RULE_TEXT[locale].map((rule, i) => ({ id: `rule:${i}`, kind: "rule" as const, title: rule, lines: [] })),
+    ...learnings.map((l) => ({ id: `learning:${l.id}`, kind: "learning" as const, title: l.title, lines: l.lines })),
   ];
   return entries
     .map((entry) => {

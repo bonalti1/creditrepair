@@ -36,8 +36,21 @@ export function shouldAlert(key: string, now: number = Date.now()): boolean {
   return true;
 }
 
+// When each place last reported an error, for Launch readiness's system
+// health (src/lib/launch/health.ts): the place and the time only, never the
+// message. Kept in this server's memory, so it starts empty after a restart
+// or a deploy (the server log keeps everything).
+const lastErrorAt = new Map<string, number>();
+
+/** Where → when it last failed (ISO), since this server started. */
+export function recentErrorTimes(): Record<string, string> {
+  return Object.fromEntries([...lastErrorAt].map(([where, at]) => [where, new Date(at).toISOString()]));
+}
+
 export async function reportError(error: unknown, context: ErrorContext): Promise<void> {
   const info = describe(error);
+  if (lastErrorAt.size >= MAX_KEYS && !lastErrorAt.has(context.where)) lastErrorAt.clear();
+  lastErrorAt.set(context.where, Date.now());
   console.error(
     JSON.stringify({
       level: "error",
@@ -75,4 +88,5 @@ export async function reportError(error: unknown, context: ErrorContext): Promis
 /** Test hook. */
 export function resetAlertThrottle() {
   lastSent.clear();
+  lastErrorAt.clear();
 }

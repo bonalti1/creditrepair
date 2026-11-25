@@ -39,6 +39,9 @@ import { MESSAGE_EN, staffMessage } from "../staff/i18n/messages";
 import { SHELL_TEXT } from "../staff/i18n/ui/shell";
 import { ALTI_HELP_TEXT } from "../staff/altiHelp";
 import { SEO_TEXT } from "../seo/text";
+import { LAUNCH_TEXT } from "../launch/text";
+import { IDEAS_TEXT } from "../ideas/text";
+import { IDEA_METRIC_LABELS } from "../ideas/signals";
 import { DIMENSION_LABELS, OUTCOME_DEFINITION_TEXT } from "../staff/learning";
 import { exceptionMessage, MESSAGE_BODIES, STAFF_MESSAGE_RULE_TEXT } from "../staff/messages";
 import { METRIC_INFOS, PERIOD_LABELS } from "../staff/metrics";
@@ -112,6 +115,10 @@ const BILINGUAL_TABLES: Record<string, Record<StaffLocale, unknown>> = {
   SHELL_TEXT,
   ALTI_HELP_TEXT,
   SEO_TEXT,
+  // Launch readiness and Ideas (migration 0040).
+  LAUNCH_TEXT,
+  IDEAS_TEXT,
+  IDEA_METRIC_LABELS,
   STAGE_TEXT,
   EXCEPTION_LABELS,
   ACTOR_LABELS,

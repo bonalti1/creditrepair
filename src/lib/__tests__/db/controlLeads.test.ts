@@ -82,7 +82,8 @@ beforeAll(async () => {
   partnerUser = uid();
   await h.createUser(partnerUser, { phone: "+17135550161" });
   await h.service.from("partner_members").insert({ user_id: partnerUser, partner_id: (partner as { id: string }).id });
-});
+
+}, 90_000);
 
 afterAll(async () => {
   delete process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -695,7 +695,11 @@ describe("team: what the staff routes accept", () => {
     expect(read("src/app/api/staff/seo/route.ts")).toMatch(/requireCapability\(capability\)/);
     expect(read("src/app/api/staff/seo/health/route.ts")).toMatch(/requireCapability\("seo\.view"\)/);
     expect(read("src/app/api/staff/seo/draft/route.ts")).toMatch(/requireCapability\("seo\.edit"\)/);
-    expect(staffRoutes.length).toBe(42);
+    // Launch readiness (administrators) and Ideas (everyone adds; ideas.approve decides), migration 0040.
+    expect(read("src/app/api/staff/launch/route.ts")).toMatch(/requireCapability\("launch"\)/);
+    expect(read("src/app/api/staff/ideas/route.ts")).toMatch(/requireCapability\(capabilityFor\(input\.action\)\)/);
+    expect(read("src/app/api/staff/ideas/route.ts")).toMatch(/requireCapability\("ideas\.add"\)/);
+    expect(staffRoutes.length).toBe(44);
   });
 });
 

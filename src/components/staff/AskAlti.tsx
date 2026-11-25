@@ -12,6 +12,7 @@ import { useStaffLocale, useText } from "@/lib/staff/i18n/StaffLocale";
 import { CharacterAvatar, CharacterFigure } from "@/components/Character";
 import Icon from "@/components/Icon";
 import { PlaybookCard } from "@/components/staff/PlaybookCard";
+import { useLearningEntries } from "@/lib/ideas/useLearnings";
 
 // «Ask Alti» (ALTO Control's TabBot, Credalti's way): a button in the top bar
 // of every section opens Alti's panel for that section, on the right on a
@@ -134,7 +135,9 @@ function SearchTab({ pathname }: { pathname: string }) {
   const { locale } = useStaffLocale();
   const tx = useText(ALTI_HELP_TEXT);
   const [query, setQuery] = useState("");
-  const results = useMemo(() => searchPlaybook(query, locale), [query, locale]);
+  // The learnings of finished tests (src/lib/ideas) join the search once the member types; read only.
+  const learnings = useLearningEntries(query.trim() !== "");
+  const results = useMemo(() => searchPlaybook(query, locale, 6, learnings), [query, locale, learnings]);
   const here = helpForPath(pathname, locale).playbooks.slice(0, 3);
   return (
     <div data-testid="alti-search">
@@ -173,7 +176,7 @@ function SearchTab({ pathname }: { pathname: string }) {
         <ul className="mt-4 space-y-2" aria-live="polite">
           {results.map((hit) => (
             <li key={hit.id} className="rounded-[14px] border border-slate-200 bg-white px-4 py-3" data-testid="alti-search-hit">
-              <p className="text-[11.5px] font-semibold uppercase tracking-wide text-slate-500">{hit.kind === "card" ? tx.fromPlaybook : hit.kind === "screen" ? tx.fromScreen : tx.fromRules}</p>
+              <p className="text-[11.5px] font-semibold uppercase tracking-wide text-slate-500">{hit.kind === "card" ? tx.fromPlaybook : hit.kind === "screen" ? tx.fromScreen : hit.kind === "learning" ? tx.fromLearnings : tx.fromRules}</p>
               <p className="mt-0.5 text-[14.5px] font-semibold leading-snug text-slate-900">{hit.title}</p>
               {hit.lines.length > 0 && (
                 <ol className="mt-1.5 list-decimal space-y-1 pl-5 text-[13.5px] leading-snug text-slate-700">
