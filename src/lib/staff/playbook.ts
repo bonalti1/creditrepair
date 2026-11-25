@@ -461,6 +461,7 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     playbooks: [],
   },
   "/equipo/cartas": { title: "Cartas", what: "Las plantillas de las cartas.", steps: ["Solo un administrador las edita."], playbooks: [] },
+  "/equipo/contenido": { title: "Contenido", what: "Las piezas de marketing, de la idea a los resultados, con la revisión de cumplimiento y marca.", steps: ["Crea la pieza (en blanco, con plantilla o con Alti) y corrige lo que marque la revisión.", "Marca la lista y mándala a revisión; solo un administrador aprueba.", "Publícala (o prográmala) y agrega los resultados reales."], playbooks: [] },
   "/equipo/planes": {
     title: "Planes de cobro",
     what: "Los planes que se ofrecen a los clientes, como en Credit Repair Cloud, y la vista previa de cuándo se cobra.",
@@ -589,6 +590,7 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
     playbooks: [],
   },
   "/equipo/cartas": { title: "Letters", what: "The letter templates.", steps: ["Only an administrator edits them."], playbooks: [] },
+  "/equipo/contenido": { title: "Content", what: "Marketing pieces, from the idea to the results, with the compliance and brand check.", steps: ["Create the piece (blank, from a template or with Alti) and fix what the check marks.", "Tick the checklist and send it for review; only an administrator approves.", "Post it (or schedule it) and add the real results."], playbooks: [] },
   "/equipo/planes": {
     title: "Billing plans",
     what: "The plans offered to clients, as in Credit Repair Cloud, with a preview of when each charge happens.",

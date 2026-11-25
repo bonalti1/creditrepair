@@ -682,7 +682,9 @@ describe("team: what the staff routes accept", () => {
     expect(read("src/app/api/staff/leads/autopilot/route.ts")).toMatch(/requireCapability\("autopilot\.manage"\)/);
     expect(read("src/app/api/staff/alerts/route.ts")).toMatch(/requireCapability\("clients\.followup"\)/);
     expect(read("src/app/api/staff/control/route.ts")).toMatch(/requireCapability\("clients\.followup"\)/);
-    expect(staffRoutes.length).toBe(32);
+    // Content (migration 0035): the board, files, Alti's assistant and connecting accounts.
+    expect(read("src/app/api/staff/content/assist/route.ts")).toMatch(/requireCapability\("content\.edit"\)/);
+    expect(staffRoutes.length).toBe(36);
   });
 });
 
