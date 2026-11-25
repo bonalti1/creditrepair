@@ -52,6 +52,26 @@ The home screen says how much: **«Esta semana el sistema resolvió N cosas
 por su cuenta»**, with the count of each kind under «Resuelto solo»
 (`autopilot_resolutions`, migration 0022).
 
+## Credalti Control: Overview, Today, Leads, phone alerts
+
+Phase 1 of the owner's control center is in `docs/CONTROL.md`. In short:
+
+- **Resumen / Overview** (`/equipo/control`), a tab next to Home (Home stays
+  the specialist's day, above): one card per department (leads and sales,
+  clients in progress, money, support, partners, tech health) with real
+  numbers, "No data yet" and why when something cannot be read, and a "Needs
+  you" count that opens the right screen. Money never shows to sales.
+- **Hoy / Today**: this page's work queue plus waiting leads, the autopilot's
+  hand-offs, partners' notes and, for the owner, escalations, ranked in one
+  list; each item with its steps and «Escalate to the owner».
+- **Prospectos / Leads** (`/equipo/leads`): every prospect conversation
+  (WhatsApp, HighLevel, partners, the chat signup, by hand) with ✨ Suggest
+  reply (the drafted-reply engine below, pointed at a lead), saved answers,
+  «Prepare invitation», notes, assignment, the pipeline (only people move it;
+  Invited and Signed set themselves) and the lead quality numbers.
+- **The lead autopilot**, off until an administrator turns it on, and **phone
+  alerts**, off until each member turns them on (`/equipo/alertas`).
+
 ## Alti's drafted replies
 
 `src/lib/staff/drafts.ts`, `src/lib/staff/draftModel.ts`, `POST /api/staff/drafts`,
@@ -141,13 +161,19 @@ that screen (`SCREEN_HELP`) with the cards that matter there.
 
 `src/components/staff/StaffShell.tsx`.
 
-- **768 px and wider:** one compact top bar: Inicio, Clientes, Respuestas, and
+- **768 px and wider:** one compact top bar: Inicio, Resumen (Overview),
+  Prospectos (Leads, for administrators and sales), Clientes, Respuestas, and
   «Más» (Invitar, Acreedores, Actividad, Piloto automático, Negocio, Socios,
-  Equipo, Cartas, Mi perfil, Bienvenida, each only for the roles that may open
-  it), then «¿Qué hago aquí?» and the member's initial. One line from 768 to
-  any desktop width (checked at 1024, 1280 and 1440).
+  Equipo, Cartas, Alertas al teléfono, Mi perfil, Bienvenida, each only for the
+  roles that may open it), then search, «¿Qué hago aquí?» and the member's
+  initial. With five tabs (Credalti Control, `docs/CONTROL.md`) the tabs show
+  their names from 1280 px and their icons alone below (the name on hover and
+  for screen readers); search and help are icons (Ctrl/Cmd+K still opens
+  search). One line from 768 to any desktop width (checked at 768, 1024, 1280,
+  1440, 1536 and 1920, in both languages).
 - **Phone:** logo, help and initial on top; a bottom tab bar like the client
-  app's (Inicio, Clientes, Respuestas, Más); «Más» opens a sheet.
+  app's (Inicio, Resumen, Prospectos, Clientes, Respuestas, Más, each for the
+  roles that may open it); «Más» opens a sheet.
 - The demo's «Ver como» bar scrolls away with the page.
 - At 390 px every staff screen checked (home, focus mode, client page,
   conversation, send screen, import preview, clients, saved answers, profile,

@@ -677,7 +677,12 @@ describe("team: what the staff routes accept", () => {
     expect(read("src/app/api/staff/calls/route.ts")).toMatch(/requireCapability\("calls\.manage"\)/);
     // Notes with a referral partner about a client (migration 0033): whoever follows up a client.
     expect(read("src/app/api/staff/partner-notes/route.ts")).toMatch(/requireCapability\("clients\.followup"\)/);
-    expect(staffRoutes.length).toBe(28);
+    // Credalti Control (migration 0034): the lead inbox and its autopilot switch, phone alerts, the Overview.
+    expect(read("src/app/api/staff/leads/route.ts")).toMatch(/requireCapability\("leads\.work"\)/);
+    expect(read("src/app/api/staff/leads/autopilot/route.ts")).toMatch(/requireCapability\("autopilot\.manage"\)/);
+    expect(read("src/app/api/staff/alerts/route.ts")).toMatch(/requireCapability\("clients\.followup"\)/);
+    expect(read("src/app/api/staff/control/route.ts")).toMatch(/requireCapability\("clients\.followup"\)/);
+    expect(staffRoutes.length).toBe(32);
   });
 });
 

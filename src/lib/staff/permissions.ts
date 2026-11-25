@@ -64,6 +64,8 @@ export const CAPABILITIES = [
   "states.manage",
   // Calls with a person (src/lib/calls, migration 0032; off by default): set when the team takes calls, see and close bookings.
   "calls.manage",
+  // Credalti Control's lead inbox (src/lib/leads, migration 0034): read and answer leads, notes, move their stage.
+  "leads.work",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -107,6 +109,7 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "reviews.manage": "Sitios de reseñas, pedidos de reseña y calificaciones",
   "states.manage": "Abrir y cerrar estados",
   "calls.manage": "Fijar los horarios de llamadas y atender las reservas",
+  "leads.work": "Atender a los prospectos: conversaciones, notas y etapas",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -132,6 +135,7 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "reviews.manage": "Review sites, review requests and ratings",
   "states.manage": "Open and close states",
   "calls.manage": "Set call hours and handle booked calls",
+  "leads.work": "Work the lead inbox: conversations, notes and stages",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -173,6 +177,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "reviews.manage": false,
       "states.manage": false,
       "calls.manage": false,
+      // Leads are sales' (and the owner's): a specialist works signed clients.
+      "leads.work": false,
     },
   },
   sales: {
@@ -202,6 +208,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "states.manage": false,
       // Sales talks with leads before they sign up: the calls are theirs (questions only).
       "calls.manage": true,
+      // The lead inbox is sales' work: the leads they were given, and the ones nobody has yet.
+      "leads.work": true,
     },
   },
 };

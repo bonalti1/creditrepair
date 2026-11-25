@@ -477,6 +477,25 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     steps: ["Filtra por estado, método o fecha.", "Descarga el CSV que necesites.", "Ante un contracargo, abre el paquete de evidencia y envíalo al procesador."],
     playbooks: [],
   },
+  // Credalti Control (docs/CONTROL.md).
+  "/equipo/control": {
+    title: "Resumen y Hoy",
+    what: "El negocio en una pantalla: una tarjeta por área con números reales y lo que te necesita. «Hoy» junta todo lo que necesita una persona, en orden, con sus pasos.",
+    steps: ["Mira «Te necesita» en cada tarjeta y tócalo para ir a resolverlo.", "Abre «Hoy» y trabaja de arriba hacia abajo; cada cosa trae su paso a paso.", "Si algo no te toca (dinero, cancelar, lo legal), toca «Pasar al dueño» con una nota."],
+    playbooks: ["question_waiting", "payment_past_due"],
+  },
+  "/equipo/leads": {
+    title: "Prospectos",
+    what: "Cada conversación con un prospecto, venga de WhatsApp, HighLevel, un socio o el registro con Alti. Solo una persona mueve un prospecto de etapa.",
+    steps: ["Empieza por «Esperando».", "Abre la conversación: «✨ Sugerir respuesta» o una respuesta guardada; léela y envíala.", "Pasado un día sin que escriba, solo se puede enviar la plantilla aprobada.", "Cuando esté listo, «Preparar su invitación». «Invitado» y «Firmó» se ponen solos."],
+    playbooks: [],
+  },
+  "/equipo/alertas": {
+    title: "Alertas al teléfono",
+    what: "Tú eliges qué te avisa al teléfono. Todo empieza apagado.",
+    steps: ["Enciende los temas que te tocan.", "Toca «Recibir alertas en este teléfono» y da permiso.", "Manda una prueba para ver cómo se ven."],
+    playbooks: [],
+  },
 };
 
 const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
@@ -584,6 +603,25 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
     title: "Invoices and chargebacks",
     what: "Every charge is an invoice. Filter, export to CSV or QuickBooks, and record chargebacks.",
     steps: ["Filter by status, method or date.", "Download the CSV you need.", "For a chargeback, open the evidence pack and send it to the processor."],
+    playbooks: [],
+  },
+  // Credalti Control (docs/CONTROL.md).
+  "/equipo/control": {
+    title: "Overview and Today",
+    what: "The business on one screen: one card per department with real numbers and what needs you. “Today” gathers everything that needs a person, in order, with its steps.",
+    steps: ["Look at “Needs you” on each card and tap it to go and do it.", "Open “Today” and work top to bottom; each item carries its steps.", "If something isn't yours (money, cancelling, legal), tap “Escalate to the owner” with a note."],
+    playbooks: ["question_waiting", "payment_past_due"],
+  },
+  "/equipo/leads": {
+    title: "Leads",
+    what: "Every lead conversation, from WhatsApp, HighLevel, a partner or the chat signup. Only a person moves a lead's stage.",
+    steps: ["Start with “Waiting”.", "Open the conversation: “✨ Suggest reply” or a saved answer; read it and send it.", "A day after their last message, only the approved template can be sent.", "When they're ready, “Prepare invitation”. “Invited” and “Signed” set themselves."],
+    playbooks: [],
+  },
+  "/equipo/alertas": {
+    title: "Phone alerts",
+    what: "You choose what pings your phone. Everything starts off.",
+    steps: ["Turn on the topics that are yours.", "Tap “Get alerts on this phone” and allow it.", "Send a test to see how they look."],
     playbooks: [],
   },
 };

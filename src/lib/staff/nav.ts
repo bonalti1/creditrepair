@@ -19,6 +19,9 @@ export interface NavItem {
 /** The everyday destinations: tabs on the top bar and on the phone's bottom bar. */
 export const PRIMARY_NAV: NavItem[] = [
   { href: "/equipo", label: "home", icon: "home" },
+  // Credalti Control (docs/CONTROL.md): the business at a glance, and every lead conversation.
+  { href: "/equipo/control", label: "overview", icon: "dashboard" },
+  { href: "/equipo/leads", label: "leads", icon: "inbox", needs: "leads.work" },
   { href: "/equipo/clientes", label: "clients", icon: "person" },
   { href: "/equipo/respuestas", label: "answers", icon: "chat", needs: "clients.reply" },
 ];
@@ -40,6 +43,7 @@ export const MORE_NAV: NavItem[] = [
   { href: "/equipo/estados", label: "states", icon: "globe" },
   // Calls with a person (src/lib/calls): only when turned on (off by default).
   ...(callsEnabled() ? [{ href: "/equipo/llamadas", label: "calls" as const, icon: "clock" as const, needs: "calls.manage" as const }] : []),
+  { href: "/equipo/alertas", label: "alerts", icon: "bell" },
   { href: "/equipo/perfil", label: "profile", icon: "person" },
   { href: "/equipo/bienvenida", label: "welcome", icon: "book" },
 ];

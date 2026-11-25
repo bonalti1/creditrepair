@@ -8,6 +8,8 @@ export const SHELL_TEXT = defineText({
     deniedBack: "Back to home",
     nav: {
       home: "Home",
+      overview: "Overview",
+      leads: "Leads",
       clients: "Clients",
       answers: "Answers",
       invite: "Invite",
@@ -24,6 +26,7 @@ export const SHELL_TEXT = defineText({
       reviews: "Reviews",
       states: "States",
       calls: "Calls",
+      alerts: "Phone alerts",
       profile: "My profile",
       welcome: "Welcome",
     },
@@ -50,6 +53,8 @@ export const SHELL_TEXT = defineText({
     deniedBack: "Volver al inicio",
     nav: {
       home: "Inicio",
+      overview: "Resumen",
+      leads: "Prospectos",
       clients: "Clientes",
       answers: "Respuestas",
       invite: "Invitar",
@@ -66,6 +71,7 @@ export const SHELL_TEXT = defineText({
       reviews: "Reseñas",
       states: "Estados",
       calls: "Llamadas",
+      alerts: "Alertas al teléfono",
       profile: "Mi perfil",
       welcome: "Bienvenida",
     },

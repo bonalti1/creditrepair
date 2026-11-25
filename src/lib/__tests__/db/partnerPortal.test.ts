@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { importReportForUser } from "../../domain/importReport";
 import { creditPartner } from "../../partners/attribution";
 import { PARTNER_REFERRAL_COLUMNS, SHARE_REQUEST_TEMPLATE } from "../../partners/portal";
@@ -165,6 +165,18 @@ describe("the pipeline: what partner_referrals() gives a partner", () => {
 });
 
 describe("ask to follow progress", () => {
+  // These tests send (or hold) messages around Texas quiet hours (21:00–8:00),
+  // so they run on a fixed clock at noon in Texas, whatever time the suite runs.
+  beforeAll(() => {
+    const noonTexas = new Date();
+    noonTexas.setUTCHours(18, 0, 0, 0);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(noonTexas);
+  });
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   it("the partner asks; the client gets a card; the partner sees only the date; at most once every 14 days", async () => {
     const route = await import("@/app/api/partners/portal/route");
     as(h.as(laura, { phone: "+17135550161" }));
