@@ -50,6 +50,8 @@ const JOBS: Partial<Record<NavGroupKey, AltiJob[]>> = {
     { id: "content_words", icon: "doc", needs: "content.edit", href: "/equipo/contenido", gate: "words" },
     // The Ads Manager (src/lib/ads/copy.ts): ad copy drafts, checked against the claim rules and the credit ad checklist.
     { id: "ad_copy", icon: "megaphone", needs: "ads.draft", href: "/equipo/anuncios?vista=textos", gate: "draft" },
+    // SEO (src/lib/seo/draft.ts): a guide's outline and article, a draft a person edits and an administrator publishes.
+    { id: "seo_guide_draft", icon: "sparkle", needs: "seo.edit", href: "/equipo/seo?vista=guias", gate: "draft" },
   ],
 };
 
@@ -100,6 +102,10 @@ export const ALTI_HELP_TEXT = defineText({
       ad_copy: {
         title: "Draft Meta ad copy",
         desc: "In Ads, «Ad copy»: hooks, headline, primary text and a video script in English and Spanish, checked against the claim rules and the credit ad checklist (no promised results, never “free”, no age, gender or ZIP code). A person edits it and sends it to Content or Video Studio; nothing reaches Meta.",
+      },
+      seo_guide_draft: {
+        title: "Draft a guide for the website",
+        desc: "In SEO → Guides, give me the topic, the brief and the search phrase: I write the outline and the guide in English and Spanish, with an official source for every legal fact. It passes the claim rules; a person checks the sources and an administrator publishes it.",
       },
     },
     searchLabel: "Search the team's playbook",
@@ -154,6 +160,10 @@ export const ALTI_HELP_TEXT = defineText({
       ad_copy: {
         title: "Borradores de textos para anuncios de Meta",
         desc: "En Anuncios, «Textos con Alti»: ganchos, título, texto principal y guion de video en inglés y español, revisados con las reglas de lo que se puede decir y la lista para anuncios de crédito (sin resultados prometidos, nunca «gratis», sin edad, género ni código postal). Una persona lo edita y lo manda a Contenido o a Video Studio; nada llega a Meta.",
+      },
+      seo_guide_draft: {
+        title: "Borrador de una guía para el sitio",
+        desc: "En SEO → Guías, dame el tema, el encargo y la frase de búsqueda: escribo el esquema y la guía en inglés y español, con una fuente oficial para cada dato legal. Pasa las reglas de lo que se puede decir; una persona revisa las fuentes y un administrador la publica.",
       },
     },
     searchLabel: "Buscar en la guía del equipo",

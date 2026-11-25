@@ -690,7 +690,12 @@ describe("team: what the staff routes accept", () => {
     // The Ads Manager (migration 0037): the numbers for ads.view, Alti's ad copy and the briefs for ads.draft, by action.
     expect(read("src/app/api/staff/ads/route.ts")).toMatch(/requireCapability\(briefsOnly \? "ads\.draft" : "ads\.view"\)/);
     expect(read("src/app/api/staff/ads/route.ts")).toMatch(/requireCapability\(CAPABILITY\[input\.action\]\)/);
-    expect(staffRoutes.length).toBe(39);
+    // SEO (migration 0039): the department (seo.view, each action its own capability), site health (seo.view), Alti's drafts (seo.edit).
+    expect(read("src/app/api/staff/seo/route.ts")).toMatch(/requireCapability\("seo\.view"\)/);
+    expect(read("src/app/api/staff/seo/route.ts")).toMatch(/requireCapability\(capability\)/);
+    expect(read("src/app/api/staff/seo/health/route.ts")).toMatch(/requireCapability\("seo\.view"\)/);
+    expect(read("src/app/api/staff/seo/draft/route.ts")).toMatch(/requireCapability\("seo\.edit"\)/);
+    expect(staffRoutes.length).toBe(42);
   });
 });
 

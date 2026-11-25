@@ -331,8 +331,8 @@ describe("SEO: metadata, hreflang, sitemap, robots", () => {
     }
   });
 
-  it("the sitemap lists every page in both languages, with alternates", () => {
-    const entries = sitemap();
+  it("the sitemap lists every page in both languages, with alternates (and no guide while none is published)", async () => {
+    const entries = await sitemap();
     for (const page of SITE_PAGES) {
       for (const locale of LOCALES) {
         const entry = entries.find((e) => e.url === `${siteUrl()}${page.path}?lang=${locale}`);

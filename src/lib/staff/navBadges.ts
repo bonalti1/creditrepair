@@ -25,10 +25,16 @@ import type { NavGroupKey } from "./nav";
 
 export type BadgeCounts = Partial<Record<NavGroupKey, number>>;
 
-/** Who reported a number: the shell's own probe, the Overview, or the Ads Manager. Each source replaces only its own numbers. */
-type Source = "probe" | "overview" | "ads";
+/**
+ * Who reported a number: the shell's own probe, the Overview, or a department
+ * that counts its own work (SEO: src/lib/seo/needs.ts; the Ads Manager: ads to turn off). The probe and the
+ * Overview replace each other's number for a group; a department's number is
+ * ADDED to its group (the Overview does not count it), so the circle covers it.
+ */
+type Source = "probe" | "overview" | "seo" | "ads";
+const ADDITIVE: readonly Source[] = ["seo", "ads"];
 
-const sources: Record<Source, BadgeCounts> = { probe: {}, overview: {}, ads: {} };
+const sources: Record<Source, BadgeCounts> = { probe: {}, overview: {}, seo: {}, ads: {} };
 let merged: BadgeCounts = {};
 const listeners = new Set<() => void>();
 
@@ -37,8 +43,7 @@ function recompute() {
   // The Overview's numbers are the complete ones (it reads the books and the server's extras too); the probe fills the rest.
   for (const [key, value] of Object.entries(sources.probe) as Array<[NavGroupKey, number]>) next[key] = value;
   for (const [key, value] of Object.entries(sources.overview) as Array<[NavGroupKey, number]>) next[key] = value;
-  // The ads are counted by no other source: added on top of the group's number.
-  for (const [key, value] of Object.entries(sources.ads) as Array<[NavGroupKey, number]>) next[key] = (next[key] ?? 0) + value;
+  for (const source of ADDITIVE) for (const [key, value] of Object.entries(sources[source]) as Array<[NavGroupKey, number]>) next[key] = (next[key] ?? 0) + value;
   merged = next;
   for (const listener of listeners) listener();
 }
@@ -56,11 +61,16 @@ export function publishBadges(source: Source, counts: Partial<Record<NavGroupKey
   recompute();
 }
 
+/** The merged counts now (for tests and the probe). */
+export function badgeSnapshot(): BadgeCounts {
+  return merged;
+}
+
 /** Forget every number (the demo's "view as" switched, so the counts were someone else's). */
 export function resetBadges(): void {
   sources.probe = {};
   sources.overview = {};
-  sources.ads = {};
+  for (const s of ADDITIVE) sources[s] = {};
   recompute();
 }
 

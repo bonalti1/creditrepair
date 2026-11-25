@@ -224,7 +224,22 @@ consumer reviews, 16 C.F.R. part 465).
   `src/app/robots.ts` (the app, console, portal and API kept out),
   `src/app/opengraph-image.tsx` (the official white logo file on brand navy,
   gold accent; generated at build time).
-- Structured data: Organization on every page, FAQPage on `/preguntas`.
+- Structured data: Organization on every page, FAQPage on `/preguntas`,
+  Article, FAQPage and BreadcrumbList on each guide.
+- **Guides** (`/guias`, `/guias/<slug>`, `docs/SEO.md`): articles the SEO
+  department publishes, one URL each with `?lang=en` / `?lang=es` and
+  hreflang like every page, the published version only (read through the
+  database's public function), sources for every legal fact and a calm call
+  to action. `/guias` does not exist until one is published; the sitemap
+  lists the guides only once published (`src/lib/seo/sitemap.ts`).
+- Private pages (every `PRIVATE_PATHS` entry) are disallowed in robots.txt and
+  answer `X-Robots-Tag: noindex, nofollow` (`next.config.mjs`, the proxy for
+  its redirects).
+- The site checks itself: «Site health» in `/equipo/seo` reads every page as a
+  crawler does (titles 15–65 characters, descriptions 70–160, one h1,
+  canonical, hreflang, Open Graph, structured data, alt text, links, robots,
+  sitemap, noindex). The home page's titles and the About page's descriptions
+  were fixed to fit.
 - Server components everywhere except the islands above; the phone menu is a
   `<details>`, the FAQ is `<details>`, the language switch is a link. Images
   have width and height; the character art and screenshots ship as @1x/@2x

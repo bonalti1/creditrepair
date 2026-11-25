@@ -227,7 +227,7 @@ const CROA_1679C: Source = { label: "15 U.S.C. §1679c", url: "https://uscode.ho
 const en: SiteCopy = {
   meta: {
     home: {
-      title: `${brand} — Errors on your credit report? A team that shows you every step`,
+      title: `${brand} — Credit report help in Texas, in English and Spanish`,
       description: `Tell us what's wrong on your report. Our team prepares and mails the letters, and you see every one, with its dates. In English or Spanish. Results vary.`,
     },
     pricing: {
@@ -248,7 +248,7 @@ const en: SiteCopy = {
     },
     about: {
       title: `About us · ${brand}`,
-      description: `Who we are, who ${bot} is, and the rules we work by.`,
+      description: `Who we are, who ${bot} is (our AI assistant), and the rules we work by, in Texas, in English and Spanish.`,
     },
     rights: {
       title: `Your rights · ${brand}`,
@@ -729,7 +729,7 @@ const en: SiteCopy = {
 const es: SiteCopy = {
   meta: {
     home: {
-      title: `${brand} — ¿Errores en tu reporte de crédito? Un equipo que te muestra cada paso`,
+      title: `${brand} — Ayuda con tu reporte de crédito en Texas, en español`,
       description: `Dinos qué está mal en tu reporte. Nuestro equipo prepara y envía las cartas, y tú ves cada una, con sus fechas. En inglés o en español. Los resultados varían.`,
     },
     pricing: {
@@ -750,7 +750,7 @@ const es: SiteCopy = {
     },
     about: {
       title: `Nosotros · ${brand}`,
-      description: `Quiénes somos, quién es ${bot} y las reglas con las que trabajamos.`,
+      description: `Quiénes somos, quién es ${bot} (nuestro asistente con IA) y las reglas con las que trabajamos en Texas, en inglés y en español.`,
     },
     rights: {
       title: `Tus derechos · ${brand}`,

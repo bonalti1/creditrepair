@@ -78,6 +78,10 @@ export const CAPABILITIES = [
   // and Alti's ad copy drafts, sent to Content or Video Studio (the content team).
   "ads.view",
   "ads.draft",
+  // SEO (src/lib/seo, migration 0039): site health, guides, Search Console, keywords and the local checklist; publishing guides.
+  "seo.view",
+  "seo.edit",
+  "seo.publish",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -130,6 +134,9 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   accounting: "Contabilidad: libros, gastos, conciliación y cierre de mes",
   "ads.view": "Ver los anuncios: gasto, resultados y prospectos por anuncio",
   "ads.draft": "Escribir textos de anuncios con Alti y mandarlos a Contenido o a Video Studio",
+  "seo.view": "Ver el SEO: salud del sitio, guías, búsquedas y palabras clave",
+  "seo.edit": "Escribir guías, seguir frases y marcar la lista local",
+  "seo.publish": "Publicar guías en el sitio y conectar Search Console",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -164,6 +171,9 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   accounting: "Accounting: the books, expenses, reconciliation and month close",
   "ads.view": "See the ads: spend, results and leads per ad",
   "ads.draft": "Write ad copy with Alti and send it to Content or Video Studio",
+  "seo.view": "See SEO: site health, guides, search numbers and keywords",
+  "seo.edit": "Write guides, track phrases and tick the local checklist",
+  "seo.publish": "Publish guides on the website and connect Search Console",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -217,6 +227,10 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       // Ads (migration 0037): spend is money, the owner's; a specialist on the content team drafts ad copy with Alti.
       "ads.view": false,
       "ads.draft": true,
+      // SEO (migration 0039): a specialist writes guides and tracks phrases; only an administrator publishes.
+      "seo.view": true,
+      "seo.edit": true,
+      "seo.publish": false,
     },
   },
   sales: {
@@ -258,6 +272,10 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       // Ads (migration 0037): no spend (sales never sees money) and no ad copy (that is the content team's).
       "ads.view": false,
       "ads.draft": false,
+      // SEO: not sales' work (the website's words are the content team's).
+      "seo.view": false,
+      "seo.edit": false,
+      "seo.publish": false,
     },
   },
 };

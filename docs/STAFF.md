@@ -472,6 +472,23 @@ Video Studio), and Meta's spend beside the books as a reconciliation
 suggestion. The numbers are administrators' (`ads.view`); the content team
 drafts ad copy (`ads.draft`); sales sees none of it. Nothing there changes
 Meta. See `docs/ADS.md`.
+## SEO
+
+«SEO» (`/equipo/seo`, section 2, a sub-tab between Content and Reviews) is how
+the public website gets found: **Site health** (the server reads its own
+public pages, robots.txt and the sitemap and lists each check as pass or fix,
+with why and how; no score, no keys needed), **Guides** (articles in English
+and Spanish at `/guias/<slug>`, drafted by Alti or a person, every legal fact
+with an official source, the claim rules and an SEO checklist, published only
+by an administrator), **Search Console** (read-only clicks, impressions and
+position once the owner connects it; a «Connect» card until then),
+**Keywords & ideas** (Texas phrases tied to their pages, and content gaps that
+become briefs) and **Local SEO** (Google Business Profile and the business's
+details, with who ticked what). Administrators and specialists see and write
+(`seo.view`, `seo.edit`); only an administrator publishes (`seo.publish`);
+sales has no SEO. Guides waiting for approval or sent back, and checks to
+fix, add to section 2's red count. Ask Alti lists «Draft a guide for the
+website» there. See `docs/SEO.md`.
 
 ## What is not done
 

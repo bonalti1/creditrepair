@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { LOCALE_COOKIE, LOCALE_QUERY, localeCookie, parseLocale, PATH_HEADER } from "@/lib/i18n/detect";
+import { PRIVATE_PATHS } from "@/lib/site/routes";
 
 // Session refresh + auth gate for app pages and the staff console. When
 // Supabase isn't configured, everything passes through (demo mode) so the
@@ -38,6 +39,9 @@ const PROTECTED = [
 
 const isProtected = (path: string) => PROTECTED.some((p) => path === p || path.startsWith(`${p}/`));
 
+/** The paths robots.txt keeps out (src/lib/site/routes.ts PRIVATE_PATHS). */
+const isPrivate = (path: string) => PRIVATE_PATHS.some((p) => (p.endsWith("/") ? path.startsWith(p) || path === p.slice(0, -1) : path === p || path.startsWith(`${p}/`)));
+
 export async function proxy(req: NextRequest) {
   const fromLink = parseLocale(req.nextUrl.searchParams.get(LOCALE_QUERY));
   const secure = req.nextUrl.protocol === "https:";
@@ -45,6 +49,8 @@ export async function proxy(req: NextRequest) {
   req.headers.set(PATH_HEADER, req.nextUrl.pathname);
   const withLocale = <T extends NextResponse>(res: T): T => {
     if (fromLink) res.cookies.set(localeCookie(fromLink, secure));
+    // Private pages stay out of search engines, the login redirect included (next.config.mjs sets it on the pages too).
+    if (isPrivate(req.nextUrl.pathname)) res.headers.set("X-Robots-Tag", "noindex, nofollow");
     return res;
   };
 
@@ -125,5 +131,8 @@ export const config = {
     "/derechos",
     "/privacidad",
     "/terminos",
+    // The published guides (src/lib/seo, docs/SEO.md): ?lang= as on every page.
+    "/guias",
+    "/guias/:path*",
   ],
 };

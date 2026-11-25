@@ -10,6 +10,8 @@ import { getLeadData } from "@/lib/leads/data";
 import type { Lead } from "@/lib/leads/types";
 import { useMail } from "@/lib/mail/useMail";
 import { publishBadges } from "@/lib/staff/navBadges";
+import { needsFor, readLocal as readDemoSeo } from "@/lib/seo/store";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { useStaff } from "@/lib/staff/useStaff";
 
 // The red circles' numbers that the shell can work out on any page
@@ -106,5 +108,50 @@ export default function BadgeProbe() {
     });
   }, [ready, clients, now, furnishers, gaps, env, locale, viewer, leads, worksLeads, can]);
 
+  return <SeoBadge />;
+}
+
+// SEO's own count (src/lib/seo/needs.ts), added to the Content group: guides
+// waiting for approval or sent back, and site-health checks to fix. With a
+// database it is the server's (?view=needs, every five minutes); in the demo,
+// this browser's copy, again whenever it changes.
+const SEO_REFRESH_MS = 5 * 60_000;
+
+function SeoBadge() {
+  const { viewer, can } = useStaff();
+  const mayView = can("seo.view");
+  useEffect(() => {
+    if (!viewer || !mayView) {
+      publishBadges("seo", {});
+      return;
+    }
+    let live = true;
+    const run = async () => {
+      if (document.hidden) return;
+      if (!isSupabaseConfigured()) {
+        if (live) publishBadges("seo", { content: needsFor(readDemoSeo(), viewer.role) });
+        return;
+      }
+      try {
+        const res = await fetch("/api/staff/seo?view=needs", { cache: "no-store" });
+        const body = res.ok ? ((await res.json()) as { total?: number }) : null;
+        if (live) publishBadges("seo", { content: typeof body?.total === "number" ? body.total : null });
+      } catch {
+        if (live) publishBadges("seo", {});
+      }
+    };
+    void run();
+    const timer = window.setInterval(run, SEO_REFRESH_MS);
+    window.addEventListener("credalti-seo-changed", run);
+    window.addEventListener("storage", run);
+    document.addEventListener("visibilitychange", run);
+    return () => {
+      live = false;
+      window.clearInterval(timer);
+      window.removeEventListener("credalti-seo-changed", run);
+      window.removeEventListener("storage", run);
+      document.removeEventListener("visibilitychange", run);
+    };
+  }, [viewer, mayView]);
   return null;
 }

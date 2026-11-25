@@ -475,6 +475,7 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     ],
     playbooks: [],
   },
+  "/equipo/seo": { title: "SEO", what: "Cómo encuentran el sitio: salud del sitio, guías, números de Search Console, frases seguidas y la lista local. Sin puntaje: cada revisión pasa o dice qué arreglar.", steps: ["Corre la revisión del sitio y arregla lo que liste, lo más importante primero.", "Escribe una guía (en blanco o con el borrador de Alti), da a cada dato legal una fuente oficial, marca la lista y mándala a aprobación; solo un administrador publica.", "Sigue las frases que importan (solo Texas), convierte los huecos de contenido en encargos, y avanza con el dueño la lista local."], playbooks: [] },
   "/equipo/planes": {
     title: "Planes de cobro",
     what: "Los planes que se ofrecen a los clientes, como en Credit Repair Cloud, y la vista previa de cuándo se cobra.",
@@ -617,6 +618,7 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
     ],
     playbooks: [],
   },
+  "/equipo/seo": { title: "SEO", what: "How the website is found: site health, guides, Search Console numbers, tracked phrases and the local checklist. No score: each check passes or says what to fix.", steps: ["Run the site check and fix what it lists, most important first.", "Write a guide (blank or drafted by Alti), give every legal fact an official source, tick the checklist and send it for approval; only an administrator publishes.", "Track the phrases that matter (Texas only), turn content gaps into briefs, and work through the local to-dos with the owner."], playbooks: [] },
   "/equipo/planes": {
     title: "Billing plans",
     what: "The plans offered to clients, as in Credit Repair Cloud, with a preview of when each charge happens.",
