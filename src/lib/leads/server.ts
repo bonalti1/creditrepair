@@ -30,6 +30,8 @@ export interface IncomingLead {
   contactId: string | null;
   campaign: string | null;
   utm: LeadUtm | null;
+  /** The Meta ad the form came from (its id, that a Facebook click id was there): the Ads Manager credits the lead to it (docs/ADS.md). */
+  ad?: { adId?: string; fbclid?: true; via: "form" } | null;
   consentText: string;
   consentAt: string;
   /** What HighLevel says about the assigned user (handle, email or name). */
@@ -71,7 +73,7 @@ export async function receiveLead(db: SupabaseClient, lead: IncomingLead, now: D
   };
   const match = matchLead({ phone: lead.phone, contactId: lead.contactId }, known, now);
   const at = now.toISOString();
-  const touch = { at, source: lead.source, ...(lead.campaign ? { campaign: lead.campaign } : {}), ...(lead.utm ? { utm: lead.utm } : {}) };
+  const touch = { at, source: lead.source, ...(lead.campaign ? { campaign: lead.campaign } : {}), ...(lead.utm ? { utm: lead.utm } : {}), ...(lead.ad ? { ad: lead.ad } : {}) };
 
   if (match.action === "existing_client") {
     // A client already: link the HighLevel contact if none is on file. Never re-attribute to a partner.

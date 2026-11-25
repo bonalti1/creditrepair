@@ -1,0 +1,20 @@
+{
+  "data": [
+    {
+      "id": "120200000000000002",
+      "name": "Retargeting · Site visitors",
+      "effective_status": "PAUSED",
+      "objective": "OUTCOME_TRAFFIC",
+      "special_ad_categories": [],
+      "lifetime_budget": "50000"
+    },
+    {
+      "id": "not-a-meta-id",
+      "name": "<script>bad</script>"
+    }
+  ],
+  "paging": {
+    "cursors": { "before": "QVFK", "after": "QVFL" },
+    "next": "https://evil.example.com/steal?token=1"
+  }
+}

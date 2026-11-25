@@ -74,6 +74,10 @@ export const CAPABILITIES = [
   "content.share",
   // The accounting department (src/lib/accounting, migration 0036): the books, expenses, reconciliation, month close.
   "accounting",
+  // The Ads Manager (src/lib/ads, migration 0037): the ad spend, results and leads per ad (money: administrators);
+  // and Alti's ad copy drafts, sent to Content or Video Studio (the content team).
+  "ads.view",
+  "ads.draft",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -124,6 +128,8 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "content.publish": "Conectar las redes sociales y activar la publicación",
   "content.share": "Ver el kit de marca y el material aprobado para socios",
   accounting: "Contabilidad: libros, gastos, conciliación y cierre de mes",
+  "ads.view": "Ver los anuncios: gasto, resultados y prospectos por anuncio",
+  "ads.draft": "Escribir textos de anuncios con Alti y mandarlos a Contenido o a Video Studio",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -156,6 +162,8 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "content.publish": "Connect social accounts and turn publishing on",
   "content.share": "See the brand kit and the approved partner material",
   accounting: "Accounting: the books, expenses, reconciliation and month close",
+  "ads.view": "See the ads: spend, results and leads per ad",
+  "ads.draft": "Write ad copy with Alti and send it to Content or Video Studio",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -206,6 +214,9 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "content.publish": false,
       "content.share": true,
       accounting: false,
+      // Ads (migration 0037): spend is money, the owner's; a specialist on the content team drafts ad copy with Alti.
+      "ads.view": false,
+      "ads.draft": true,
     },
   },
   sales: {
@@ -244,6 +255,9 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "content.publish": false,
       "content.share": true,
       accounting: false,
+      // Ads (migration 0037): no spend (sales never sees money) and no ad copy (that is the content team's).
+      "ads.view": false,
+      "ads.draft": false,
     },
   },
 };

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { sanitizeAttribution } from "@/lib/ads/capture";
 import { NO_SOFT_PULL, SOFT_PULL_CONSENT, softPullProvider } from "@/lib/credit/softPull";
 import { reportError } from "@/lib/observability/errors";
 import { readJsonBody } from "@/lib/security/body";
@@ -31,7 +32,8 @@ import { getServerSupabase, getSessionUser } from "@/lib/supabase/server";
 const stages = [...SIGNUP_STEPS, "done"] as [string, ...string[]];
 
 const bodySchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("start"), locale: z.enum(["es", "en"]).optional() }).strict(),
+  // `attribution`: an ad link's marketing tags (src/lib/ads/capture.ts), checked again by sanitizeAttribution.
+  z.object({ action: z.literal("start"), locale: z.enum(["es", "en"]).optional(), attribution: z.unknown().optional() }).strict(),
   z
     .object({
       action: z.literal("progress"),
@@ -74,7 +76,7 @@ export async function POST(req: Request) {
     if (again) return again;
     if (!db) return NextResponse.json({ caseRef: newCaseRef(), token: null, live: false });
     try {
-      const started = await startSignupCase(db, { locale: input.locale ?? "en" });
+      const started = await startSignupCase(db, { locale: input.locale ?? "en", attribution: sanitizeAttribution(input.attribution) });
       return NextResponse.json({ ...started, live: true });
     } catch (error) {
       await reportError(error, { where: "api/signup start" });

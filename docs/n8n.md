@@ -54,6 +54,16 @@ The app exposes everything n8n needs; n8n only provides the clock.
   it starts off), retries temporary errors, and reads the numbers of recent
   posts. Running it twice posts nothing twice. See `docs/CONTENT.md`.
 
+## Workflow 8: the Ads Manager's read of Meta (every 3 hours)
+
+- `POST {APP_URL}/api/cron/ads`, same header. Reads the Meta ad account (READ
+  ONLY: the account, its campaigns, ad sets and ads, and the last 7 days of
+  numbers per ad; 90 on the first run) and caches them for `/equipo/anuncios`.
+  It never changes anything in Meta. Until `META_ADS_ACCESS_TOKEN` and
+  `META_AD_ACCOUNT_ID` are set it answers `{"skipped": "not_configured"}` and
+  calls nothing. Safe to run twice (the numbers are upserted per ad per day).
+  See `docs/ADS.md`.
+
 ## Workflow 2 (optional): notification relays
 
 For ad-hoc messages (e.g. manual "attack ready" nudges), call

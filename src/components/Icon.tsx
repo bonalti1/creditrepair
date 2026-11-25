@@ -34,6 +34,9 @@ const PATHS = {
   dashboard: "M4 4h7v9H4zM13 4h7v5h-7zM13 11h7v9h-7zM4 15h7v5H4z",
   inbox: "M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM3 13h5l1.5 3h5l1.5-3h5",
   bell: "M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0",
+  // The Ads Manager (src/lib/ads).
+  megaphone: "M4 10.5v3a1 1 0 0 0 1 1h2l8 4.5V5L7 9.5H5a1 1 0 0 0-1 1zM18.5 9.5a3 3 0 0 1 0 5M7.5 14.5 9 19.5h2.5",
+  play: "M8 5.5v13l10.5-6.5z",
 } as const;
 
 export type IconName = keyof typeof PATHS;

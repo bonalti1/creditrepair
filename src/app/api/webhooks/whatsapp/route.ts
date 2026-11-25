@@ -87,6 +87,24 @@ interface InboundMessage {
   from: string;
   text?: { body: string };
   type: string;
+  /** A click-to-WhatsApp ad's referral on the first message: source_id is the Meta ad's id. */
+  referral?: { source_type?: string; source_id?: string };
+}
+
+/**
+ * A new number that wrote from a click-to-WhatsApp ad: its lead starts with
+ * the ad in its first touch (docs/ADS.md), before the message's own trigger
+ * creates it. First touch wins: a lead that already exists is left as it is.
+ * Only the ad's id is kept, never the referral's other fields.
+ */
+async function leadFromAd(db: NonNullable<ReturnType<typeof getAdminClient>>, phone: string, msg: InboundMessage): Promise<void> {
+  const adId = msg.referral?.source_type === "ad" ? String(msg.referral.source_id ?? "").trim() : "";
+  if (!/^\d{3,25}$/.test(adId)) return;
+  const at = new Date().toISOString();
+  await db
+    .from("leads")
+    .upsert({ phone_e164: phone, source: "whatsapp", first_touch: { channel: "whatsapp", at, ad: { adId, via: "ctwa" } }, created_at: at }, { onConflict: "phone_e164", ignoreDuplicates: true })
+    .then(() => undefined, () => undefined);
 }
 
 export async function POST(req: Request) {
@@ -136,6 +154,7 @@ export async function POST(req: Request) {
       const { data: profile } = await db.from("profiles").select("id, locale").eq("phone_e164", phone).maybeSingle();
       userId = (profile?.id as string | undefined) ?? null;
       savedLocale = (profile?.locale as string | undefined) ?? null;
+      if (!userId) await leadFromAd(db, phone, msg);
 
       const fresh = await storeMessage(db, {
         userId,

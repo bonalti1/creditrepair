@@ -11,6 +11,7 @@ import { businessMetrics, inRange, periodRange } from "../staff/metrics";
 import { formatCents } from "../accounting/money";
 import type { BooksSnapshot } from "./books";
 import { contentNeeds, type ContentSummary } from "./content";
+import type { AdsSummary } from "../ads/report";
 
 // The Overview (docs/CONTROL.md): one card per department, each with real
 // numbers from the records and a "Needs you" count that opens the right
@@ -24,7 +25,7 @@ import { contentNeeds, type ContentSummary } from "./content";
 // Leads needs leads.work, Content content.view, Partners partners.view, Tech
 // health business.view.
 
-export type CardKey = "leads" | "clients" | "money" | "content" | "support" | "partners" | "health";
+export type CardKey = "leads" | "clients" | "money" | "content" | "ads" | "support" | "partners" | "health";
 
 export interface CardMetric {
   key: string;
@@ -57,6 +58,8 @@ export interface ControlExtras {
   unavailable?: string | null;
   /** The content board in numbers (control/content.ts), for content.view; null: not for this role, or it could not be read. */
   content?: ContentSummary | null;
+  /** The Ads Manager's last 7 days (src/lib/ads/report.ts adsSummary), for ads.view; null: not for this role, or it could not be read. */
+  ads?: AdsSummary | null;
 }
 
 export type HealthKey = "whatsapp_inbound" | "highlevel_lead" | "lob_event" | "autopilot_message" | "cron_leads" | "staff_digest";
@@ -91,7 +94,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const T = {
   en: {
     noData: "No data yet",
-    cards: { leads: "Leads & sales", clients: "Clients in progress", money: "Money", content: "Content", support: "Support", partners: "Partners", health: "Tech health" },
+    cards: { leads: "Leads & sales", clients: "Clients in progress", money: "Money", content: "Content", ads: "Ads", support: "Support", partners: "Partners", health: "Tech health" },
     needsYou: "Needs you",
     leads: {
       open: "Open leads",
@@ -140,6 +143,17 @@ const T = {
       readError: "The content board could not be read right now.",
       open: "Open Content",
     },
+    ads: {
+      spend: "Ad spend, 7 days (Meta)",
+      leads: "Leads from ads, 7 days",
+      costPerLead: "Cost per lead (Credalti)",
+      turnOff: "Ads to turn off, still spending",
+      signed: (n: number) => `${n} signed`,
+      sample: "Sample numbers: the demo has no Meta account.",
+      notConnected: "Meta is not connected yet: no spend is read. See Ads, Platforms.",
+      readError: "The ads could not be read right now.",
+      open: "Open Ads",
+    },
     support: {
       questions: "Client questions waiting",
       leadsWaiting: "Lead conversations waiting",
@@ -161,7 +175,7 @@ const T = {
   },
   es: {
     noData: "Todavía sin datos",
-    cards: { leads: "Prospectos y ventas", clients: "Clientes en proceso", money: "Dinero", content: "Contenido", support: "Atención", partners: "Socios", health: "Estado técnico" },
+    cards: { leads: "Prospectos y ventas", clients: "Clientes en proceso", money: "Dinero", content: "Contenido", ads: "Anuncios", support: "Atención", partners: "Socios", health: "Estado técnico" },
     needsYou: "Te necesita",
     leads: {
       open: "Prospectos abiertos",
@@ -209,6 +223,17 @@ const T = {
       none: "Todavía no hay piezas en el tablero. Aparecen aquí en cuanto alguien empieza una en Contenido.",
       readError: "No se pudo leer el tablero de contenido ahora.",
       open: "Abrir Contenido",
+    },
+    ads: {
+      spend: "Gasto en anuncios, 7 días (Meta)",
+      leads: "Prospectos de anuncios, 7 días",
+      costPerLead: "Costo por prospecto (Credalti)",
+      turnOff: "Anuncios por apagar que siguen gastando",
+      signed: (n: number) => `${n} ${n === 1 ? "firmado" : "firmados"}`,
+      sample: "Números de muestra: la demo no tiene cuenta de Meta.",
+      notConnected: "Meta todavía no está conectada: no se lee ningún gasto. Ve a Anuncios, Plataformas.",
+      readError: "No se pudieron leer los anuncios ahora.",
+      open: "Abrir Anuncios",
     },
     support: {
       questions: "Preguntas de clientes esperando",
@@ -382,6 +407,30 @@ export function overviewCards(input: OverviewInput): DeptCard[] {
                 publishing,
               ],
         needsYou: { count: needs.count, href: needs.href, label: t.needsYou },
+        link,
+      });
+    }
+  }
+
+  // Ads: for the owner (ads.view: spend is money; never sales).
+  if (input.can("ads.view")) {
+    const ads = input.extras?.ads ?? null;
+    const link = { href: "/equipo/anuncios", label: t.ads.open };
+    const needsHref = "/equipo/anuncios?vista=resultados&filtro=turn_off";
+    if (!ads || ads.spend7dCents === null) {
+      const why = !ads ? t.ads.readError : t.ads.notConnected;
+      cards.push({ key: "ads", title: t.cards.ads, metrics: [noData("spend", t.ads.spend, why)], needsYou: { count: ads ? 0 : null, href: needsHref, label: t.needsYou }, link });
+    } else {
+      cards.push({
+        key: "ads",
+        title: t.cards.ads,
+        metrics: [
+          { key: "spend", label: t.ads.spend, value: dollars(ads.spend7dCents), hint: ads.sample ? t.ads.sample : undefined },
+          { key: "leads", label: t.ads.leads, value: num(ads.leads7d ?? 0), hint: ads.signed7d ? t.ads.signed(ads.signed7d) : undefined },
+          ads.costPerLead7dCents === null ? noData("cpl", t.ads.costPerLead, t.ads.notConnected) : { key: "cpl", label: t.ads.costPerLead, value: dollars(ads.costPerLead7dCents) },
+          { key: "turnoff", label: t.ads.turnOff, value: num(ads.turnOff ?? 0) },
+        ],
+        needsYou: { count: ads.turnOff, href: needsHref, label: t.needsYou },
         link,
       });
     }

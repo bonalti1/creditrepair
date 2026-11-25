@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { workQueue } from "@/lib/autopilot/queue";
 import { useAutopilot } from "@/lib/autopilot/useAutopilot";
+import { fetchAdsSummary } from "@/lib/ads/data";
 import { overviewCards } from "@/lib/control/overview";
 import { getLeadData } from "@/lib/leads/data";
 import type { Lead } from "@/lib/leads/types";
@@ -22,6 +23,7 @@ import { useStaff } from "@/lib/staff/useStaff";
 //   Leads        ← the Leads & sales card's (waiting + handed over)
 //   Fulfillment  ← the Support card's (client questions waiting)
 //   Money        ← the Money card's (payment notices), only with billing.view
+//   Marketing    ← plus the Ads Manager's ads to turn off that still spend, only with ads.view (its own source)
 
 const REFRESH_MS = 60_000;
 
@@ -58,6 +60,30 @@ export default function BadgeProbe() {
       document.removeEventListener("visibilitychange", run);
     };
   }, [viewer, worksLeads, leadData]);
+
+  // The ads to turn off that still spend (src/lib/ads): once, then every minute while the page is visible.
+  const seesAds = can("ads.view");
+  useEffect(() => {
+    if (!viewer || !seesAds) {
+      publishBadges("ads", {});
+      return;
+    }
+    let live = true;
+    const run = () => {
+      if (document.hidden) return;
+      void fetchAdsSummary(viewer).then((summary) => {
+        if (live) publishBadges("ads", { content: summary?.turnOff ?? null });
+      });
+    };
+    run();
+    const timer = window.setInterval(run, REFRESH_MS);
+    document.addEventListener("visibilitychange", run);
+    return () => {
+      live = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", run);
+    };
+  }, [viewer, seesAds]);
 
   // A new page re-reads the clients at most once a minute, so a notice handled on one screen leaves the circle.
   useEffect(() => {

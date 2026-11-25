@@ -17,8 +17,9 @@ import { HOUSE_RULE_TEXT, PLAYBOOKS, SCREEN_HELPS } from "./playbook";
 //     (staff/drafts.ts, checked by checkStaffReply and draftProblems), the
 //     saved answers Alti sends by himself (staff/answers.ts, checked again),
 //     the lead drafts and the lead autopilot (leads/, fixed or approved text
-//     only, off until an administrator turns it on) and the content writing
-//     assistant (content/assist.ts). Only the ones the member's role may use.
+//     only, off until an administrator turns it on), the content writing
+//     assistant (content/assist.ts) and the ad copy drafts (ads/copy.ts). Only
+//     the ones the member's role may use.
 //   - «Search the playbook»: the team's written help, searched by words. It
 //     finds what the team wrote; it never makes up a sentence, so nothing here
 //     needs the claim rules (src/lib/compliance/guardrails.ts) beyond what the
@@ -45,7 +46,11 @@ const JOBS: Partial<Record<NavGroupKey, AltiJob[]>> = {
     { id: "client_draft", icon: "sparkle", needs: "clients.reply", href: "/equipo/clientes?aviso=question_waiting", gate: "draft" },
     { id: "saved_answers", icon: "chat", needs: "clients.reply", href: "/equipo/respuestas", gate: "approved" },
   ],
-  content: [{ id: "content_words", icon: "doc", needs: "content.edit", href: "/equipo/contenido", gate: "words" }],
+  content: [
+    { id: "content_words", icon: "doc", needs: "content.edit", href: "/equipo/contenido", gate: "words" },
+    // The Ads Manager (src/lib/ads/copy.ts): ad copy drafts, checked against the claim rules and the credit ad checklist.
+    { id: "ad_copy", icon: "megaphone", needs: "ads.draft", href: "/equipo/anuncios?vista=textos", gate: "draft" },
+  ],
 };
 
 /** What Alti already does in this section, for this member. */
@@ -91,6 +96,10 @@ export const ALTI_HELP_TEXT = defineText({
       content_words: {
         title: "Write a piece's words",
         desc: "Open a piece and use my writing assistant: hooks, script and caption in English and Spanish, checked against the claim and brand rules. A person edits, saves and asks for approval.",
+      },
+      ad_copy: {
+        title: "Draft Meta ad copy",
+        desc: "In Ads, «Ad copy»: hooks, headline, primary text and a video script in English and Spanish, checked against the claim rules and the credit ad checklist (no promised results, never “free”, no age, gender or ZIP code). A person edits it and sends it to Content or Video Studio; nothing reaches Meta.",
       },
     },
     searchLabel: "Search the team's playbook",
@@ -141,6 +150,10 @@ export const ALTI_HELP_TEXT = defineText({
       content_words: {
         title: "Escribir las palabras de una pieza",
         desc: "Abre una pieza y usa mi asistente de escritura: ganchos, guion y texto en inglés y español, revisados con las reglas de lo que se puede decir y de la marca. Una persona edita, guarda y pide la aprobación.",
+      },
+      ad_copy: {
+        title: "Borradores de textos para anuncios de Meta",
+        desc: "En Anuncios, «Textos con Alti»: ganchos, título, texto principal y guion de video en inglés y español, revisados con las reglas de lo que se puede decir y la lista para anuncios de crédito (sin resultados prometidos, nunca «gratis», sin edad, género ni código postal). Una persona lo edita y lo manda a Contenido o a Video Studio; nada llega a Meta.",
       },
     },
     searchLabel: "Buscar en la guía del equipo",

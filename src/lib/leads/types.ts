@@ -28,6 +28,8 @@ export interface LeadFirstTouch {
   partnerCode?: string | null;
   /** The chat signup's case reference ("CR-7KQ4M"). */
   caseRef?: string | null;
+  /** The Meta ad it came from, when a tagged link, a click-to-WhatsApp ad or a form said so (docs/ADS.md). */
+  ad?: { adId?: string | null; adsetId?: string | null; campaignId?: string | null; fbclid?: boolean; via?: "link" | "ctwa" | "form" | null } | null;
 }
 
 export interface Lead {

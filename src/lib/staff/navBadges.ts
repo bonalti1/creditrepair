@@ -12,7 +12,11 @@ import type { NavGroupKey } from "./nav";
 //     clients, work queue and lead list the Overview reads (StaffShell's
 //     BadgeProbe, through the member's own connection);
 //   - the Overview page reports the ones only it reads (Content, the books on
-//     Money, Partners) when it opens.
+//     Money, Partners) when it opens;
+//   - the Ads Manager's count (ads marked "Turn off" that are still spending,
+//     src/lib/ads/report.ts) is ADDED to Marketing's circle, on any page, for a
+//     member who may see the ads (BadgeProbe). It is its own source, so the
+//     Overview's Content number never counts it twice.
 //
 // A group with no number known shows no circle: "no data" is never a 0 or a
 // guess. «✓ Clear» hides a group's circle for this member in this browser
@@ -21,10 +25,10 @@ import type { NavGroupKey } from "./nav";
 
 export type BadgeCounts = Partial<Record<NavGroupKey, number>>;
 
-/** Who reported a number: the shell's own probe, or the Overview. Each source replaces only its own numbers. */
-type Source = "probe" | "overview";
+/** Who reported a number: the shell's own probe, the Overview, or the Ads Manager. Each source replaces only its own numbers. */
+type Source = "probe" | "overview" | "ads";
 
-const sources: Record<Source, BadgeCounts> = { probe: {}, overview: {} };
+const sources: Record<Source, BadgeCounts> = { probe: {}, overview: {}, ads: {} };
 let merged: BadgeCounts = {};
 const listeners = new Set<() => void>();
 
@@ -33,6 +37,8 @@ function recompute() {
   // The Overview's numbers are the complete ones (it reads the books and the server's extras too); the probe fills the rest.
   for (const [key, value] of Object.entries(sources.probe) as Array<[NavGroupKey, number]>) next[key] = value;
   for (const [key, value] of Object.entries(sources.overview) as Array<[NavGroupKey, number]>) next[key] = value;
+  // The ads are counted by no other source: added on top of the group's number.
+  for (const [key, value] of Object.entries(sources.ads) as Array<[NavGroupKey, number]>) next[key] = (next[key] ?? 0) + value;
   merged = next;
   for (const listener of listeners) listener();
 }
@@ -54,6 +60,7 @@ export function publishBadges(source: Source, counts: Partial<Record<NavGroupKey
 export function resetBadges(): void {
   sources.probe = {};
   sources.overview = {};
+  sources.ads = {};
   recompute();
 }
 

@@ -6,6 +6,7 @@ import { BLOCK_TEXT, BLOCK_TEXT_EN, FOLLOWUP_TEXT_EN } from "../autopilot/follow
 import { workQueue, STATUS_LABELS } from "../autopilot/queue";
 import { RESOLUTION_LABEL_EN } from "../autopilot/resolutions";
 import type { AutopilotEnv } from "../autopilot/types";
+import { ADS_TEXT } from "../ads/text";
 import { checkClaimGuardrails } from "../compliance/guardrails";
 import { CHANNEL_LABEL_EN } from "../leads/source";
 import { CHIP_TEXT_EN, chipText } from "../letters/versions/source";
@@ -137,6 +138,8 @@ const BILINGUAL_TABLES: Record<string, Record<StaffLocale, unknown>> = {
   STAFF_MESSAGE_RULE_TEXT,
   DIGEST_TEMPLATE_BODIES,
   DRAFT_MESSAGES,
+  // The Ads Manager (docs/ADS.md).
+  ADS_TEXT,
 };
 
 // English-only twins of Spanish tables that live where their rule lives.

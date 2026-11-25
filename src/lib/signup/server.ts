@@ -40,11 +40,16 @@ export function signupCaseFromRow(row: Row): SignupCase {
 export const tokenHash = (token: string) => sha256Hex(`credalti-signup:v1:${token}`);
 
 /** A new signup with a fresh reference. Retries the rare collision. */
-export async function startSignupCase(db: SupabaseClient, input: { locale: "es" | "en" }, refs: () => string = () => newCaseRef()): Promise<{ caseRef: string; token: string }> {
+export async function startSignupCase(
+  db: SupabaseClient,
+  input: { locale: "es" | "en"; attribution?: object | null },
+  refs: () => string = () => newCaseRef(),
+): Promise<{ caseRef: string; token: string }> {
   const token = newResumeToken();
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const caseRef = refs();
-    const { error } = await db.from("signup_cases").insert({ case_ref: caseRef, token_hash: tokenHash(token), locale: input.locale });
+    // An ad link's marketing tags (migration 0037), copied into the lead's first touch when the account links.
+    const { error } = await db.from("signup_cases").insert({ case_ref: caseRef, token_hash: tokenHash(token), locale: input.locale, ...(input.attribution ? { attribution: input.attribution } : {}) });
     if (!error) return { caseRef, token };
     if (error.code !== "23505") throw new Error(`signup_cases: ${error.message}`);
   }

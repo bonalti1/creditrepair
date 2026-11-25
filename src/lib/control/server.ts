@@ -4,6 +4,7 @@ import { can } from "../staff/permissions";
 import type { StaffMember } from "../staff/access";
 import { loadPieces, loadPublishSettings, loadSchedules } from "../content/server";
 import { contentSummary, type ContentSummary } from "./content";
+import { loadAdsSummary } from "../ads/server";
 import type { ControlExtras, HealthSignal } from "./overview";
 
 // What the Overview and the Today list need that the clients list does not
@@ -109,9 +110,12 @@ export async function loadControlExtras(reader: SupabaseClient, db: SupabaseClie
   }
 
   const content = can(member.role, "content.view") ? await loadContentSummary(reader, now) : null;
+  // The Ads Manager's last 7 days, through the member's own connection (its tables are administrators' only, migration 0037).
+  const ads = can(member.role, "ads.view") ? await loadAdsSummary(reader, now, process.env).catch(() => null) : null;
 
   return {
     content,
+    ads,
     partnerNotesWaiting: notes ? partnerNotes.length : null,
     reviewRequests30d: reviews ? reviews.length : null,
     complaints7d: complaints,

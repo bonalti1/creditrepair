@@ -31,6 +31,8 @@ export const MORE_NAV: NavItem[] = [
   // Content (src/lib/content): the board for content.view; the brand kit and partner material for everyone with content.share.
   { href: "/equipo/contenido", label: "content", icon: "grid", needs: "content.share" },
   { href: "/equipo/contabilidad", label: "accounting", icon: "calc", needs: "accounting" },
+  // The Ads Manager (src/lib/ads, docs/ADS.md): the numbers for ads.view (administrators); Alti's ad copy for the content team (ads.draft).
+  { href: "/equipo/anuncios", label: "ads", icon: "megaphone", needs: "ads.draft" },
   { href: "/equipo/invitar", label: "invite", icon: "mail", needs: "clients.invite" },
   { href: "/equipo/acreedores", label: "creditors", icon: "doc", needs: "rounds.send" },
   { href: "/equipo/actividad", label: "activity", icon: "clock" },
@@ -78,7 +80,8 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   { key: "overview", number: "0", icon: "dashboard", hrefs: ["/equipo/control"] },
   { key: "day", number: "1", icon: "home", hrefs: ["/equipo", "/equipo/actividad"] },
-  { key: "content", number: "2", icon: "speaker", hrefs: ["/equipo/contenido", "/equipo/resenas"] },
+  // Marketing: Content, Video Studio, Ads, SEO, Reviews (the other two are added beside Ads).
+  { key: "content", number: "2", icon: "speaker", hrefs: ["/equipo/contenido", "/equipo/anuncios", "/equipo/resenas"] },
   { key: "leads", number: "3", icon: "inbox", hrefs: ["/equipo/leads", "/equipo/invitar"] },
   { key: "clients", number: "4", icon: "person", hrefs: ["/equipo/clientes", "/equipo/respuestas", "/equipo/piloto", "/equipo/llamadas"], also: ["/equipo/enviar", "/equipo/imprimir"] },
   { key: "money", number: "5", icon: "calc", hrefs: ["/equipo/contabilidad", "/equipo/cobros", "/equipo/planes"] },

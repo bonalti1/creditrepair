@@ -12,6 +12,7 @@ import { ID_TYPE_QUESTION } from "@/lib/aftercare/itin";
 import { ID_TYPE_KEY } from "@/lib/aftercare/useAftercare";
 import { isFullName } from "@/lib/agreement/signature";
 import { deadlineMoment } from "@/lib/agreement/format";
+import { attributionFromSearch, readAttribution, sanitizeAttribution } from "@/lib/ads/capture";
 import { aiByline, BRAND } from "@/lib/brand";
 import { ALL_STATES, NOT_OPEN_COPY, stateLaw } from "@/lib/compliance/states";
 import { useOpenStates } from "@/lib/compliance/useOpenStates";
@@ -263,7 +264,9 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
     const invite = parseInvite(new URLSearchParams(window.location.search));
     if (invite?.ref) save("bonalti.ref", invite.ref);
     if (invite?.partner) save("bonalti.partner", invite.partner);
-    fetch("/api/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", locale }) })
+    // The ad that brought them, if a tagged link did (src/lib/ads/capture.ts): marketing tags only.
+    const attribution = readAttribution() ?? sanitizeAttribution(attributionFromSearch(window.location.search));
+    fetch("/api/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", locale, ...(attribution ? { attribution } : {}) }) })
       .then((r) => (r.ok ? (r.json() as Promise<{ caseRef?: string; token?: string | null }>) : null))
       .catch(() => null)
       .then((body) => {

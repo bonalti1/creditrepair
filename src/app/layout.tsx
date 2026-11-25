@@ -5,6 +5,7 @@ import { APP_ICONS, BRAND } from "@/lib/brand";
 import { TEXT_SIZE_SCRIPT } from "@/lib/ux/textSizeCore";
 import { documentLang, inRequestLocale } from "@/lib/i18n/server";
 import { siteUrl } from "@/lib/site/routes";
+import AttributionCapture from "@/components/AttributionCapture";
 
 // The brand kit's typefaces (brand/typography/TYPOGRAPHY.md, confirmed by the
 // owner): Inter for body and interface text, Poppins for headings and display
@@ -68,7 +69,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* "Letra grande" (src/lib/ux/textSize.ts): applied before the first paint, so nothing jumps. */}
         <script dangerouslySetInnerHTML={{ __html: TEXT_SIZE_SCRIPT }} />
       </head>
-      <body className="font-sans">{children}</body>
+      <body className="font-sans">
+        {children}
+        {/* An ad link's marketing tags, kept so the signup can credit the lead to its ad (src/lib/ads/capture.ts). */}
+        <AttributionCapture />
+      </body>
     </html>
   );
 }

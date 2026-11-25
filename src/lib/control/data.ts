@@ -1,3 +1,4 @@
+import { demoAdsSummary } from "../ads/data";
 import { readDemoContentBoard } from "../content/store";
 import { readDemoThreads } from "../partners/portalDemo";
 import { isDemoMode } from "../supabase/config";
@@ -78,6 +79,8 @@ export function getControlData(viewer: Viewer | null, locale: StaffLocale): Cont
         }
         return {
           content,
+          // The Ads Manager's sample account (src/lib/ads/demo.ts), labelled as sample on the card.
+          ads: can(viewer?.role, "ads.view") ? demoAdsSummary() : null,
           partnerNotesWaiting: partnerNotes.length,
           partnerNotes,
           reviewRequests30d: null,

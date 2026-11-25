@@ -331,7 +331,8 @@ describe("the Overview: real numbers, by role", () => {
     expect(overviewCards(base("sales")).map((c) => c.key)).toEqual(["leads", "clients", "support", "partners"]);
     // Content (docs/CONTROL.md «Content») is the content team's: administrators and specialists.
     expect(overviewCards(base("specialist")).map((c) => c.key)).toEqual(["clients", "money", "content", "support"]);
-    expect(overviewCards(base("admin")).map((c) => c.key)).toEqual(["leads", "clients", "money", "content", "support", "partners", "health"]);
+    // Ads (docs/ADS.md) are the owner's: spend is money (ads.view).
+    expect(overviewCards(base("admin")).map((c) => c.key)).toEqual(["leads", "clients", "money", "content", "ads", "support", "partners", "health"]);
   });
 
   it("what could not be read says 'No data yet' and why, never 0", () => {

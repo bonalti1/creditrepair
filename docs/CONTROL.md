@@ -47,6 +47,7 @@ that opens the screen where the work is done:
 | Clients in progress | signed (in the 3-day window), waiting on documents, report and review, rounds ready, mailed and waiting on the bureaus, new report in, paused, after-care | the work queue minus unsigned agreements → `/equipo` | everyone (their own clients, by the same scopes) |
 | Money | collected this month, charges that failed, scheduled in the next 30 days (the dashboard's own rule); for the owner also this month's **net revenue, expenses and net profit from the books**, and «Open Accounting» | payment notices → `/equipo/clientes?aviso=payment_past_due` | `billing.view`: **never sales**; the books' lines need `accounting` |
 | Content | waiting for review, scheduled to post this week (and approved but not scheduled), posted this week, failed posts, automatic publishing on or off; «Open Content» | approvers: in review + failed → board on «Ready for review»; editors: changes requested of them (theirs and unowned) + failed → board on «Changes requested»; only failures → the failed pieces | `content.view` (administrators and specialists) |
+| Ads | ad spend in the last 7 days (Meta), leads from ads and cost per lead (Credalti, verified), ads to turn off that still spend; «Open Ads». Sample numbers in the demo, "No data yet" until Meta is connected | ads marked "Turn off" still spending → `/equipo/anuncios?vista=resultados&filtro=turn_off` | `ads.view` (administrators: spend is money) |
 | Support | client questions waiting, lead conversations waiting, possible complaints (7 days), review requests sent (30 days) | questions → `/equipo/clientes?aviso=question_waiting` | everyone; reviews with `case.view` |
 | Partners | new referrals (7 days), partner notes the team has not answered | → `/equipo/socios` | `partners.view` |
 | Tech health | when each thing last happened: WhatsApp received, HighLevel lead, Lob mail update, automatic message, the leads job, morning summary | jobs later than expected | `business.view` (the owner) |
@@ -65,9 +66,9 @@ value shows "This part couldn't be shown" in that box only.
 The **departments strip** on top of the Overview (and of Today) has a tile
 for each department the member may open: Leads (`leads.work`), Clients
 (everyone), Content (`content.share`; sales, who has no board, lands on the
-partner kit), Accounting (`accounting`), Partners (`partners.view`) and
-Reviews (everyone), with the card's «Needs you» on the tile when there is
-one. Three to a row on a phone, one row from 768 px.
+partner kit), Ads (`ads.view`), Accounting (`accounting`), Partners
+(`partners.view`) and Reviews (everyone), with the card's «Needs you» on the
+tile when there is one. Three to a row on a phone, one row from 768 px.
 
 Tech health is a phase-1 stub of what is checkable now (last times, a
 heartbeat for the leads job: `cron_heartbeats`). Outage alerts and a full
@@ -139,6 +140,14 @@ anything itself:
 - **Navigation**: since the console took ALTO Control's layout (docs/STAFF.md,
   «Navigation and the phone»), Content is section 2 and Accounting section 5
   of the side menu, each with its red circle; on a phone both are in «More».
+- **Ads** (`src/lib/ads`, `docs/ADS.md`): the Ads card and tile read the Ads
+  Manager's last 7 days (`adsSummary`), on the server through the member's
+  own connection (`loadControlExtras` → `loadAdsSummary`; its tables are
+  administrators' only, migration 0037), in the demo from the sample ad
+  account. Section 2 is now «Marketing» (Content, Ads, Reviews; Video Studio
+  and SEO join it). Ad spend never enters the books by itself: Accounting →
+  Expenses shows Meta's spend beside "Advertising: Meta" as a reconciliation
+  suggestion (THE MONEY RULE is cash basis).
 
 ## Leads
 

@@ -122,6 +122,7 @@ export async function POST(req: Request) {
         contactId: lead.contactId,
         campaign: lead.campaign,
         utm: lead.utm,
+        ad: lead.ad,
         consentText: lead.consentText!,
         consentAt: lead.consentAt!,
         salespersonHint: lead.assignedTo,

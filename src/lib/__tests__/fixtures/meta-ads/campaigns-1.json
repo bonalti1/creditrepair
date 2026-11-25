@@ -1,0 +1,17 @@
+{
+  "data": [
+    {
+      "id": "120200000000000001",
+      "name": "WhatsApp · Know your rights (TX)",
+      "effective_status": "ACTIVE",
+      "objective": "OUTCOME_ENGAGEMENT",
+      "special_ad_categories": ["FINANCIAL_PRODUCTS_SERVICES"],
+      "daily_budget": "10000",
+      "created_time": "2026-09-01T10:00:00-0500"
+    }
+  ],
+  "paging": {
+    "cursors": { "before": "QVFI", "after": "QVFJ" },
+    "next": "https://graph.facebook.com/v21.0/act_123456789/campaigns?fields=id&limit=200&after=QVFJ"
+  }
+}

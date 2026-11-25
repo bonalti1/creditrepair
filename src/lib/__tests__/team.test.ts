@@ -687,7 +687,10 @@ describe("team: what the staff routes accept", () => {
     // The accounting department (migration 0036): the accounting capability.
     expect(read("src/app/api/staff/accounting/route.ts")).toMatch(/requireCapability\("accounting"\)/);
     expect(read("src/app/api/staff/accounting/receipt/route.ts")).toMatch(/requireCapability\("accounting"\)/);
-    expect(staffRoutes.length).toBe(38);
+    // The Ads Manager (migration 0037): the numbers for ads.view, Alti's ad copy and the briefs for ads.draft, by action.
+    expect(read("src/app/api/staff/ads/route.ts")).toMatch(/requireCapability\(briefsOnly \? "ads\.draft" : "ads\.view"\)/);
+    expect(read("src/app/api/staff/ads/route.ts")).toMatch(/requireCapability\(CAPABILITY\[input\.action\]\)/);
+    expect(staffRoutes.length).toBe(39);
   });
 });
 

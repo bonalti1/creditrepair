@@ -19,6 +19,7 @@ import Reconcile from "@/components/staff/accounting/Reconcile";
 import Reports from "@/components/staff/accounting/Reports";
 import Taxes from "@/components/staff/accounting/Taxes";
 import { CONTROL_INLINE } from "@/components/staff/accounting/bits";
+import { AdSpendCheck } from "@/components/staff/ads/SpendBooks";
 
 // The accounting department: the business in numbers, from the billing
 // records and what the team enters. Owner and administrators only (the
@@ -116,7 +117,13 @@ function Accounting() {
       <div className="mt-5 min-w-0">
         {tab === "dashboard" && <Dashboard acc={acc} month={month} />}
         {tab === "income" && <Ledger acc={acc} month={month} reveal={reveal} setReveal={setReveal} />}
-        {tab === "expenses" && <Expenses acc={acc} month={month} />}
+        {tab === "expenses" && (
+          <>
+            {/* Meta's ad spend beside "Advertising: Meta": a reconciliation suggestion, never an entry (docs/ADS.md). */}
+            <AdSpendCheck month={month} expenses={acc.book.expenses} />
+            <Expenses acc={acc} month={month} />
+          </>
+        )}
         {tab === "import" && <BankImport acc={acc} />}
         {tab === "reconcile" && <Reconcile acc={acc} reveal={reveal} />}
         {tab === "collections" && <Collections acc={acc} reveal={reveal} />}

@@ -462,6 +462,19 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
   },
   "/equipo/cartas": { title: "Cartas", what: "Las plantillas de las cartas.", steps: ["Solo un administrador las edita."], playbooks: [] },
   "/equipo/contenido": { title: "Contenido", what: "Las piezas de marketing, de la idea a los resultados, con la revisión de cumplimiento y marca.", steps: ["Crea la pieza (en blanco, con plantilla o con Alti) y corrige lo que marque la revisión.", "Marca la lista y mándala a revisión; solo un administrador aprueba.", "Publícala (o prográmala) y agrega los resultados reales."], playbooks: [] },
+  // El Administrador de anuncios (docs/ADS.md).
+  "/equipo/anuncios": {
+    title: "Anuncios",
+    what: "Los anuncios de Meta, solo lectura: gasto, resultados y costo por resultado de Meta, junto a los prospectos y clientes firmados que de verdad trajeron (los nuestros). Cada anuncio tiene un veredicto con reglas escritas en la pantalla. Aquí nada cambia Meta.",
+    steps: [
+      "Elige las fechas (7, 14, 30 o 90 días, u otras) y mira primero el aviso rojo: un anuncio marcado «Apagar» que sigue gastando se apaga en el Administrador de anuncios de Meta.",
+      "Toca un anuncio para ver su video o imagen, cada número (de Meta y de Credalti), sus prospectos y qué hacer.",
+      "Mira «Qué hacer después»: lo que tienen en común los ganadores.",
+      "En «Textos con Alti», escribe el siguiente anuncio con Alti, corrige lo que marque la revisión y mándalo a Contenido o a Video Studio.",
+      "Cada mes, en «Gasto y libros», compara el gasto de Meta con los libros y registra el cargo de Meta con su recibo.",
+    ],
+    playbooks: [],
+  },
   "/equipo/planes": {
     title: "Planes de cobro",
     what: "Los planes que se ofrecen a los clientes, como en Credit Repair Cloud, y la vista previa de cuándo se cobra.",
@@ -591,6 +604,19 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
   },
   "/equipo/cartas": { title: "Letters", what: "The letter templates.", steps: ["Only an administrator edits them."], playbooks: [] },
   "/equipo/contenido": { title: "Content", what: "Marketing pieces, from the idea to the results, with the compliance and brand check.", steps: ["Create the piece (blank, from a template or with Alti) and fix what the check marks.", "Tick the checklist and send it for review; only an administrator approves.", "Post it (or schedule it) and add the real results."], playbooks: [] },
+  // The Ads Manager (docs/ADS.md).
+  "/equipo/anuncios": {
+    title: "Ads",
+    what: "Meta ads, read only: Meta's spend, results and cost per result, beside the leads and signed clients they really brought (our own records). Every ad gets a verdict from rules written on the screen. Nothing here changes Meta.",
+    steps: [
+      "Pick the dates (7, 14, 30 or 90 days, or custom) and look at the red notice first: an ad marked “Turn off” that is still spending is turned off in Meta Ads Manager.",
+      "Tap an ad to see its video or picture, every number (Meta's and Credalti's), its leads and what to do.",
+      "Read “What to make next”: what the winners have in common.",
+      "In “Ad copy”, draft the next ad with Alti, fix what the check marks and send it to Content or Video Studio.",
+      "Each month, in “Spend & books”, compare Meta's spend with the books and record Meta's charge from its receipt.",
+    ],
+    playbooks: [],
+  },
   "/equipo/planes": {
     title: "Billing plans",
     what: "The plans offered to clients, as in Credit Repair Cloud, with a preview of when each charge happens.",

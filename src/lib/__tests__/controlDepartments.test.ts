@@ -343,7 +343,7 @@ describe("the departments strip: one tap to every department the member may open
   };
 
   it("by role", () => {
-    expect(tiles("admin").map((t) => t.key)).toEqual(["leads", "clients", "content", "accounting", "partners", "reviews"]);
+    expect(tiles("admin").map((t) => t.key)).toEqual(["leads", "clients", "content", "ads", "accounting", "partners", "reviews"]);
     expect(tiles("specialist").map((t) => t.key)).toEqual(["clients", "content", "reviews"]);
     expect(tiles("sales").map((t) => t.key)).toEqual(["leads", "clients", "content", "partners", "reviews"]);
   });

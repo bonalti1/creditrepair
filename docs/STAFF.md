@@ -175,7 +175,7 @@ design system» below).
 - **768 px and wider: a navy side menu** with the white logo, "Control" and
   ten **numbered groups** in the order the business works (`NAV_GROUPS`,
   ALTO's GROUPS): **0 Overview** (Resumen) · **1 My day** (Inicio, Actividad)
-  · **2 Content & Reviews** · **3 Lead Manager** (Prospectos, Invitar) ·
+  · **2 Marketing** (Contenido, Anuncios, Reseñas) · **3 Lead Manager** (Prospectos, Invitar) ·
   **4 Fulfillment & Clients** (Clientes, Respuestas, Piloto automático,
   Llamadas; the send and print screens belong here too) · **5 Payments &
   Accounting** (Contabilidad, Facturas, Planes) · **6 Letters & Rules**
@@ -198,7 +198,9 @@ design system» below).
   handed over), Fulfillment (client questions) and Money (payment notices) on
   any page (`BadgeProbe`: the same `overviewCards` on the same clients, queue
   and lead list, through the member's own connection); the Overview adds
-  Content, the books and Partners when it opens. Unknown means no circle.
+  Content, the books and Partners when it opens; Marketing also counts the
+  ads marked "Turn off" that are still spending (`ads.view`, its own source,
+  added on top, `docs/ADS.md`). Unknown means no circle.
   «✓ Clear» (and «Clear all notifications») hides a circle for this member in
   this browser until its number goes up; it changes no record.
 - **Phone:** the check, the section's short name, search and Alti's face on
@@ -446,7 +448,7 @@ Spanish words left in the English.
 
 ## Content
 
-«Contenido» (`/equipo/contenido`, section 2 «Content & Reviews») is the marketing hub: a board
+«Contenido» (`/equipo/contenido`, section 2 «Marketing») is the marketing hub: a board
 and a calendar of content pieces (videos, carousels, stories, WhatsApp
 statuses, partner flyers, emails), each checked against the claim and brand
 rules as it is typed, with a checklist before approval, Alti's writing
@@ -456,6 +458,20 @@ turns it on), results, the brand kit and the partner kit. Specialists make
 content (`content.edit`); only an administrator approves (`content.approve`)
 and connects accounts (`content.publish`); sales sees the brand kit and the
 approved partner material only (`content.share`). See `docs/CONTENT.md`.
+
+## Ads
+
+«Anuncios» / «Ads» (`/equipo/anuncios`, section 2 «Marketing», after
+Content) is the Ads Manager: Meta ads, read only, beside the leads and signed
+clients they really brought (Meta's numbers and Credalti's verified ones,
+each labelled), the winners, every campaign → ad set → ad with a verdict from
+rules written on the screen, one ad's drawer (its creative, every number, its
+leads, what to do), «What to make next», Alti's ad copy drafts (AI, checked
+against the claim rules and a credit-repair ad checklist, sent to Content or
+Video Studio), and Meta's spend beside the books as a reconciliation
+suggestion. The numbers are administrators' (`ads.view`); the content team
+drafts ad copy (`ads.draft`); sales sees none of it. Nothing there changes
+Meta. See `docs/ADS.md`.
 
 ## What is not done
 

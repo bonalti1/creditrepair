@@ -40,6 +40,20 @@ const iso = (v: unknown): string | null => {
   return Number.isNaN(t) ? null : new Date(t).toISOString();
 };
 
+/** The ad in a first touch (migration 0037), ids and flags only; null when there is none. */
+export function adTouchOf(value: unknown): NonNullable<Lead["firstTouch"]["ad"]> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const v = value as Row;
+  const id = (x: unknown) => (typeof x === "string" && /^\d{3,25}$/.test(x) ? x : null);
+  const out: NonNullable<Lead["firstTouch"]["ad"]> = {};
+  if (id(v.adId)) out.adId = id(v.adId);
+  if (id(v.adsetId)) out.adsetId = id(v.adsetId);
+  if (id(v.campaignId)) out.campaignId = id(v.campaignId);
+  if (v.fbclid === true) out.fbclid = true;
+  if (v.via === "link" || v.via === "ctwa" || v.via === "form") out.via = v.via;
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 async function rows(query: PromiseLike<{ data: unknown; error: { message: string } | null }>, what: string): Promise<Row[]> {
   const { data, error } = await query;
   if (error) throw new Error(`${what}: ${error.message}`);
@@ -71,6 +85,7 @@ export function leadFromRow(
       partnerName: extra.partner ? str(extra.partner.name) : null,
       partnerCode: extra.partner ? str(extra.partner.referral_code) : null,
       caseRef: str(touch.caseRef) ?? str(row.signup_case_ref),
+      ad: adTouchOf(touch.ad),
     },
     prospectId: str(row.prospect_id),
     salesperson: str(row.salesperson),

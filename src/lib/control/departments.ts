@@ -10,7 +10,7 @@ import type { TodayItem } from "./today";
 // capability the console's navigation asks, staff/nav.ts), with what needs
 // them there when the Overview knows it.
 
-export type DepartmentKey = "leads" | "clients" | "content" | "accounting" | "partners" | "reviews";
+export type DepartmentKey = "leads" | "clients" | "content" | "ads" | "accounting" | "partners" | "reviews";
 
 export interface DepartmentTile {
   key: DepartmentKey;
@@ -22,8 +22,8 @@ export interface DepartmentTile {
 }
 
 const LABEL: Record<StaffLocale, Record<DepartmentKey, string>> = {
-  en: { leads: "Leads", clients: "Clients", content: "Content", accounting: "Accounting", partners: "Partners", reviews: "Reviews" },
-  es: { leads: "Prospectos", clients: "Clientes", content: "Contenido", accounting: "Contabilidad", partners: "Socios", reviews: "Reseñas" },
+  en: { leads: "Leads", clients: "Clients", content: "Content", ads: "Ads", accounting: "Accounting", partners: "Partners", reviews: "Reviews" },
+  es: { leads: "Prospectos", clients: "Clientes", content: "Contenido", ads: "Anuncios", accounting: "Contabilidad", partners: "Socios", reviews: "Reseñas" },
 };
 
 export const DEPARTMENT_LABELS = LABEL;
@@ -43,6 +43,8 @@ const DEPARTMENTS: readonly Department[] = [
   { key: "clients", href: "/equipo/clientes", icon: "person", needs: null, card: "clients" },
   // Sales may open Content for the brand kit and the partner material (content.share); the board sends them there.
   { key: "content", href: "/equipo/contenido", icon: "grid", needs: "content.share", card: "content" },
+  // The Ads Manager: the tile for whoever sees the numbers (ads.view), with the ads to turn off; its spend is on the Ads card.
+  { key: "ads", href: "/equipo/anuncios", icon: "megaphone", needs: "ads.view", card: "ads" },
   { key: "accounting", href: "/equipo/contabilidad", icon: "calc", needs: "accounting" },
   { key: "partners", href: "/equipo/socios", icon: "link", needs: "partners.view", card: "partners" },
   { key: "reviews", href: "/equipo/resenas", icon: "chat", needs: null },
