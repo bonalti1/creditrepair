@@ -498,6 +498,7 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     playbooks: [],
   },
   "/equipo/seo": { title: "SEO", what: "Cómo encuentran el sitio: salud del sitio, guías, números de Search Console, frases seguidas y la lista local. Sin puntaje: cada revisión pasa o dice qué arreglar.", steps: ["Corre la revisión del sitio y arregla lo que liste, lo más importante primero.", "Escribe una guía (en blanco o con el borrador de Alti), da a cada dato legal una fuente oficial, marca la lista y mándala a aprobación; solo un administrador publica.", "Sigue las frases que importan (solo Texas), convierte los huecos de contenido en encargos, y avanza con el dueño la lista local."], playbooks: [] },
+  "/equipo/video": { title: "Estudio de video", what: "Videos cortos y anuncios, editados en este navegador: plan, edición, revisión, aprobación y paso a Contenido.", steps: ["Crea el video (o ábrelo desde un brief de Anuncios) y planea el guion y las tomas; Alti puede hacer un borrador.", "En el editor: sube los clips, recorta, pon textos, subtítulos, logo y música de la biblioteca; exporta el MP4.", "En «Revisión y aprobación»: corrige lo que marque, marca la lista y mándalo; solo un administrador aprueba.", "Ya aprobado, pásalo a Contenido: la pieza lo publica."], playbooks: [] },
   "/equipo/planes": {
     title: "Planes de cobro",
     what: "Los planes que se ofrecen a los clientes, como en Credit Repair Cloud, y la vista previa de cuándo se cobra.",
@@ -663,6 +664,7 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
     playbooks: [],
   },
   "/equipo/seo": { title: "SEO", what: "How the website is found: site health, guides, Search Console numbers, tracked phrases and the local checklist. No score: each check passes or says what to fix.", steps: ["Run the site check and fix what it lists, most important first.", "Write a guide (blank or drafted by Alti), give every legal fact an official source, tick the checklist and send it for approval; only an administrator publishes.", "Track the phrases that matter (Texas only), turn content gaps into briefs, and work through the local to-dos with the owner."], playbooks: [] },
+  "/equipo/video": { title: "Video Studio", what: "Short videos and ads, edited in this browser: plan, edit, check, approval and hand-off to Content.", steps: ["Create the video (or open it from an Ads brief) and plan the script and shots; Alti can draft them.", "In the editor: upload the clips, trim, add words, captions, the logo and music from the library; export the MP4.", "In «Check & approve»: fix what it marks, tick the checklist and send it; only an administrator approves.", "Once approved, hand it to Content: the piece posts it."], playbooks: [] },
   "/equipo/planes": {
     title: "Billing plans",
     what: "The plans offered to clients, as in Credit Repair Cloud, with a preview of when each charge happens.",

@@ -175,7 +175,7 @@ design system» below).
 - **768 px and wider: a navy side menu** with the white logo, "Control" and
   ten **numbered groups** in the order the business works (`NAV_GROUPS`,
   ALTO's GROUPS): **0 Overview** (Resumen) · **1 My day** (Inicio, Actividad)
-  · **2 Marketing** (Contenido, Anuncios, Reseñas) · **3 Lead Manager** (Prospectos, Invitar) ·
+  · **2 Marketing** (Contenido, Estudio de video, Anuncios, SEO, Reseñas) · **3 Lead Manager** (Prospectos, Invitar) ·
   **4 Fulfillment & Clients** (Clientes, Respuestas, Piloto automático,
   Llamadas; the send and print screens belong here too) · **5 Payments &
   Accounting** (Contabilidad, Facturas, Planes) · **6 Letters & Rules**
@@ -201,7 +201,9 @@ design system» below).
   and lead list, through the member's own connection); the Overview adds
   Content, the books and Partners when it opens; Marketing also counts the
   ads marked "Turn off" that are still spending (`ads.view`, its own source,
-  added on top, `docs/ADS.md`). Unknown means no circle.
+  added on top, `docs/ADS.md`), and the Video Studio's own count (videos
+  waiting for approval, changes asked, approved videos to hand over) is added
+  to it on any page (`lib/video/badge.ts`). Unknown means no circle.
   «✓ Clear» (and «Clear all notifications») hides a circle for this member in
   this browser until its number goes up; it changes no record.
 - **Phone:** the check, the section's short name, search and Alti's face on
@@ -490,6 +492,20 @@ details, with who ticked what). Administrators and specialists see and write
 sales has no SEO. Guides waiting for approval or sent back, and checks to
 fix, add to section 2's red count. Ask Alti lists «Draft a guide for the
 website» there. See `docs/SEO.md`.
+## Video Studio
+
+«Estudio de video» / «Video Studio» (`/equipo/video`, section 2, right after
+Content) plans, edits and checks short videos and ads in the browser: a
+board (Planned → Editing → Ready for approval → Approved → Handed to
+Content), briefs from the Ads Manager (`?brief=`), Alti's script-and-shots
+draft, an editor (trim, split, order, crop or fit, words and lower thirds,
+captions, the locked logo, intro and end cards, Alti with his label, music
+from the rights-checked library) that exports H.264/AAC MP4s with
+ffmpeg.wasm, the check and checklist before approval, and the hand-off that
+gives the approved MP4 to a Content piece for posting. Specialists make videos
+(`content.edit`); only an administrator approves (`content.approve`); sales
+does not see it. Its «Needs you» is added to the Content group's red circle.
+See `docs/VIDEO.md`.
 
 ## What is not done
 

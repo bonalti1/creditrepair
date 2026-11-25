@@ -17,6 +17,10 @@ import type { NavGroupKey } from "./nav";
 //     src/lib/ads/report.ts) is ADDED to Marketing's circle, on any page, for a
 //     member who may see the ads (BadgeProbe). It is its own source, so the
 //     Overview's Content number never counts it twice.
+//   - the Video Studio's own «Needs you» (videos waiting for approval, changes
+//     asked of an editor, approved videos not yet handed to Content:
+//     video/rules.ts videoNeeds) is ADDED to the Content group's number, from
+//     the shell's probe on any page.
 //
 // A group with no number known shows no circle: "no data" is never a 0 or a
 // guess. «✓ Clear» hides a group's circle for this member in this browser
@@ -27,14 +31,14 @@ export type BadgeCounts = Partial<Record<NavGroupKey, number>>;
 
 /**
  * Who reported a number: the shell's own probe, the Overview, or a department
- * that counts its own work (SEO: src/lib/seo/needs.ts; the Ads Manager: ads to turn off). The probe and the
+ * that counts its own work (SEO: src/lib/seo/needs.ts; the Ads Manager: ads to turn off; the Video Studio: lib/video/badge.ts). The probe and the
  * Overview replace each other's number for a group; a department's number is
  * ADDED to its group (the Overview does not count it), so the circle covers it.
  */
-type Source = "probe" | "overview" | "seo" | "ads";
-const ADDITIVE: readonly Source[] = ["seo", "ads"];
+type Source = "probe" | "overview" | "seo" | "ads" | "video";
+const ADDITIVE: readonly Source[] = ["seo", "ads", "video"];
 
-const sources: Record<Source, BadgeCounts> = { probe: {}, overview: {}, seo: {}, ads: {} };
+const sources: Record<Source, BadgeCounts> = { probe: {}, overview: {}, seo: {}, ads: {}, video: {} };
 let merged: BadgeCounts = {};
 const listeners = new Set<() => void>();
 
@@ -65,6 +69,9 @@ export function publishBadges(source: Source, counts: Partial<Record<NavGroupKey
 export function badgeSnapshot(): BadgeCounts {
   return merged;
 }
+
+/** The same numbers (the Video Studio's tests use this name). */
+export const currentBadges = badgeSnapshot;
 
 /** Forget every number (the demo's "view as" switched, so the counts were someone else's). */
 export function resetBadges(): void {

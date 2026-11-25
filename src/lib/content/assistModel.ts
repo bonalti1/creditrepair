@@ -17,8 +17,12 @@ export function assistModel(): string {
   return configured && /^[a-z0-9.-]{3,60}$/.test(configured) ? configured : DEFAULT_ASSIST_MODEL;
 }
 
-/** The caller, or null when the server has no key. */
-export function contentAssistCaller(): AssistCaller | null {
+/**
+ * The caller, or null when the server has no key. `schema` is the JSON the
+ * answer must follow: the content assistant's by default; the Video Studio's
+ * script-and-shots draft passes its own (src/lib/video/assist.ts).
+ */
+export function contentAssistCaller(schema: object = ASSIST_SCHEMA): AssistCaller | null {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
   return async ({ system, user }) => {
@@ -27,7 +31,7 @@ export function contentAssistCaller(): AssistCaller | null {
       max_tokens: 8000,
       system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: user }],
-      output_config: { effort: "low", format: { type: "json_schema", schema: ASSIST_SCHEMA } },
+      output_config: { effort: "low", format: { type: "json_schema", schema } },
       fallbacks: "default",
     };
     let message: Anthropic.Message;

@@ -40,6 +40,9 @@ const PATHS = {
   // The Ads Manager (src/lib/ads).
   megaphone: "M4 10.5v3a1 1 0 0 0 1 1h2l8 4.5V5L7 9.5H5a1 1 0 0 0-1 1zM18.5 9.5a3 3 0 0 1 0 5M7.5 14.5 9 19.5h2.5",
   play: "M8 5.5v13l10.5-6.5z",
+  // The Video Studio: a camera for its menu entry, play and cut in the editor.
+  video: "M4 6.5h10a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 16V8A1.5 1.5 0 0 1 4 6.5zM15.5 10.5l6-3.5v10l-6-3.5",
+  cut: "M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM6.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM8.6 7.9 20 18M8.6 16.1 20 6",
 } as const;
 
 export type IconName = keyof typeof PATHS;

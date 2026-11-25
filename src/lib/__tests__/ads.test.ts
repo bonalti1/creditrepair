@@ -497,10 +497,10 @@ describe("ads: permissions, navigation and Ask Alti", () => {
     expect(deniedReason("ads.draft", "es")).toMatch(/^Solo un administrador o un especialista puede/);
   });
 
-  it("Ads sits in section 2, now «Marketing», right after Content", () => {
+  it("Ads sits in section 2, now «Marketing»: Content, Video Studio, Ads, SEO, Reviews", () => {
     const group = NAV_GROUPS.find((g) => g.key === "content")!;
     expect(group.number).toBe("2");
-    expect(group.hrefs.indexOf("/equipo/anuncios")).toBe(group.hrefs.indexOf("/equipo/contenido") + 1);
+    expect(group.hrefs).toEqual(["/equipo/contenido", "/equipo/video", "/equipo/anuncios", "/equipo/seo", "/equipo/resenas"]);
     expect(groupOfPath("/equipo/anuncios").key).toBe("content");
     expect(NAV_BY_HREF.get("/equipo/anuncios")).toMatchObject({ label: "ads", needs: "ads.draft" });
     expect(SHELL_TEXT.en.groups.content).toBe("Marketing");

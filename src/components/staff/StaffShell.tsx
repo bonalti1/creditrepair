@@ -17,6 +17,7 @@ import { resetDemoAnswers } from "@/lib/staff/useSavedAnswers";
 import { resetDemoPreferences } from "@/lib/staff/usePreferences";
 import { resetDemoLeads } from "@/lib/leads/data";
 import { resetDemoControl } from "@/lib/control/data";
+import { resetDemoVideos } from "@/lib/video/store";
 import { StaffViewerContext, useViewer, VIEWER_CHANGED } from "@/lib/staff/useStaff";
 import { CharacterAvatar } from "@/components/Character";
 import Icon from "@/components/Icon";
@@ -613,12 +614,14 @@ function Frame({ children }: { children: React.ReactNode }) {
               {t.demoFooter}{" "}
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   resetDemo();
                   resetDemoAnswers();
                   resetDemoPreferences();
                   resetDemoLeads();
                   resetDemoControl();
+                  // The Video Studio's board and the files kept in this browser.
+                  await resetDemoVideos().catch(() => undefined);
                   window.location.reload();
                 }}
                 className="inline-flex min-h-11 items-center font-medium text-blue-700 underline-offset-2 hover:underline md:min-h-0"

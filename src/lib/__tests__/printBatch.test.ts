@@ -254,7 +254,8 @@ describe("print view: the page", () => {
     expect(page).toMatch(/\.pl-screen \{ display: none !important; \}/);
     expect(page).not.toMatch(/jspdf|pdfkit|pdf-lib|react-pdf|html2canvas|puppeteer/i);
     const pkg = JSON.parse(readFileSync("package.json", "utf8")) as { dependencies: Record<string, string> };
-    expect(Object.keys(pkg.dependencies).sort()).toEqual(["@anthropic-ai/sdk", "@supabase/ssr", "@supabase/supabase-js", "next", "react", "react-dom", "zod"]);
+    // @ffmpeg/core is the Video Studio's export engine (docs/VIDEO.md), served as static files to the editor only; nothing prints with it.
+    expect(Object.keys(pkg.dependencies).sort()).toEqual(["@anthropic-ai/sdk", "@ffmpeg/core", "@supabase/ssr", "@supabase/supabase-js", "next", "react", "react-dom", "zod"]);
   });
 
   it("hides the console's frame on paper", () => {
