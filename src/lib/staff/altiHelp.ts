@@ -71,7 +71,7 @@ export const ALTI_HELP_TEXT = defineText({
     sectionHelp: (section: string) => `Help for ${section}`,
     intro: "I point you to the team's help and to what I already do on this screen. I don't send anything, and a person has the last word.",
     jobsIntro: "My AI features in this section. Everything I write is a draft a person reads, or approved text, and passes the claim rules first.",
-    noJobs: "I have no job in this section yet. Its help is under «This screen», and the playbook is one tab over.",
+    noJobs: "I have no job in this section yet. Its help is under “This screen”, and the playbook is one tab over.",
     open: "Open",
     gates: {
       draft: "A draft · a person sends it",
@@ -84,11 +84,11 @@ export const ALTI_HELP_TEXT = defineText({
     jobs: {
       client_draft_focus: {
         title: "Draft replies to clients' questions",
-        desc: "In focus mode («Next»), a waiting question opens with my draft or the matching saved answer. You read it, edit it and send it.",
+        desc: "In focus mode (“Next”), a waiting question opens with my draft or the matching saved answer. You read it, edit it and send it.",
       },
       lead_suggest: {
         title: "Suggest a reply to a lead",
-        desc: "Open a waiting conversation and tap «Suggest reply». I write from the facts only; the draft is checked and nothing goes out until a person sends it.",
+        desc: "Open a waiting conversation and tap “Suggest reply”. I write from the facts only; the draft is checked and nothing goes out until a person sends it.",
       },
       lead_autopilot: {
         title: "Lead autopilot",
@@ -112,7 +112,7 @@ export const ALTI_HELP_TEXT = defineText({
       },
       ad_copy: {
         title: "Draft Meta ad copy",
-        desc: "In Ads, «Ad copy»: hooks, headline, primary text and a video script in English and Spanish, checked against the claim rules and the credit ad checklist (no promised results, never “free”, no age, gender or ZIP code). A person edits it and sends it to Content or Video Studio; nothing reaches Meta.",
+        desc: "In Ads, “Ad copy”: hooks, headline, primary text and a video script in English and Spanish, checked against the claim rules and the credit ad checklist (no promised results, never “free”, no age, gender or ZIP code). A person edits it and sends it to Content or Video Studio; nothing reaches Meta.",
       },
       seo_guide_draft: {
         title: "Draft a guide for the website",

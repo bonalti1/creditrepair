@@ -73,7 +73,7 @@ export function LanguageSwitch({ className = "", tone = "light" }: { className?:
           onClick={() => setLocale(option)}
           aria-pressed={locale === option}
           data-locale={option}
-          className={`pressable h-9 flex-1 rounded-lg px-3 text-[13px] font-semibold ${
+          className={`pressable h-11 md:h-9 flex-1 rounded-lg px-3 text-[13px] font-semibold ${
             locale === option ? (dark ? "bg-white text-blue-900" : "bg-white text-slate-900 shadow-sm") : dark ? "text-blue-100 hover:text-white" : "text-slate-600 hover:text-slate-900"
           }`}
         >

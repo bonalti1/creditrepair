@@ -119,7 +119,7 @@ export default function AdTree({ campaigns, ads, filter, onFilter, onOpen }: { c
                   return [
                     <tr key={c.campaign.id} className="border-b border-slate-100 bg-white font-semibold text-blue-900">
                       <th scope="row" className="px-3 py-2.5 text-left text-[13.5px] normal-case tracking-normal">
-                        <button type="button" onClick={() => toggle(c.campaign.id)} aria-expanded={open} className="pressable inline-flex min-h-9 items-center gap-1.5 text-left">
+                        <button type="button" onClick={() => toggle(c.campaign.id)} aria-expanded={open} className="pressable inline-flex min-h-11 md:min-h-9 items-center gap-1.5 text-left">
                           <Icon name="chevron" size={15} className={open ? "rotate-90" : ""} />
                           <span className="[overflow-wrap:anywhere]">{c.campaign.name}</span>
                         </button>

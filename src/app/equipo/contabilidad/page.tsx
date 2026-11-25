@@ -7,7 +7,7 @@ import { isClosed } from "@/lib/accounting/expenses";
 import { isMonthKey, monthLabel, monthOf, monthsEnding } from "@/lib/accounting/periods";
 import { deniedReason } from "@/lib/staff/permissions";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
-import { Chip, NoAccess, pillTab, QUIET_BUTTON } from "@/components/staff/ui";
+import { Chip, DemoNote, NoAccess, pillTab, QUIET_BUTTON } from "@/components/staff/ui";
 import BankImport from "@/components/staff/accounting/BankImport";
 import Collections from "@/components/staff/accounting/Collections";
 import Commissions from "@/components/staff/accounting/Commissions";
@@ -88,12 +88,14 @@ function Accounting() {
         </div>
       </div>
       {acc.demo && (
-        <p className="mt-2 flex flex-wrap items-center gap-2 text-[12.5px] text-slate-500 print:hidden">
-          {t("Demo: clientes, gastos y montos inventados, guardados en este navegador.", "Demo: invented clients, expenses and amounts, kept in this browser.")}
-          <button type="button" className={`${QUIET_BUTTON} h-8 px-2 text-[12.5px]`} onClick={() => { resetDemoBooks(); void acc.reload(); }}>
-            {t("Volver al ejemplo", "Reset the example")}
-          </button>
-        </p>
+        <DemoNote
+          onReset={() => {
+            resetDemoBooks();
+            void acc.reload();
+          }}
+        >
+          {t("Demo: clientes, gastos y montos inventados, guardados en este navegador.", "Demo: made-up clients, expenses and amounts, kept in this browser.")}
+        </DemoNote>
       )}
 
       <nav className="-mx-4 mt-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 print:hidden" aria-label={t("Secciones", "Sections")}>

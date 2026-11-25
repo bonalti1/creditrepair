@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { NoAccess, PRIMARY_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SectionTitle } from "@/components/staff/ui";
+import { DemoNote, NoAccess, PRIMARY_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SectionTitle } from "@/components/staff/ui";
 import { OfferCard } from "@/components/aftercare/AftercareViews";
 import { readDemoAccepting, writeDemoAccepting } from "@/lib/aftercare/connect";
 import {
@@ -163,6 +163,7 @@ export default function OfertasPage() {
             "Credit-building products clients can see in \"Build your credit\". Optional, never required, and ordered by what they cost the client and then by name, never by commission. If Credalti may be paid, the client sees the disclosure next to the offer.",
           )}
         </p>
+        {demo && <DemoNote>{t("Demo: las ofertas son ejemplos inventados. Los cambios se guardan solo en este navegador.", "Demo: the offers are made-up examples. Changes are saved only in this browser.")}</DemoNote>}
       </header>
 
       <section aria-labelledby="switch" className="card flex flex-wrap items-center justify-between gap-4 px-5 py-4" data-testid="offers-switch">
@@ -348,7 +349,6 @@ export default function OfertasPage() {
         </aside>
       </div>
 
-      {demo && <p className="text-xs text-slate-500">{t("Demo: las ofertas son ejemplos inventados. Los cambios se guardan solo en este navegador.", "Demo: the offers are made-up examples. Changes are saved only in this browser.")}</p>}
     </main>
   );
 }

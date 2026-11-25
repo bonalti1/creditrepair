@@ -13,7 +13,7 @@ import { SEO_TEXT } from "@/lib/seo/text";
 import type { Guide, GuideBody, GuideSource, Lang } from "@/lib/seo/types";
 import { CharacterFigure } from "@/components/Character";
 import Icon from "@/components/Icon";
-import { DeniedNote, pillTab, PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON, SECONDARY_BUTTON_COMPACT, SectionTitle } from "@/components/staff/ui";
+import { DeniedNote, pillTab, PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON, SECONDARY_BUTTON_COMPACT, SectionTitle, BACK_LINK } from "@/components/staff/ui";
 import { FIELD, LABEL, Notice, PassChip, SampleNote, SeoGate, StatusChip, when } from "@/components/staff/seo/ui";
 
 // One guide: the brief, Alti's draft, both languages' words, the sources,
@@ -119,7 +119,7 @@ function Editor({ guide, seo }: { guide: Guide; seo: ReturnType<typeof useSeo> }
   return (
     <main className="animate-rise">
       <nav aria-label={t("Volver", "Back")}>
-        <Link href="/equipo/seo/guias" className={`${QUIET_BUTTON} -ml-3`}>
+        <Link href="/equipo/seo/guias" className={BACK_LINK}>
           <Icon name="chevron" size={16} className="rotate-180" />
           {t("Todas las guías", "All guides")}
         </Link>
@@ -243,7 +243,7 @@ function Editor({ guide, seo }: { guide: Guide; seo: ReturnType<typeof useSeo> }
                         <button type="button" onClick={useDraft} className={`${SECONDARY_BUTTON_COMPACT} mt-2`} data-testid="use-draft">
                           {t("Poner el borrador en la guía", "Put the draft in the guide")}
                         </button>
-                        <p className="mt-1 text-[12px] text-slate-500">{t("Reemplaza las palabras y las fuentes de los dos idiomas. No se guarda hasta que toques «Guardar».", "It replaces both languages' words and the sources. Nothing is saved until you tap «Save».")}</p>
+                        <p className="mt-1 text-[12px] text-slate-500">{t("Reemplaza las palabras y las fuentes de los dos idiomas. No se guarda hasta que toques «Guardar».", "It replaces both languages' words and the sources. Nothing is saved until you tap “Save”.")}</p>
                       </div>
                     )}
                   </div>

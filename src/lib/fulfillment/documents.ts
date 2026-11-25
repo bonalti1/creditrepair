@@ -102,6 +102,32 @@ export function documentRejected(client: ClientDocs, kind: DocumentKind): boolea
   return kind !== "ssn_card" && client.documents.includes(kind) && reviewState(client, kind) === "rejected";
 }
 
+/**
+ * The required documents (photo ID, proof of address) whose current upload a
+ * person did not accept, with the reason picked. The mailing gate
+ * (rounds/send.ts documentHold) reads this from the database, so the server
+ * holds the round even when a screen or a job did not.
+ */
+export function rejectedRequiredDocuments(
+  client: ClientDocs,
+  required: readonly DocumentKind[],
+): Array<{ kind: Exclude<DocumentKind, "ssn_card">; reasonCode: RejectReason | null }> {
+  return required.flatMap((kind) =>
+    kind !== "ssn_card" && documentRejected(client, kind) ? [{ kind, reasonCode: currentReview(client, kind)?.reasonCode ?? null }] : [],
+  );
+}
+
+/**
+ * The sentence the team reads when the server holds a round for a document
+ * that was not accepted. Written in Spanish where the rule lives, like the
+ * other refusals of rounds/send.ts; the console shows it in English through
+ * staffMessage (staff/i18n/messages.ts has the pattern).
+ */
+export function documentHoldMessageEs(kinds: readonly Exclude<DocumentKind, "ssn_card">[]): string {
+  const names = kinds.map((k) => DOCUMENT_KIND_LABEL.es[k]).join(" y ");
+  return `No se envía: ${kinds.length === 1 ? "un documento requerido no fue aceptado" : "dos documentos requeridos no fueron aceptados"} en la revisión (${names}). La ronda sale cuando el cliente suba uno nuevo y el equipo lo acepte.`;
+}
+
 /** When the newest "not accepted" review of a required document was made, for the reminder's start. */
 export function latestRejectionAt(client: ClientDocs, kinds: readonly DocumentKind[]): string | null {
   const times = kinds.flatMap((k) => (k !== "ssn_card" && documentRejected(client, k) ? [currentReview(client, k)!.at] : []));

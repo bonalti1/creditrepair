@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { can } from "@/lib/staff/permissions";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
+import { longDay } from "@/lib/staff/format";
+import { memberName } from "@/lib/staff/team";
+import { useStaff } from "@/lib/staff/useStaff";
 import { useVideoStudio } from "@/lib/video/store";
 import type { MusicTrack } from "@/lib/video/types";
 import Icon from "@/components/Icon";
@@ -119,6 +122,7 @@ function Library() {
 }
 
 function TrackRow({ track, studio, mayRemove, onRemoved }: { track: MusicTrack; studio: ReturnType<typeof useVideoStudio>; mayRemove: boolean; onRemoved: (text: string) => void }) {
+  const { members } = useStaff();
   const t = useTx();
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -128,6 +132,8 @@ function TrackRow({ track, studio, mayRemove, onRemoved }: { track: MusicTrack; 
       live = false;
     };
   }, [track.ref, studio]);
+  // The teammate's name, not their handle ("Carmen Ruiz", not "carmen").
+  const who = memberName(members, track.rights.confirmedBy);
   return (
     <li className="card px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -136,7 +142,7 @@ function TrackRow({ track, studio, mayRemove, onRemoved }: { track: MusicTrack; 
       </div>
       <p className="mt-1 text-[13px] text-slate-600">
         <Icon name="check" size={14} className="mr-1 inline text-green-700" />
-        {t(`Derechos confirmados por ${track.rights.confirmedBy} el ${track.rights.confirmedAt.slice(0, 10)}`, `Rights confirmed by ${track.rights.confirmedBy} on ${track.rights.confirmedAt.slice(0, 10)}`)}
+        {t(`Derechos confirmados por ${who} el ${longDay(track.rights.confirmedAt, "es")}`, `Rights confirmed by ${who} on ${longDay(track.rights.confirmedAt, "en")}`)}
         {track.rights.note ? ` · ${track.rights.note}` : ""}
       </p>
       {url ? <audio src={url} controls preload="none" className="mt-2 w-full" aria-label={track.name} /> : null}

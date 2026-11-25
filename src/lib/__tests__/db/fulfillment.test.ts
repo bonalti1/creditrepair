@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { startHarness, type Harness } from "./pg";
-import { addClient, addDocuments, addStaff, assign, signAgreement, uid } from "./seed";
+import { addClient, addDocuments, addStaff, approveBuiltinLetters, assign, sampleReport, signAgreement, uid } from "./seed";
+import { importReportForUser } from "../../domain/importReport";
+import { reasonsFor } from "../../letters/reasons";
+import { sendRound } from "../../rounds/send";
 
 // Fulfillment (migration 0041) against the real migrations, with row level
 // security applied: notification settings and the opt-out from the app, the
@@ -201,6 +204,44 @@ describe("documents", () => {
     expect((await h.as(rosa).from("document_reviews").select("*")).data).toHaveLength(1);
     expect((await h.as(beto).from("document_reviews").select("*")).data).toHaveLength(0);
     expect((await h.service.from("document_reviews").update({ decision: "accepted" }).eq("user_id", rosa)).error?.message).toMatch(/cannot be changed/);
+  });
+});
+
+describe("the server's mailing gate holds a client whose required document was not accepted (rounds/send.ts documentHold)", () => {
+  it("refuses with the reason, mails nothing, and lets the round go once a new upload is in", async () => {
+    const tina = await addClient(h, { name: "Tina Tres", phone: "+17135550203" });
+    await signAgreement(h, tina);
+    await addDocuments(h, tina);
+    await approveBuiltinLetters(h);
+    await importReportForUser(h.service, tina, sampleReport(2));
+    const { data: items } = await h.service.from("report_items").select("id").eq("user_id", tina).eq("category", "personal_info");
+    for (const item of (items ?? []) as Array<{ id: string }>) {
+      await h.service.from("item_flags").insert({
+        user_id: tina,
+        item_id: item.id,
+        state: "attested",
+        attested: true,
+        attestation_text: "I believe this item is inaccurate.",
+        attestation_version: "v1",
+        attested_at: new Date().toISOString(),
+        reason_code: reasonsFor("personal_info")[0]!.code,
+      });
+    }
+    const [doc] = await h.sql<{ uploaded_at: Date | string }>(`select uploaded_at from public.identity_documents where user_id = $1 and kind = 'government_id'`, [tina]);
+    const uploadedAt = new Date(doc!.uploaded_at).toISOString();
+    const { error } = await h.service.from("document_reviews").insert({ user_id: tina, kind: "government_id", document_uploaded_at: uploadedAt, decision: "rejected", reason_code: "expired", ask_again: true, reviewed_by_name: "Marta Leal" });
+    expect(error).toBeNull();
+
+    const send = () => sendRound(h.service, { userId: tina, roundNumber: 1, sender: { kind: "staff", userId: admin.userId, name: "carmen" }, requireAgreement: true, via: "print" });
+    const held = await send();
+    expect(held).toMatchObject({ ok: false, status: 409, code: "document_not_accepted", reason: "government_id" });
+    if (!held.ok) expect(held.error).toMatch(/Identificación con foto/);
+    expect(await h.sql(`select 1 from public.letters where user_id = $1`, [tina])).toEqual([]);
+    expect(await h.sql(`select 1 from public.attack_rounds where user_id = $1`, [tina])).toEqual([]);
+
+    // The client uploads a new photo ID: the old review is out of date and the round may go.
+    await h.sql(`update public.identity_documents set uploaded_at = now() + interval '1 minute' where user_id = $1 and kind = 'government_id'`, [tina]);
+    expect(await send()).toMatchObject({ ok: true, roundNumber: 1 });
   });
 });
 

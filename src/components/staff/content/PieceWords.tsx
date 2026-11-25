@@ -33,7 +33,7 @@ export function PieceWords({ piece, issues, editable, onChange }: { piece: Conte
       {langs.length > 1 ? (
         <div className="mb-3 inline-flex rounded-full bg-slate-100 p-1 lg:hidden" role="tablist" aria-label={t("Idioma del texto", "Language of the words")}>
           {langs.map((l) => (
-            <button key={l} type="button" role="tab" aria-selected={shownTab === l} onClick={() => setTab(l)} className={`h-9 rounded-full px-4 text-[14px] font-medium ${shownTab === l ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}>
+            <button key={l} type="button" role="tab" aria-selected={shownTab === l} onClick={() => setTab(l)} className={`h-11 md:h-9 rounded-full px-4 text-[14px] font-medium ${shownTab === l ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}>
               {t(...LANG_NAME[l])}
             </button>
           ))}

@@ -43,6 +43,8 @@ const bodySchema = z.discriminatedUnion("action", [
       state: z.string().regex(/^[A-Z]{2}$/).nullable().optional(),
       locale: z.enum(["es", "en"]).optional(),
       wantsPerson: z.boolean().optional(),
+      // The first name they typed, sent once they are signed in: it names their lead for the team (signup/server.ts).
+      firstName: z.string().max(60).nullable().optional(),
     })
     .strict(),
   z.object({ action: z.literal("soft_pull"), consentVersion: z.string().max(40), locale: z.enum(["es", "en"]).optional() }).strict(),
@@ -112,7 +114,7 @@ export async function POST(req: Request) {
   try {
     const result = await updateSignupCase(
       db,
-      { caseRef: input.caseRef, token: input.token ?? null, step: input.step as never, state: input.state, locale: input.locale, wantsPerson: input.wantsPerson },
+      { caseRef: input.caseRef, token: input.token ?? null, step: input.step as never, state: input.state, locale: input.locale, wantsPerson: input.wantsPerson, firstName: input.firstName },
       user?.id ?? null,
     );
     if (!result.ok) return NextResponse.json({ error: "That signup was not found.", code: result.code }, { status: result.code === "not_found" ? 404 : 409 });

@@ -99,7 +99,7 @@ export function SentWords({ item }: { item: QueueItem }) {
   const last = item.messages[item.messages.length - 1]!;
   return (
     <details className="mt-2 rounded-xl bg-slate-50 px-3 py-2" data-testid="sent-words">
-      <summary className="cursor-pointer text-[13px] font-semibold text-slate-700">
+      <summary className="cursor-pointer py-3 text-[13px] font-semibold text-slate-700 md:py-0">
         {t("Lo que recibió el cliente", "What the client got")} (
         {item.messages.length === 1 ? t("1 mensaje", "1 message") : t(`${item.messages.length} mensajes`, `${item.messages.length} messages`)})
       </summary>

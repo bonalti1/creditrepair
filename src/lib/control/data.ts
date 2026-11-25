@@ -7,6 +7,10 @@ import type { StaffLocale } from "../staff/i18n/locale";
 import type { StaffClient } from "../staff/types";
 import type { Lead } from "../leads/types";
 import { contentSummary } from "./content";
+import { ideasSummary, seoSummary, videoSummary } from "./marketing";
+import { readDemoVideoBoard } from "../video/store";
+import { readLocal as readDemoSeo } from "../seo/store";
+import { readDemoIdeas } from "../ideas/demo";
 import type { ControlExtras } from "./overview";
 import type { PartnerNoteWaiting } from "./server";
 
@@ -77,8 +81,17 @@ export function getControlData(viewer: Viewer | null, locale: StaffLocale): Cont
           const board = readDemoContentBoard();
           content = contentSummary(board.pieces, board.schedules, board.settings, new Date());
         }
+        // The Video Studio, SEO and Ideas: the boards this browser keeps for the demo's own screens.
+        const now = new Date();
+        const video = can(viewer?.role, "content.view") ? videoSummary(readDemoVideoBoard()) : null;
+        const seoLocal = can(viewer?.role, "seo.view") ? readDemoSeo() : null;
+        const seo = seoLocal ? seoSummary(seoLocal.guides, seoLocal.health) : null;
+        const ideas = can(viewer?.role, "ideas.add") ? ideasSummary(readDemoIdeas(now).ideas, now) : null;
         return {
           content,
+          video,
+          seo,
+          ideas,
           // The Ads Manager's sample account (src/lib/ads/demo.ts), labelled as sample on the card.
           ads: can(viewer?.role, "ads.view") ? demoAdsSummary() : null,
           partnerNotesWaiting: partnerNotes.length,

@@ -12,8 +12,10 @@ import { detectMapping, existingFrom, matchSalesperson, planImport, sensitiveCol
 import {
   clientReviewLine,
   currentReview,
+  documentHoldMessageEs,
   documentRejected,
   powerOfAttorneyEnabled,
+  rejectedRequiredDocuments,
   POA_VERSION,
   reviewState,
   uploadableExtraKinds,
@@ -23,6 +25,8 @@ import { earlyMonitoringReminder, monitoringSummary, REMINDER_LEAD_DAYS, type Mo
 import { channelsFor, DEFAULT_NOTIFICATION_SETTINGS, messageCategory, NOTIFICATION_COPY, settingsAllow, settingsProblem, type NotificationSettings } from "../fulfillment/notifications";
 import { buildDemoClients } from "../staff/demoClients";
 import { can, CAPABILITIES } from "../staff/permissions";
+import { staffMessage } from "../staff/i18n/messages";
+import { REQUIRED_DOCUMENTS } from "../staff/types";
 import { clientStage, missingDocuments, nextStep, sendableRound } from "../staff/stage";
 import type { StaffClient, StaffRound } from "../staff/types";
 
@@ -339,6 +343,25 @@ describe("documents: review, the power of attorney flag, no SSN card", () => {
     const accepted = { ...rejected, documentReviews: [review({}), review({ id: "r2", decision: "accepted", reasonCode: null, askAgain: false, at: ago(2) })] };
     expect(currentReview(accepted, "proof_of_address")?.id).toBe("r2");
     expect(missingDocuments(accepted)).toEqual([]);
+  });
+
+  it("the server's mailing gate reads the same rule: the rejected required documents, with the reason, in words the team reads in both languages", () => {
+    const base = client({ documentUploadedAt: { government_id: ago(5), proof_of_address: ago(5) } });
+    expect(rejectedRequiredDocuments(base, REQUIRED_DOCUMENTS)).toEqual([]);
+    const rejected = { ...base, documentReviews: [review({})] };
+    expect(rejectedRequiredDocuments(rejected, REQUIRED_DOCUMENTS)).toEqual([{ kind: "proof_of_address", reasonCode: "too_old" }]);
+    // A newer upload makes the review out of date: nothing held.
+    const again = { ...rejected, documentUploadedAt: { ...rejected.documentUploadedAt, proof_of_address: ago(1) } };
+    expect(rejectedRequiredDocuments(again, REQUIRED_DOCUMENTS)).toEqual([]);
+    const es = documentHoldMessageEs(["proof_of_address"]);
+    expect(es).toMatch(/Comprobante de domicilio/);
+    expect(staffMessage(es, "en")).toBe(
+      "Not sent: a required document wasn't accepted in review (Proof of address). The round goes out once the client uploads a new one and the team accepts it.",
+    );
+    expect(staffMessage(documentHoldMessageEs(["government_id", "proof_of_address"]), "en")).toMatch(/two required documents weren't accepted in review \(Photo ID and Proof of address\)/);
+    // The send's summary (staff/data.ts markRoundsSent) comes out in English too, reason included.
+    expect(staffMessage(`Se envió 1 ronda. Una ronda no salió: ronda 2 — ${es}`, "en")).toBe(`1 round sent. One round didn't go out: round 2 — ${staffMessage(es, "en")}`);
+    for (const text of [es, documentHoldMessageEs(["government_id", "proof_of_address"])]) expect(checkClaimGuardrails(text)).toEqual([]);
   });
 
   it("a rejection restarts the documents reminder from the review", () => {

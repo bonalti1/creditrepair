@@ -12,6 +12,7 @@ import { formatCents } from "../accounting/money";
 import type { BooksSnapshot } from "./books";
 import { contentNeeds, type ContentSummary } from "./content";
 import type { AdsSummary } from "../ads/report";
+import { ideasNeedsOf, seoNeedsOf, videoNeedsOf, type IdeasSummary, type SeoSummary, type VideoSummary } from "./marketing";
 
 // The Overview (docs/CONTROL.md): one card per department, each with real
 // numbers from the records and a "Needs you" count that opens the right
@@ -25,7 +26,7 @@ import type { AdsSummary } from "../ads/report";
 // Leads needs leads.work, Content content.view, Partners partners.view, Tech
 // health business.view.
 
-export type CardKey = "leads" | "clients" | "money" | "content" | "ads" | "support" | "partners" | "health";
+export type CardKey = "leads" | "clients" | "money" | "content" | "ads" | "seo" | "support" | "partners" | "ideas" | "health";
 
 export interface CardMetric {
   key: string;
@@ -60,6 +61,12 @@ export interface ControlExtras {
   content?: ContentSummary | null;
   /** The Ads Manager's last 7 days (src/lib/ads/report.ts adsSummary), for ads.view; null: not for this role, or it could not be read. */
   ads?: AdsSummary | null;
+  /** The Video Studio's board in numbers (control/marketing.ts), for content.view; it joins the Content card and the Today list. */
+  video?: VideoSummary | null;
+  /** SEO's guides and last site check (control/marketing.ts), for seo.view. */
+  seo?: SeoSummary | null;
+  /** The ideas board in numbers (control/marketing.ts), for ideas.add. */
+  ideas?: IdeasSummary | null;
 }
 
 export type HealthKey = "whatsapp_inbound" | "highlevel_lead" | "lob_event" | "autopilot_message" | "cron_leads" | "staff_digest";
@@ -94,7 +101,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const T = {
   en: {
     noData: "No data yet",
-    cards: { leads: "Leads & sales", clients: "Clients in progress", money: "Money", content: "Content", ads: "Ads", support: "Support", partners: "Partners", health: "Tech health" },
+    cards: { leads: "Leads & sales", clients: "Clients in progress", money: "Money", content: "Content & video", ads: "Ads", seo: "SEO", support: "Support", partners: "Partners", ideas: "Ideas & tests", health: "Tech health" },
     needsYou: "Needs you",
     leads: {
       open: "Open leads",
@@ -142,6 +149,29 @@ const T = {
       none: "No piece on the board yet. Pieces show up here as soon as someone starts one in Content.",
       readError: "The content board could not be read right now.",
       open: "Open Content",
+      videos: "Videos waiting for approval",
+      videoChanges: (n: number) => `${n} ${n === 1 ? "video" : "videos"} sent back for changes`,
+      videoHandOff: (n: number) => `${n} approved, to hand to Content`,
+      videosNone: "No video in the Video Studio yet.",
+      openVideo: "Open Video Studio",
+    },
+    seo: {
+      toFix: "Site checks to fix",
+      neverChecked: "No site check has been run yet. Run one in SEO, Site health.",
+      review: "Guides waiting for approval",
+      changes: "Guides sent back for changes",
+      published: "Guides on the website",
+      readError: "SEO could not be read right now.",
+      open: "Open SEO",
+    },
+    ideas: {
+      waiting: "New ideas to approve",
+      testing: "Tests running",
+      decide: "Tests over: keep or drop",
+      decided: "Decided, last 30 days",
+      approvedHint: (n: number) => `${n} approved, test not started`,
+      readError: "The ideas board could not be read right now.",
+      open: "Open Ideas",
     },
     ads: {
       spend: "Ad spend, 7 days (Meta)",
@@ -176,7 +206,7 @@ const T = {
   },
   es: {
     noData: "Todavía sin datos",
-    cards: { leads: "Prospectos y ventas", clients: "Clientes en proceso", money: "Dinero", content: "Contenido", ads: "Anuncios", support: "Atención", partners: "Socios", health: "Estado técnico" },
+    cards: { leads: "Prospectos y ventas", clients: "Clientes en proceso", money: "Dinero", content: "Contenido y video", ads: "Anuncios", seo: "SEO", support: "Atención", partners: "Socios", ideas: "Ideas y pruebas", health: "Estado técnico" },
     needsYou: "Te necesita",
     leads: {
       open: "Prospectos abiertos",
@@ -224,6 +254,29 @@ const T = {
       none: "Todavía no hay piezas en el tablero. Aparecen aquí en cuanto alguien empieza una en Contenido.",
       readError: "No se pudo leer el tablero de contenido ahora.",
       open: "Abrir Contenido",
+      videos: "Videos esperando aprobación",
+      videoChanges: (n: number) => `${n} ${n === 1 ? "video devuelto" : "videos devueltos"} con cambios`,
+      videoHandOff: (n: number) => `${n} ${n === 1 ? "aprobado" : "aprobados"}, por pasar a Contenido`,
+      videosNone: "Todavía no hay videos en el Estudio de video.",
+      openVideo: "Abrir Estudio de video",
+    },
+    seo: {
+      toFix: "Revisiones del sitio por corregir",
+      neverChecked: "Todavía no se ha revisado el sitio. Hazlo en SEO, Salud del sitio.",
+      review: "Guías esperando aprobación",
+      changes: "Guías devueltas con cambios",
+      published: "Guías en el sitio web",
+      readError: "No se pudo leer SEO ahora.",
+      open: "Abrir SEO",
+    },
+    ideas: {
+      waiting: "Ideas nuevas por aprobar",
+      testing: "Pruebas en curso",
+      decide: "Pruebas terminadas: seguir o dejar",
+      decided: "Decididas, últimos 30 días",
+      approvedHint: (n: number) => `${n} ${n === 1 ? "aprobada" : "aprobadas"}, sin empezar la prueba`,
+      readError: "No se pudo leer el tablero de ideas ahora.",
+      open: "Abrir Ideas",
     },
     ads: {
       spend: "Gasto en anuncios, 7 días (Meta)",
@@ -374,30 +427,47 @@ export function overviewCards(input: OverviewInput): DeptCard[] {
     });
   }
 
-  // Content: for the content team (content.view: administrators and specialists; never sales).
+  // Content and video: for the content team (content.view: administrators and specialists; never sales).
+  // The Video Studio's work (videos waiting for approval, changes asked, approved videos to hand to Content) is on the same card.
   if (input.can("content.view")) {
     const summary = input.extras?.content ?? null;
+    const video = input.extras?.video ?? null;
     const viewer = { approve: input.can("content.approve"), edit: input.can("content.edit"), handle: input.handle ?? null };
     const link = { href: "/equipo/contenido", label: t.content.open };
+    const videoNeeds = video ? videoNeedsOf(video, viewer) : null;
+    const videoMetric: CardMetric[] = !video
+      ? []
+      : video.videos === 0
+        ? [noData("videos", t.content.videos, t.content.videosNone)]
+        : [
+            {
+              key: "videos",
+              label: t.content.videos,
+              value: num(video.ready.length),
+              hint: [video.changes.length > 0 ? t.content.videoChanges(video.changes.length) : "", video.approved.length > 0 ? t.content.videoHandOff(video.approved.length) : ""].filter(Boolean).join(" · ") || undefined,
+            },
+          ];
     if (!summary) {
       cards.push({
         key: "content",
         title: t.cards.content,
-        metrics: [noData("review", t.content.review, t.content.readError)],
+        metrics: [noData("review", t.content.review, t.content.readError), ...videoMetric],
         needsYou: { count: null, href: "/equipo/contenido", label: t.needsYou },
         link,
       });
     } else {
       const publishing: CardMetric = { key: "publishing", label: t.content.publishing, value: summary.publishing.enabled ? t.content.on(summary.publishing.channelsOn) : t.content.off };
       const needs = contentNeeds(summary, viewer);
+      const videoCount = videoNeeds?.count ?? 0;
       cards.push({
         key: "content",
         title: t.cards.content,
         metrics:
           summary.pieces === 0
-            ? [noData("review", t.content.review, t.content.none), publishing]
+            ? [noData("review", t.content.review, t.content.none), ...videoMetric, publishing]
             : [
                 { key: "review", label: t.content.review, value: num(summary.review.length) },
+                ...videoMetric,
                 {
                   key: "scheduled",
                   label: t.content.scheduled,
@@ -408,7 +478,8 @@ export function overviewCards(input: OverviewInput): DeptCard[] {
                 { key: "failed", label: t.content.failed, value: num(summary.failed.length) },
                 publishing,
               ],
-        needsYou: { count: needs.count, href: needs.href, label: t.needsYou },
+        // The board's own count plus the Video Studio's; it opens where most of it is.
+        needsYou: { count: needs.count + videoCount, href: needs.count === 0 && videoCount > 0 ? "/equipo/video" : needs.href, label: t.needsYou },
         link,
       });
     }
@@ -433,6 +504,29 @@ export function overviewCards(input: OverviewInput): DeptCard[] {
           { key: "turnoff", label: t.ads.turnOff, value: num(ads.turnOff ?? 0) },
         ],
         needsYou: { count: ads.turnOff, href: needsHref, label: t.needsYou },
+        link,
+      });
+    }
+  }
+
+  // SEO: the site check and the guides (seo.view: administrators and specialists).
+  if (input.can("seo.view")) {
+    const seo = input.extras?.seo ?? null;
+    const link = { href: "/equipo/seo", label: t.seo.open };
+    if (!seo) {
+      cards.push({ key: "seo", title: t.cards.seo, metrics: [noData("fix", t.seo.toFix, t.seo.readError)], needsYou: { count: null, href: "/equipo/seo", label: t.needsYou }, link });
+    } else {
+      const needs = seoNeedsOf(seo, { publish: input.can("seo.publish"), edit: input.can("seo.edit") });
+      cards.push({
+        key: "seo",
+        title: t.cards.seo,
+        metrics: [
+          seo.checked ? { key: "fix", label: t.seo.toFix, value: num(seo.toFix) } : noData("fix", t.seo.toFix, t.seo.neverChecked),
+          { key: "review", label: t.seo.review, value: num(seo.review) },
+          { key: "changes", label: t.seo.changes, value: num(seo.changes) },
+          { key: "published", label: t.seo.published, value: num(seo.published) },
+        ],
+        needsYou: { count: needs, href: seo.toFix > 0 && seo.review + seo.changes === 0 ? "/equipo/seo" : "/equipo/seo/guias", label: t.needsYou },
         link,
       });
     }
@@ -470,6 +564,28 @@ export function overviewCards(input: OverviewInput): DeptCard[] {
       metrics: [{ key: "referrals", label: t.partners.referrals, value: num(referrals) }, extra("notes", t.partners.notes, notes)],
       needsYou: { count: notes, href: "/equipo/socios", label: t.needsYou },
     });
+  }
+
+  // Ideas and tests: everyone sees the board (ideas.add); an administrator approves and decides.
+  if (input.can("ideas.add")) {
+    const ideas = input.extras?.ideas ?? null;
+    const link = { href: "/equipo/ideas", label: t.ideas.open };
+    if (!ideas) {
+      cards.push({ key: "ideas", title: t.cards.ideas, metrics: [noData("testing", t.ideas.testing, t.ideas.readError)], needsYou: { count: null, href: "/equipo/ideas", label: t.needsYou }, link });
+    } else {
+      cards.push({
+        key: "ideas",
+        title: t.cards.ideas,
+        metrics: [
+          { key: "waiting", label: t.ideas.waiting, value: num(ideas.waitingApproval) },
+          { key: "testing", label: t.ideas.testing, value: num(ideas.testing), hint: ideas.approved > 0 ? t.ideas.approvedHint(ideas.approved) : undefined },
+          { key: "decide", label: t.ideas.decide, value: num(ideas.decide) },
+          { key: "decided", label: t.ideas.decided, value: num(ideas.decided30d) },
+        ],
+        needsYou: { count: ideasNeedsOf(ideas, { approve: input.can("ideas.approve") }), href: "/equipo/ideas", label: t.needsYou },
+        link,
+      });
+    }
   }
 
   // Tech health: what is checkable now.

@@ -116,7 +116,7 @@ export function NextAndBlocked({ report, onOpen }: { report: LaunchReport; onOpe
                 <li key={key} className="flex gap-3">
                   <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-900 text-[12.5px] font-semibold text-white tabular-nums">{i + 1}</span>
                   <div className="min-w-0">
-                    <button type="button" onClick={() => onOpen(key)} className="text-left text-[15px] font-semibold text-blue-900 underline-offset-2 hover:underline">
+                    <button type="button" onClick={() => onOpen(key)} className="min-h-11 text-left text-[15px] font-semibold text-blue-900 underline-offset-2 hover:underline md:min-h-0">
                       {tx.items[key as keyof LaunchText["items"]].title}
                     </button>
                     <p className="mt-0.5 text-[13.5px] leading-snug text-slate-600 [overflow-wrap:anywhere]">{tx.items[key as keyof LaunchText["items"]].next}</p>
@@ -141,7 +141,7 @@ export function NextAndBlocked({ report, onOpen }: { report: LaunchReport; onOpe
                 <p className="text-[14px] font-semibold text-slate-900">{tx.outcomes[b.outcome]}</p>
                 <p className="mt-1 flex flex-wrap gap-1.5">
                   {b.by.slice(0, 6).map((key) => (
-                    <button key={key} type="button" onClick={() => onOpen(key)} className="pressable inline-flex min-h-9 max-w-full items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-left text-[12.5px] font-medium leading-snug text-slate-700 hover:border-amber-500">
+                    <button key={key} type="button" onClick={() => onOpen(key)} className="pressable inline-flex min-h-11 md:min-h-9 max-w-full items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-left text-[12.5px] font-medium leading-snug text-slate-700 hover:border-amber-500">
                       {tx.items[key as keyof LaunchText["items"]].title}
                     </button>
                   ))}

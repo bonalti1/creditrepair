@@ -136,7 +136,7 @@ function Guides() {
       {shown.length === 0 ? (
         <div className="card mt-4">
           <EmptyState pose="envelope" title={t("No hay guías aquí", "No guides here")}>
-            {mayEdit ? t("Crea una con «Nueva guía», o convierte una idea en «Palabras e ideas».", "Create one with «New guide», or turn an idea into one under «Keywords & ideas».") : null}
+            {mayEdit ? t("Crea una con «Nueva guía», o convierte una idea en «Palabras e ideas».", "Create one with “New guide”, or turn an idea into one under “Keywords & ideas”.") : null}
           </EmptyState>
         </div>
       ) : (

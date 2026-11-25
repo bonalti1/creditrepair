@@ -184,7 +184,7 @@ function Board() {
       {studio.projects.filter((p) => p.status !== "archived").length === 0 ? (
         <div className="card mt-5">
           <EmptyState pose="envelope" title={t("Todavía no hay videos", "No videos yet")}>
-            {t("Crea el primero con «Nuevo video», o envíalo desde el Administrador de anuncios.", "Make the first one with «New video», or send a brief from the Ads Manager.")}
+            {t("Crea el primero con «Nuevo video», o envíalo desde el Administrador de anuncios.", "Make the first one with “New video”, or send a brief from the Ads Manager.")}
           </EmptyState>
         </div>
       ) : (

@@ -103,7 +103,7 @@ function Health() {
       {!seo.health ? (
         <div className="card mt-5">
           <EmptyState pose="thinking" title={t("Todavía no se ha revisado el sitio", "The site has not been checked yet")}>
-            {t("Toca «Revisar ahora». Tarda alrededor de un minuto: se leen todas las páginas en los dos idiomas.", "Tap «Check now». It takes about a minute: every page is read in both languages.")}
+            {t("Toca «Revisar ahora». Tarda alrededor de un minuto: se leen todas las páginas en los dos idiomas.", "Tap “Check now”. It takes about a minute: every page is read in both languages.")}
           </EmptyState>
         </div>
       ) : (

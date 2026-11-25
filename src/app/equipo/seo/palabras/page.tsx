@@ -102,7 +102,7 @@ function Keywords() {
                     {stats?.position ? t(`posición ${stats.position.toFixed(1)} · ${stats.clicks} clics`, `position ${stats.position.toFixed(1)} · ${stats.clicks} clicks`) : byQuery ? t("sin datos aún", "no data yet") : "—"}
                   </span>
                   {mayEdit && (
-                    <button type="button" className={QUIET_BUTTON} onClick={() => void seo.removePhrase(p.id)} aria-label={t(`Dejar de seguir «${p.phrase}»`, `Stop tracking «${p.phrase}»`)}>
+                    <button type="button" className={QUIET_BUTTON} onClick={() => void seo.removePhrase(p.id)} aria-label={t(`Dejar de seguir «${p.phrase}»`, `Stop tracking “${p.phrase}”`)}>
                       <Icon name="close" size={16} />
                     </button>
                   )}

@@ -300,7 +300,17 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
         void fetch("/api/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "progress", caseRef: withStage.caseRef, token: withStage.token, step: withStage.stage, state: withStage.answers.state, locale, ...(extra.wantsPerson ? { wantsPerson: true } : {}) }),
+          body: JSON.stringify({
+            action: "progress",
+            caseRef: withStage.caseRef,
+            token: withStage.token,
+            step: withStage.stage,
+            state: withStage.answers.state,
+            locale,
+            ...(extra.wantsPerson ? { wantsPerson: true } : {}),
+            // Once signed in, the first name names their lead for the team (it never leaves the device before).
+            ...(withStage.signedIn && withStage.answers.firstName ? { firstName: withStage.answers.firstName } : {}),
+          }),
         }).catch(() => undefined);
         return withStage;
       });

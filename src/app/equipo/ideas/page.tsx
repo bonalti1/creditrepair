@@ -16,7 +16,7 @@ import { AltiWaveLoop, CharacterAvatar } from "@/components/Character";
 import Icon from "@/components/Icon";
 import SafeBoundary from "@/components/staff/control/SafeBoundary";
 import { IdeaCard, IdeaForm, Learnings, ProposalCard } from "@/components/staff/ideas/parts";
-import { EmptyState, NoAccess, pillTab, PRIMARY_BUTTON_COMPACT, QUIET_BUTTON } from "@/components/staff/ui";
+import { DemoNote, EmptyState, NoAccess, pillTab, PRIMARY_BUTTON_COMPACT, QUIET_BUTTON } from "@/components/staff/ui";
 
 // Ideas and experiments (docs/IDEAS.md): section 8 «Ideas & numbers», beside
 // the business dashboard. Everyone on the team sees the board and adds ideas;
@@ -111,19 +111,15 @@ function IdeasScreen() {
         )}
       </div>
       {data.demo && (
-        <p className="mt-3 flex flex-wrap items-center gap-2 rounded-[10px] bg-amber-100 px-3 py-2 text-[13px] leading-snug text-blue-900" data-testid="ideas-sample">
+        <DemoNote
+          testId="ideas-sample"
+          onReset={() => {
+            resetDemoIdeas();
+            void load();
+          }}
+        >
           {tx.sampleBanner}
-          <button
-            type="button"
-            className={`${QUIET_BUTTON} h-9 px-2 text-[12.5px] text-blue-900`}
-            onClick={() => {
-              resetDemoIdeas();
-              void load();
-            }}
-          >
-            {tx.reset}
-          </button>
-        </p>
+        </DemoNote>
       )}
 
       <div className="mt-4 flex flex-wrap gap-1.5" role="tablist" aria-label={tx.title}>

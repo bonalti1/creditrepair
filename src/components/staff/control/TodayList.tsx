@@ -32,6 +32,9 @@ const KIND_TONE: Record<TodayItem["kind"], string> = {
   content_failed: "bg-red-50 text-red-700",
   content_review: "bg-blue-50 text-blue-700",
   content_changes: "bg-blue-50 text-blue-700",
+  video_review: "bg-blue-50 text-blue-700",
+  video_changes: "bg-blue-50 text-blue-700",
+  video_handoff: "bg-blue-50 text-blue-700",
   books_close: "bg-amber-100 text-blue-900",
   books_receipts: "bg-slate-100 text-slate-700",
 };
@@ -53,6 +56,9 @@ function Row({ item, index, now, actions }: { item: TodayItem; index: number; no
     content_failed: t("Contenido · falló", "Content · failed"),
     content_review: t("Contenido · aprobar", "Content · approve"),
     content_changes: t("Contenido · cambios", "Content · changes"),
+    video_review: t("Video · aprobar", "Video · approve"),
+    video_changes: t("Video · cambios", "Video · changes"),
+    video_handoff: t("Video · pasar a Contenido", "Video · hand over"),
     books_close: t("Contabilidad", "Accounting"),
     books_receipts: t("Contabilidad", "Accounting"),
   };

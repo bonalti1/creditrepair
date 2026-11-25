@@ -1,4 +1,7 @@
+import type { AdsSummary } from "../ads/report";
 import type { ContentSummary } from "../control/content";
+import type { SeoSummary } from "../control/marketing";
+import type { SearchTotals } from "../seo/types";
 import { leadQuality } from "../leads/metrics";
 import type { Lead } from "../leads/types";
 import type { StaffLocale } from "../staff/i18n/locale";
@@ -13,7 +16,7 @@ import type { BasedOn } from "./types";
 // number of its own, and nothing carries a client's or a teammate's name: only
 // aggregates leave this file.
 //
-// EXTENSION POINT. Departments built later (Ads, SEO, …) add one entry to
+// EXTENSION POINT. Departments built later (Ads and SEO are in; …) add one entry to
 // SIGNAL_SOURCES with their metrics, their labels in both languages and a
 // `collect` that reads their own summary from `input.extra[<their id>]`. The
 // metric picker, the proposals and the checks pick them up from there; no
@@ -214,8 +217,113 @@ const CONTENT: SignalSource = {
   },
 };
 
+/**
+ * The Ads Manager's last 7 days (src/lib/ads/report.ts adsSummary), what the
+ * Overview's Ads card shows. The server puts it in `input.extra.ads`
+ * (ideas/server.ts loadSignals); a sample (the demo) or an account Meta has
+ * not been connected to counts as no data, never as numbers.
+ */
+export const ADS_SIGNAL_ID = "ads";
+export type AdsSignalInput = AdsSummary;
+
+const ADS: SignalSource = {
+  id: ADS_SIGNAL_ID,
+  metrics: {
+    ads_leads_week: { unit: "count", window: "7d", better: "up" },
+    ads_signed_week: { unit: "count", window: "7d", better: "up" },
+    ads_cost_per_lead: { unit: "cents", window: "7d", better: "down" },
+    ads_signed_rate: { unit: "percent", window: "7d", better: "up" },
+    ads_to_turn_off: { unit: "count", window: "now", better: "down" },
+  },
+  labels: {
+    en: {
+      ads_leads_week: "Leads from ads this week",
+      ads_signed_week: "Clients who signed from ads this week",
+      ads_cost_per_lead: "Cost per lead from ads (Credalti's count)",
+      ads_signed_rate: "Ad leads who signed",
+      ads_to_turn_off: "Ads to turn off that still spend",
+    },
+    es: {
+      ads_leads_week: "Prospectos de anuncios esta semana",
+      ads_signed_week: "Clientes de anuncios que firmaron esta semana",
+      ads_cost_per_lead: "Costo por prospecto de anuncios (cuenta de Credalti)",
+      ads_signed_rate: "Prospectos de anuncios que firmaron",
+      ads_to_turn_off: "Anuncios por apagar que siguen gastando",
+    },
+  },
+  collect({ extra }) {
+    const ads = extra?.[ADS_SIGNAL_ID] as AdsSignalInput | null | undefined;
+    if (!ads || ads.sample || ads.spend7dCents === null) return {};
+    const leads = ads.leads7d;
+    return {
+      ads_leads_week: leads,
+      ads_signed_week: ads.signed7d,
+      ads_cost_per_lead: ads.costPerLead7dCents,
+      ads_signed_rate: leads && ads.signed7d !== null ? ads.signed7d / leads : null,
+      ads_to_turn_off: ads.turnOff,
+    };
+  },
+};
+
+/**
+ * SEO: Google Search Console's last 28 days (seo/search.ts grandTotal), the
+ * guides on the website and the site check (control/marketing.ts
+ * seoSummary). The server puts them in `input.extra.seo`; Search Console not
+ * connected, or no site check run yet, is no data for those numbers.
+ */
+export const SEO_SIGNAL_ID = "seo";
+export interface SeoSignalInput {
+  /** Search Console's totals for the last 28 days; null when it is not connected. */
+  search: SearchTotals | null;
+  summary: SeoSummary | null;
+}
+
+const SEO: SignalSource = {
+  id: SEO_SIGNAL_ID,
+  metrics: {
+    seo_clicks_28d: { unit: "count", window: "30d", better: "up" },
+    seo_impressions_28d: { unit: "count", window: "30d", better: "up" },
+    seo_ctr_28d: { unit: "percent", window: "30d", better: "up" },
+    seo_position_28d: { unit: "count", window: "30d", better: "down" },
+    seo_guides_published: { unit: "count", window: "now", better: "up" },
+    seo_checks_to_fix: { unit: "count", window: "now", better: "down" },
+  },
+  labels: {
+    en: {
+      seo_clicks_28d: "Clicks from Google search, 28 days",
+      seo_impressions_28d: "Times shown in Google search, 28 days",
+      seo_ctr_28d: "Share of searches that clicked, 28 days",
+      seo_position_28d: "Average position in Google search, 28 days",
+      seo_guides_published: "Guides on the website",
+      seo_checks_to_fix: "Site checks to fix",
+    },
+    es: {
+      seo_clicks_28d: "Clics desde Google, 28 días",
+      seo_impressions_28d: "Veces que salió en Google, 28 días",
+      seo_ctr_28d: "Parte de las búsquedas que hicieron clic, 28 días",
+      seo_position_28d: "Posición promedio en Google, 28 días",
+      seo_guides_published: "Guías en el sitio web",
+      seo_checks_to_fix: "Revisiones del sitio por corregir",
+    },
+  },
+  collect({ extra }) {
+    const seo = extra?.[SEO_SIGNAL_ID] as SeoSignalInput | null | undefined;
+    if (!seo) return {};
+    const search = seo.search;
+    const hasSearch = search !== null && search.impressions > 0;
+    return {
+      seo_clicks_28d: search ? search.clicks : null,
+      seo_impressions_28d: search ? search.impressions : null,
+      seo_ctr_28d: hasSearch ? search.ctr : null,
+      seo_position_28d: hasSearch ? search.position : null,
+      seo_guides_published: seo.summary ? seo.summary.published : null,
+      seo_checks_to_fix: seo.summary?.checked ? seo.summary.toFix : null,
+    };
+  },
+};
+
 /** Every source of numbers, in the order the screen lists them. Later departments add theirs here. */
-export const SIGNAL_SOURCES: readonly SignalSource[] = [BUSINESS, LEADS, CONTENT];
+export const SIGNAL_SOURCES: readonly SignalSource[] = [BUSINESS, LEADS, CONTENT, ADS, SEO];
 
 /** "Other": an idea about something the console does not count yet. */
 export const OTHER_METRIC = "other";

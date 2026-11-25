@@ -14,7 +14,7 @@ import { getTeamData } from "@/lib/staff/teamData";
 import { can, deniedReason } from "@/lib/staff/permissions";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import Icon from "@/components/Icon";
-import { DeniedNote, PRIMARY_BUTTON_COMPACT, QUIET_BUTTON, SECONDARY_BUTTON_COMPACT, SectionTitle } from "@/components/staff/ui";
+import { DeniedNote, PRIMARY_BUTTON_COMPACT, QUIET_BUTTON, SECONDARY_BUTTON_COMPACT, SectionTitle, BACK_LINK } from "@/components/staff/ui";
 import { AltiAssist } from "@/components/staff/content/AltiAssist";
 import { ApprovalPanel, CheckSummary, Checklist } from "@/components/staff/content/PieceChecks";
 import { PieceFiles } from "@/components/staff/content/PieceFiles";
@@ -132,7 +132,7 @@ function Piece() {
 
   return (
     <main className="animate-rise">
-      <Link href="/equipo/contenido" className="inline-flex h-11 items-center gap-1 text-[14px] font-medium text-blue-700">
+      <Link href="/equipo/contenido" className={BACK_LINK}>
         <Icon name="chevron" size={16} className="rotate-180" />
         {t("Tablero", "Board")}
       </Link>
@@ -285,7 +285,7 @@ function Piece() {
                 <legend className={LABEL}>{t("Canales", "Channels")}</legend>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {CHANNELS.map((c) => (
-                    <label key={c} className={`inline-flex h-10 cursor-pointer items-center gap-2 rounded-full px-3 text-[13.5px] ring-1 ${draft.channels.includes(c) ? "bg-blue-50 text-blue-900 ring-blue-300" : "text-slate-700 ring-slate-200"}`}>
+                    <label key={c} className={`inline-flex h-11 md:h-10 cursor-pointer items-center gap-2 rounded-full px-3 text-[13.5px] ring-1 ${draft.channels.includes(c) ? "bg-blue-50 text-blue-900 ring-blue-300" : "text-slate-700 ring-slate-200"}`}>
                       <input type="checkbox" checked={draft.channels.includes(c)} disabled={!editable} onChange={() => set({ channels: draft.channels.includes(c) ? draft.channels.filter((x) => x !== c) : [...draft.channels, c] })} className="h-4 w-4 accent-blue-700" />
                       {CHANNEL_LABEL[locale][c]}
                     </label>
@@ -296,7 +296,7 @@ function Piece() {
                 <legend className={LABEL}>{t("Personajes en los visuales", "Characters in the visuals")}</legend>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {(["alti", "altibot"] as const).map((c) => (
-                    <label key={c} className={`inline-flex h-10 cursor-pointer items-center gap-2 rounded-full px-3 text-[13.5px] ring-1 ${draft.characters.includes(c) ? "bg-blue-50 text-blue-900 ring-blue-300" : "text-slate-700 ring-slate-200"}`}>
+                    <label key={c} className={`inline-flex h-11 md:h-10 cursor-pointer items-center gap-2 rounded-full px-3 text-[13.5px] ring-1 ${draft.characters.includes(c) ? "bg-blue-50 text-blue-900 ring-blue-300" : "text-slate-700 ring-slate-200"}`}>
                       <input type="checkbox" checked={draft.characters.includes(c)} disabled={!editable} onChange={() => set({ characters: draft.characters.includes(c) ? draft.characters.filter((x) => x !== c) : [...draft.characters, c] })} className="h-4 w-4 accent-blue-700" />
                       {c === "alti" ? t("Alti (asistente con IA)", "Alti (AI assistant)") : t("El robot (solo cameo)", "The robot (cameo only)")}
                     </label>

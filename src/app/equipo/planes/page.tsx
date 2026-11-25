@@ -28,7 +28,7 @@ import { deniedReason } from "@/lib/staff/permissions";
 import { staffAuthor, useStaff } from "@/lib/staff/useStaff";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
 import { CARD_BRAND_NAME, CARD_BRANDS, DEFAULT_ACCEPTED_CARDS, type AcceptedCards } from "@/lib/billing/cardBrands";
-import { Chip, NoAccess, PRIMARY_BUTTON, QUIET_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SectionTitle } from "@/components/staff/ui";
+import { Chip, DemoNote, NoAccess, PRIMARY_BUTTON, QUIET_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SectionTitle } from "@/components/staff/ui";
 
 // Billing plans, the way Credit Repair Cloud's "Manage Plans" lays them out
 // (name, first work fee, recurring amount, due date, duration, household
@@ -302,7 +302,7 @@ function Editor({ form, setForm, onSave, saving, problems, l, switches }: { form
                 aria-pressed={form.firstWork === v}
                 disabled={form.type === "pay_per_delete" && v}
                 onClick={() => set("firstWork", v)}
-                className={`h-9 flex-1 rounded-lg text-[13px] font-semibold disabled:opacity-40 ${form.firstWork === v ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
+                className={`h-11 md:h-9 flex-1 rounded-lg text-[13px] font-semibold disabled:opacity-40 ${form.firstWork === v ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
               >
                 {v ? t("Sí", "Yes") : t("No", "No")}
               </button>
@@ -630,12 +630,12 @@ export default function PlanesPage() {
       </div>
 
       {data.demo && (
-        <p role="note" className="mt-4 rounded-2xl bg-amber-100 px-4 py-3 text-[13.5px] leading-snug text-blue-900">
+        <DemoNote className="mt-4">
           {t(
             "Demo: planes de ejemplo guardados en este navegador. Ningún abogado los ha revisado: «Abogado pendiente» es real.",
             "Demo: example plans kept in this browser. No attorney has reviewed them: “Attorney pending” is real.",
           )}
-        </p>
+        </DemoNote>
       )}
       {message && (
         <p role="status" className="mt-4 rounded-2xl bg-blue-50 px-4 py-3 text-[13.5px] leading-snug text-blue-900">

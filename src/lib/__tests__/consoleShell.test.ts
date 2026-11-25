@@ -134,3 +134,17 @@ describe("Ask Alti", () => {
     expect(panel).not.toMatch(/fetch\(|\/api\//);
   });
 });
+
+describe("every section has its own screen help (final pass, docs/AUDIT.md)", () => {
+  it("each destination of the menu, in both languages, has its own «This screen» help, never Home's by fallback", () => {
+    const hrefs = [...PRIMARY_NAV, ...MORE_NAV].map((n) => n.href).concat("/equipo/llamadas");
+    for (const locale of ["en", "es"] as const) {
+      for (const href of hrefs) {
+        expect(SCREEN_HELPS[locale][href], `${locale} ${href}`).toBeDefined();
+        const help = SCREEN_HELPS[locale][href]!;
+        expect(help.steps.length, href).toBeGreaterThan(0);
+        for (const line of [help.title, help.what, ...help.steps]) expect(checkClaimGuardrails(line), `${href}: ${line}`).toEqual([]);
+      }
+    }
+  });
+});

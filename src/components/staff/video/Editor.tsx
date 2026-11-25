@@ -1,5 +1,8 @@
 "use client";
 
+import { longDay } from "@/lib/staff/format";
+import { memberName } from "@/lib/staff/team";
+import { useStaff } from "@/lib/staff/useStaff";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BRAND, type AssistantPose } from "@/lib/brand";
 import { POSE_LABEL } from "@/lib/content/brandKit";
@@ -925,6 +928,8 @@ function BrandPanel({ edit, editable, bodyTime, apply }: { edit: VideoEdit; edit
 // ── Music ───────────────────────────────────────────────────────────────
 
 function MusicPanel({ studio, edit, editable, apply }: { studio: VideoStudio; edit: VideoEdit; editable: boolean; apply: (e: VideoEdit) => void }) {
+  const { members } = useStaff();
+  const { locale: musicLocale } = useStaffLocale();
   const t = useTx();
   const tracks = useMemo(() => studio.tracks.filter((x) => !x.removedAt), [studio.tracks]);
   const chosen = tracks.find((x) => x.id === edit.music.trackId) ?? null;
@@ -950,7 +955,7 @@ function MusicPanel({ studio, edit, editable, apply }: { studio: VideoStudio; ed
       {chosen ? (
         <>
           <p className="rounded-[10px] bg-green-50 px-3 py-2 text-[12.5px] text-green-800">
-            {t(`Derechos confirmados por ${chosen.rights.confirmedBy}`, `Rights confirmed by ${chosen.rights.confirmedBy}`)} · {chosen.rights.confirmedAt.slice(0, 10)}
+            {t(`Derechos confirmados por ${memberName(members, chosen.rights.confirmedBy)}`, `Rights confirmed by ${memberName(members, chosen.rights.confirmedBy)}`)} · {longDay(chosen.rights.confirmedAt, musicLocale)}
             {chosen.rights.note ? ` · ${chosen.rights.note}` : ""}
           </p>
           <Slider label={t("Volumen de la música", "Music volume")} value={edit.music.volume} disabled={!editable} onChange={(v) => apply({ ...edit, music: { ...edit.music, volume: v } })} />

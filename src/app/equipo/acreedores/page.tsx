@@ -317,7 +317,7 @@ function EntryCard({
         </button>
       </div>
       <details className="group mt-2">
-        <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[13px] font-medium text-blue-700 [&::-webkit-details-marker]:hidden">
+        <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-[13px] font-medium text-blue-700 md:min-h-0 [&::-webkit-details-marker]:hidden">
           <Icon name="clock" size={14} />
           {t("Historial", "History")} ({entry.history.length})
         </summary>

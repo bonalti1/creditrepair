@@ -5,6 +5,8 @@ import { ALTI_RUNS_PER_DAY, ALTI_SYSTEM, altiUserMessage, askAlti, checkProposal
 import { proposalWordsProblems, similarTitles, titleOverlap } from "../ideas/check";
 import { SAMPLE_PROPOSALS, seedDemoIdeas } from "../ideas/demo";
 import { actionRefusal, applyAction, capabilityFor, ideasBodySchema, isLearning, searchLearnings, testDaysLeft, testIsDue, TRANSITIONS } from "../ideas/rules";
+import type { AdsSummary } from "../ads/report";
+import { ADS_SIGNAL_ID, SEO_SIGNAL_ID, type SeoSignalInput } from "../ideas/signals";
 import { basedOnFrom, collectSignals, IDEA_METRIC_LABELS, IDEA_METRICS, isIdeaMetric, OTHER_METRIC, SIGNAL_SOURCES, type SignalSource } from "../ideas/signals";
 import { IDEAS_TEXT } from "../ideas/text";
 import { IDEA_DEPARTMENTS, IDEA_STATUSES, type Idea } from "../ideas/types";
@@ -129,6 +131,48 @@ describe("the numbers ideas name, and Alti reads", () => {
     const signals = collectSignals({ clients: null, leads: null, content: null, now: NOW, extra: { ads: { spend: 125_000 } } }, [...SIGNAL_SOURCES, ads, broken]);
     expect(signals.find((s) => s.key === "ad_spend")).toMatchObject({ value: 125_000, display: "$1,250" });
     expect(signals.find((s) => s.key === "broken_metric")!.value).toBeNull();
+  });
+
+  it("the Ads Manager's and SEO's numbers are in: filled in from what the server read, never a sample, never a zero for missing data", () => {
+    const ads: AdsSummary = { connected: true, sample: false, spend7dCents: 140_000, leads7d: 56, signed7d: 7, costPerLead7dCents: 2_500, turnOff: 1, syncedAt: NOW.toISOString() };
+    const seo: SeoSignalInput = {
+      search: { key: "all", clicks: 320, impressions: 12_000, ctr: 320 / 12_000, position: 14.2 },
+      summary: { checked: true, toFix: 2, review: 1, changes: 0, published: 6 },
+    };
+    const signals = collectSignals({ clients: null, leads: null, content: null, now: NOW, extra: { [ADS_SIGNAL_ID]: ads, [SEO_SIGNAL_ID]: seo } });
+    const value = (key: string) => signals.find((s) => s.key === key);
+    expect(value("ads_leads_week")).toMatchObject({ source: "ads", value: 56, display: "56" });
+    expect(value("ads_cost_per_lead")).toMatchObject({ value: 2_500, display: "$25" });
+    expect(value("ads_signed_rate")!.value).toBeCloseTo(7 / 56);
+    expect(value("ads_to_turn_off")!.value).toBe(1);
+    expect(value("seo_clicks_28d")).toMatchObject({ source: "seo", value: 320 });
+    expect(value("seo_ctr_28d")!.display).toBe("3%");
+    expect(value("seo_position_28d")!.value).toBeCloseTo(14.2);
+    expect(value("seo_guides_published")!.value).toBe(6);
+    expect(value("seo_checks_to_fix")!.value).toBe(2);
+    // A proposal cites them only through the snapshot: the numbers are the server's, whatever the model wrote.
+    expect(basedOnFrom(["ads_cost_per_lead", "seo_clicks_28d"], signals)).toEqual([
+      { key: "ads_cost_per_lead", value: 2_500, unit: "cents", display: "$25" },
+      { key: "seo_clicks_28d", value: 320, unit: "count", display: "320" },
+    ]);
+    // The demo's sample ads, Meta not connected, Search Console not connected, no site check yet: no data.
+    const missing = collectSignals({
+      clients: null,
+      leads: null,
+      content: null,
+      now: NOW,
+      extra: { [ADS_SIGNAL_ID]: { ...ads, sample: true }, [SEO_SIGNAL_ID]: { search: null, summary: { checked: false, toFix: 0, review: 0, changes: 0, published: 0 } } },
+    });
+    for (const key of ["ads_leads_week", "ads_cost_per_lead", "seo_clicks_28d", "seo_checks_to_fix"]) expect(missing.find((s) => s.key === key)!.value, key).toBeNull();
+    expect(collectSignals({ clients: null, leads: null, content: null, now: NOW, extra: { [ADS_SIGNAL_ID]: { ...ads, spend7dCents: null } } }).find((s) => s.key === "ads_leads_week")!.value).toBeNull();
+    // Alti's message names them in plain words.
+    const message = altiUserMessage(signals, []);
+    expect(message).toContain("Cost per lead from ads");
+    expect(message).toContain("Clicks from Google search, 28 days");
+    // The server fills them in (ideas/server.ts loadSignals), never the model.
+    const server = readFileSync("src/lib/ideas/server.ts", "utf8");
+    expect(server).toMatch(/loadAdsSummary\(reader/);
+    expect(server).toMatch(/\[SEO_SIGNAL_ID\]: seo/);
   });
 
   it("what Alti is sent is aggregates only: no client's or teammate's name, phone or email", () => {

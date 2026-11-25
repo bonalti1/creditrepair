@@ -84,7 +84,7 @@ function MemberRow({
           value={member.role}
           disabled={busy}
           onChange={(e) => onRole(e.target.value as StaffRole)}
-          className="h-10 rounded-2xl bg-white px-3 text-[14px] font-medium text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] outline-none focus:ring-2 focus:ring-blue-300"
+          className="h-11 md:h-10 rounded-2xl bg-white px-3 text-[14px] font-medium text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] outline-none focus:ring-2 focus:ring-blue-300"
         >
           {STAFF_ROLES.map((role) => (
             <option key={role} value={role}>{ROLE_LABELS[locale][role]}</option>
@@ -96,7 +96,7 @@ function MemberRow({
             onClick={() => onActive(false)}
             disabled={busy || isMe}
             title={isMe ? t("No puedes desactivar tu propia cuenta.", "You can't deactivate your own account.") : undefined}
-            className="pressable h-10 rounded-full px-3.5 text-[14px] font-medium text-slate-600 hover:bg-slate-100 disabled:text-slate-300"
+            className="pressable h-11 md:h-10 rounded-full px-3.5 text-[14px] font-medium text-slate-600 hover:bg-slate-100 disabled:text-slate-300"
           >
             {t("Desactivar", "Deactivate")}
           </button>
@@ -105,7 +105,7 @@ function MemberRow({
             type="button"
             onClick={() => onActive(true)}
             disabled={busy}
-            className="pressable h-10 rounded-full bg-blue-50 px-3.5 text-[14px] font-semibold text-blue-700 hover:bg-blue-100"
+            className="pressable h-11 md:h-10 rounded-full bg-blue-50 px-3.5 text-[14px] font-semibold text-blue-700 hover:bg-blue-100"
           >
             {t("Reactivar", "Reactivate")}
           </button>
@@ -171,7 +171,7 @@ export default function EquipoPage() {
           </p>
         </div>
         {!adding && (
-          <button type="button" onClick={() => setAdding(true)} className="pressable inline-flex h-10 items-center gap-1.5 rounded-full bg-amber-400 px-4 text-[14px] font-semibold text-blue-900 hover:bg-amber-500" data-testid="add-member-open">
+          <button type="button" onClick={() => setAdding(true)} className="pressable inline-flex h-11 md:h-10 items-center gap-1.5 rounded-full bg-amber-400 px-4 text-[14px] font-semibold text-blue-900 hover:bg-amber-500" data-testid="add-member-open">
             <Icon name="plus" size={16} strokeWidth={2.25} />
             {t("Agregar persona", "Add person")}
           </button>

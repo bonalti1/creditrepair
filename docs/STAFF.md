@@ -327,6 +327,12 @@ phone's sheet; on navy the active one turns gold.
 **Density.** ALTO is dense on a laptop (three cards across at 1440 px, the
 menu always in view) and roomy on a phone (one column, 44 px targets).
 
+**Shared pieces added in the final pass** (`ui.tsx`, docs/AUDIT.md): `DemoNote`
+(the one demo/sample note under a department's header: pale gold, the info
+icon, «Demo» in bold, the sentence, and «Reset the example» where the
+department keeps its own), `Switch` (every on/off switch: navy when on, a
+44 px target on a phone) and `BACK_LINK` («‹ Back» on every inner page).
+
 **Empty and loading states.** Empty: Alti with a pose, a short title and what
 to do. A number that could not be read: "No data yet" and why, never a 0.
 Loading: the screen waits for its data rather than flashing zeros; a box that

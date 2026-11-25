@@ -79,20 +79,7 @@ import JourneyStrip from "@/components/staff/fulfillment/JourneyStrip";
 import MessagesCard from "@/components/staff/fulfillment/MessagesCard";
 import MonitoringCard from "@/components/staff/fulfillment/MonitoringCard";
 import { DOCUMENT_KIND_LABEL } from "@/lib/fulfillment/documents";
-import {
-  ActorTag,
-  Chip,
-  ClientLanguageTag,
-  DeniedNote,
-  pillTab,
-  PRIMARY_BUTTON,
-  QUIET_BUTTON,
-  ROW_BUTTON,
-  SectionTitle,
-  SeverityDot,
-  StageChip,
-  WAITING_TONE,
-} from "@/components/staff/ui";
+import { ActorTag, Chip, ClientLanguageTag, DeniedNote, pillTab, PRIMARY_BUTTON, QUIET_BUTTON, ROW_BUTTON, SectionTitle, SeverityDot, StageChip, WAITING_TONE, BACK_LINK } from "@/components/staff/ui";
 
 // One client. The top card answers "where is this person and why" at a glance:
 // the stage, what happens next and who does it. Below it, everything on file:
@@ -297,7 +284,7 @@ function Letter({
         </ul>
       )}
       <details className="group mt-2">
-        <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden">
+        <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline md:min-h-0 [&::-webkit-details-marker]:hidden">
           <Icon name="doc" size={15} />
           <span className="group-open:hidden">{t("Ver la carta", "See the letter")}</span>
           <span className="hidden group-open:inline">{t("Ocultar la carta", "Hide the letter")}</span>
@@ -353,7 +340,7 @@ export default function ClientePage() {
         <p className="mt-2 text-[15px] text-slate-500">
           {t("Puede que no exista o que no esté entre los clientes que tu rol te deja ver.", "They may not exist, or they aren't among the clients your role lets you see.")}
         </p>
-        <Link href="/equipo/clientes" className="mt-4 inline-block text-[15px] font-medium text-blue-700">
+        <Link href="/equipo/clientes" className={`${BACK_LINK} mt-2`}>
           {t("Volver a clientes", "Back to clients")}
         </Link>
       </main>
@@ -441,7 +428,7 @@ export default function ClientePage() {
 
   return (
     <main className="animate-rise">
-      <Link href="/equipo/clientes" className="inline-flex min-h-11 items-center gap-1 text-[14px] font-medium text-blue-700">
+      <Link href="/equipo/clientes" className={BACK_LINK}>
         <Icon name="chevron" size={16} className="rotate-180" />
         {t("Clientes", "Clients")}
       </Link>

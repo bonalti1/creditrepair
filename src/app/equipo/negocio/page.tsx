@@ -312,10 +312,10 @@ function Dashboard() {
               note={t(`${m.money.chargebacks} contracargos · aviso desde 0.75%`, `${m.money.chargebacks} chargebacks · warning from 0.75%`)}
             />
             <div className="flex min-w-0 flex-col justify-center gap-1.5 px-4 py-4 sm:px-5">
-              <a href="/equipo/cobros" className="text-[14px] font-medium text-blue-700 underline-offset-2 hover:underline">
+              <a href="/equipo/cobros" className="inline-flex min-h-11 items-center text-[14px] font-medium text-blue-700 underline-offset-2 hover:underline md:min-h-0">
                 {t("Facturas y exportar CSV", "Invoices and CSV export")}
               </a>
-              <a href="/equipo/planes" className="text-[14px] font-medium text-blue-700 underline-offset-2 hover:underline">
+              <a href="/equipo/planes" className="inline-flex min-h-11 items-center text-[14px] font-medium text-blue-700 underline-offset-2 hover:underline md:min-h-0">
                 {t("Planes de cobro", "Billing plans")}
               </a>
             </div>

@@ -29,7 +29,7 @@ import { useStaff } from "@/lib/staff/useStaff";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
 import { whatsappHref } from "@/lib/staff/messages";
 import type { StaffClient } from "@/lib/staff/types";
-import { Chip, EmptyState, NoAccess, pillTab, PRIMARY_BUTTON, ROW_BUTTON, SectionTitle } from "@/components/staff/ui";
+import { Chip, DemoNote, EmptyState, NoAccess, pillTab, PRIMARY_BUTTON, ROW_BUTTON, SectionTitle } from "@/components/staff/ui";
 
 // Import from Credit Repair Cloud (/equipo/importar, administrators;
 // docs/FULFILLMENT.md "Moving from Credit Repair Cloud"). Upload CRC's CSV
@@ -316,9 +316,7 @@ export default function ImportarPage() {
           )}
         </p>
         {demo && (
-          <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] text-blue-900">
-            {t("Demo: usa el archivo de ejemplo (personas inventadas). Lo importado se guarda solo en este navegador.", "Demo: use the sample file (made-up people). What you import is kept only in this browser.")}
-          </p>
+          <DemoNote>{t("Demo: usa el archivo de ejemplo (personas inventadas). Lo importado se guarda solo en este navegador.", "Demo: use the sample file (made-up people). What you import is kept only in this browser.")}</DemoNote>
         )}
       </header>
 

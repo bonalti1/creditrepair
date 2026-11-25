@@ -36,6 +36,12 @@ Also built: **"Schedule a call with a person"**, switched **off** by default.
 | Database | `supabase/migrations/0032_calls.sql` (in `supabase/setup.sql`) |
 | Tests | `src/lib/__tests__/signupChat.test.ts`, `calls.test.ts`, `db/calls.test.ts` |
 
+**The lead's name.** Once the person is signed in, the chat's progress call
+also carries the first name they typed (never before sign-in). The server
+(`updateSignupCase`) puts it on their lead when the lead has no name yet, so
+the lead inbox and the Ads Manager show "Rosa", not "No name yet"; it never
+overwrites a name a person or a form gave (`db/controlLeads.test.ts`).
+
 Linked from the website: under every "Start my review" button group, "Or sign
 up in a chat with Alti, in about 10 minutes" (`CHAT_START` in
 `src/lib/site/cta.ts`). The main button is unchanged (WhatsApp when a number

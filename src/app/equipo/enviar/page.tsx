@@ -18,7 +18,7 @@ import { fullName } from "@/lib/staff/types";
 import { useStaff } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
 import { MailModeNote, SimulatedPill } from "@/components/staff/MailBits";
-import { PRIMARY_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SectionTitle } from "@/components/staff/ui";
+import { EmptyState, PRIMARY_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SectionTitle, BACK_LINK } from "@/components/staff/ui";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import { staffMessage } from "@/lib/staff/i18n/messages";
 import type { StaffLocale } from "@/lib/staff/i18n/locale";
@@ -58,7 +58,7 @@ function LetterRow({ plan, onClass }: { plan: LetterMailPlan; onClass: (value: M
           <div className="mt-1.5 flex flex-col items-start gap-2 rounded-xl bg-red-50 px-3 py-2.5" data-testid="send-blocker">
             <p className="text-[13px] leading-snug text-red-700">{plan.blocker}</p>
             {plan.missingCompany && (
-              <Link href={addressBookHref(plan.missingCompany, plan.furnisherEntryId)} className={`${ROW_BUTTON} h-9`}>
+              <Link href={addressBookHref(plan.missingCompany, plan.furnisherEntryId)} className={`${ROW_BUTTON} h-11 md:h-9`}>
                 {t("Agregar la dirección", "Add the address")}
               </Link>
             )}
@@ -167,7 +167,7 @@ function SendView() {
 
   return (
     <main className="animate-rise">
-      <Link href="/equipo" className="inline-flex min-h-11 items-center gap-1 text-[14px] font-medium text-blue-700">
+      <Link href="/equipo" className={BACK_LINK}>
         <Icon name="chevron" size={16} className="rotate-180" />
         {t("Inicio", "Home")}
       </Link>
@@ -209,8 +209,18 @@ function SendView() {
       <div className="mt-6 grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-4">
           {batch.ready.length === 0 && heldWithPlan.length === 0 && (
-            <div className="card px-5 py-6 text-[15px] leading-snug text-slate-500">
-              {sent ? t("Todo lo que se eligió ya salió.", "Everything chosen already went out.") : t("No hay rondas para enviar en este enlace.", "There are no rounds to send in this link.")}
+            <div className="card" data-testid="send-empty">
+              <EmptyState pose={sent ? "celebrate" : "envelope"} title={sent ? t("Todo lo que se eligió ya salió.", "Everything chosen already went out.") : t("Todavía no hay rondas elegidas para enviar", "No rounds picked to send yet")}>
+                <p>
+                  {t(
+                    "Las rondas se eligen en «Listas para enviar», en tu inicio, o desde la página del cliente. Esta pantalla muestra a dónde va cada carta y cuánto cuesta antes de enviarla.",
+                    "Rounds are picked under “Ready to send” on your home screen, or from a client's page. This screen shows where each letter goes and what it costs before it's sent.",
+                  )}
+                </p>
+                <Link href="/equipo" className={`${ROW_BUTTON} mt-3`}>
+                  {t("Ir a «Listas para enviar»", "Go to “Ready to send”")}
+                </Link>
+              </EmptyState>
             </div>
           )}
           {batch.ready.map((plan) => (

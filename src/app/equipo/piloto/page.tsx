@@ -15,29 +15,13 @@ import { deniedReason } from "@/lib/staff/permissions";
 import { EXCEPTION_KINDS, EXCEPTION_LABELS } from "@/lib/staff/stage";
 import { shortDateTime } from "@/lib/staff/format";
 import { staffAuthor, useStaff } from "@/lib/staff/useStaff";
-import { Chip, DeniedNote, SectionTitle } from "@/components/staff/ui";
+import { Chip, DeniedNote, SectionTitle, Switch } from "@/components/staff/ui";
 
 // Piloto automático: what the system does by itself, and the switches for it.
 // Plain words in the member's language, one card per thing. An administrator changes them; everyone
 // else on the team sees them, read-only. Every change is recorded (on the
 // database, in the team's audit).
 
-function Switch({ on, label, disabled, onChange, testId }: { on: boolean; label: string; disabled: boolean; onChange: (next: boolean) => void; testId?: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!on)}
-      data-testid={testId}
-      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${on ? "bg-green-600" : "bg-slate-300"}`}
-    >
-      <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${on ? "translate-x-6" : "translate-x-1"}`} />
-    </button>
-  );
-}
 
 function Row({ title, children, aside }: { title: string; children?: React.ReactNode; aside: React.ReactNode }) {
   return (
@@ -149,7 +133,7 @@ export default function PilotoPage() {
                   value={settings.reviewWindowHours}
                   disabled={disabled}
                   onChange={(e) => void save({ reviewWindowHours: Number(e.target.value) })}
-                  className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-[14px] disabled:opacity-60"
+                  className="h-11 md:h-10 rounded-xl border border-slate-300 bg-white px-3 text-[14px] disabled:opacity-60"
                 >
                   {[...new Set([...REVIEW_WINDOW_CHOICES, settings.reviewWindowHours])].sort((a, b) => a - b).map((h) => (
                     <option key={h} value={h}>
@@ -181,7 +165,7 @@ export default function PilotoPage() {
                     value={settings.quietStartHour}
                     disabled={disabled}
                     onChange={(e) => void save({ quietStartHour: Number(e.target.value) })}
-                    className="h-10 rounded-xl border border-slate-300 bg-white px-2 text-[14px] disabled:opacity-60"
+                    className="h-11 md:h-10 rounded-xl border border-slate-300 bg-white px-2 text-[14px] disabled:opacity-60"
                   >
                     {Array.from({ length: 24 }, (_, h) => (
                       <option key={h} value={h}>
@@ -195,7 +179,7 @@ export default function PilotoPage() {
                     value={settings.quietEndHour}
                     disabled={disabled}
                     onChange={(e) => void save({ quietEndHour: Number(e.target.value) })}
-                    className="h-10 rounded-xl border border-slate-300 bg-white px-2 text-[14px] disabled:opacity-60"
+                    className="h-11 md:h-10 rounded-xl border border-slate-300 bg-white px-2 text-[14px] disabled:opacity-60"
                   >
                     {Array.from({ length: 24 }, (_, h) => (
                       <option key={h} value={h}>
@@ -219,7 +203,7 @@ export default function PilotoPage() {
                   value={settings.dailyCap}
                   disabled={disabled}
                   onChange={(e) => void save({ dailyCap: Number(e.target.value) })}
-                  className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-[14px] disabled:opacity-60"
+                  className="h-11 md:h-10 rounded-xl border border-slate-300 bg-white px-3 text-[14px] disabled:opacity-60"
                 >
                   {[1, 2, 3, 4, 5].map((n) => (
                     <option key={n} value={n}>
@@ -284,7 +268,7 @@ export default function PilotoPage() {
                           : t(` · a una persona el día ${s.personAfterDays} si sigue igual`, ` · to a person on day ${s.personAfterDays} if nothing changes`)}
                       </p>
                       <details className="mt-1.5 text-[13px]">
-                        <summary className="cursor-pointer font-medium text-blue-700">{t("Ver los mensajes", "See the messages")}</summary>
+                        <summary className="cursor-pointer py-3 font-medium text-blue-700 md:py-0">{t("Ver los mensajes", "See the messages")}</summary>
                         <ol className="mt-1.5 list-decimal space-y-1 pl-5 text-slate-600">
                           {FOLLOWUP_TEMPLATES[kind].map((template) => (
                             <li key={template.name}>{template.body[locale].replace(/\{\{(\d+)\}\}/g, (_, n: string) => `[${template.params[Number(n) - 1]}]`)}</li>
@@ -374,7 +358,7 @@ export default function PilotoPage() {
               )}
             </Row>
             <details className="px-5 py-3 text-[13px]">
-              <summary className="cursor-pointer font-medium text-blue-700">
+              <summary className="cursor-pointer py-3 font-medium text-blue-700 md:py-0">
                 {t(`Las ${ALL_TEMPLATES.length} plantillas que hay que aprobar en Meta`, `The ${ALL_TEMPLATES.length} templates Meta has to approve`)}
               </summary>
               <ul className="mt-2 space-y-1 text-slate-600">

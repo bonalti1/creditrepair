@@ -86,7 +86,7 @@ function Calendar() {
         </div>
         <div className="inline-flex rounded-full bg-slate-100 p-1" role="group" aria-label={t("Vista", "View")}>
           {(["month", "week"] as const).map((v) => (
-            <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={`h-9 rounded-full px-4 text-[14px] font-medium ${view === v ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}>
+            <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={`h-11 md:h-9 rounded-full px-4 text-[14px] font-medium ${view === v ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}>
               {v === "month" ? t("Mes", "Month") : t("Semana", "Week")}
             </button>
           ))}

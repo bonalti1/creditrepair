@@ -21,7 +21,7 @@ import { deniedReason } from "@/lib/staff/permissions";
 import { shortDateTime } from "@/lib/staff/format";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
 import { useStaff } from "@/lib/staff/useStaff";
-import { DeniedNote, SectionTitle } from "@/components/staff/ui";
+import { DemoNote, DeniedNote, SectionTitle, Switch } from "@/components/staff/ui";
 
 // Reviews: where clients are asked to leave one, when, how many were asked,
 // what each platform shows (typed in by a person), and Alti's draft of a
@@ -35,22 +35,6 @@ const URL_PROBLEM: Record<string, [string, string]> = {
   invalid: ["No se pudo guardar.", "It could not be saved."],
 };
 
-function Switch({ on, label, disabled, onChange, testId }: { on: boolean; label: string; disabled: boolean; onChange: (next: boolean) => void; testId?: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!on)}
-      data-testid={testId}
-      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${on ? "bg-green-600" : "bg-slate-300"}`}
-    >
-      <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${on ? "translate-x-6" : "translate-x-1"}`} />
-    </button>
-  );
-}
 
 function PlatformRow({ platform, disabled, save }: { platform: ReviewPlatform; disabled: boolean; save: (body: Record<string, unknown>) => Promise<string | null> }) {
   const t = useTx();
@@ -75,9 +59,9 @@ function PlatformRow({ platform, disabled, save }: { platform: ReviewPlatform; d
             onChange={(e) => setUrl(e.target.value)}
             disabled={disabled}
             placeholder="https://"
-            className="h-10 min-w-0 flex-1 rounded-xl bg-slate-100 px-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-70"
+            className="h-11 md:h-10 min-w-0 flex-1 rounded-xl bg-slate-100 px-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-70"
           />
-          <button type="button" disabled={disabled || url === (platform.url ?? "")} onClick={() => void run({ url: url.trim() || null })} className="pressable h-10 rounded-full bg-blue-700 px-4 text-[14px] font-semibold text-white disabled:bg-slate-200 disabled:text-slate-500">
+          <button type="button" disabled={disabled || url === (platform.url ?? "")} onClick={() => void run({ url: url.trim() || null })} className="pressable h-11 md:h-10 rounded-full bg-blue-700 px-4 text-[14px] font-semibold text-white disabled:bg-slate-200 disabled:text-slate-500">
             {t("Guardar", "Save")}
           </button>
         </div>
@@ -85,17 +69,17 @@ function PlatformRow({ platform, disabled, save }: { platform: ReviewPlatform; d
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <label className="text-[13px] text-slate-500">
           {t("Calificación que muestra", "Rating it shows")}
-          <input value={rating} onChange={(e) => setRating(e.target.value)} disabled={disabled} inputMode="decimal" placeholder="4.8" className="mt-1 block h-10 w-24 rounded-xl bg-slate-100 px-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-blue-300" />
+          <input value={rating} onChange={(e) => setRating(e.target.value)} disabled={disabled} inputMode="decimal" placeholder="4.8" className="mt-1 block h-11 md:h-10 w-24 rounded-xl bg-slate-100 px-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-blue-300" />
         </label>
         <label className="text-[13px] text-slate-500">
           {t("Reseñas", "Reviews")}
-          <input value={count} onChange={(e) => setCount(e.target.value)} disabled={disabled} inputMode="numeric" placeholder="120" className="mt-1 block h-10 w-24 rounded-xl bg-slate-100 px-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-blue-300" />
+          <input value={count} onChange={(e) => setCount(e.target.value)} disabled={disabled} inputMode="numeric" placeholder="120" className="mt-1 block h-11 md:h-10 w-24 rounded-xl bg-slate-100 px-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-blue-300" />
         </label>
         <button
           type="button"
           disabled={disabled}
           onClick={() => void run({ rating: rating.trim() ? Number(rating) : null, reviewCount: count.trim() ? Number(count) : null })}
-          className="pressable h-10 rounded-full bg-slate-100 px-4 text-[14px] font-semibold text-blue-700 disabled:opacity-60"
+          className="pressable h-11 md:h-10 rounded-full bg-slate-100 px-4 text-[14px] font-semibold text-blue-700 disabled:opacity-60"
         >
           {t("Anotar", "Record")}
         </button>
@@ -174,9 +158,7 @@ export default function ResenasPage() {
         </div>
       )}
       {!live && (
-        <p className="mt-3 max-w-3xl rounded-2xl bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900">
-          {t("Demo: ligas de ejemplo en direcciones inventadas y pedidos de ejemplo. Nada sale de verdad.", "Demo: example links on made-up addresses and example requests. Nothing really goes out.")}
-        </p>
+        <DemoNote>{t("Demo: enlaces de ejemplo en direcciones inventadas y pedidos de ejemplo. Nada sale de verdad.", "Demo: example links on made-up addresses and example requests. Nothing really goes out.")}</DemoNote>
       )}
 
       <section className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4" aria-label={t("Números", "Numbers")} data-testid="review-numbers">
@@ -300,14 +282,14 @@ export default function ResenasPage() {
             className="mt-3 w-full rounded-2xl bg-slate-100 px-4 py-3 text-[15px] text-slate-900 outline-none focus:ring-2 focus:ring-blue-300"
           />
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <select aria-label={t("Sitio", "Site")} value={replyPlatform} onChange={(e) => setReplyPlatform(e.target.value as ReviewPlatformKey)} className="h-10 rounded-xl bg-slate-100 px-3 text-[14px]">
+            <select aria-label={t("Sitio", "Site")} value={replyPlatform} onChange={(e) => setReplyPlatform(e.target.value as ReviewPlatformKey)} className="h-11 md:h-10 rounded-xl bg-slate-100 px-3 text-[14px]">
               {(["google", "trustpilot", "bbb"] as const).map((k) => (
                 <option key={k} value={k}>
                   {PLATFORM_NAME[k]}
                 </option>
               ))}
             </select>
-            <select aria-label={t("Estrellas", "Stars")} value={stars ?? ""} onChange={(e) => setStars(e.target.value ? Number(e.target.value) : null)} className="h-10 rounded-xl bg-slate-100 px-3 text-[14px]">
+            <select aria-label={t("Estrellas", "Stars")} value={stars ?? ""} onChange={(e) => setStars(e.target.value ? Number(e.target.value) : null)} className="h-11 md:h-10 rounded-xl bg-slate-100 px-3 text-[14px]">
               <option value="">{t("Estrellas", "Stars")}</option>
               {[1, 2, 3, 4, 5].map((n) => (
                 <option key={n} value={n}>
@@ -315,12 +297,12 @@ export default function ResenasPage() {
                 </option>
               ))}
             </select>
-            <select aria-label={t("Idioma", "Language")} value={replyLocale} onChange={(e) => setReplyLocale(e.target.value as "es" | "en")} className="h-10 rounded-xl bg-slate-100 px-3 text-[14px]">
+            <select aria-label={t("Idioma", "Language")} value={replyLocale} onChange={(e) => setReplyLocale(e.target.value as "es" | "en")} className="h-11 md:h-10 rounded-xl bg-slate-100 px-3 text-[14px]">
               <option value="en">English</option>
               <option value="es">Español</option>
             </select>
-            <input value={reviewer} onChange={(e) => setReviewer(e.target.value)} placeholder={t("Nombre público (opcional)", "Public name (optional)")} className="h-10 min-w-0 flex-1 rounded-xl bg-slate-100 px-3 text-[14px]" />
-            <button type="button" disabled={busy || review.trim().length < 3} onClick={() => void askDraft()} className="pressable h-10 rounded-full bg-amber-400 px-5 text-[14px] font-semibold text-blue-900 disabled:bg-slate-200 disabled:text-slate-500">
+            <input value={reviewer} onChange={(e) => setReviewer(e.target.value)} placeholder={t("Nombre público (opcional)", "Public name (optional)")} className="h-11 md:h-10 min-w-0 flex-1 rounded-xl bg-slate-100 px-3 text-[14px]" />
+            <button type="button" disabled={busy || review.trim().length < 3} onClick={() => void askDraft()} className="pressable h-11 md:h-10 rounded-full bg-amber-400 px-5 text-[14px] font-semibold text-blue-900 disabled:bg-slate-200 disabled:text-slate-500">
               {t("Escribir borrador", "Write a draft")}
             </button>
           </div>

@@ -10,7 +10,7 @@ import { CHANNEL_LABEL, LANGUAGE_TAG, STATUS_LABEL, STATUS_TONE, TYPE_LABEL } fr
 import { blockingIssues, checkPiece } from "@/lib/content/check";
 import type { Bilingual, ContentPiece, ContentStatus } from "@/lib/content/types";
 import Icon from "@/components/Icon";
-import { NoAccess, pillTab } from "@/components/staff/ui";
+import { DemoNote as SharedDemoNote, NoAccess, pillTab } from "@/components/staff/ui";
 
 // The content hub's shared pieces: the tabs under the title, the status chip,
 // the piece card (board and calendar), the fields' look, and the access gate.
@@ -158,8 +158,6 @@ export function DemoNote({ live }: { live: boolean }) {
   const t = useTx();
   if (live) return null;
   return (
-    <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[13px] leading-snug text-blue-900">
-      {t("Demostración: piezas inventadas. Nada se publica ni se envía; los cambios se guardan solo en este navegador.", "Demo: made-up pieces. Nothing is posted or sent; changes are kept only in this browser.")}
-    </p>
+    <SharedDemoNote>{t("Demostración: piezas inventadas. Nada se publica ni se envía; los cambios se guardan solo en este navegador.", "Demo: made-up pieces. Nothing is posted or sent; changes are kept only in this browser.")}</SharedDemoNote>
   );
 }

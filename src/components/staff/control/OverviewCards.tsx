@@ -17,13 +17,15 @@ const ICON: Record<DeptCard["key"], IconName> = {
   money: "calc",
   content: "grid",
   ads: "megaphone",
+  seo: "search",
   support: "chat",
   partners: "link",
+  ideas: "bulb",
   health: "info",
 };
 
 /** The section of the console's menu each card belongs to (lib/staff/nav.ts), shown as ALTO's "3 · LEADS". */
-const NUMBER: Partial<Record<DeptCard["key"], string>> = { leads: "3", clients: "1", money: "5", content: "2", ads: "2", support: "4", partners: "7" };
+const NUMBER: Partial<Record<DeptCard["key"], string>> = { leads: "3", clients: "1", money: "5", content: "2", ads: "2", seo: "2", support: "4", partners: "7", ideas: "8", health: "9" };
 
 /** «Needs you»: a red circle with the count (ALTO's), "✓ Clear" at zero, a dash when it is not known. */
 function NeedsYou({ card }: { card: DeptCard }) {

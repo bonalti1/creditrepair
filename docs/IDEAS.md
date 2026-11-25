@@ -75,10 +75,17 @@ payments, chargeback rate, share paid by ACH); from the lead inbox's
 `leadQuality` (leads this week, a person's first-reply time, contacted,
 invited and signed rates, partner referrals this week); from the Overview's
 content summary (posts made and scheduled this week, pieces waiting for
-review, failed posts). A number that could not be read is "no data", never a
-zero.
+review, failed posts); from the **Ads Manager** (`loadAdsSummary`, the
+Overview's Ads card: leads and signed clients from ads this week, cost per
+lead, the share of ad leads who signed, ads to turn off that still spend;
+the demo's sample account and an account Meta is not connected to are no
+data); from **SEO** (Search Console's last 28 days when it is connected:
+clicks, times shown, the click share and the average position; the guides on
+the website; the site checks to fix once a check has run). Every value is
+filled in by the server (`loadSignals`), never by the model. A number that
+could not be read is "no data", never a zero.
 
-**Extension point (Ads, SEO, …):** a department built later adds one entry to
+**Extension point (Ads and SEO are in; later departments the same way):** a department built later adds one entry to
 `SIGNAL_SOURCES` in `signals.ts`: its metrics (unit, window, which way is
 better), their names in English and Spanish, and a `collect` that reads its
 own summary from `input.extra[<its id>]`. The metric picker, the proposals,

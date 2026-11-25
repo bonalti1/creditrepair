@@ -300,7 +300,7 @@ export default function EquipoHome() {
                   </ul>
                 )}
                 {can("clients.add") && (
-                  <Link href="/equipo/clientes" className="mt-3 block text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
+                  <Link href="/equipo/clientes" className="mt-1 inline-flex min-h-11 items-center text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline md:mt-3 md:min-h-0">
                     {t("Agregar un cliente", "Add a client")}
                   </Link>
                 )}

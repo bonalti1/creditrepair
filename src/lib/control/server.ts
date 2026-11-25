@@ -6,6 +6,10 @@ import { loadPieces, loadPublishSettings, loadSchedules } from "../content/serve
 import { contentSummary, type ContentSummary } from "./content";
 import { loadAdsSummary } from "../ads/server";
 import type { ControlExtras, HealthSignal } from "./overview";
+import { ideasSummary, seoSummary, videoSummary, type IdeasSummary, type SeoSummary, type VideoSummary } from "./marketing";
+import { loadGuides, loadSettings } from "../seo/server";
+import { ideaFromRow } from "../ideas/server";
+import type { VideoProject } from "../video/types";
 
 // What the Overview and the Today list need that the clients list does not
 // carry, read on the server. Everything that is about clients goes through
@@ -113,9 +117,21 @@ export async function loadControlExtras(reader: SupabaseClient, db: SupabaseClie
   // The Ads Manager's last 7 days, through the member's own connection (its tables are administrators' only, migration 0037).
   const ads = can(member.role, "ads.view") ? await loadAdsSummary(reader, now, process.env).catch(() => null) : null;
 
+  // The Video Studio, SEO and Ideas in numbers (control/marketing.ts), each for the role that may open it and
+  // read the way its own screen reads it (the service role after the same capability, as their routes do;
+  // the ideas board through the member's own connection). Titles, statuses and dates only.
+  const [video, seo, ideas] = await Promise.all([
+    can(member.role, "content.view") ? loadVideoSummary(db) : Promise.resolve(null),
+    can(member.role, "seo.view") ? loadSeoSummary(db) : Promise.resolve(null),
+    can(member.role, "ideas.add") ? loadIdeasSummary(reader, now) : Promise.resolve(null),
+  ]);
+
   return {
     content,
     ads,
+    video,
+    seo,
+    ideas,
     partnerNotesWaiting: notes ? partnerNotes.length : null,
     reviewRequests30d: reviews ? reviews.length : null,
     complaints7d: complaints,
@@ -137,3 +153,45 @@ export async function loadContentSummary(reader: SupabaseClient, now: Date): Pro
 
 /** The leads job's heartbeat, for the Tech health card (now in heartbeat.ts, shared by every cron route). */
 export { beat } from "./heartbeat";
+
+/** The Video Studio's board in numbers; null when it could not be read. */
+export async function loadVideoSummary(db: SupabaseClient): Promise<VideoSummary | null> {
+  try {
+    const { data, error } = await db.from("video_projects").select("id, title, status, owner, changes_note, created_at, updated_at").neq("status", "archived").limit(1000);
+    if (error) return null;
+    return videoSummary(
+      ((data as Row[] | null) ?? []).map((r) => ({
+        id: String(r.id),
+        title: String(r.title ?? ""),
+        status: String(r.status) as VideoProject["status"],
+        owner: (r.owner as string | null) ?? null,
+        changesNote: (r.changes_note as string | null) ?? null,
+        createdAt: new Date(String(r.created_at)).toISOString(),
+        updatedAt: new Date(String(r.updated_at ?? r.created_at)).toISOString(),
+      })),
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** SEO's guides and last site check in numbers; null when they could not be read. */
+export async function loadSeoSummary(db: SupabaseClient): Promise<SeoSummary | null> {
+  try {
+    const [guides, settings] = await Promise.all([loadGuides(db), loadSettings(db)]);
+    return seoSummary(guides, settings.health);
+  } catch {
+    return null;
+  }
+}
+
+/** The ideas board in numbers, through the member's own connection; null when it could not be read. */
+export async function loadIdeasSummary(reader: SupabaseClient, now: Date): Promise<IdeasSummary | null> {
+  try {
+    const { data, error } = await reader.from("ideas").select("*").limit(1000);
+    if (error) return null;
+    return ideasSummary(((data as Row[] | null) ?? []).map(ideaFromRow), now);
+  } catch {
+    return null;
+  }
+}

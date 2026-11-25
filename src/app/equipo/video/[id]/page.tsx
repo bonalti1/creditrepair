@@ -11,7 +11,7 @@ import { useVideoStudio } from "@/lib/video/store";
 import { totalDuration } from "@/lib/video/timeline";
 import type { VideoStatus } from "@/lib/video/types";
 import Icon from "@/components/Icon";
-import { QUIET_BUTTON, SECONDARY_BUTTON_COMPACT, pillTab } from "@/components/staff/ui";
+import { QUIET_BUTTON, SECONDARY_BUTTON_COMPACT, pillTab, BACK_LINK } from "@/components/staff/ui";
 import { CheckPanel } from "@/components/staff/video/CheckPanel";
 import { Editor } from "@/components/staff/video/Editor";
 import { HandOffPanel } from "@/components/staff/video/HandOffPanel";
@@ -97,7 +97,7 @@ function ProjectScreen() {
 
   return (
     <main className="animate-rise">
-      <Link href="/equipo/video" className="inline-flex h-11 items-center gap-1 text-[14px] font-medium text-blue-700">
+      <Link href="/equipo/video" className={BACK_LINK}>
         <Icon name="chevron" size={16} className="rotate-180" />
         {t("Estudio de video", "Video Studio")}
       </Link>

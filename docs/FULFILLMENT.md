@@ -261,7 +261,12 @@ their role may open.
   database it writes the `other_income` row.
 - Staff do not change a client's notification settings (by design: the client
   decides); a teammate can still record an opt-out on the autopilot card.
-- The send route (`rounds/send.ts`) was not changed: it still checks that the
-  two documents are on file. A document a person did not accept is held by
-  the console's and the autopilot's own rule (`missingDocuments`), which
-  decides what is offered for sending and what goes by itself.
+- The send route (`rounds/send.ts`) holds too (final pass, docs/AUDIT.md):
+  step 1b, `documentHold`, reads `identity_documents` and `document_reviews`
+  and refuses a round (409, `document_not_accepted`) while the photo ID or the
+  proof of address has a current review that did not accept it, whoever
+  sends it (the team, the autopilot's job, a self-serve approval). Staff read
+  the reason in their language ("Not sent: a required document wasn't
+  accepted in review (Photo ID)…"). A newer upload makes the review out of
+  date and the round may go. The agreement gate (cancellation window), the
+  unpaid-charge pause and every other step are unchanged.

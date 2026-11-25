@@ -10,7 +10,7 @@ import { VIDEO_STATUS_TONE, VIDEO_TEXT } from "@/lib/video/labels";
 import { totalDuration } from "@/lib/video/timeline";
 import type { MusicTrack, VideoProject, VideoStatus } from "@/lib/video/types";
 import Icon from "@/components/Icon";
-import { Chip, NoAccess, pillTab } from "@/components/staff/ui";
+import { Chip, DemoNote as SharedDemoNote, NoAccess, pillTab } from "@/components/staff/ui";
 
 // The Video Studio's shared pieces: the tabs under the title, the status
 // chip, the card on the board, the access gate and the demo note. The look is
@@ -118,12 +118,12 @@ export function DemoNote({ live }: { live: boolean }) {
   const t = useTx();
   if (live) return null;
   return (
-    <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[13px] leading-snug text-blue-900" data-testid="video-demo-note">
+    <SharedDemoNote testId="video-demo-note">
       {t(
         "Demostración: videos inventados y clips de muestra. Todo se edita y se exporta en este navegador; nada se sube ni se publica.",
         "Demo: made-up videos and sample clips. Everything is edited and exported in this browser; nothing is uploaded or posted.",
       )}
-    </p>
+    </SharedDemoNote>
   );
 }
 

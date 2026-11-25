@@ -6,8 +6,12 @@ import { useTx } from "@/lib/staff/i18n/StaffLocale";
 import Icon from "@/components/Icon";
 
 // The departments strip on top of the Overview (src/lib/control/departments.ts):
-// one tile per department the member may open. On a phone, three to a row
-// (two rows at most); from 768 px, one row. A number on a tile's icon is what
+// one tile per department the member may open. On a phone, one row that
+// slides sideways (the next tile peeks in, so it reads as more); from 768 px,
+// one row, or two rows of five when there are more than seven (an
+// administrator's ten). The phone row is paint-contained: without it a
+// phone browser sized the whole page to the row's full width (zoomed out).
+// A number on a tile's icon is what
 // needs the member there; no number means the Overview has nothing to say
 // about it. The number sits on the icon so the name keeps the whole width
 // ("Contabilidad" at 1280 px with six tiles).
@@ -16,12 +20,12 @@ export default function DepartmentStrip({ tiles }: { tiles: DepartmentTile[] }) 
   const t = useTx();
   if (tiles.length === 0) return null;
   return (
-    <nav aria-label={t("Departamentos", "Departments")} className="mt-5" data-testid="departments">
-      <ul className="grid grid-cols-3 gap-2 md:auto-cols-fr md:grid-flow-col md:grid-cols-none">
+    <nav aria-label={t("Departamentos", "Departments")} className="-mx-4 mt-3 overflow-x-auto px-4 pb-1 pt-2 [contain:paint] [scrollbar-width:none] md:mx-0 md:[contain:none] md:mt-5 md:overflow-visible md:px-0 md:pb-0 md:pt-0" data-testid="departments">
+      <ul className={`flex w-max gap-2 md:grid md:w-auto ${tiles.length > 7 ? "md:grid-cols-5" : "md:auto-cols-fr md:grid-flow-col md:grid-cols-none"}`}>
         {tiles.map((tile) => {
           const count = tile.count !== null && tile.count > 0 ? tile.count : null;
           return (
-            <li key={tile.key} className="min-w-0">
+            <li key={tile.key} className="w-[112px] shrink-0 md:w-auto md:min-w-0">
               <Link
                 href={tile.href}
                 className="pressable card flex h-full min-h-[76px] flex-col items-start justify-center gap-1.5 px-3 py-2.5 hover:shadow-[0_0_0_1px_var(--color-amber-500)] md:min-h-14 md:flex-row md:items-center md:justify-start md:gap-2.5 md:px-3 md:py-2.5"

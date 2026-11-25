@@ -129,6 +129,26 @@ describe("the database keeps the leads by itself", () => {
     expect(await leadByPhone("+18325550184")).toMatchObject({ source: "signup_chat", signup_case_ref: "CR-7KQ4M", first_touch: { caseRef: "CR-7KQ4M" } });
   });
 
+  it("the first name the chat signup captured names the lead once the account links; it never overwrites a name", async () => {
+    const { startSignupCase, updateSignupCase, signupFirstName } = await import("../../signup/server");
+    const nora = await addClient(h, { name: "", phone: "+18325550185" });
+    const { caseRef, token } = await startSignupCase(h.service, { locale: "es" });
+    // Before sign-in there is no lead, and the chat sends no name.
+    expect(await updateSignupCase(h.service, { caseRef, token, step: "info" }, null)).toMatchObject({ ok: true });
+    expect(await leadByPhone("+18325550185")).toBeFalsy();
+    // Signed in: the same call links the account (the lead appears) and names it.
+    expect(await updateSignupCase(h.service, { caseRef, token, step: "identity", firstName: "  Nora  " }, nora)).toMatchObject({ ok: true, signup: { userId: nora } });
+    expect(await leadByPhone("+18325550185")).toMatchObject({ source: "signup_chat", display_name: "Nora" });
+    // A later call never renames it.
+    await updateSignupCase(h.service, { caseRef, token, firstName: "Someone Else" }, nora);
+    expect((await leadByPhone("+18325550185"))!.display_name).toBe("Nora");
+    // Only a plausible first name is used.
+    expect(signupFirstName("María José")).toBe("María José");
+    expect(signupFirstName("<script>")).toBeNull();
+    expect(signupFirstName("12345")).toBeNull();
+    expect(signupFirstName("")).toBeNull();
+  });
+
   it("leads nobody has go to the next salesperson in turn", async () => {
     expect(await assignWaitingLeads(h.service, new Date())).toBeGreaterThanOrEqual(1);
     expect((await leadByPhone(WA))!.salesperson).toMatch(/^(ana|luis)$/);

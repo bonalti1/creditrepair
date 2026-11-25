@@ -8,7 +8,7 @@ import { useStateOpenings } from "@/lib/compliance/useOpenStates";
 import { deniedReason } from "@/lib/staff/permissions";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
 import { useStaff } from "@/lib/staff/useStaff";
-import { DeniedNote, SectionTitle } from "@/components/staff/ui";
+import { DemoNote, DeniedNote, SectionTitle } from "@/components/staff/ui";
 
 // States: where Credalti may sell, what each state's law asks first, and the
 // switch that opens a state (with the attorney's review on record). The
@@ -94,9 +94,7 @@ export default function EstadosPage() {
         </div>
       )}
       {!live && (
-        <p className="mt-3 max-w-3xl rounded-2xl bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900">
-          {t("Demo: los interruptores se guardan solo en este navegador.", "Demo: the switches are saved only in this browser.")}
-        </p>
+        <DemoNote>{t("Demo: los interruptores se guardan solo en este navegador.", "Demo: the switches are saved only in this browser.")}</DemoNote>
       )}
 
       <section className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-5" data-testid="state-counts">
@@ -234,10 +232,10 @@ export default function EstadosPage() {
                 <div className="mt-3 grid gap-2">
                   {!isOpen && (
                     <>
-                      <input value={attorney} onChange={(e) => setAttorney(e.target.value)} placeholder={t("Abogado que lo revisó", "Attorney who reviewed it")} className="h-10 rounded-xl bg-slate-100 px-3 text-[14px]" />
-                      <input value={reviewedOn} onChange={(e) => setReviewedOn(e.target.value)} type="date" aria-label={t("Fecha de la revisión", "Review date")} className="h-10 rounded-xl bg-slate-100 px-3 text-[14px]" />
+                      <input value={attorney} onChange={(e) => setAttorney(e.target.value)} placeholder={t("Abogado que lo revisó", "Attorney who reviewed it")} className="h-11 md:h-10 rounded-xl bg-slate-100 px-3 text-[14px]" />
+                      <input value={reviewedOn} onChange={(e) => setReviewedOn(e.target.value)} type="date" aria-label={t("Fecha de la revisión", "Review date")} className="h-11 md:h-10 rounded-xl bg-slate-100 px-3 text-[14px]" />
                       {law.registration.required && (
-                        <input value={registration} onChange={(e) => setRegistration(e.target.value)} placeholder={t("Número de registro o licencia", "Registration or license number")} className="h-10 rounded-xl bg-slate-100 px-3 text-[14px]" />
+                        <input value={registration} onChange={(e) => setRegistration(e.target.value)} placeholder={t("Número de registro o licencia", "Registration or license number")} className="h-11 md:h-10 rounded-xl bg-slate-100 px-3 text-[14px]" />
                       )}
                       {law.bond && (
                         <label className="flex items-center gap-2 text-[14px] text-slate-700">

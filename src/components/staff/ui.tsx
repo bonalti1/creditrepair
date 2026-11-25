@@ -3,6 +3,7 @@ import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import { clientLanguage, LANGUAGE_NAME } from "@/lib/staff/i18n/locale";
 import type { AssistantPose } from "@/lib/brand";
 import { CharacterFigure } from "@/components/Character";
+import Icon from "@/components/Icon";
 
 // Small pieces the staff screens share. Colour says whose move it is:
 // gold = the client, navy = the team or sales, green = the system, grey = on
@@ -107,6 +108,9 @@ export const ROW_BUTTON =
 export const GOLD_ROW_BUTTON =
   "pressable inline-flex h-11 items-center justify-center whitespace-nowrap rounded-[10px] bg-amber-400 px-4 text-[14px] font-semibold text-blue-900 hover:bg-amber-500 disabled:bg-slate-200 disabled:text-slate-500";
 
+/** «‹ Back» to the screen a page was opened from: the same on every department's inner page; 44 px tall. */
+export const BACK_LINK = "inline-flex min-h-11 items-center gap-1 text-[14px] font-medium text-blue-700 underline-offset-2 hover:underline print:hidden";
+
 /** A text link or button that stands alone: 44 px tall on a phone, its own height on a laptop. */
 export const TAP = "inline-flex min-h-11 items-center md:min-h-0";
 
@@ -173,5 +177,73 @@ export function EmptyState({
       <p className="mt-3 font-display text-[16px] font-semibold text-blue-900">{title}</p>
       {children && <div className="mt-1 max-w-sm text-[14px] leading-snug text-slate-600">{children}</div>}
     </div>
+  );
+}
+
+/**
+ * The one demo note every department shows under its header (no database: the
+ * records are made up and nothing leaves this browser). One look everywhere:
+ * a pale gold box with the info icon, «Demo» in bold, the department's own
+ * sentence and, where the department keeps its own example, «Reset the
+ * example». A sentence that already starts with "Demo:" has it taken off, so
+ * the word shows once.
+ */
+export function DemoNote({
+  children,
+  onReset,
+  className = "mt-3",
+  testId = "demo-note",
+}: {
+  children: React.ReactNode;
+  onReset?: () => void;
+  className?: string;
+  testId?: string;
+}) {
+  const t = useTx();
+  const body = typeof children === "string" ? children.replace(/^(Demo|Demostración)\s*[:·]\s*(datos de muestra\.|sample data\.)?\s*/i, "") : children;
+  const text = typeof body === "string" && body.length > 0 ? body.charAt(0).toUpperCase() + body.slice(1) : body;
+  return (
+    <div
+      role="note"
+      className={`flex items-start gap-2 rounded-[12px] bg-amber-50 px-4 py-2.5 text-[13.5px] leading-snug text-blue-900 ring-1 ring-inset ring-amber-200 print:hidden ${className}`}
+      data-testid={testId}
+    >
+      <Icon name="info" size={17} className="mt-px shrink-0 text-amber-700" />
+      <p className="min-w-0 flex-1">
+        <strong className="font-semibold">{t("Demo", "Demo")}</strong> · {text}
+        {onReset && (
+          <>
+            {" "}
+            <button type="button" onClick={onReset} className={`${TAP} font-semibold underline underline-offset-2 hover:text-blue-700`}>
+              {t("Volver al ejemplo", "Reset the example")}
+            </button>
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The console's on/off switch (the autopilot, publishing, reviews, phone
+ * alerts): one look everywhere, navy when on. The track is 28 px; the button
+ * around it is 44 px tall on a phone, so a finger finds it.
+ */
+export function Switch({ on, label, disabled, onChange, testId }: { on: boolean; label: string; disabled?: boolean; onChange: (next: boolean) => void; testId?: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!on)}
+      data-testid={testId}
+      className="inline-flex h-11 shrink-0 items-center rounded-full disabled:cursor-not-allowed disabled:opacity-60 md:h-8"
+    >
+      <span aria-hidden="true" className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors motion-reduce:transition-none ${on ? "bg-blue-700" : "bg-slate-300"}`}>
+        <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform motion-reduce:transition-none ${on ? "translate-x-6" : "translate-x-1"}`} />
+      </span>
+    </button>
   );
 }

@@ -20,6 +20,9 @@ import { verifyRoundAddresses, type Verifier } from "../mail/verifyServer";
 import type { MailClass } from "../mail/types";
 import { loadMonitoringState, monitoringMessageEs } from "../monitoring/subscription";
 import { reportError } from "../observability/errors";
+import { documentHoldMessageEs, rejectedRequiredDocuments } from "../fulfillment/documents";
+import { documentReviewFromRow } from "../fulfillment/rows";
+import { REQUIRED_DOCUMENTS, type DocumentKind } from "../staff/types";
 import { attestedFlagsFromRows, historyFromRows, itemDetailsFromRows, itemFromRow, letterKey, nextRoundNumber } from "./plan";
 
 // Mailing one round of a client's letters. One code path for both ways a
@@ -35,6 +38,8 @@ import { attestedFlagsFromRows, historyFromRows, itemDetailsFromRows, itemFromRo
 //   1. the service agreement allows work to start (signed, not cancelled, the
 //      3-business-day window over; 15 U.S.C. §1679d(a)) and no charge is
 //      unpaid after every retry;
+//   1b. no required document (photo ID, proof of address) is one a person
+//      reviewed and did not accept (migration 0041, documentHold below);
 //   2. the round is the client's next one and has not already gone;
 //   3. the monitoring report is current;
 //   4. every item in every letter carries a logged accuracy attestation
@@ -151,6 +156,37 @@ export async function workGate(db: SupabaseClient, userId: string, now: Date): P
   return null;
 }
 
+/**
+ * The document hold: a required document (photo ID, proof of address) whose
+ * current upload a person reviewed and did not accept holds every round, the
+ * same rule as the console's (staff/stage.ts missingDocuments) and the
+ * autopilot's, here read from the database so no path mails around it. Null
+ * when nothing is held. A database without migration 0041 has no reviews, and
+ * nothing is held for one.
+ */
+export async function documentHold(db: SupabaseClient, userId: string): Promise<SendRoundResult | null> {
+  const [docs, reviews] = await Promise.all([
+    db.from("identity_documents").select("kind, uploaded_at").eq("user_id", userId),
+    db.from("document_reviews").select("*").eq("user_id", userId).is("file_id", null),
+  ]);
+  if (docs.error) {
+    await reportError(new Error(docs.error.message), { where: "rounds/send:documents", userId });
+    return refuse(500, "Could not check the client's documents. Nothing was sent.");
+  }
+  if (reviews.error) return null;
+  const docRows = (docs.data as Row[] | null) ?? [];
+  const documents = docRows.map((r) => String(r.kind) as DocumentKind);
+  const documentUploadedAt: Partial<Record<DocumentKind, string>> = {};
+  for (const r of docRows) {
+    const at = r.uploaded_at ? new Date(String(r.uploaded_at instanceof Date ? r.uploaded_at.toISOString() : r.uploaded_at)) : null;
+    if (at && !Number.isNaN(at.getTime())) documentUploadedAt[String(r.kind) as DocumentKind] = at.toISOString();
+  }
+  const documentReviews = ((reviews.data as Row[] | null) ?? []).map(documentReviewFromRow);
+  const rejected = rejectedRequiredDocuments({ documents, documentUploadedAt, documentReviews }, REQUIRED_DOCUMENTS);
+  if (rejected.length === 0) return null;
+  return refuse(409, documentHoldMessageEs(rejected.map((r) => r.kind)), "document_not_accepted", { reason: rejected.map((r) => r.kind).join(",") });
+}
+
 /** The approved versions of these letters, read with the service role. */
 async function approvedLetterVersions(db: SupabaseClient, templateKeys: string[]): Promise<LetterVersion[]> {
   return listLetterVersions(db, { templateKeys, approvedOnly: true });
@@ -170,6 +206,10 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
     const blocked = await workGate(db, userId, now);
     if (blocked) return blocked;
   }
+
+  // 1b. A required document a person did not accept holds the round, whoever sends it.
+  const docHeld = await documentHold(db, userId);
+  if (docHeld) return docHeld;
 
   // 2. The round.
   const roundRows = await rows(db.from("attack_rounds").select("id, round_number, status").eq("user_id", userId), "attack_rounds");

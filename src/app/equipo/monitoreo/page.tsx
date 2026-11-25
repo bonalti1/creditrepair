@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { fileSha256, parseCsv } from "@/lib/accounting/csv";
 import { formatCents, parseMoney } from "@/lib/accounting/money";
+import { monthLabel } from "@/lib/accounting/periods";
 import { commissionClientsFrom, demoCommissionLines, type CommissionsView } from "@/lib/fulfillment/commissionData";
 import {
   detectStatementMapping,
@@ -20,7 +21,7 @@ import {
 import { deniedReason } from "@/lib/staff/permissions";
 import { useStaff } from "@/lib/staff/useStaff";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
-import { Chip, EmptyState, NoAccess, pillTab, PRIMARY_BUTTON, ROW_BUTTON, SectionTitle } from "@/components/staff/ui";
+import { Chip, DemoNote, EmptyState, NoAccess, pillTab, PRIMARY_BUTTON, ROW_BUTTON, SectionTitle } from "@/components/staff/ui";
 
 // Monitoring commissions (/equipo/monitoreo, administrators; section 5 Payments
 // & Accounting; docs/FULFILLMENT.md "Monitoring"). What the monitoring
@@ -181,13 +182,13 @@ export default function MonitoreoPage() {
             "What the monitoring provider (IdentityIQ) pays for clients who enrolled through our link. Record it by hand or from their statement CSV, reconcile it per client and month, and post it to the books in one step. Clients never see these amounts; the commission disclosure on their monitoring step doesn't change.",
           )}
         </p>
-        {demo && <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] text-blue-900">{t("Demo: un estado de cuenta inventado. Lo que hagas se guarda solo en este navegador.", "Demo: a made-up statement. What you do is kept only in this browser.")}</p>}
+        {demo && <DemoNote>{t("Demo: un estado de cuenta inventado. Lo que hagas se guarda solo en este navegador.", "Demo: a made-up statement. What you do is kept only in this browser.")}</DemoNote>}
       </header>
 
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="tablist" aria-label={t("Mes", "Month")}>
         {months.map((m) => (
           <button key={m} type="button" role="tab" aria-selected={m === current} className={pillTab(m === current)} onClick={() => setMonth(m)}>
-            {m}
+            {monthLabel(m, locale)}
           </button>
         ))}
       </div>

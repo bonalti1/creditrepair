@@ -110,7 +110,7 @@ export default function Home() {
         <span className="min-w-0 flex-1">
           <span className="block text-[17px] font-semibold text-slate-900">{es ? "Construye tu crédito" : "Build your credit"}</span>
           <span className="block text-[14px] leading-snug text-slate-600">
-            {es ? "Tu lista de hábitos, según tu reporte y tu meta. Gratis." : "Your checklist of habits, for your report and your goal. Free."}
+            {es ? "Tu lista de hábitos, según tu reporte y tu meta. Sin costo." : "Your checklist of habits, for your report and your goal. At no cost."}
           </span>
         </span>
         <Icon name="chevron" size={18} className="shrink-0 text-slate-400" />

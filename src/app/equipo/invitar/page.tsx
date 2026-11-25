@@ -17,7 +17,7 @@ import { formatPhone } from "@/lib/staff/format";
 import { partnerCodeOf } from "@/lib/leads/source";
 import { deniedReason } from "@/lib/staff/permissions";
 import { useStaff } from "@/lib/staff/useStaff";
-import { NoAccess } from "@/components/staff/ui";
+import { NoAccess, PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/staff/ui";
 import HouseholdMemberCard from "@/components/staff/HouseholdMember";
 import type { StaffClient } from "@/lib/staff/types";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
@@ -188,7 +188,7 @@ export default function Invitar() {
             <option value="en">{t("Inglés", "English")}</option>
             <option value="es">{t("Español", "Spanish")}</option>
           </select>
-          <p className="mt-1.5 text-[13px] text-slate-500">La app y el mensaje van en este idioma. El cliente puede cambiarlo en la app.</p>
+          <p className="mt-1.5 text-[13px] text-slate-500">{t("La app y el mensaje van en este idioma. El cliente puede cambiarlo en la app.", "The app and the message go in this language. The client can change it in the app.")}</p>
         </div>
         <div>
           <label className={label} htmlFor="state">{t("Estado donde vive", "State they live in")}</label>
@@ -245,9 +245,7 @@ export default function Invitar() {
             rel="noopener noreferrer"
             aria-disabled={!ready}
             onClick={markInvited}
-            className={`pressable flex h-14 w-full items-center justify-center rounded-full text-[17px] font-semibold ${
-              ready ? "bg-amber-400 text-blue-900 hover:bg-amber-500" : "pointer-events-none bg-slate-200 text-slate-500"
-            }`}
+            className={`${ready ? PRIMARY_BUTTON : `${PRIMARY_BUTTON.replace("bg-amber-400", "bg-slate-200").replace("text-blue-900", "text-slate-500")} pointer-events-none`} w-full`}
           >
             {t("Enviar por WhatsApp", "Send on WhatsApp")}
           </a>
@@ -256,7 +254,7 @@ export default function Invitar() {
             type="button"
             disabled={!ready}
             onClick={() => copy("message")}
-            className="pressable flex h-14 w-full items-center justify-center rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500 disabled:bg-slate-200 disabled:text-slate-500"
+            className={`${PRIMARY_BUTTON} w-full`}
           >
             {copied === "message" ? t("Mensaje copiado", "Message copied") : t("Copiar mensaje", "Copy message")}
           </button>
@@ -265,7 +263,7 @@ export default function Invitar() {
           type="button"
           disabled={!ready}
           onClick={() => copy("link")}
-          className="pressable flex h-12 w-full items-center justify-center rounded-full bg-slate-100 text-[16px] font-medium text-slate-900 disabled:text-slate-400"
+          className={`${SECONDARY_BUTTON} w-full`}
         >
           {copied === "link" ? t("Enlace copiado", "Link copied") : t("Copiar solo el enlace", "Copy just the link")}
         </button>

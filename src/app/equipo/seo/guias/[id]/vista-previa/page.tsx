@@ -9,7 +9,7 @@ import { useSeo } from "@/lib/seo/store";
 import type { Lang, PublishedGuide } from "@/lib/seo/types";
 import GuideArticle from "@/components/site/GuideArticle";
 import Icon from "@/components/Icon";
-import { pillTab, QUIET_BUTTON } from "@/components/staff/ui";
+import { pillTab, QUIET_BUTTON, BACK_LINK } from "@/components/staff/ui";
 import { SeoGate } from "@/components/staff/seo/ui";
 
 // The guide as the public page will show it (the same component as
@@ -29,7 +29,7 @@ function Preview() {
   return (
     <main className="animate-rise">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link href={`/equipo/seo/guias/${guide.id}`} className={`${QUIET_BUTTON} -ml-3`}>
+        <Link href={`/equipo/seo/guias/${guide.id}`} className={BACK_LINK}>
           <Icon name="chevron" size={16} className="rotate-180" />
           {t("Volver al editor", "Back to the editor")}
         </Link>

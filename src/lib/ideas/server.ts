@@ -6,7 +6,12 @@ import type { StaffMember } from "../staff/access";
 import { loadStaffClients } from "../staff/load";
 import { ALTI_RUNS_PER_DAY, askAlti, CRON_MIN_DAYS_BETWEEN, type AltiCaller, type AltiProblem } from "./alti";
 import { actionRefusal, applyAction, type IdeasBody } from "./rules";
-import { collectSignals, type Signal } from "./signals";
+import { ADS_SIGNAL_ID, collectSignals, SEO_SIGNAL_ID, type AdsSignalInput, type SeoSignalInput, type Signal } from "./signals";
+import { loadAdsSummary } from "../ads/server";
+import { loadSeoSummary } from "../control/server";
+import { defaultRange, grandTotal } from "../seo/search";
+import { connectionView } from "../seo/searchConsole";
+import { loadSearchRows } from "../seo/server";
 import type { AltiRun, BasedOn, Idea, IdeaProposal, IdeasBoard } from "./types";
 
 // The Ideas screen on the database (migration 0040). Reads go through the
@@ -188,14 +193,34 @@ export async function applyIdeaAction(db: SupabaseClient, member: StaffMember, b
   return { ok: true, id: idea.id };
 }
 
-/** The numbers Alti reads, through `reader` (an administrator's connection, or the service role for the weekly job). */
-export async function loadSignals(reader: SupabaseClient, now: Date): Promise<Signal[]> {
-  const [clients, leads, content] = await Promise.all([
+/**
+ * The numbers Alti reads, through `reader` (an administrator's connection, or
+ * the service role for the weekly job). Every value is filled in here, on the
+ * server, from the records; the model only ever reads them.
+ */
+export async function loadSignals(reader: SupabaseClient, now: Date, env: Record<string, string | undefined> = process.env): Promise<Signal[]> {
+  const [clients, leads, content, ads, seo] = await Promise.all([
     loadStaffClients(reader).catch(() => null),
     loadLeads(reader).catch(() => null),
     loadContentSummary(reader, now),
+    loadAdsSummary(reader, now, env).catch(() => null),
+    loadSeoSignal(reader, now, env),
   ]);
-  return collectSignals({ clients, leads, content, now });
+  return collectSignals({ clients, leads, content, now, extra: { [ADS_SIGNAL_ID]: ads satisfies AdsSignalInput | null, [SEO_SIGNAL_ID]: seo } });
+}
+
+/** SEO's numbers for Alti: Search Console's last 28 days (when it is connected), the guides and the site check. */
+async function loadSeoSignal(reader: SupabaseClient, now: Date, env: Record<string, string | undefined>): Promise<SeoSignalInput | null> {
+  const summary = await loadSeoSummary(reader);
+  let search: SeoSignalInput["search"] = null;
+  if (connectionView(env).connected) {
+    try {
+      search = grandTotal(await loadSearchRows(reader, defaultRange(now)));
+    } catch {
+      search = null;
+    }
+  }
+  return summary || search ? { summary, search } : null;
 }
 
 export type AltiRunResult =

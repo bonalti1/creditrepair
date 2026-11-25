@@ -412,7 +412,7 @@ export default function PagosPage() {
                             <button
                               type="button"
                               onClick={() => setPrinting({ kind: "receipt", id: charge.id })}
-                              className="pressable mt-3 flex h-10 items-center justify-center rounded-full bg-white px-4 text-[14px] font-semibold text-slate-900"
+                              className="pressable mt-3 flex h-11 items-center justify-center rounded-full bg-white px-4 text-[14px] font-semibold text-slate-900"
                             >
                               {c.print}
                             </button>
@@ -700,7 +700,7 @@ export default function PagosPage() {
               <button
                 type="button"
                 onClick={() => setPrinting({ kind: "authorization" })}
-                className="pressable mt-4 flex h-10 items-center justify-center rounded-full bg-slate-100 px-4 text-[14px] font-semibold text-slate-900"
+                className="pressable mt-4 flex h-11 items-center justify-center rounded-full bg-slate-100 px-4 text-[14px] font-semibold text-slate-900"
               >
                 {c.print}
               </button>
@@ -758,7 +758,7 @@ export default function PagosPage() {
                       setOpenReceipt(null);
                       window.scrollTo({ top: 0 });
                     }}
-                    className={`pressable inline-flex h-10 items-center rounded-full px-4 text-[14px] font-semibold ${
+                    className={`pressable inline-flex h-11 items-center rounded-full px-4 text-[14px] font-semibold ${
                       view.scenario === key ? "bg-blue-700 text-white" : "bg-slate-100 text-slate-900 hover:bg-slate-200"
                     }`}
                   >

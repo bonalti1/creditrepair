@@ -175,7 +175,7 @@ export default function AutopilotCard({
               {messages.slice(0, 12).map((m) => (
                 <li key={m.id} className="text-[13px] leading-snug">
                   <details>
-                    <summary className="cursor-pointer text-slate-700">
+                    <summary className="cursor-pointer py-3 text-slate-700 md:py-0">
                       <span className="tabular-nums text-slate-500">{shortDateTime(m.sentAt ?? m.queuedAt, locale)}</span> · {outboundLine(m, locale)}
                     </summary>
                     <p className="mt-1 whitespace-pre-line rounded-xl bg-slate-50 px-3 py-2 text-slate-600">{m.body}</p>

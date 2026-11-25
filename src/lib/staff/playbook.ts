@@ -548,6 +548,54 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     ],
     playbooks: ["agreement_unsigned"],
   },
+  "/equipo/contabilidad": {
+    title: "Contabilidad",
+    what: "Los libros del negocio, con números reales del cobro y lo que tú anotas: ingresos, gastos, banco, conciliación, cobranza, comisiones, informes e impuestos. Base de caja, hora de Texas.",
+    steps: [
+      "Empieza en el Tablero: la ganancia del mes, lo que se debe y los pagos fallidos.",
+      "Anota cada gasto con su recibo (los de $75 o más lo necesitan), o importa el estado de cuenta del banco.",
+      "Concilia el mes con la exportación del procesador de pagos.",
+      "Después del día 5, cierra el mes en Informes y descarga el archivo para el contador.",
+    ],
+    playbooks: ["payment_past_due"],
+  },
+  "/equipo/resenas": {
+    title: "Reseñas",
+    what: "Dónde los clientes dejan su reseña y cuándo se les pide: a todos igual, una sola vez, sin nada a cambio. Las respuestas a reseñas también se preparan aquí.",
+    steps: [
+      "Pon el enlace de cada sitio (Google, Trustpilot, BBB) y enciende los que uses.",
+      "Elige en qué momentos se pide: siempre los mismos para todos.",
+      "Anota la calificación que muestra cada sitio, copiada de su página.",
+      "Para responder una reseña, pega su texto y pide un borrador; léelo y corrígelo antes de publicarlo.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/estados": {
+    title: "Estados",
+    what: "Qué pide la ley de cada estado para vender ahí y el interruptor que lo abre. Hoy solo Texas está abierto.",
+    steps: [
+      "Elige un estado en el mapa para ver su ley, registro, fianza y cancelación.",
+      "Un estado se abre solo con el registro, la fianza y la revisión del abogado anotados.",
+      "Un estado sin abrir recibe la lista de espera, nunca prospectos ni registros.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/ofertas": {
+    title: "Ofertas de socios",
+    what: "Productos para construir crédito que el cliente puede ver al terminar. Opcionales, ordenados por lo que le cuestan, nunca por comisión.",
+    steps: [
+      "Revisa cada oferta: costo para el cliente, si acepta ITIN y si Credalti puede recibir un pago.",
+      "Antes de encenderlas, pide al abogado que revise las preguntas pendientes.",
+      "Enciende «Mostrar ofertas a los clientes» solo cuando estén listas.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/llamadas": {
+    title: "Llamadas",
+    what: "Las llamadas que un cliente o prospecto pidió con una persona, en los horarios del equipo.",
+    steps: ["Revisa las llamadas de hoy y quién las toma.", "Después de cada una, deja una nota con lo que se habló.", "Nada se cobra ni se firma por teléfono: todo pasa en la app."],
+    playbooks: [],
+  },
   "/equipo/monitoreo": {
     title: "Comisiones del monitoreo",
     what: "Lo que paga el proveedor del monitoreo por los clientes inscritos con nuestro enlace, conciliado por cliente y mes, y pasado a los libros en un paso.",
@@ -738,6 +786,54 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
       "If something went wrong, “Undo” removes the people not invited yet.",
     ],
     playbooks: ["agreement_unsigned"],
+  },
+  "/equipo/contabilidad": {
+    title: "Accounting",
+    what: "The business's books, with real numbers from billing and what you enter: income, expenses, bank, reconciliation, collections, commissions, reports and taxes. Cash basis, Texas time.",
+    steps: [
+      "Start on the Dashboard: the month's profit, what is owed and the failed payments.",
+      "Record each expense with its receipt ($75 or more needs one), or import the bank statement.",
+      "Reconcile the month against the payment processor's export.",
+      "After the 5th, close the month in Reports and download the file for the accountant.",
+    ],
+    playbooks: ["payment_past_due"],
+  },
+  "/equipo/resenas": {
+    title: "Reviews",
+    what: "Where clients leave a review and when they are asked: everyone the same way, once, with nothing in exchange. Replies to reviews are drafted here too.",
+    steps: [
+      "Enter each site's link (Google, Trustpilot, BBB) and turn on the ones you use.",
+      "Pick the moments when the ask goes out: always the same for everyone.",
+      "Record the rating each site shows, copied from its page.",
+      "To reply to a review, paste its text and ask for a draft; read it and fix it before you post it.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/estados": {
+    title: "States",
+    what: "What each state's law asks before Credalti can sell there, and the switch that opens it. Today only Texas is open.",
+    steps: [
+      "Pick a state on the map to see its law, registration, bond and cancellation rules.",
+      "A state opens only once the registration, the bond and the attorney's review are recorded.",
+      "A state that isn't open gets the waitlist, never leads or signups.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/ofertas": {
+    title: "Partner offers",
+    what: "Credit-building products a client can see once they finish. Optional, ordered by what they cost the client, never by commission.",
+    steps: [
+      "Check each offer: its cost to the client, whether it accepts an ITIN, and whether Credalti may be paid.",
+      "Before turning them on, ask the attorney to review the open questions.",
+      "Turn on “Show offers to clients” only when they are ready.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/llamadas": {
+    title: "Calls",
+    what: "The calls a client or lead asked to have with a person, in the team's hours.",
+    steps: ["Look at today's calls and who takes each one.", "After each call, leave a note with what was said.", "Nothing is charged or signed over the phone: everything happens in the app."],
+    playbooks: [],
   },
   "/equipo/monitoreo": {
     title: "Monitoring commissions",

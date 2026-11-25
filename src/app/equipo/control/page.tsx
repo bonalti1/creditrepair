@@ -6,6 +6,7 @@ import { useBooks } from "@/lib/accounting/data";
 import { workQueue } from "@/lib/autopilot/queue";
 import { useAutopilot } from "@/lib/autopilot/useAutopilot";
 import { booksDue, booksSnapshot } from "@/lib/control/books";
+import { contentNeeds } from "@/lib/control/content";
 import { getControlData, type Extras } from "@/lib/control/data";
 import { departmentTiles } from "@/lib/control/departments";
 import { moneySummary, overviewCards } from "@/lib/control/overview";
@@ -132,6 +133,7 @@ export default function ControlPage() {
             partnerNotes: extras?.partnerNotes,
             escalations: extras?.escalations ?? undefined,
             content: can("content.view") && extras?.content ? { summary: extras.content, viewer: contentViewer } : null,
+            video: can("content.view") && extras?.video ? { summary: extras.video, viewer: contentViewer } : null,
             books: books?.due ?? null,
             now,
             locale,
@@ -147,15 +149,18 @@ export default function ControlPage() {
     const needs = (key: string) => cards.find((c) => c.key === key)?.needsYou.count ?? null;
     const books = tiles.find((x) => x.key === "accounting")?.count ?? null;
     const money = needs("money");
+    // Marketing's circle: the Content board's own count. The Video Studio and SEO add theirs from their own
+    // sources (lib/video/badge.ts, BadgeProbe's SeoBadge), so the card's combined figure is not used here.
+    const contentOnly = can("content.view") && extras?.content ? contentNeeds(extras.content, contentViewer).count : needs("content") === null ? null : 0;
     publishBadges("overview", {
       day: needs("clients"),
       leads: needs("leads"),
       clients: needs("support"),
       money: money === null && books === null ? null : (money ?? 0) + (books ?? 0),
-      content: needs("content"),
+      content: contentOnly,
       partners: needs("partners"),
     });
-  }, [ready, cards, tiles]);
+  }, [ready, cards, tiles, extras, contentViewer]);
 
   if (!ready) return null;
 

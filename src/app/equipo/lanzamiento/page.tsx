@@ -11,7 +11,7 @@ import { useStaffLocale, useText } from "@/lib/staff/i18n/StaffLocale";
 import { useViewer } from "@/lib/staff/useStaff";
 import { HealthView, ItemRow, NextAndBlocked, SummaryBand } from "@/components/staff/launch/parts";
 import SafeBoundary from "@/components/staff/control/SafeBoundary";
-import { NoAccess, pillTab, QUIET_BUTTON, SectionTitle } from "@/components/staff/ui";
+import { DemoNote, NoAccess, pillTab, QUIET_BUTTON, SectionTitle } from "@/components/staff/ui";
 
 // Launch readiness (docs/LAUNCH.md), for the owner and administrators only
 // (the capability `launch`; the route refuses everyone else again). One
@@ -93,19 +93,15 @@ function Launch() {
         <p className="mt-0.5 text-[14px] text-slate-500">{tx.subtitle}</p>
       </div>
       {data.demo && (
-        <p className="mt-3 flex flex-wrap items-center gap-2 rounded-[10px] bg-amber-100 px-3 py-2 text-[13px] leading-snug text-blue-900" data-testid="launch-sample">
+        <DemoNote
+          testId="launch-sample"
+          onReset={() => {
+            resetDemoLaunch();
+            void load();
+          }}
+        >
           {tx.sampleBanner}
-          <button
-            type="button"
-            className={`${QUIET_BUTTON} h-9 px-2 text-[12.5px] text-blue-900`}
-            onClick={() => {
-              resetDemoLaunch();
-              void load();
-            }}
-          >
-            {tx.reset}
-          </button>
-        </p>
+        </DemoNote>
       )}
 
       <div className="mt-4 flex flex-wrap gap-1.5" role="tablist" aria-label={tx.title}>

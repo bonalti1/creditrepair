@@ -83,6 +83,23 @@ departments strip: "9 · Launch readiness: N of M ready", the next item, and a
 link to `/equipo/lanzamiento`. It goes away by itself once every required item
 is ready, and comes back if one stops being ready.
 
+### Video Studio, SEO and Ideas on the Overview (final pass)
+
+`src/lib/control/marketing.ts`. The **Content & video** card adds the Video
+Studio's line ("Videos waiting for approval", with the videos sent back and
+the approved ones still to hand to Content), and its «Needs you» adds the
+Video Studio's own rule (`videoNeeds`); the Today list carries the same
+videos the way it carries Content's pieces (approve, changes, hand over),
+each with its steps. Two compact cards: **2 · SEO** (site checks to fix,
+guides waiting for approval, sent back, on the website; "No data yet" until a
+site check has run) and **8 · Ideas & tests** (new ideas to approve, tests
+running, tests over to keep or drop, decided in the last 30 days; «Needs you»
+only for an administrator). The departments strip lists every department in
+the menu's order (Video Studio, SEO and Ideas included): two rows of five on
+a laptop, one row that slides sideways on a phone. The menu's red circle for
+Marketing is unchanged (the board's count, plus the Video Studio's and SEO's
+own sources).
+
 ## Today
 
 `src/lib/control/today.ts`. One list, worked top to bottom (ALTO's "Today"):

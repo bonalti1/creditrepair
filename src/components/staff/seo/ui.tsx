@@ -8,7 +8,7 @@ import { useViewer } from "@/lib/staff/useStaff";
 import { SEO_TEXT } from "@/lib/seo/text";
 import type { Bilingual, GuideStatus } from "@/lib/seo/types";
 import Icon from "@/components/Icon";
-import { Chip, NoAccess, pillTab } from "@/components/staff/ui";
+import { Chip, DemoNote as SharedDemoNote, NoAccess, pillTab } from "@/components/staff/ui";
 
 // The SEO department's shared pieces: the tabs under the title, the status
 // chip, the sample note, the fields' look and the access gate.
@@ -70,13 +70,9 @@ export function SampleNote({ live, children }: { live: boolean; children?: React
   const t = useTx();
   if (live) return null;
   return (
-    <p className="mt-4 flex items-start gap-2 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900 ring-1 ring-inset ring-amber-200" data-testid="seo-sample-note">
-      <Icon name="info" size={18} className="mt-px shrink-0 text-amber-700" />
-      <span>
-        <strong className="font-semibold">{t("Demostración · datos de muestra.", "Demo · sample data.")}</strong>{" "}
-        {children ?? t("Lo que cambies se guarda solo en este navegador y nada se publica en el sitio.", "What you change is kept only in this browser, and nothing is published on the site.")}
-      </span>
-    </p>
+    <SharedDemoNote testId="seo-sample-note">
+      {children ?? t("Datos de muestra. Lo que cambies se guarda solo en este navegador y nada se publica en el sitio.", "Sample data. What you change is kept only in this browser, and nothing is published on the site.")}
+    </SharedDemoNote>
   );
 }
 

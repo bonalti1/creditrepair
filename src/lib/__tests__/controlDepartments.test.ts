@@ -13,6 +13,9 @@ import { contentNeeds, contentSummary, type ContentSummary, type ScheduleLike } 
 import { DEPARTMENT_LABELS, departmentTiles } from "../control/departments";
 import { moneySummary, overviewCards, type ControlExtras, type OverviewInput } from "../control/overview";
 import { todayList, type TodayInput } from "../control/today";
+import { ideasSummary, seoSummary, videoNeedsOf, videoSummary } from "../control/marketing";
+import type { VideoProject } from "../video/types";
+import { checkClaimGuardrails } from "../compliance/guardrails";
 import { buildDemoLeads } from "../leads/demo";
 import { DEFAULT_LEAD_AUTOPILOT } from "../leads/types";
 import { buildDemoClients } from "../staff/demoClients";
@@ -132,7 +135,7 @@ describe("the Content card: real numbers from the board", () => {
     const on = contentSummary(PIECES, SCHEDULES, { enabled: true, channels: { facebook: true, instagram: true, tiktok: false, youtube: false } }, NOW);
     expect(metric(card(overviewCards(overview("admin", { extras: extras(on) })), "content"), "publishing")!.value).toBe("On · 2 channels");
     const es = card(overviewCards(overview("admin", { locale: "es" })), "content")!;
-    expect(es.title).toBe("Contenido");
+    expect(es.title).toBe("Contenido y video");
     expect(metric(es, "publishing")!.value).toBe("Apagada");
   });
 
@@ -343,9 +346,9 @@ describe("the departments strip: one tap to every department the member may open
   };
 
   it("by role", () => {
-    expect(tiles("admin").map((t) => t.key)).toEqual(["leads", "clients", "content", "ads", "accounting", "partners", "reviews"]);
-    expect(tiles("specialist").map((t) => t.key)).toEqual(["clients", "content", "reviews"]);
-    expect(tiles("sales").map((t) => t.key)).toEqual(["leads", "clients", "content", "partners", "reviews"]);
+    expect(tiles("admin").map((t) => t.key)).toEqual(["leads", "clients", "content", "video", "ads", "seo", "reviews", "accounting", "partners", "ideas"]);
+    expect(tiles("specialist").map((t) => t.key)).toEqual(["clients", "content", "video", "seo", "reviews", "ideas"]);
+    expect(tiles("sales").map((t) => t.key)).toEqual(["leads", "clients", "content", "reviews", "partners", "ideas"]);
   });
 
   it("each tile opens a screen the console's navigation offers that role; sales lands on the partner kit", () => {
@@ -377,5 +380,98 @@ describe("the departments strip: one tap to every department the member may open
   it("both languages, and no Spanish in the English", () => {
     expect(Object.keys(DEPARTMENT_LABELS.en)).toEqual(Object.keys(DEPARTMENT_LABELS.es));
     for (const label of Object.values(DEPARTMENT_LABELS.en)) expect(label).not.toMatch(/[áéíóúñ]|Clientes|Contenido|Socios/);
+  });
+});
+
+describe("the Video Studio, SEO and Ideas on the Overview and in Today", () => {
+  const video = (id: string, over: Partial<VideoProject>): Pick<VideoProject, "id" | "title" | "status" | "owner" | "changesNote" | "updatedAt" | "createdAt"> => ({
+    id,
+    title: id,
+    status: "planned",
+    owner: "marta",
+    changesNote: null,
+    createdAt: ago(5),
+    updatedAt: ago(1),
+    ...over,
+  });
+  const VIDEOS = videoSummary([
+    video("vd_ready", { status: "ready", title: "Know your rights 15s", updatedAt: ago(3) }),
+    video("vd_changes_marta", { status: "editing", changesNote: "Keep the AI label on screen." }),
+    video("vd_changes_other", { status: "editing", owner: "carmen", changesNote: "Shorter." }),
+    video("vd_approved", { status: "approved", title: "How it works 30s" }),
+    video("vd_planned", { status: "planned" }),
+    video("vd_archived", { status: "archived" }),
+  ]);
+  const withMarketing = (role: StaffRole): OverviewInput =>
+    overview(role, {
+      extras: {
+        ...extras(SUMMARY),
+        video: VIDEOS,
+        seo: seoSummary([{ status: "review" }, { status: "changes" }, { status: "published" }, { status: "published" }], null),
+        ideas: ideasSummary(
+          [
+            { status: "new", testEndsAt: null, decidedAt: null },
+            { status: "approved", testEndsAt: null, decidedAt: null },
+            { status: "testing", testEndsAt: ahead(5), decidedAt: null },
+            { status: "testing", testEndsAt: ago(1), decidedAt: null },
+            { status: "kept", testEndsAt: ago(10), decidedAt: ago(3) },
+          ],
+          NOW,
+        ),
+      },
+    });
+
+  it("the Content card carries the Video Studio's work, and its «Needs you» adds the Video Studio's own rule", () => {
+    const admin = card(overviewCards(withMarketing("admin")), "content")!;
+    expect(metric(admin, "videos")).toMatchObject({ value: "1", hint: "2 videos sent back for changes · 1 approved, to hand to Content" });
+    // The board's count (2 in review + 1 failed) plus the videos (1 waiting + 1 change of the admin's + 1 to hand over).
+    const board = contentNeeds(SUMMARY, { approve: true, edit: true, handle: "carmen" }).count;
+    const videos = videoNeedsOf(VIDEOS, { approve: true, edit: true, handle: "carmen" });
+    expect(videos.count).toBe(3);
+    expect(admin.needsYou.count).toBe(board + videos.count);
+    // Nothing on the board itself: the link opens the Video Studio.
+    const empty = contentSummary([], [], DEFAULT_PUBLISH_SETTINGS, NOW);
+    expect(card(overviewCards(overview("admin", { extras: { ...extras(empty), video: VIDEOS } })), "content")!.needsYou.href).toBe("/equipo/video");
+    // No video yet: "No data yet" with the reason, never a 0.
+    const none = card(overviewCards(overview("admin", { extras: { ...extras(SUMMARY), video: videoSummary([]) } })), "content")!;
+    expect(metric(none, "videos")).toMatchObject({ value: null, why: "No video in the Video Studio yet." });
+  });
+
+  it("Today lists the videos like Content's pieces: approvals for approvers, changes and hand-overs for editors", () => {
+    const list = (role: StaffRole) =>
+      todayList({
+        queue: [],
+        leads: null,
+        content: null,
+        video: can(role, "content.view") ? { summary: VIDEOS, viewer: { approve: can(role, "content.approve"), edit: can(role, "content.edit"), handle: HANDLE[role] } } : null,
+        now: NOW,
+        locale: "en",
+      });
+    const admin = list("admin");
+    expect(admin.map((i) => i.kind)).toEqual(expect.arrayContaining(["video_review", "video_changes", "video_handoff"]));
+    expect(admin.find((i) => i.kind === "video_review")).toMatchObject({ title: "Approve this video: Know your rights 15s", href: "/equipo/video/vd_ready" });
+    // Marta's own change, not Carmen's.
+    expect(list("specialist").filter((i) => i.kind === "video_changes").map((i) => i.key)).toEqual(["video-changes:vd_changes_marta"]);
+    expect(list("sales")).toEqual([]);
+    for (const item of admin) expect(item.steps.length).toBeGreaterThan(0);
+    for (const text of admin.flatMap((i) => [i.title, i.detail, ...i.steps, i.doneWhen ?? ""])) expect(checkClaimGuardrails(text)).toEqual([]);
+  });
+
+  it("SEO and Ideas have a compact card each, with counts that follow their own screens", () => {
+    const cards = overviewCards(withMarketing("admin"));
+    const seo = card(cards, "seo")!;
+    // Never checked: "No data yet" with what to do, never a 0.
+    expect(metric(seo, "fix")).toMatchObject({ value: null, why: expect.stringMatching(/Site health/) });
+    expect(seo.needsYou.count).toBe(2);
+    expect(metric(seo, "published")?.value).toBe("2");
+    const ideas = card(cards, "ideas")!;
+    expect([metric(ideas, "waiting")?.value, metric(ideas, "testing")?.value, metric(ideas, "decide")?.value, metric(ideas, "decided")?.value]).toEqual(["1", "1", "1", "1"]);
+    expect(ideas.needsYou.count).toBe(2);
+    // Only an administrator decides ideas: nothing waits on a specialist.
+    expect(card(overviewCards(withMarketing("specialist")), "ideas")!.needsYou.count).toBe(0);
+    // A board that could not be read says so.
+    const unread = overviewCards(overview("admin", { extras: { ...extras(SUMMARY), seo: null, ideas: null } }));
+    expect(metric(card(unread, "seo"), "fix")?.value).toBeNull();
+    expect(card(unread, "ideas")!.needsYou.count).toBeNull();
   });
 });
