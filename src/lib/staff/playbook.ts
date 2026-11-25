@@ -462,6 +462,7 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
   },
   "/equipo/cartas": { title: "Cartas", what: "Las plantillas de las cartas.", steps: ["Solo un administrador las edita."], playbooks: [] },
   "/equipo/contenido": { title: "Contenido", what: "Las piezas de marketing, de la idea a los resultados, con la revisión de cumplimiento y marca.", steps: ["Crea la pieza (en blanco, con plantilla o con Alti) y corrige lo que marque la revisión.", "Marca la lista y mándala a revisión; solo un administrador aprueba.", "Publícala (o prográmala) y agrega los resultados reales."], playbooks: [] },
+  "/equipo/video": { title: "Estudio de video", what: "Videos cortos y anuncios, editados en este navegador: plan, edición, revisión, aprobación y paso a Contenido.", steps: ["Crea el video (o ábrelo desde un brief de Anuncios) y planea el guion y las tomas; Alti puede hacer un borrador.", "En el editor: sube los clips, recorta, pon textos, subtítulos, logo y música de la biblioteca; exporta el MP4.", "En «Revisión y aprobación»: corrige lo que marque, marca la lista y mándalo; solo un administrador aprueba.", "Ya aprobado, pásalo a Contenido: la pieza lo publica."], playbooks: [] },
   "/equipo/planes": {
     title: "Planes de cobro",
     what: "Los planes que se ofrecen a los clientes, como en Credit Repair Cloud, y la vista previa de cuándo se cobra.",
@@ -591,6 +592,7 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
   },
   "/equipo/cartas": { title: "Letters", what: "The letter templates.", steps: ["Only an administrator edits them."], playbooks: [] },
   "/equipo/contenido": { title: "Content", what: "Marketing pieces, from the idea to the results, with the compliance and brand check.", steps: ["Create the piece (blank, from a template or with Alti) and fix what the check marks.", "Tick the checklist and send it for review; only an administrator approves.", "Post it (or schedule it) and add the real results."], playbooks: [] },
+  "/equipo/video": { title: "Video Studio", what: "Short videos and ads, edited in this browser: plan, edit, check, approval and hand-off to Content.", steps: ["Create the video (or open it from an Ads brief) and plan the script and shots; Alti can draft them.", "In the editor: upload the clips, trim, add words, captions, the logo and music from the library; export the MP4.", "In «Check & approve»: fix what it marks, tick the checklist and send it; only an administrator approves.", "Once approved, hand it to Content: the piece posts it."], playbooks: [] },
   "/equipo/planes": {
     title: "Billing plans",
     what: "The plans offered to clients, as in Credit Repair Cloud, with a preview of when each charge happens.",

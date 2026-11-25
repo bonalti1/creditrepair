@@ -7,3 +7,5 @@ out/
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+# The Video Studio export engine, copied from node_modules by scripts/copy-ffmpeg-core.mjs
+public/vendor/ffmpeg/

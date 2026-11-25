@@ -37,6 +37,7 @@ import {
 import { MESSAGE_EN, staffMessage } from "../staff/i18n/messages";
 import { SHELL_TEXT } from "../staff/i18n/ui/shell";
 import { ALTI_HELP_TEXT } from "../staff/altiHelp";
+import { VIDEO_TEXT } from "../video/labels";
 import { DIMENSION_LABELS, OUTCOME_DEFINITION_TEXT } from "../staff/learning";
 import { exceptionMessage, MESSAGE_BODIES, STAFF_MESSAGE_RULE_TEXT } from "../staff/messages";
 import { METRIC_INFOS, PERIOD_LABELS } from "../staff/metrics";
@@ -137,6 +138,7 @@ const BILINGUAL_TABLES: Record<string, Record<StaffLocale, unknown>> = {
   STAFF_MESSAGE_RULE_TEXT,
   DIGEST_TEMPLATE_BODIES,
   DRAFT_MESSAGES,
+  VIDEO_TEXT,
 };
 
 // English-only twins of Spanish tables that live where their rule lives.

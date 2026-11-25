@@ -7,7 +7,8 @@ posts, emails, blog and FAQ pieces. English first, Spanish too.
 
 It follows the lesson of the owner's other business (its "ad plan" board):
 **creation happens in outside tools** (CapCut, Canva, the ad pipeline in
-`content/`), **a person approves**, and results are **measured, never
+`content/`) **or in the console's own Video Studio** (`/equipo/video`,
+`docs/VIDEO.md`), **a person approves**, and results are **measured, never
 invented**. On top of that, the app can **publish approved pieces itself**
 once the owner connects the accounts and turns publishing on (it starts off).
 
@@ -267,6 +268,16 @@ Until then the network shows "Not set up on the server" and nothing is posted.
 
 The app never spends on ads and never changes anything in the accounts except
 creating the posts it was told to.
+
+## Videos from the Video Studio
+
+An approved video from the Video Studio (`docs/VIDEO.md`) is handed to a piece
+here with **Hand to Content**: a new short-video (or YouTube) piece with the
+video's words, or an open piece chosen from the board, gets the approved MP4 as
+its file through this hub's own upload, the brand and caption items the studio
+already guarantees ticked, and goes to review. Its approval and publishing are
+this hub's, unchanged: the piece's own hash, the gates, the scheduler. The Video
+Studio has no publishing code of its own.
 
 ## Who may do what
 

@@ -45,7 +45,10 @@ const JOBS: Partial<Record<NavGroupKey, AltiJob[]>> = {
     { id: "client_draft", icon: "sparkle", needs: "clients.reply", href: "/equipo/clientes?aviso=question_waiting", gate: "draft" },
     { id: "saved_answers", icon: "chat", needs: "clients.reply", href: "/equipo/respuestas", gate: "approved" },
   ],
-  content: [{ id: "content_words", icon: "doc", needs: "content.edit", href: "/equipo/contenido", gate: "words" }],
+  content: [
+    { id: "content_words", icon: "doc", needs: "content.edit", href: "/equipo/contenido", gate: "words" },
+    { id: "video_script", icon: "video", needs: "content.edit", href: "/equipo/video", gate: "words" },
+  ],
 };
 
 /** What Alti already does in this section, for this member. */
@@ -91,6 +94,10 @@ export const ALTI_HELP_TEXT = defineText({
       content_words: {
         title: "Write a piece's words",
         desc: "Open a piece and use my writing assistant: hooks, script and caption in English and Spanish, checked against the claim and brand rules. A person edits, saves and asks for approval.",
+      },
+      video_script: {
+        title: "Draft a video's script and shots",
+        desc: "In the Video Studio, open a video's plan and ask for a draft: from the brief I write a script, a shot list and the post's words, checked against the claim rules. A person edits it and saves it; the video is approved by an administrator.",
       },
     },
     searchLabel: "Search the team's playbook",
@@ -141,6 +148,10 @@ export const ALTI_HELP_TEXT = defineText({
       content_words: {
         title: "Escribir las palabras de una pieza",
         desc: "Abre una pieza y usa mi asistente de escritura: ganchos, guion y texto en inglés y español, revisados con las reglas de lo que se puede decir y de la marca. Una persona edita, guarda y pide la aprobación.",
+      },
+      video_script: {
+        title: "Borrador del guion y las tomas de un video",
+        desc: "En el Estudio de video, abre el plan de un video y pide un borrador: con el brief escribo un guion, una lista de tomas y el texto de la publicación, revisados con las reglas. Una persona lo edita y lo guarda; un administrador aprueba el video.",
       },
     },
     searchLabel: "Buscar en la guía del equipo",

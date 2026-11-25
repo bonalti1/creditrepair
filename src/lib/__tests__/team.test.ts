@@ -687,7 +687,13 @@ describe("team: what the staff routes accept", () => {
     // The accounting department (migration 0036): the accounting capability.
     expect(read("src/app/api/staff/accounting/route.ts")).toMatch(/requireCapability\("accounting"\)/);
     expect(read("src/app/api/staff/accounting/receipt/route.ts")).toMatch(/requireCapability\("accounting"\)/);
-    expect(staffRoutes.length).toBe(38);
+    // The Video Studio (migration 0038): the board and actions, files, Alti's draft, automatic captions.
+    expect(read("src/app/api/staff/video/route.ts")).toMatch(/requireCapability\(VIDEO_ACTION_CAPABILITY\[input\.action\]\)/);
+    expect(read("src/app/api/staff/video/route.ts")).toMatch(/requireCapability\("content\.view"\)/);
+    expect(read("src/app/api/staff/video/files/route.ts")).toMatch(/requireCapability\(input\.action === "sign" \? "content\.view" : "content\.edit"\)/);
+    expect(read("src/app/api/staff/video/assist/route.ts")).toMatch(/requireCapability\("content\.edit"\)/);
+    expect(read("src/app/api/staff/video/transcribe/route.ts")).toMatch(/requireCapability\("content\.edit"\)/);
+    expect(staffRoutes.length).toBe(42);
   });
 });
 

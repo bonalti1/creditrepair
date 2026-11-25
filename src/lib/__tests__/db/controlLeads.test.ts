@@ -82,7 +82,8 @@ beforeAll(async () => {
   partnerUser = uid();
   await h.createUser(partnerUser, { phone: "+17135550161" });
   await h.service.from("partner_members").insert({ user_id: partnerUser, partner_id: (partner as { id: string }).id });
-});
+  // The harness applies every migration: as they grow, a full parallel run needs more than the default 10 s (like the other database tests).
+}, 60_000);
 
 afterAll(async () => {
   delete process.env.NEXT_PUBLIC_SUPABASE_URL;

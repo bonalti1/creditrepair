@@ -175,7 +175,7 @@ design system» below).
 - **768 px and wider: a navy side menu** with the white logo, "Control" and
   ten **numbered groups** in the order the business works (`NAV_GROUPS`,
   ALTO's GROUPS): **0 Overview** (Resumen) · **1 My day** (Inicio, Actividad)
-  · **2 Content & Reviews** · **3 Lead Manager** (Prospectos, Invitar) ·
+  · **2 Content & Reviews** (Contenido, Estudio de video, Reseñas) · **3 Lead Manager** (Prospectos, Invitar) ·
   **4 Fulfillment & Clients** (Clientes, Respuestas, Piloto automático,
   Llamadas; the send and print screens belong here too) · **5 Payments &
   Accounting** (Contabilidad, Facturas, Planes) · **6 Letters & Rules**
@@ -198,7 +198,10 @@ design system» below).
   handed over), Fulfillment (client questions) and Money (payment notices) on
   any page (`BadgeProbe`: the same `overviewCards` on the same clients, queue
   and lead list, through the member's own connection); the Overview adds
-  Content, the books and Partners when it opens. Unknown means no circle.
+  Content, the books and Partners when it opens; the Video Studio's own count
+  (videos waiting for approval, changes asked, approved videos to hand over)
+  is added to the Content group's circle on any page (`lib/video/badge.ts`).
+  Unknown means no circle.
   «✓ Clear» (and «Clear all notifications») hides a circle for this member in
   this browser until its number goes up; it changes no record.
 - **Phone:** the check, the section's short name, search and Alti's face on
@@ -456,6 +459,21 @@ turns it on), results, the brand kit and the partner kit. Specialists make
 content (`content.edit`); only an administrator approves (`content.approve`)
 and connects accounts (`content.publish`); sales sees the brand kit and the
 approved partner material only (`content.share`). See `docs/CONTENT.md`.
+
+## Video Studio
+
+«Estudio de video» / «Video Studio» (`/equipo/video`, section 2, right after
+Content) plans, edits and checks short videos and ads in the browser: a
+board (Planned → Editing → Ready for approval → Approved → Handed to
+Content), briefs from the Ads Manager (`?brief=`), Alti's script-and-shots
+draft, an editor (trim, split, order, crop or fit, words and lower thirds,
+captions, the locked logo, intro and end cards, Alti with his label, music
+from the rights-checked library) that exports H.264/AAC MP4s with
+ffmpeg.wasm, the check and checklist before approval, and the hand-off that
+gives the approved MP4 to a Content piece for posting. Specialists make videos
+(`content.edit`); only an administrator approves (`content.approve`); sales
+does not see it. Its «Needs you» is added to the Content group's red circle.
+See `docs/VIDEO.md`.
 
 ## What is not done
 

@@ -12,7 +12,11 @@ import type { NavGroupKey } from "./nav";
 //     clients, work queue and lead list the Overview reads (StaffShell's
 //     BadgeProbe, through the member's own connection);
 //   - the Overview page reports the ones only it reads (Content, the books on
-//     Money, Partners) when it opens.
+//     Money, Partners) when it opens;
+//   - the Video Studio's own «Needs you» (videos waiting for approval, changes
+//     asked of an editor, approved videos not yet handed to Content:
+//     video/rules.ts videoNeeds) is ADDED to the Content group's number, from
+//     the shell's probe on any page.
 //
 // A group with no number known shows no circle: "no data" is never a 0 or a
 // guess. «✓ Clear» hides a group's circle for this member in this browser
@@ -21,10 +25,10 @@ import type { NavGroupKey } from "./nav";
 
 export type BadgeCounts = Partial<Record<NavGroupKey, number>>;
 
-/** Who reported a number: the shell's own probe, or the Overview. Each source replaces only its own numbers. */
-type Source = "probe" | "overview";
+/** Who reported a number: the shell's own probe, the Overview, or the Video Studio's probe (added on top). Each source replaces only its own numbers. */
+type Source = "probe" | "overview" | "video";
 
-const sources: Record<Source, BadgeCounts> = { probe: {}, overview: {} };
+const sources: Record<Source, BadgeCounts> = { probe: {}, overview: {}, video: {} };
 let merged: BadgeCounts = {};
 const listeners = new Set<() => void>();
 
@@ -33,6 +37,8 @@ function recompute() {
   // The Overview's numbers are the complete ones (it reads the books and the server's extras too); the probe fills the rest.
   for (const [key, value] of Object.entries(sources.probe) as Array<[NavGroupKey, number]>) next[key] = value;
   for (const [key, value] of Object.entries(sources.overview) as Array<[NavGroupKey, number]>) next[key] = value;
+  // The Video Studio's count sits in the Content group beside the Content board's: the two add up.
+  for (const [key, value] of Object.entries(sources.video) as Array<[NavGroupKey, number]>) next[key] = (next[key] ?? 0) + value;
   merged = next;
   for (const listener of listeners) listener();
 }
@@ -50,10 +56,16 @@ export function publishBadges(source: Source, counts: Partial<Record<NavGroupKey
   recompute();
 }
 
+/** The numbers as they stand now (for tests; the screens use useNavBadges). */
+export function currentBadges(): BadgeCounts {
+  return merged;
+}
+
 /** Forget every number (the demo's "view as" switched, so the counts were someone else's). */
 export function resetBadges(): void {
   sources.probe = {};
   sources.overview = {};
+  sources.video = {};
   recompute();
 }
 

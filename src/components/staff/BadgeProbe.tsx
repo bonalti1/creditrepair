@@ -10,6 +10,7 @@ import type { Lead } from "@/lib/leads/types";
 import { useMail } from "@/lib/mail/useMail";
 import { publishBadges } from "@/lib/staff/navBadges";
 import { useStaff } from "@/lib/staff/useStaff";
+import { useVideoBadge } from "@/lib/video/badge";
 
 // The red circles' numbers that the shell can work out on any page
 // (src/lib/staff/navBadges.ts): the Overview's own «Needs you» counts, from the
@@ -22,6 +23,8 @@ import { useStaff } from "@/lib/staff/useStaff";
 //   Leads        ← the Leads & sales card's (waiting + handed over)
 //   Fulfillment  ← the Support card's (client questions waiting)
 //   Money        ← the Money card's (payment notices), only with billing.view
+//   Content      + the Video Studio's own «Needs you» (lib/video/badge.ts), added
+//                  to what the Overview reports for the Content board
 
 const REFRESH_MS = 60_000;
 
@@ -34,6 +37,7 @@ export default function BadgeProbe() {
   const leadData = useMemo(() => getLeadData(viewer, locale), [viewer, locale]);
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const lastReload = useRef(Date.now());
+  useVideoBadge(viewer, can, pathname);
 
   // The lead list: once, then every minute while the page is visible.
   useEffect(() => {
