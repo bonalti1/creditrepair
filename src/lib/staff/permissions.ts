@@ -64,6 +64,12 @@ export const CAPABILITIES = [
   "states.manage",
   // Calls with a person (src/lib/calls, migration 0032; off by default): set when the team takes calls, see and close bookings.
   "calls.manage",
+  // Content (src/lib/content, migration 0035): the board, approving, publishing, and the brand kit with the partner material.
+  "content.view",
+  "content.edit",
+  "content.approve",
+  "content.publish",
+  "content.share",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -107,6 +113,11 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "reviews.manage": "Sitios de reseñas, pedidos de reseña y calificaciones",
   "states.manage": "Abrir y cerrar estados",
   "calls.manage": "Fijar los horarios de llamadas y atender las reservas",
+  "content.view": "Ver el tablero, el calendario y los resultados del contenido",
+  "content.edit": "Crear y editar contenido, y mandarlo a revisión",
+  "content.approve": "Aprobar contenido o pedir cambios",
+  "content.publish": "Conectar las redes sociales y activar la publicación",
+  "content.share": "Ver el kit de marca y el material aprobado para socios",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -132,6 +143,11 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "reviews.manage": "Review sites, review requests and ratings",
   "states.manage": "Open and close states",
   "calls.manage": "Set call hours and handle booked calls",
+  "content.view": "See the content board, calendar and results",
+  "content.edit": "Create and edit content, and submit it for review",
+  "content.approve": "Approve content or ask for changes",
+  "content.publish": "Connect social accounts and turn publishing on",
+  "content.share": "See the brand kit and the approved partner material",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -173,6 +189,12 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "reviews.manage": false,
       "states.manage": false,
       "calls.manage": false,
+      // Content (migration 0035): a specialist (or a designer invited as one, with no clients) makes content; only an administrator approves and publishes.
+      "content.view": true,
+      "content.edit": true,
+      "content.approve": false,
+      "content.publish": false,
+      "content.share": true,
     },
   },
   sales: {
@@ -202,6 +224,12 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "states.manage": false,
       // Sales talks with leads before they sign up: the calls are theirs (questions only).
       "calls.manage": true,
+      // Content (migration 0035): sales sees and copies the approved partner material, and the brand kit. Nothing else.
+      "content.view": false,
+      "content.edit": false,
+      "content.approve": false,
+      "content.publish": false,
+      "content.share": true,
     },
   },
 };

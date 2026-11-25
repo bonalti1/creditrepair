@@ -264,6 +264,19 @@ screen text is `t("Spanish", "English")` from `useTx()`; sentence builders in
 walks every table in both languages and fails on a missing language or on
 Spanish words left in the English.
 
+## Content
+
+«Contenido» (`/equipo/contenido`, under «Más») is the marketing hub: a board
+and a calendar of content pieces (videos, carousels, stories, WhatsApp
+statuses, partner flyers, emails), each checked against the claim and brand
+rules as it is typed, with a checklist before approval, Alti's writing
+assistant (AI, always a draft), templates that already pass the rules,
+posting (by a person, or by the app once the owner connects the accounts and
+turns it on), results, the brand kit and the partner kit. Specialists make
+content (`content.edit`); only an administrator approves (`content.approve`)
+and connects accounts (`content.publish`); sales sees the brand kit and the
+approved partner material only (`content.share`). See `docs/CONTENT.md`.
+
 ## What is not done
 
 - Nothing here has been tried with real clients or a live Claude key; the
