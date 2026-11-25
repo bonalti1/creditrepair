@@ -177,8 +177,8 @@ design system» below).
   ALTO's GROUPS): **0 Overview** (Resumen) · **1 My day** (Inicio, Actividad)
   · **2 Marketing** (Contenido, Estudio de video, Anuncios, SEO, Reseñas) · **3 Lead Manager** (Prospectos, Invitar) ·
   **4 Fulfillment & Clients** (Clientes, Respuestas, Piloto automático,
-  Llamadas; the send and print screens belong here too) · **5 Payments &
-  Accounting** (Contabilidad, Facturas, Planes) · **6 Letters & Rules**
+  Llamadas, Importar de CRC; the send and print screens belong here too) · **5 Payments &
+  Accounting** (Contabilidad, Facturas, Planes, Monitoreo) · **6 Letters & Rules**
   (Cartas, Acreedores, Estados) · **7 Partners** (Socios, Ofertas) ·
   **8 Ideas & numbers** (Negocio, Ideas: `docs/IDEAS.md`) · **9 Team &
   Settings** (Listo para lanzar, for administrators: `docs/LAUNCH.md`;
@@ -231,6 +231,11 @@ design system» below).
 - **The client page has two tabs**: «Caso» and «Reportes» (every report in
   the file, with what it changed, and Open / Print / Download; see
   `src/lib/reports/history.ts`). `?pestana=reportes` opens the second.
+- **The client page** opens with the journey strip (lead → finished), and
+  carries the client's notification settings (read-only), their credit
+  monitoring (record a check) and their documents (open, accept, or not
+  accepted with the reason the client reads). How a client goes through
+  Credalti, step by step: `docs/FULFILLMENT.md`.
 
 ## The console's design system
 

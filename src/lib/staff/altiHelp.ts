@@ -25,7 +25,7 @@ import { HOUSE_RULE_TEXT, PLAYBOOKS, SCREEN_HELPS } from "./playbook";
 //     needs the claim rules (src/lib/compliance/guardrails.ts) beyond what the
 //     playbook already passes.
 
-export type AltiJobGate = "draft" | "approved" | "fixed" | "words" | "proposal";
+export type AltiJobGate = "draft" | "approved" | "fixed" | "words" | "proposal" | "check";
 
 export interface AltiJob {
   id: string;
@@ -45,6 +45,8 @@ const JOBS: Partial<Record<NavGroupKey, AltiJob[]>> = {
   clients: [
     { id: "client_draft", icon: "sparkle", needs: "clients.reply", href: "/equipo/clientes?aviso=question_waiting", gate: "draft" },
     { id: "saved_answers", icon: "chat", needs: "clients.reply", href: "/equipo/respuestas", gate: "approved" },
+    // The AI intake's first look at an ID or a proof of address (src/lib/intake); a person accepts or asks for another (fulfillment/documents.ts).
+    { id: "document_check", icon: "doc", needs: "documents.review", href: "/equipo/clientes?aviso=document_check_needs_person", gate: "check" },
   ],
   content: [
     { id: "content_words", icon: "doc", needs: "content.edit", href: "/equipo/contenido", gate: "words" },
@@ -77,6 +79,7 @@ export const ALTI_HELP_TEXT = defineText({
       fixed: "Off until an administrator turns it on",
       words: "Words only · a person saves them",
       proposal: "A proposal · a person decides",
+      check: "A first look · a person decides",
     },
     jobs: {
       client_draft_focus: {
@@ -98,6 +101,10 @@ export const ALTI_HELP_TEXT = defineText({
       saved_answers: {
         title: "Send approved saved answers",
         desc: "When a client's question closely matches an approved answer, I send it in the app's chat after checking it again. Proposals are never sent.",
+      },
+      document_check: {
+        title: "A first look at IDs and proofs of address",
+        desc: "When a client uploads their ID or proof of address, I check it's readable and matches their account. What I'm not sure about goes to you: open it on the client's page and accept it, or say why not and ask for another.",
       },
       content_words: {
         title: "Write a piece's words",
@@ -145,6 +152,7 @@ export const ALTI_HELP_TEXT = defineText({
       fixed: "Apagado hasta que un administrador lo encienda",
       words: "Solo palabras · las guarda una persona",
       proposal: "Una propuesta · decide una persona",
+      check: "Una primera revisión · decide una persona",
     },
     jobs: {
       client_draft_focus: {
@@ -170,6 +178,10 @@ export const ALTI_HELP_TEXT = defineText({
       ideas_proposals: {
         title: "Proponer pruebas a partir de los números",
         desc: "Toca «Pedirle ideas a Alti»: leo el tablero, la bandeja de prospectos y el contenido, y propongo algunas pruebas, cada una con las cifras en que se basa, el número a vigilar y la duración. Un administrador las agrega al tablero o las descarta.",
+      },
+      document_check: {
+        title: "Una primera revisión de identificaciones y comprobantes",
+        desc: "Cuando un cliente sube su identificación o su comprobante de domicilio, reviso que se lea y coincida con su cuenta. Lo que no tengo claro te llega a ti: ábrelo en la página del cliente y acéptalo, o di por qué no y pide otro.",
       },
       content_words: {
         title: "Escribir las palabras de una pieza",

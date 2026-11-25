@@ -1,4 +1,5 @@
 import { attachDemoAutopilot } from "../autopilot/demo";
+import { attachDemoFulfillment } from "../fulfillment/demo";
 import { BRAND } from "../brand";
 import { cancellationDeadline } from "../agreement/businessDays";
 import { AGREEMENT_VERSION } from "../agreement/documents";
@@ -410,7 +411,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   const brenda = make({
     id: "c08", first: "Brenda", last: "Olivares", phone: "+12145550108", city: "Dallas", zip: "75204",
     salesperson: "luis", createdDaysAgo: 11, signedUpDaysAgo: 10, agreementDaysAgo: 9,
-    documents: [...both, "ssn_card"],
+    documents: both,
     report: { pulledDaysAgo: 6, shape: "medical" }, answeredDaysAgo: 0, lastActivityDaysAgo: 0,
   });
   brenda.rounds = [round(brenda, 1, "ready")];
@@ -480,7 +481,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   const samuel = make({
     id: "c14", first: "Samuel", last: "Tejeda", phone: "+15125550114", city: "Austin", zip: "78745",
     salesperson: "luis", createdDaysAgo: 55, signedUpDaysAgo: 54, agreementDaysAgo: 53,
-    documents: [...both, "ssn_card"],
+    documents: both,
     report: { pulledDaysAgo: 12, shape: "medical", withoutOldAddress: true }, answeredDaysAgo: 46, lastActivityDaysAgo: 5, paymentMethodDaysAgo: 47,
   });
   {
@@ -786,7 +787,18 @@ export function buildDemoClients(now: Date): StaffClient[] {
     });
     withHistory(fabian, [{ shape: "medical" }], [{ mailed: 24 }]);
 
-    return [rosa, gerardo, patricia, hector, silvia, tomas, adriana, julio, marisol, diego, lorena, norma, fabian];
+    // 37. Three rounds answered; she finished her program 5 days ago (graduation, docs/AFTERCARE.md):
+    // billing stopped, nothing more goes out, after-care goes on. Nothing for the team to do.
+    const imelda = make({
+      id: "c37", first: "Imelda", last: "Ruvalcaba", phone: "+18065550137", city: "Amarillo", zip: "79101",
+      salesperson: "carmen", createdDaysAgo: 150, signedUpDaysAgo: 149, agreementDaysAgo: 148, documents: both,
+      lastActivityDaysAgo: 5, paymentMethodDaysAgo: 147,
+    });
+    withHistory(imelda, [{ shape: "medical" }, later, later, later], [{ mailed: 138, responded: 100 }, { mailed: 95, responded: 57 }, { mailed: 52, responded: 12 }]);
+    imelda.graduation = { completedAt: ago(5), reason: "disputes_done", keepTips: true };
+    imelda.serviceEndRequestedAt = ago(5);
+
+    return [rosa, gerardo, patricia, hector, silvia, tomas, adriana, julio, marisol, diego, lorena, norma, fabian, imelda];
   }
 
   const history = buildHistoryClients();
@@ -995,6 +1007,9 @@ export function buildDemoClients(now: Date): StaffClient[] {
   // letter sent again, a document uploaded again, corrected addresses, a payment fixed. Before the
   // autopilot's history below, so its reminders follow from it.
   attachDemoSelfHealing(clients, ago);
+
+  // Notification settings, monitoring checks, document reviews and other documents (fulfillment/demo.ts).
+  attachDemoFulfillment(clients, now);
 
   // What the autopilot did for them: messages sent, a hold, an opt-out, a
   // round mailed by itself, when each prepared round was first seen

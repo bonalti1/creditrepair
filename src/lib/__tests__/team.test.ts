@@ -705,7 +705,12 @@ describe("team: what the staff routes accept", () => {
     expect(read("src/app/api/staff/video/files/route.ts")).toMatch(/requireCapability\(input\.action === "sign" \? "content\.view" : "content\.edit"\)/);
     expect(read("src/app/api/staff/video/assist/route.ts")).toMatch(/requireCapability\("content\.edit"\)/);
     expect(read("src/app/api/staff/video/transcribe/route.ts")).toMatch(/requireCapability\("content\.edit"\)/);
-    expect(staffRoutes.length).toBe(48);
+    // Fulfillment (migration 0041): document review, monitoring checks and commissions, the CRC import.
+    expect(read("src/app/api/staff/documents/route.ts")).toMatch(/requireCapability\("documents\.review"\)/);
+    expect(read("src/app/api/staff/monitoring/route.ts")).toMatch(/requireCapability\("clients\.followup"\)/);
+    expect(read("src/app/api/staff/monitoring/route.ts")).toMatch(/requireCapability\("monitoring\.commissions"\)/);
+    expect(read("src/app/api/staff/import/route.ts")).toMatch(/requireCapability\("clients\.import"\)/);
+    expect(staffRoutes.length).toBe(51);
   });
 });
 

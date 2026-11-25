@@ -329,6 +329,7 @@ export const MIGRATION_SENTINELS: Record<string, { table: string; column?: strin
   "0038_video": { table: "video_music" },
   "0039_seo": { table: "seo_settings" },
   "0040_ideas_launch": { table: "launch_probes" },
+  "0041_fulfillment": { table: "notification_settings" },
 };
 
 // ── The registry ──────────────────────────────────────────────────────────

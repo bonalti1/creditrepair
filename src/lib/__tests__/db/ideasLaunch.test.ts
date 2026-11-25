@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { AltiCaller } from "../../ideas/alti";
@@ -243,7 +244,9 @@ describe("launch readiness on the database", () => {
     const facts = await loadDbFacts(h.service);
     expect(facts.connected).toBe(true);
     expect(facts.missingMigrations).toEqual([]);
-    expect(facts.latestMigration).toBe("0040_ideas_launch");
+    // The newest migration file in the repository (each new migration moves it).
+    const newest = readdirSync("supabase/migrations").filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort().at(-1)!.replace(/\.sql$/, "");
+    expect(facts.latestMigration).toBe(newest);
     expect(facts.admins).toBe(1);
     expect(facts.texasOpen).toBe(true);
     expect(facts.otherStatesOpen).toEqual([]);

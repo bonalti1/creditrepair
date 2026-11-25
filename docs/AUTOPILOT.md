@@ -194,6 +194,13 @@ written at once, as before.
 3. Otherwise nothing goes and the notice is a person's ("No hay un canal…" or
    "Falta aprobar en Meta la plantilla…").
 
+**The client's own settings** (Más → Avisos, `notification_settings`,
+migration 0041; `docs/FULFILLMENT.md`, "Messages") narrow this: only the
+channels the client kept; progress updates and reminders may be turned off
+(a reminder turned off makes the situation a person's, like an opt-out);
+receipts, payment notices and letters mailed in their name always go. An
+opt-out still wins over everything.
+
 **Never SMS.** Carriers (Twilio, HighLevel) reject credit-repair SMS campaigns
 without resubmission. Text messages are only for login codes.
 
@@ -229,6 +236,7 @@ Every row below is one name with an **en_US** and an **es_MX** version.
 | `credalti_documentos_1`, `_2`, `_3` | nombre, documentos, enlace | Missing documents |
 | `credalti_revision_1`, `_2`, `_3` | nombre, pendientes, enlace | Unfinished review |
 | `credalti_monitoreo_1`, `_2`, `_3` | nombre, enlace | Monitoring not sending a report |
+| `credalti_monitoreo_previo` | nombre, fecha, enlace | The team found the monitoring cancelled and the next report is due within 7 days: sent before the report is missing (`docs/FULFILLMENT.md`) |
 | `credalti_pago_metodo_1`, `_2`, `_3` | nombre, ronda, enlace | Missing payment method |
 | `credalti_robo_identidad_1`, `_2`, `_3` | nombre, enlace | Identity theft report (FTC steps) |
 | `credalti_cartas_enviadas` | nombre, cartas, ronda, enlace | Letters mailed |
@@ -245,7 +253,7 @@ Every row below is one name with an **en_US** and an **es_MX** version.
 | `credalti_carta_reenviada` | nombre, destinatario, ronda, enlace | A returned letter went out again |
 | `credalti_resena` | nombre, enlace | The one review request per client (docs/REVIEWS.md). Likely category **Marketing** in Meta, not Utility |
 
-35 templates for clients, each in en_US and es_MX (70 versions). One for
+36 templates for clients, each in en_US and es_MX (72 versions). One for
 referral partners: `credalti_socio_avance` (nombre, avance), the milestone
 notice, in the partner's language (`partners.locale`, English unless they read
 their portal in Spanish): en_US "Hi, {{1}}. {{2}} More details in your Credalti

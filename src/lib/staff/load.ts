@@ -137,6 +137,14 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     optionalRows(sel("loan_officer_requests", "user_id, partner_name_shown, how, created_at, withdrawn_at"), "loan_officer_requests"),
   ]);
 
+  // Fulfillment (migration 0041): notification settings, monitoring checks, document reviews and the other documents' records.
+  const [notificationSettings, monitoringChecks, documentReviews, clientFiles] = await Promise.all([
+    optionalRows(sel("notification_settings", "*"), "notification_settings"),
+    optionalRows(sel("monitoring_checks", "*"), "monitoring_checks"),
+    optionalRows(sel("document_reviews", "*"), "document_reviews"),
+    optionalRows(sel("client_files", "id, user_id, kind, file_name, content_type, bytes, description, uploaded_by, uploaded_at, withdrawn_at"), "client_files"),
+  ]);
+
   // "¿Cómo vamos?" answers (migration 0018): the "staff read pulses" policy decides (admin, assigned specialist).
   const pulses = await optionalRows(sel("client_pulses", "user_id, moment, rating, comment, created_at"), "client_pulses");
 
@@ -201,6 +209,10 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     aftercareMarks,
     completions,
     loanOfficerRequests,
+    notificationSettings,
+    monitoringChecks,
+    documentReviews,
+    clientFiles,
   };
 }
 

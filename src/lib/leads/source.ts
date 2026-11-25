@@ -5,7 +5,7 @@
 // Marketing tags only: a campaign name, UTM tags, the HighLevel contact id and
 // the partner. Never anything from the credit file.
 
-export type LeadChannel = "manual" | "highlevel" | "partner";
+export type LeadChannel = "manual" | "highlevel" | "partner" | "crc_import";
 
 export interface LeadUtm {
   source?: string;
@@ -39,6 +39,7 @@ export const CHANNEL_LABEL: Record<LeadChannel, string> = {
   manual: "Agregado a mano",
   highlevel: "HighLevel",
   partner: "Socio",
+  crc_import: "Importado de Credit Repair Cloud",
 };
 
 /** The same, for the staff console in English. */
@@ -46,6 +47,7 @@ export const CHANNEL_LABEL_EN: Record<LeadChannel, string> = {
   manual: "Added by hand",
   highlevel: "HighLevel",
   partner: "Partner",
+  crc_import: "Imported from Credit Repair Cloud",
 };
 
 /** One short line for the console: "HighLevel · Anuncio casa nov", "Socio · Laura Benítez" (or "Partner · …" in English). */
@@ -59,6 +61,8 @@ export function sourceLine(source: LeadSource | null | undefined, locale: "es" |
     if (campaign) parts.push(campaign);
   } else if (source.channel === "partner") {
     parts.push(en ? "Partner" : "Socio");
+  } else if (source.channel === "crc_import") {
+    parts.push(en ? "Imported from Credit Repair Cloud" : "Importado de Credit Repair Cloud");
   } else if (!source.partnerId) {
     return null;
   }

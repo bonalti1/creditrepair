@@ -357,7 +357,8 @@ describe("autopilot: every automatic message passes the claim rules", () => {
 
   it("each template, in Spanish and English: no promise, no score, no pressure; says it is automatic and how to stop", () => {
     // 34, plus the one review request (src/lib/reviews, migration 0029).
-    expect(ALL_TEMPLATES.length).toBe(35);
+    // 35, plus the early monitoring message (fulfillment/monitoring.ts).
+    expect(ALL_TEMPLATES.length).toBe(36);
     expect(new Set(ALL_TEMPLATES.map((t) => t.name)).size).toBe(ALL_TEMPLATES.length);
     for (const t of ALL_TEMPLATES) {
       expect(t.name).toMatch(/^credalti_[a-z_0-9]+$/);

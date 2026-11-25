@@ -87,6 +87,11 @@ export const CAPABILITIES = [
   // Ideas and experiments (src/lib/ideas, migration 0040): everyone sees and adds; an administrator approves, runs and decides tests and asks Alti.
   "ideas.add",
   "ideas.approve",
+  // Fulfillment (src/lib/fulfillment, migration 0041): a person's review of a client's documents,
+  // importing clients from Credit Repair Cloud, and the monitoring referral commissions.
+  "documents.review",
+  "clients.import",
+  "monitoring.commissions",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -145,6 +150,9 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   launch: "Ver qué falta para lanzar, marcar pasos y revisar el sistema",
   "ideas.add": "Ver las ideas y agregar nuevas",
   "ideas.approve": "Aprobar ideas, decidir pruebas y pedirle ideas a Alti",
+  "documents.review": "Revisar los documentos del cliente: aceptar o pedir otro",
+  "clients.import": "Importar clientes desde Credit Repair Cloud",
+  "monitoring.commissions": "Registrar y conciliar las comisiones del monitoreo",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -185,6 +193,9 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   launch: "See what's missing to launch, tick steps and check the system",
   "ideas.add": "See the ideas and add new ones",
   "ideas.approve": "Approve ideas, decide tests and ask Alti for ideas",
+  "documents.review": "Review a client's documents: accept, or ask for another",
+  "clients.import": "Import clients from Credit Repair Cloud",
+  "monitoring.commissions": "Record and reconcile the monitoring commissions",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -247,6 +258,10 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       // Ideas (migration 0040): everyone sees the board and adds ideas; only an administrator approves and decides.
       "ideas.add": true,
       "ideas.approve": false,
+      // Documents are part of the case they work; the import and the money are the owner's.
+      "documents.review": true,
+      "clients.import": false,
+      "monitoring.commissions": false,
     },
   },
   sales: {
@@ -295,6 +310,10 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       launch: false,
       "ideas.add": true,
       "ideas.approve": false,
+      // Sales does not see the case (no case.view): no document review, no import, no money.
+      "documents.review": false,
+      "clients.import": false,
+      "monitoring.commissions": false,
     },
   },
 };
