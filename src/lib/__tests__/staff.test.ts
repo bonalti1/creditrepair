@@ -169,6 +169,8 @@ describe("staff: clientStage", () => {
     ["results_in", client({ rounds: [round(1, "responded", 32)] })],
     ["next_round_ready", client({ rounds: [round(1, "responded", 41), round(2, "ready")] })],
     ["paused", client(pastDue())],
+    // Finished the program (graduation records the end of the service): nothing to confirm with them.
+    ["graduated", client({ rounds: [round(1, "responded", 41)], serviceEndRequestedAt: ago(2), graduation: { completedAt: ago(2), reason: "disputes_done", keepTips: true } })],
     ["cancelled", client({ agreementCancelledAt: ago(16), cancelledWithinWindow: true, rounds: [round(1, "ready")] })],
   ];
 
@@ -488,8 +490,8 @@ describe("staff: demo clients", () => {
 
   it("are a few dozen invented people in Texas with fictional phone numbers", () => {
     expect(clients.length).toBeGreaterThanOrEqual(13);
-    // 23 until the business dashboard: 13 clients with months of history were added (c24–c36).
-    expect(clients.length).toBeLessThanOrEqual(36);
+    // 23 until the business dashboard: 13 clients with months of history were added (c24–c36); c37 finished the program.
+    expect(clients.length).toBeLessThanOrEqual(37);
     expect(new Set(clients.map((c) => c.id)).size).toBe(clients.length);
     for (const c of clients) {
       expect(c.state).toBe("TX");
@@ -518,8 +520,8 @@ describe("staff: demo clients", () => {
     const nothing = clients.filter((c) => clientExceptions(c, later).length === 0 && !sendableRound(c, later));
     expect(needPerson.length).toBe(11);
     expect(ready.length).toBe(3);
-    // 9 before the 13 history clients (c24–c36), none of whom needs a person or has a round to send.
-    expect(nothing.length).toBe(22);
+    // 9 before the 13 history clients (c24–c36), none of whom needs a person or has a round to send; c37 graduated.
+    expect(nothing.length).toBe(23);
     expect(clients.some((c) => nextAutomaticStep(c, later))).toBe(true);
   });
 

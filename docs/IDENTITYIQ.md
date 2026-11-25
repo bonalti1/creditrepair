@@ -80,9 +80,18 @@ software imports reports that way; it puts the customer's login in our hands
 and may breach IdentityIQ's terms.
 
 **Knowing a subscription is active.** The letter builder requires an active
-subscription. Without a status call from IDIQ, the fallback is to treat a
-report dated within the last 45 days as proof. That rule is not built yet; it
-depends on the answer to question 7.
+subscription. Without a status call from IDIQ, the rule is evidence: a report
+dated within the last 45 days is proof (`monitoring/subscription.ts`), and the
+team records what it checks per client (enrolled through our link, active /
+cancelled / unknown, the day and how; `docs/FULFILLMENT.md`, "Credit
+monitoring"). Monitoring found cancelled with a report due starts the
+reminder early. A status call from IDIQ (question 7) would replace the
+person's check.
+
+**Commissions.** Recorded by hand or from the partner statement CSV in
+`/equipo/monitoreo`, reconciled per client and month and posted to Accounting
+in one explicit step. The statement's column names are UNVERIFIED until a real
+statement arrives.
 
 ## Going live checklist
 

@@ -98,7 +98,7 @@ export interface OptOutRecord {
   at: string;
   /** "BAJA", "STOP", or "equipo" when a teammate recorded it for the client. */
   keyword: string;
-  channel: Channel | "staff";
+  channel: Channel | "staff" | "app";
 }
 
 /** "Hold": the system sends no round and no reminder for this client on its own. */

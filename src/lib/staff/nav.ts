@@ -42,6 +42,9 @@ export const MORE_NAV: NavItem[] = [
   { href: "/equipo/cartas", label: "letters", icon: "clipboard", needs: "letters.edit" },
   { href: "/equipo/planes", label: "plans", icon: "calc", needs: "billing.plans" },
   { href: "/equipo/cobros", label: "invoices", icon: "doc", needs: "billing.plans" },
+  // Fulfillment (src/lib/fulfillment, migration 0041): moving clients over from Credit Repair Cloud, and the monitoring commissions.
+  { href: "/equipo/importar", label: "import", icon: "inbox", needs: "clients.import" },
+  { href: "/equipo/monitoreo", label: "monitoring", icon: "calc", needs: "monitoring.commissions" },
   { href: "/equipo/resenas", label: "reviews", icon: "chat" },
   { href: "/equipo/estados", label: "states", icon: "globe" },
   // Calls with a person (src/lib/calls): only when turned on (off by default).
@@ -80,8 +83,8 @@ export const NAV_GROUPS: NavGroup[] = [
   { key: "day", number: "1", icon: "home", hrefs: ["/equipo", "/equipo/actividad"] },
   { key: "content", number: "2", icon: "speaker", hrefs: ["/equipo/contenido", "/equipo/resenas"] },
   { key: "leads", number: "3", icon: "inbox", hrefs: ["/equipo/leads", "/equipo/invitar"] },
-  { key: "clients", number: "4", icon: "person", hrefs: ["/equipo/clientes", "/equipo/respuestas", "/equipo/piloto", "/equipo/llamadas"], also: ["/equipo/enviar", "/equipo/imprimir"] },
-  { key: "money", number: "5", icon: "calc", hrefs: ["/equipo/contabilidad", "/equipo/cobros", "/equipo/planes"] },
+  { key: "clients", number: "4", icon: "person", hrefs: ["/equipo/clientes", "/equipo/respuestas", "/equipo/piloto", "/equipo/llamadas", "/equipo/importar"], also: ["/equipo/enviar", "/equipo/imprimir"] },
+  { key: "money", number: "5", icon: "calc", hrefs: ["/equipo/contabilidad", "/equipo/cobros", "/equipo/planes", "/equipo/monitoreo"] },
   { key: "library", number: "6", icon: "book", hrefs: ["/equipo/cartas", "/equipo/acreedores", "/equipo/estados"] },
   { key: "partners", number: "7", icon: "link", hrefs: ["/equipo/socios", "/equipo/ofertas"] },
   { key: "business", number: "8", icon: "chart", hrefs: ["/equipo/negocio"] },

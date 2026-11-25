@@ -1,7 +1,7 @@
 import type { StaffClient } from "../staff/types";
-import { chooseChannel } from "./channels";
+import { settingsAllow, settingsOf } from "../fulfillment/notifications";
 import { clientTimeZone, isQuietHour, localDay } from "./clock";
-import { clientLocale, dueFollowups, openHold, type PlannedMessage } from "./followups";
+import { clientChannel, clientLocale, dueFollowups, openHold, type PlannedMessage } from "./followups";
 import { STATUS_EXPIRY_DAYS } from "./status";
 import { ALL_TEMPLATES, renderTemplate } from "./templates";
 import type { AutopilotEnv, OutboundMessage } from "./types";
@@ -14,14 +14,18 @@ import type { AutopilotEnv, OutboundMessage } from "./types";
 //   3. Status messages first (facts the client should hear), oldest first,
 //      then follow-ups; together at most the daily cap per local day.
 //   4. Follow-ups never go to a client on hold (status messages still do).
-//   5. Every message needs a channel (channels.ts); without one it waits
-//      (status, until it expires) or the item is a person's (follow-ups).
+//   5. Every message needs a channel (channels.ts) the client kept in their
+//      notification settings; without one it waits (status, until it
+//      expires) or the item is a person's (follow-ups).
+//   6. A progress update the client turned off in their settings is closed
+//      without sending ("client_settings"); required notices (money, letters
+//      mailed in their name) always go (fulfillment/notifications.ts).
 // Pure: the caller claims and sends (server.ts), the demo only shows it.
 
 export interface DeliveryPlan {
   send: PlannedMessage[];
   /** Queued rows to close without sending, and why. */
-  cancel: Array<{ id: string; note: "opted_out" | "expired" | "status_off" }>;
+  cancel: Array<{ id: string; note: "opted_out" | "expired" | "status_off" | "client_settings" }>;
   /** Why nothing (more) went now, for the run's summary. */
   waiting: Array<"quiet_hours" | "daily_cap" | "no_channel">;
 }
@@ -53,7 +57,7 @@ function fromQueued(client: StaffClient, row: OutboundMessage, env: AutopilotEnv
     body: row.body || renderTemplate(template, row.locale, params),
     link: row.link,
     outboundId: row.id,
-    choice: chooseChannel({ phone: client.phone, email: client.email ?? null, lastInboundAt: client.lastInboundAt ?? null }, template.name, env.channels, now),
+    choice: clientChannel(client, template.name, env, now),
   };
 }
 
@@ -70,6 +74,7 @@ export function planDeliveries(client: StaffClient, now: Date, env: AutopilotEnv
   for (const row of queued) {
     if (now.getTime() - new Date(row.queuedAt).getTime() > STATUS_EXPIRY_DAYS * DAY_MS) plan.cancel.push({ id: row.id, note: "expired" });
     else if (!env.settings.statusEnabled) plan.cancel.push({ id: row.id, note: "status_off" });
+    else if (!settingsAllow(settingsOf(client), "status", row.topic)) plan.cancel.push({ id: row.id, note: "client_settings" });
     else live.push(row);
   }
 

@@ -6,6 +6,7 @@ import Icon from "@/components/Icon";
 import { useLocale } from "@/lib/i18n";
 import { reasonInEnglish, reuploadRequest } from "@/lib/intake/reupload";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import MyDocuments from "@/components/documents/MyDocuments";
 
 // "Sube tu documento de nuevo": the screen the automatic message links to
 // when the automatic check could not accept the client's ID or proof of
@@ -14,6 +15,10 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 // upload another (POST /api/intake/document, the same check as always).
 // A second failure, or a reason another photo does not fix, goes to a person.
 // In the demo the check is simulated and nothing is stored.
+//
+// Below it, "My documents" (components/documents/MyDocuments.tsx): every
+// document on file, what our team said about each, and the other documents a
+// client may send. Reached from Más → Mis documentos too (docs/FULFILLMENT.md).
 
 type Kind = "government_id" | "proof_of_address";
 
@@ -52,6 +57,8 @@ const DEMO_CHECKS: Check[] = [
 
 const COPY = {
   es: {
+    hub: "Mis documentos",
+    hubLead: "Lo que nos diste y lo que nuestro equipo dijo de cada uno.",
     title: "Sube tu documento de nuevo",
     lead: "Revisamos tu documento y no lo pudimos usar. Va junto con cada carta, así que hace falta otro.",
     why: "Por qué",
@@ -68,6 +75,8 @@ const COPY = {
     error: "No se pudo subir. Intenta de nuevo.",
   },
   en: {
+    hub: "My documents",
+    hubLead: "What you gave us and what our team said about each one.",
     title: "Upload your document again",
     lead: "We checked your document and could not use it. It goes with each letter, so another one is needed.",
     why: "Why",
@@ -134,8 +143,8 @@ export default function DocumentosPage() {
         {c.back}
       </Link>
       <header className="px-1">
-        <h1 className="font-display text-[30px] font-bold leading-tight text-blue-700">{c.title}</h1>
-        <p className="mt-2 text-[16px] leading-relaxed text-slate-600">{c.lead}</p>
+        <h1 className="font-display text-[30px] font-bold leading-tight text-blue-700">{toFix.length > 0 ? c.title : c.hub}</h1>
+        <p className="mt-2 text-[16px] leading-relaxed text-slate-600">{toFix.length > 0 ? c.lead : c.hubLead}</p>
       </header>
       {!live && (
         <p role="note" className="rounded-2xl bg-amber-100 px-4 py-3 text-[14px] leading-snug text-blue-900">
@@ -143,7 +152,6 @@ export default function DocumentosPage() {
         </p>
       )}
 
-      {toFix.length === 0 && <section className="card px-5 py-5 text-[16px] leading-relaxed text-slate-700">{c.none}</section>}
 
       {toFix.map((check) => {
         const request = reuploadRequest(check);
@@ -202,6 +210,8 @@ export default function DocumentosPage() {
           {error}
         </p>
       )}
+      {toFix.length > 0 && <h2 className="px-1 pt-2 font-display text-[22px] font-bold text-blue-700">{c.hub}</h2>}
+      <MyDocuments />
       <p className="px-1 text-[13px] leading-relaxed text-slate-500">{c.privacy}</p>
     </main>
   );

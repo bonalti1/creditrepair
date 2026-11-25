@@ -519,3 +519,20 @@ export interface StaffClientAftercareFields {
 }
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StaffClient extends StaffClientAftercareFields {}
+
+// ── Fulfillment (migration 0041, docs/FULFILLMENT.md) ───────────────────
+
+export interface StaffClientFulfillmentFields {
+  /** The client's notification settings (notification_settings). Absent or null: never chosen (every channel, every message). */
+  notificationSettings?: import("../fulfillment/notifications").NotificationSettings | null;
+  /** What the team checked about the client's credit monitoring (monitoring_checks), oldest first. */
+  monitoringChecks?: import("../fulfillment/monitoring").MonitoringCheck[];
+  /** A person's reviews of the client's documents (document_reviews), oldest first. */
+  documentReviews?: import("../fulfillment/documents").DocumentReview[];
+  /** The other documents the client gave the team (client_files), oldest first. */
+  files?: import("../fulfillment/documents").ClientFile[];
+  /** When each identity document on file was uploaded (identity_documents.uploaded_at), by kind. */
+  documentUploadedAt?: Partial<Record<DocumentKind, string>>;
+}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientFulfillmentFields {}

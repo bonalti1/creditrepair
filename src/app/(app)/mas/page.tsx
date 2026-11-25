@@ -9,6 +9,7 @@ import Icon, { type IconName } from "@/components/Icon";
 import { isFullService } from "@/lib/service/mode";
 import MailingAddress from "@/components/MailingAddress";
 import { useTextSize } from "@/lib/ux/textSize";
+import { NOTIFICATION_COPY } from "@/lib/fulfillment/notifications";
 
 // "Más": everything beyond Home and the conversation, as grouped rows that say
 // what each thing is for. Familiar from every phone's Settings screen.
@@ -162,6 +163,13 @@ export default function Mas() {
               desc={BILLING_COPY[locale].navDesc}
             />
             <Row
+              href="/documentos"
+              icon="doc"
+              tint="bg-blue-700"
+              title={es ? "Mis documentos" : "My documents"}
+              desc={es ? "Tu identificación, tu comprobante y lo que nos has enviado." : "Your ID, your proof of address, and what you sent us."}
+            />
+            <Row
               href="/mas/compartir"
               icon="person"
               tint="bg-slate-700"
@@ -204,6 +212,13 @@ export default function Mas() {
               </span>
             </div>
           )}
+          <Row
+            href="/mas/avisos"
+            icon="bell"
+            tint="bg-amber-500"
+            title={NOTIFICATION_COPY[locale].navTitle}
+            desc={NOTIFICATION_COPY[locale].navDesc}
+          />
           <button
             type="button"
             role="switch"

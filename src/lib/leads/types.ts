@@ -3,7 +3,7 @@
 // the server (inboxServer.ts), the demo (demo.ts) and the screens.
 
 /** Where a lead first came from. First touch wins: never overwritten. */
-export const LEAD_SOURCES = ["whatsapp", "highlevel", "partner", "signup_chat", "manual", "household"] as const;
+export const LEAD_SOURCES = ["whatsapp", "highlevel", "partner", "signup_chat", "manual", "household", "crc_import"] as const;
 export type LeadSourceKind = (typeof LEAD_SOURCES)[number];
 
 /** The stages a PERSON may put a lead in. */

@@ -396,6 +396,7 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
       "«Necesita una persona»: los avisos de este cliente.",
       "«Conversación»: lo que habló con la app. Si te hizo una pregunta, hay una respuesta guardada o un borrador para revisar y enviar.",
       "Las respuestas del reporte son del cliente: tú las lees, no las cambias.",
+      "Arriba, el camino del cliente: en qué paso está. A la derecha: sus avisos (cómo quiere que le escribamos), su monitoreo de crédito y sus documentos, donde aceptas uno o pides otro con el motivo que él lee.",
     ],
     playbooks: ["question_waiting", "documents_missing", "review_stalled", "letter_returned", "identity_theft_report_missing"],
   },
@@ -497,6 +498,30 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     steps: ["Enciende los temas que te tocan.", "Toca «Recibir alertas en este teléfono» y da permiso.", "Manda una prueba para ver cómo se ven."],
     playbooks: [],
   },
+  // Fulfillment (docs/FULFILLMENT.md).
+  "/equipo/importar": {
+    title: "Importar de Credit Repair Cloud",
+    what: "Pasa los clientes, prospectos y afiliados de CRC a Credalti desde su CSV. Las columnas de Seguro Social y fecha de nacimiento se quitan antes de todo y nunca se guardan.",
+    steps: [
+      "Elige qué importas (clientes, prospectos o afiliados) y sube el CSV de CRC.",
+      "Revisa las columnas que encontramos; cámbialas si alguna no es la correcta.",
+      "Mira la prueba: qué se crea, los duplicados (mismo teléfono o correo) y los problemas (fuera de Texas, sin teléfono…).",
+      "Importa. Cada persona queda como prospecto: envíale su invitación desde el registro para que firme el acuerdo de Credalti. Nada se cobra.",
+      "Si algo salió mal, «Deshacer» quita a los que todavía no fueron invitados.",
+    ],
+    playbooks: ["agreement_unsigned"],
+  },
+  "/equipo/monitoreo": {
+    title: "Comisiones del monitoreo",
+    what: "Lo que paga el proveedor del monitoreo por los clientes inscritos con nuestro enlace, conciliado por cliente y mes, y pasado a los libros en un paso.",
+    steps: [
+      "Importa el CSV del estado de cuenta del proveedor, o registra una línea a mano.",
+      "Elige el cliente de cada línea que quedó sin cliente.",
+      "Revisa «Esperada, sin pago» y «Sin inscripción registrada»: actualiza el monitoreo del cliente o pregúntale al proveedor.",
+      "Escribe el día en que pagó el proveedor y toca «Pasar» para agregarlo a Contabilidad.",
+    ],
+    playbooks: [],
+  },
 };
 
 const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
@@ -525,6 +550,7 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
       "“Needs a person”: this client's notices.",
       "“Conversation”: what they talked about with the app. If they asked you something, there's a saved answer or a draft to review and send.",
       "The answers on the report are the client's: you read them, you don't change them.",
+      "At the top, the client's journey: which step they're on. On the right: their notifications (how they want us to write), their credit monitoring and their documents, where you accept one or ask for another with the reason they read.",
     ],
     playbooks: ["question_waiting", "documents_missing", "review_stalled", "letter_returned", "identity_theft_report_missing"],
   },
@@ -624,6 +650,30 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
     title: "Phone alerts",
     what: "You choose what pings your phone. Everything starts off.",
     steps: ["Turn on the topics that are yours.", "Tap “Get alerts on this phone” and allow it.", "Send a test to see how they look."],
+    playbooks: [],
+  },
+  // Fulfillment (docs/FULFILLMENT.md).
+  "/equipo/importar": {
+    title: "Import from Credit Repair Cloud",
+    what: "Moves CRC's clients, leads and affiliates into Credalti from its CSV. Social Security and date-of-birth columns are removed before anything else and never stored.",
+    steps: [
+      "Choose what you import (clients, leads or affiliates) and upload CRC's CSV.",
+      "Check the columns we found; change any that isn't right.",
+      "Look at the dry run: what will be created, the duplicates (same phone or email) and the problems (outside Texas, no phone…).",
+      "Import. Each person becomes a prospect: send their invitation from the log so they sign Credalti's agreement. Nothing is charged.",
+      "If something went wrong, “Undo” removes the people not invited yet.",
+    ],
+    playbooks: ["agreement_unsigned"],
+  },
+  "/equipo/monitoreo": {
+    title: "Monitoring commissions",
+    what: "What the monitoring provider pays for clients enrolled through our link, reconciled per client and month, and posted to the books in one step.",
+    steps: [
+      "Import the provider's statement CSV, or record a line by hand.",
+      "Choose the client for each line left without one.",
+      "Look at “Expected, not paid” and “No link enrollment on record”: update the client's monitoring or ask the provider.",
+      "Enter the day the provider paid and tap “Post” to add it to Accounting.",
+    ],
     playbooks: [],
   },
 };

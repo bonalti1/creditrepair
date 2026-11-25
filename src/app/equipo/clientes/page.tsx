@@ -440,6 +440,9 @@ function ClientList() {
                     <span className="lg:hidden">{t("Trabaja el caso: ", "Working the case: ")}</span>
                     {client.assignedTo ? (
                       memberName(members, client.assignedTo, locale)
+                    ) : client.agreementSignedAt && !client.agreementCancelledAt && !client.graduation ? (
+                      // Signed and nobody works the case: a slip waiting to happen, so it shows.
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-blue-900" data-testid="needs-owner">{t("Sin asignar: necesita a alguien", "Unassigned: needs someone")}</span>
                     ) : (
                       <span className="text-slate-400">{t("Sin asignar", "Unassigned")}</span>
                     )}

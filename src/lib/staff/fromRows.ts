@@ -1,4 +1,5 @@
 import { currentOptOut } from "../autopilot/optout";
+import { fulfillmentFields } from "../fulfillment/rows";
 import { roundPlanKey } from "../autopilot/planKey";
 import { parseIdType } from "../aftercare/itin";
 import { marksFromRows } from "../aftercare/plan";
@@ -131,6 +132,15 @@ export interface StaffRows {
   completions?: Row[];
   /** loan_officer_requests. */
   loanOfficerRequests?: Row[];
+  // Fulfillment (migration 0041). Absent or empty on a database without it.
+  /** notification_settings. */
+  notificationSettings?: Row[];
+  /** monitoring_checks. */
+  monitoringChecks?: Row[];
+  /** document_reviews. */
+  documentReviews?: Row[];
+  /** client_files (the record only; the file stays in its private bucket). */
+  clientFiles?: Row[];
 }
 
 export const EMPTY_STAFF_ROWS: StaffRows = {
@@ -409,7 +419,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
     return {
       ...(profile.locale === "es" ? { locale: "es" as const } : {}),
       ...(outbound.length > 0 ? { outbound } : {}),
-      ...(optOut ? { optOut: { at: optOut.at, keyword: text(optOut.row.keyword) || "BAJA", channel: (["whatsapp", "email", "staff"].includes(text(optOut.row.channel)) ? text(optOut.row.channel) : "staff") as OptOutRecord["channel"] } } : {}),
+      ...(optOut ? { optOut: { at: optOut.at, keyword: text(optOut.row.keyword) || "BAJA", channel: (["whatsapp", "email", "staff", "app"].includes(text(optOut.row.channel)) ? text(optOut.row.channel) : "staff") as OptOutRecord["channel"] } } : {}),
       ...(holds.length > 0 ? { holds } : {}),
       ...(lastInbound ? { lastInboundAt: lastInbound } : {}),
     };
@@ -728,6 +738,13 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       aftercareMarks: marksFromRows(aftercareMarksBy.get(id) ?? []),
       graduation: graduationFromRow(completionBy.get(id)),
       loanOfficerRequest: introOf(introBy.get(id), createdAt),
+      ...fulfillmentFields(id, {
+        notificationSettings: rows.notificationSettings,
+        monitoringChecks: rows.monitoringChecks,
+        documentReviews: rows.documentReviews,
+        clientFiles: rows.clientFiles,
+        documents: documentsBy.get(id),
+      }),
     };
     return client;
   });

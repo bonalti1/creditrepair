@@ -687,7 +687,12 @@ describe("team: what the staff routes accept", () => {
     // The accounting department (migration 0036): the accounting capability.
     expect(read("src/app/api/staff/accounting/route.ts")).toMatch(/requireCapability\("accounting"\)/);
     expect(read("src/app/api/staff/accounting/receipt/route.ts")).toMatch(/requireCapability\("accounting"\)/);
-    expect(staffRoutes.length).toBe(38);
+    // Fulfillment (migration 0041): document review, monitoring checks and commissions, the CRC import.
+    expect(read("src/app/api/staff/documents/route.ts")).toMatch(/requireCapability\("documents\.review"\)/);
+    expect(read("src/app/api/staff/monitoring/route.ts")).toMatch(/requireCapability\("clients\.followup"\)/);
+    expect(read("src/app/api/staff/monitoring/route.ts")).toMatch(/requireCapability\("monitoring\.commissions"\)/);
+    expect(read("src/app/api/staff/import/route.ts")).toMatch(/requireCapability\("clients\.import"\)/);
+    expect(staffRoutes.length).toBe(41);
   });
 });
 

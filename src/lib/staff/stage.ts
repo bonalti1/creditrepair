@@ -14,6 +14,7 @@ import { addressBookHref, missingFurnisherAddresses } from "../mail/sendPlan";
 import { responseWindowStart, returnReason } from "../mail/tracking";
 import { billingContextFor } from "./billing";
 import { intakeExceptions } from "../intake/exceptions";
+import { documentRejected } from "../fulfillment/documents";
 import { REQUIRED_DOCUMENTS, type DocumentKind, type StaffClient, type StaffLetter, type StaffRound } from "./types";
 import { dateLocale, listJoin, type StaffLocale, staffLocaleFallback } from "./i18n/locale";
 
@@ -89,13 +90,15 @@ export const STAGE_ORDER = [
   "results_in",
   "next_round_ready",
   "paused",
+  // Finished the program (docs/AFTERCARE.md): billing stopped, after-care goes on. Nothing for the team to do.
+  "graduated",
   "cancelled",
 ] as const;
 
 export type Stage = (typeof STAGE_ORDER)[number];
 
 /** The stages of clients the team is working with. A client who cancelled is not among them. */
-export const PIPELINE_STAGES: readonly Stage[] = STAGE_ORDER.filter((stage) => stage !== "cancelled");
+export const PIPELINE_STAGES: readonly Stage[] = STAGE_ORDER.filter((stage) => stage !== "cancelled" && stage !== "graduated");
 
 /** Whose move it is. "staff" is the team running fulfillment; "sales" is whoever is talking with a lead. */
 export type Actor = "system" | "client" | "staff" | "sales";
@@ -185,6 +188,13 @@ const STAGES_ES: Record<Stage, StageInfo> = {
       "No hay trabajo en curso: un cobro no pasó después de los reintentos, o el cliente no marcó nada como inexacto. Con un cobro sin resolver no se prepara ni se envía ninguna ronda; en cuanto el cliente paga, el caso sigue solo.",
     actor: "client",
   },
+  graduated: {
+    label: "Terminó el programa",
+    short: "Terminaron",
+    description:
+      "El cliente terminó su programa. No se envían más cartas y no se le cobra; sigue con su plan para construir crédito. No hay nada que hacer.",
+    actor: "client",
+  },
   cancelled: {
     label: "Canceló su acuerdo",
     short: "Cancelados",
@@ -263,6 +273,12 @@ const STAGES_EN: Record<Stage, StageInfo> = {
       "No work in progress: a charge didn't go through after the retries, or the client didn't mark anything as inaccurate. With an unpaid charge, no round is prepared or sent; once the client pays, the case moves on by itself.",
     actor: "client",
   },
+  graduated: {
+    label: "Finished the program",
+    short: "Finished",
+    description: "The client finished their program. No more letters go out and they aren't charged; they keep their build-your-credit plan. Nothing to do.",
+    actor: "client",
+  },
   cancelled: {
     label: "Cancelled their agreement",
     short: "Cancelled",
@@ -311,8 +327,9 @@ export function workStartsAt(client: StaffClient, now: Date): Date | null {
 }
 
 /** True once the client asked to end the service and has not been cancelled: a person has to settle it. */
+/** Asked to end the service and a person has not confirmed it. A graduate ended it by finishing the program: nothing to confirm. */
 function serviceEndPending(client: StaffClient): boolean {
-  return Boolean(client.serviceEndRequestedAt) && !client.agreementCancelledAt;
+  return Boolean(client.serviceEndRequestedAt) && !client.agreementCancelledAt && !graduated(client);
 }
 
 /**
@@ -338,6 +355,10 @@ export function agreementLine(client: StaffClient, now: Date, locale: StaffLocal
     return client.cancelledWithinWindow === false
       ? `Cancelled ${day(client.agreementCancelledAt)}, after the deadline`
       : `Cancelled ${day(client.agreementCancelledAt)}, within the deadline`;
+  }
+  if (graduated(client)) {
+    const at = client.graduation!.completedAt;
+    return es ? `Terminó el programa el ${day(at)} — el servicio terminó` : `Finished the program on ${day(at)} — the service ended`;
   }
   const starts = workStartsAt(client, now);
   if (starts) return es ? `En periodo de cancelación — se puede empezar el ${day(starts)}` : `In cancellation period — work can start ${day(starts)}`;
@@ -381,8 +402,17 @@ function lastMailedRound(client: StaffClient): StaffRound | null {
     .reduce<StaffRound | null>((latest, r) => (!latest || r.number > latest.number ? r : latest), null);
 }
 
+/**
+ * The required documents not on file, and those on file whose newest upload a
+ * person did not accept (fulfillment/documents.ts): both hold the letters.
+ */
 export function missingDocuments(client: StaffClient): DocumentKind[] {
-  return REQUIRED_DOCUMENTS.filter((kind) => !client.documents.includes(kind));
+  return REQUIRED_DOCUMENTS.filter((kind) => !client.documents.includes(kind) || documentRejected(client, kind));
+}
+
+/** True once the client finished the program (graduation, program_completions): the service ended by their own choice. */
+export function graduated(client: StaffClient): boolean {
+  return Boolean(client.graduation) && !client.agreementCancelledAt;
 }
 
 export interface ReviewProgress {
@@ -419,6 +449,8 @@ export function reviewProgress(client: StaffClient): ReviewProgress {
 export function clientStage(client: StaffClient, now: Date = new Date()): Stage {
   // A cancelled agreement ends everything, whatever else is on record.
   if (client.agreementCancelledAt) return "cancelled";
+  // Finished the program: the service ended by the client's own choice (it records the end of the service).
+  if (graduated(client)) return "graduated";
   // A charge that did not go through after every retry pauses the case. This
   // is read from the charges themselves, not from a flag someone sets, so it
   // lifts by itself the moment the charge is paid.
@@ -959,8 +991,8 @@ export interface AutomaticStep {
  * move belongs to a person (the client or the team).
  */
 export function nextAutomaticStep(client: StaffClient, now: Date, locale: StaffLocale = staffLocaleFallback()): AutomaticStep | null {
-  // The client asked to stop: the system does nothing more on its own.
-  if (serviceEndPending(client)) return null;
+  // The client asked to stop, or finished the program: the system does nothing more on its own.
+  if (serviceEndPending(client) || graduated(client)) return null;
 
   // Whichever comes first: the next step of the work, or the next step of billing.
   const work = nextWorkStep(client, now, locale);
@@ -1059,6 +1091,8 @@ export function nextStep(client: StaffClient, now: Date, locale: StaffLocale = s
       return person("system", L("Esperar a que termine su periodo de cancelación", "Wait for their cancellation period to end"));
     case "cancelled":
       return person("staff", L("Canceló su acuerdo: nada pendiente", "Cancelled their agreement: nothing pending"));
+    case "graduated":
+      return person("client", L("Terminó el programa: sigue con su plan para construir crédito", "Finished the program: keeps building credit with their plan"));
     case "documents_pending": {
       const kinds = missingDocuments(client);
       return person("client", L(`Subir su ${documentNames(kinds, "es")}`, `Upload their ${documentNames(kinds, "en")}`));

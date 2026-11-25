@@ -1,4 +1,5 @@
 import { applyAutopilotDemoActions, loadAutopilotDemo, resetAutopilotDemo } from "../autopilot/data";
+import { applyFulfillmentDemo, loadFulfillmentDemo, resetFulfillmentDemo } from "../fulfillment/demo";
 import { PAUSE_REASON_MIN_CHARS } from "../billing/api";
 import { createMemoryChargeStore, runClientBilling } from "../billing/collect";
 import { rearmAfterNewPaymentMethod } from "../billing/dunning";
@@ -362,7 +363,11 @@ function createDemoData(): StaffData & {
     // rounds sent from the send screen (mail/demo.ts).
     const team = loadTeamActions();
     // Last, the holds and opt-outs a person recorded on the autopilot (autopilot/data.ts).
-    return applyAutopilotDemoActions(applyDemoSends(applyTeamActions(applyDemoActions([...s.base, ...team.added], s.actions), team), loadDemoSends()), loadAutopilotDemo());
+    // Then the monitoring checks and document reviews a person recorded (fulfillment/demo.ts).
+    return applyFulfillmentDemo(
+      applyAutopilotDemoActions(applyDemoSends(applyTeamActions(applyDemoActions([...s.base, ...team.added], s.actions), team), loadDemoSends()), loadAutopilotDemo()),
+      loadFulfillmentDemo(),
+    );
   };
 
   return {
@@ -548,6 +553,7 @@ function createDemoData(): StaffData & {
       try {
         window.localStorage.removeItem(STORAGE_KEY);
         window.localStorage.removeItem(SAMPLES_KEY);
+        resetFulfillmentDemo();
       } catch {
         // ignore
       }

@@ -35,7 +35,7 @@ export function leadSourceFromRows(prospect: Row | undefined, profile: Row | nul
   const first = (detail.firstTouch as Row | null) ?? {};
   const partner = partnerId ? partnersById.get(partnerId) : undefined;
   return {
-    channel: channel === "highlevel" || channel === "partner" ? channel : partnerId && !prospect ? "partner" : "manual",
+    channel: channel === "highlevel" || channel === "partner" || channel === "crc_import" ? channel : partnerId && !prospect ? "partner" : "manual",
     highlevelContactId: contactId,
     campaign: str(first.campaign),
     utm: utmOf(first.utm),

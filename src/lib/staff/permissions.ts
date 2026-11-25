@@ -74,6 +74,11 @@ export const CAPABILITIES = [
   "content.share",
   // The accounting department (src/lib/accounting, migration 0036): the books, expenses, reconciliation, month close.
   "accounting",
+  // Fulfillment (src/lib/fulfillment, migration 0041): a person's review of a client's documents,
+  // importing clients from Credit Repair Cloud, and the monitoring referral commissions.
+  "documents.review",
+  "clients.import",
+  "monitoring.commissions",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -124,6 +129,9 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "content.publish": "Conectar las redes sociales y activar la publicación",
   "content.share": "Ver el kit de marca y el material aprobado para socios",
   accounting: "Contabilidad: libros, gastos, conciliación y cierre de mes",
+  "documents.review": "Revisar los documentos del cliente: aceptar o pedir otro",
+  "clients.import": "Importar clientes desde Credit Repair Cloud",
+  "monitoring.commissions": "Registrar y conciliar las comisiones del monitoreo",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -156,6 +164,9 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "content.publish": "Connect social accounts and turn publishing on",
   "content.share": "See the brand kit and the approved partner material",
   accounting: "Accounting: the books, expenses, reconciliation and month close",
+  "documents.review": "Review a client's documents: accept, or ask for another",
+  "clients.import": "Import clients from Credit Repair Cloud",
+  "monitoring.commissions": "Record and reconcile the monitoring commissions",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -206,6 +217,10 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "content.publish": false,
       "content.share": true,
       accounting: false,
+      // Documents are part of the case they work; the import and the money are the owner's.
+      "documents.review": true,
+      "clients.import": false,
+      "monitoring.commissions": false,
     },
   },
   sales: {
@@ -244,6 +259,10 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "content.publish": false,
       "content.share": true,
       accounting: false,
+      // Sales does not see the case (no case.view): no document review, no import, no money.
+      "documents.review": false,
+      "clients.import": false,
+      "monitoring.commissions": false,
     },
   },
 };
