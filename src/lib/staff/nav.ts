@@ -34,6 +34,7 @@ export const MORE_NAV: NavItem[] = [
   { href: "/equipo/cartas", label: "letters", icon: "clipboard", needs: "letters.edit" },
   { href: "/equipo/planes", label: "plans", icon: "calc", needs: "billing.plans" },
   { href: "/equipo/cobros", label: "invoices", icon: "doc", needs: "billing.plans" },
+  { href: "/equipo/contabilidad", label: "accounting", icon: "calc", needs: "accounting" },
   { href: "/equipo/perfil", label: "profile", icon: "person" },
   { href: "/equipo/bienvenida", label: "welcome", icon: "book" },
 ];

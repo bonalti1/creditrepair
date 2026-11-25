@@ -665,7 +665,10 @@ describe("team: what the staff routes accept", () => {
     expect(read("src/app/api/staff/billing/evidence/route.ts")).toMatch(/requireCapability\("billing\.plans"\)/);
     // Household signup (migration 0027): whoever adds leads, for the people they may see.
     expect(read("src/app/api/staff/household/route.ts")).toMatch(/requireCapability\("clients\.add"\)/);
-    expect(staffRoutes.length).toBe(22);
+    // The accounting department (migration 0036): the accounting capability.
+    expect(read("src/app/api/staff/accounting/route.ts")).toMatch(/requireCapability\("accounting"\)/);
+    expect(read("src/app/api/staff/accounting/receipt/route.ts")).toMatch(/requireCapability\("accounting"\)/);
+    expect(staffRoutes.length).toBe(24);
   });
 });
 
