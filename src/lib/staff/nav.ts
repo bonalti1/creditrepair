@@ -26,8 +26,11 @@ export const PRIMARY_NAV: NavItem[] = [
   { href: "/equipo/respuestas", label: "answers", icon: "chat", needs: "clients.reply" },
 ];
 
-/** Everything else, under "More". */
+/** Everything else, under "More". The two departments without a tab come first (docs/CONTROL.md): the top bar stays as it is. */
 export const MORE_NAV: NavItem[] = [
+  // Content (src/lib/content): the board for content.view; the brand kit and partner material for everyone with content.share.
+  { href: "/equipo/contenido", label: "content", icon: "grid", needs: "content.share" },
+  { href: "/equipo/contabilidad", label: "accounting", icon: "calc", needs: "accounting" },
   { href: "/equipo/invitar", label: "invite", icon: "mail", needs: "clients.invite" },
   { href: "/equipo/acreedores", label: "creditors", icon: "doc", needs: "rounds.send" },
   { href: "/equipo/actividad", label: "activity", icon: "clock" },
@@ -41,12 +44,9 @@ export const MORE_NAV: NavItem[] = [
   { href: "/equipo/cobros", label: "invoices", icon: "doc", needs: "billing.plans" },
   { href: "/equipo/resenas", label: "reviews", icon: "chat" },
   { href: "/equipo/estados", label: "states", icon: "globe" },
-  // Content (src/lib/content): the board for content.view; the brand kit and partner material for everyone with content.share.
-  { href: "/equipo/contenido", label: "content", icon: "grid", needs: "content.share" },
   // Calls with a person (src/lib/calls): only when turned on (off by default).
   ...(callsEnabled() ? [{ href: "/equipo/llamadas", label: "calls" as const, icon: "clock" as const, needs: "calls.manage" as const }] : []),
   { href: "/equipo/alertas", label: "alerts", icon: "bell" },
-  { href: "/equipo/contabilidad", label: "accounting", icon: "calc", needs: "accounting" },
   { href: "/equipo/perfil", label: "profile", icon: "person" },
   { href: "/equipo/bienvenida", label: "welcome", icon: "book" },
 ];

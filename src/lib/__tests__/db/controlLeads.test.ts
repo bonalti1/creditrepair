@@ -4,6 +4,8 @@ import { sweepAlerts } from "../../control/alertsServer";
 import { runLeadAutopilot } from "../../leads/autopilotServer";
 import { assignWaitingLeads, loadLeads, loadLeadThread } from "../../leads/inboxServer";
 import { storeMessage } from "../../chat/history";
+import { applyOnServer } from "../../content/server";
+import type { ContentSummary } from "../../control/content";
 import { startHarness, type Harness } from "./pg";
 import { addClient, addStaff, signAgreement, uid } from "./seed";
 
@@ -331,6 +333,29 @@ describe("the routes", () => {
     expect((extras.body.extras as { escalations: Array<{ title: string }> }).escalations.map((e) => e.title)).toContain("Marcus asks for a discount");
     expect((await route.POST(request("/api/staff/control", { action: "resolve", id: esc.body.id }))).status).toBe(200);
     expect((await h.as(marta.userId).from("control_escalations").select("*")).data).toEqual([]);
+  });
+
+  it("the Overview's Content card: read through the member's own connection, so the content policies decide", async () => {
+    // A specialist writes a piece and sends it for review (the content hub's own server function).
+    const created = await applyOnServer(h.service, { userId: marta.userId, handle: "marta" }, { action: "create", title: "FCRA in 30 seconds", type: "short_video", channels: ["instagram"], language: "en", audience: "consumers", theme: "rights" });
+    expect(created.ok).toBe(true);
+    const id = created.ok ? created.piece.id : "";
+    expect((await applyOnServer(h.service, { userId: marta.userId, handle: "marta" }, { action: "submit", id })).ok).toBe(true);
+    const route = await import("@/app/api/staff/control/route");
+    const contentOf = async (who: string) => {
+      as(h.as(who));
+      const res = await json(await route.GET());
+      expect(res.status).toBe(200);
+      return (res.body.extras as { content: ContentSummary | null }).content;
+    };
+    const forAdmin = await contentOf(admin.userId);
+    expect(forAdmin?.review.map((r) => r.title)).toEqual(["FCRA in 30 seconds"]);
+    expect(forAdmin?.publishing).toEqual({ enabled: false, channelsOn: 0 }); // off by default
+    expect((await contentOf(marta.userId))?.review.map((r) => r.id)).toEqual([id]);
+    // Sales reads no content table (only approved partner material): no card, no numbers.
+    expect(await contentOf(ana.userId)).toBeNull();
+    // And the policy itself: sales' own connection sees no piece in review.
+    expect((await h.as(ana.userId).from("content_pieces").select("id")).data).toEqual([]);
   });
 
   it("alerts: a member sets only their role's topics; a subscription only to a browser's push service", async () => {

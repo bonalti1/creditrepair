@@ -161,7 +161,15 @@ const newId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? c
 
 /** Everything an accounting screen needs, with the viewer's permission applied. */
 export function useAccounting() {
-  const staff = useStaff();
+  return useBooks(useStaff());
+}
+
+/**
+ * The same books for a screen that already loaded the console's clients (the
+ * Overview, docs/CONTROL.md): one load of the clients, the same rules. A
+ * member without `accounting` reads nothing (an empty book, no request).
+ */
+export function useBooks(staff: ReturnType<typeof useStaff>) {
   const allowed = staff.can("accounting");
   const partners = usePartners(staff.ready && allowed);
   const data = getAccountingData();

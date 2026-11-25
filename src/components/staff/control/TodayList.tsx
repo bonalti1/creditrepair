@@ -29,6 +29,11 @@ const KIND_TONE: Record<TodayItem["kind"], string> = {
   lead_new: "bg-blue-50 text-blue-700",
   partner_note: "bg-blue-50 text-blue-700",
   queue: "bg-slate-100 text-slate-700",
+  content_failed: "bg-red-50 text-red-700",
+  content_review: "bg-blue-50 text-blue-700",
+  content_changes: "bg-blue-50 text-blue-700",
+  books_close: "bg-amber-100 text-blue-900",
+  books_receipts: "bg-slate-100 text-slate-700",
 };
 
 function Row({ item, index, now, actions }: { item: TodayItem; index: number; now: Date; actions: TodayActions }) {
@@ -45,6 +50,11 @@ function Row({ item, index, now, actions }: { item: TodayItem; index: number; no
     lead_new: t("Prospecto nuevo", "New lead"),
     partner_note: t("Socio", "Partner"),
     queue: t("Cliente", "Client"),
+    content_failed: t("Contenido · falló", "Content · failed"),
+    content_review: t("Contenido · aprobar", "Content · approve"),
+    content_changes: t("Contenido · cambios", "Content · changes"),
+    books_close: t("Contabilidad", "Accounting"),
+    books_receipts: t("Contabilidad", "Accounting"),
   };
   const escalated = actions.escalated.has(item.key);
   return (

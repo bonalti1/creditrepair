@@ -1,8 +1,10 @@
-# Credalti Control (phase 1)
+# Credalti Control
 
 The owner's "business in a box" for Credalti, built after ALTO Control (the
 staff hub of ALTO Pro), for credit repair. Phase 1 is four things inside the
-existing staff console (`/equipo`):
+existing staff console (`/equipo`); phase 2 makes the Overview the single home
+of the business: every department one tap away, and Content and Accounting
+on its cards and in its Today list (see «The home of the business» below).
 
 | What | Where | Who |
 | --- | --- | --- |
@@ -17,9 +19,13 @@ server), `src/lib/control/` (overview, today, alerts), `src/lib/push/webPush.ts`
 `public/staff-sw.js`, `src/components/staff/control/`, the pages above and
 the routes `/api/staff/leads`, `/api/staff/leads/autopilot`,
 `/api/staff/alerts`, `/api/staff/control`, `/api/cron/leads`.
-Tests: `src/lib/__tests__/control.test.ts` (the rules) and
+Tests: `src/lib/__tests__/control.test.ts` (the rules),
+`src/lib/__tests__/controlDepartments.test.ts` (phase 2: the Content card,
+the books on the Money card, the Content and Accounting Today items, the
+departments strip, who sees each) and
 `src/lib/__tests__/db/controlLeads.test.ts` (the migration, row level
-security, the autopilot run and the alerts sweep with a mocked WhatsApp, the routes).
+security, the autopilot run and the alerts sweep with a mocked WhatsApp, the
+routes, and the Content card read through each member's own connection).
 
 ## Why a new tab, not a new Home
 
@@ -39,7 +45,8 @@ that opens the screen where the work is done:
 | --- | --- | --- | --- |
 | Leads & sales | open leads, new today, waiting on a person, handed over by the autopilot | waiting + hand-offs → `/equipo/leads?filtro=waiting` | `leads.work` |
 | Clients in progress | signed (in the 3-day window), waiting on documents, report and review, rounds ready, mailed and waiting on the bureaus, new report in, paused, after-care | the work queue minus unsigned agreements → `/equipo` | everyone (their own clients, by the same scopes) |
-| Money | collected this month, charges that failed, scheduled in the next 30 days (the dashboard's own rule) | payment notices → `/equipo/clientes?aviso=payment_past_due` | `billing.view`: **never sales** |
+| Money | collected this month, charges that failed, scheduled in the next 30 days (the dashboard's own rule); for the owner also this month's **net revenue, expenses and net profit from the books**, and «Open Accounting» | payment notices → `/equipo/clientes?aviso=payment_past_due` | `billing.view`: **never sales**; the books' lines need `accounting` |
+| Content | waiting for review, scheduled to post this week (and approved but not scheduled), posted this week, failed posts, automatic publishing on or off; «Open Content» | approvers: in review + failed → board on «Ready for review»; editors: changes requested of them (theirs and unowned) + failed → board on «Changes requested»; only failures → the failed pieces | `content.view` (administrators and specialists) |
 | Support | client questions waiting, lead conversations waiting, possible complaints (7 days), review requests sent (30 days) | questions → `/equipo/clientes?aviso=question_waiting` | everyone; reviews with `case.view` |
 | Partners | new referrals (7 days), partner notes the team has not answered | → `/equipo/socios` | `partners.view` |
 | Tech health | when each thing last happened: WhatsApp received, HighLevel lead, Lob mail update, automatic message, the leads job, morning summary | jobs later than expected | `business.view` (the owner) |
@@ -55,6 +62,13 @@ that really is zero is shown as 0.
 the conversation and each settings panel sit inside `SafeBoundary`; one bad
 value shows "This part couldn't be shown" in that box only.
 
+The **departments strip** on top of the Overview (and of Today) has a tile
+for each department the member may open: Leads (`leads.work`), Clients
+(everyone), Content (`content.share`; sales, who has no board, lands on the
+partner kit), Accounting (`accounting`), Partners (`partners.view`) and
+Reviews (everyone), with the card's «Needs you» on the tile when there is
+one. Three to a row on a phone, one row from 768 px.
+
 Tech health is a phase-1 stub of what is checkable now (last times, a
 heartbeat for the leads job: `cron_heartbeats`). Outage alerts and a full
 check-up are phase 3.
@@ -65,10 +79,15 @@ check-up are phase 3.
 the console's work queue (`autopilot/queue.ts`, unchanged) plus the lead
 inbox's hand-offs, waiting conversations, chat signups that asked for a
 person and new leads nobody wrote to, the partners' notes waiting for the
-team, and, for the owner, what the team escalated. Ranked: escalations,
-complaints, other hand-offs, overdue urgent notices, leads waiting an hour,
-signups asking for a person, other overdue notices, leads waiting, urgent
-notices, partner notes, new leads, the rest.
+team, Content (pieces to approve for an approver, the changes asked of an
+editor, posts that failed and why), the books for the owner (a month not
+closed after the 5th, receipts missing), and, for the owner, what the team
+escalated. Ranked: escalations, complaints, other hand-offs, overdue urgent
+notices, leads waiting an hour, signups asking for a person, other overdue
+notices, leads waiting, urgent notices, **a failed post**, partner notes,
+new leads, **a month to close**, **a piece waiting two days or more for
+approval**, medium notices, **changes asked of an editor**, **a piece just in
+review**, **missing receipts**, the rest.
 
 Every item has its **step-by-step procedure** (the queue's «How to handle it»
 card, or the lead procedures in `today.ts`) with a «Done when…» line, and its
@@ -77,6 +96,48 @@ ends: **Open**, **Handled** (queue items, the same mark as Home), and
 (`control_escalations`), shows at the top of the owner's Today list, and
 alerts every administrator who turned "Escalated to you" on. Only the owner
 marks it **Resolved**. Nothing is sent to a client from this list.
+
+## The home of the business (phase 2)
+
+The three departments built in parallel (Control, `docs/CONTENT.md`,
+`docs/ACCOUNTING.md`) meet on the Overview without the Overview counting
+anything itself:
+
+- **Content** (`src/lib/control/content.ts`): one pure summary of the board
+  from the content hub's own loaders (`content/server.ts` `loadPieces`,
+  `loadSchedules`, `loadPublishSettings`), run on the server through the
+  **member's own connection** (`control/server.ts`, `/api/staff/control`), so
+  the content tables' policies decide: administrators and specialists read
+  it, sales nothing (a PGlite test holds it). In the demo it is the board the
+  Content tab keeps in this browser. Only titles, statuses, owners, dates,
+  the changes note and the failure reason leave the hub, never a piece's
+  words. "This week" is the content calendar's week (Sunday to Saturday,
+  Central time). The board opens on the asked column with
+  `/equipo/contenido?columna=review|changes|failed`.
+- **The books** (`src/lib/control/books.ts`): the Money card's three lines
+  are the accounting module's `totalsFor` for this Texas month (its one money
+  rule: test charges, refunds, lost chargebacks, measured-before-estimated
+  fees), on the same books the Accounting screens read: the Overview uses
+  `useBooks` (`accounting/data.ts`, the body of `useAccounting`) with the
+  clients it already loaded, so nothing is fetched for a member without
+  `accounting`. «Expenses» is the dashboard's line; processing fees and
+  partner commissions paid are its hint, and are taken off the profit as
+  there. Nothing in the books this month: "No data yet".
+- **Today from Content**: «Approve this piece» (`content.approve`), «Changes
+  requested» (`content.edit` without approve: the editor's own pieces and the
+  unowned ones), «A post failed» with the channel and the reason the
+  publisher wrote (`content.edit`). Each with its three steps and «Done when».
+- **Today from Accounting** (`accounting`): «Close the books for <month>»
+  for each of the last three months that is over, has anything in the books,
+  is not closed, and (for last month) only after the 5th; «N expenses of $75
+  or more without a receipt» in the last 90 days, opening Expenses on the
+  month that has most of them. $75 is a working threshold
+  (`RECEIPT_THRESHOLD_CENTS`; the IRS uses $75 as its receipt line for
+  travel, gift and car expenses), not tax advice; the close
+  checklist still asks for every receipt. **Failed charges are not added**:
+  they already come from billing through the work queue's payment notices.
+- **Navigation**: the top bar is unchanged (five tabs); under «More»,
+  Content and Accounting now come first, on the desk and on the phone.
 
 ## Leads
 
@@ -286,6 +347,16 @@ charged before the work (billing is untouched).
 2. The follow-up template outside the 24 hours goes to a lead who wrote to us
    (or gave consent on a HighLevel form). Is the consent we store enough for
    one follow-up, and should it be limited further?
+
+## Not done (phase 2)
+
+- The Content card reads the whole board (up to the hub's 2,500 pieces) on
+  each Overview load; a counting view in the database would be lighter.
+- The books on the Money card load the full accounting book (as the
+  Accounting screens do) for the owner; a summary route would be lighter.
+- «Collected this month» (billing, the dashboard's rule) and «Net revenue»
+  (the books) can differ: the books leave out test charges and take off
+  refunds and lost chargebacks. Both are shown, each with its own label.
 
 ## Not done (phase 1)
 

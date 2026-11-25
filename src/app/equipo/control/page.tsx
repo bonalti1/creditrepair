@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useBooks } from "@/lib/accounting/data";
 import { workQueue } from "@/lib/autopilot/queue";
 import { useAutopilot } from "@/lib/autopilot/useAutopilot";
+import { booksDue, booksSnapshot } from "@/lib/control/books";
 import { getControlData, type Extras } from "@/lib/control/data";
+import { departmentTiles } from "@/lib/control/departments";
 import { moneySummary, overviewCards } from "@/lib/control/overview";
 import { todayList, todayMinutes, type TodayItem } from "@/lib/control/today";
 import { getLeadData } from "@/lib/leads/data";
@@ -15,6 +18,7 @@ import { dateLocale } from "@/lib/staff/i18n/locale";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
 import { useStaff } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
+import DepartmentStrip from "@/components/staff/control/DepartmentStrip";
 import OverviewCards from "@/components/staff/control/OverviewCards";
 import SafeBoundary from "@/components/staff/control/SafeBoundary";
 import TodayList from "@/components/staff/control/TodayList";
@@ -26,7 +30,10 @@ import { PRIMARY_BUTTON } from "@/components/staff/ui";
 // is. Two views: Overview (one card per department, real numbers, "Needs you")
 // and Today (everything that needs a person, ranked, with the steps for each
 // and «Escalate to the owner»). What each member sees follows their role; a
-// salesperson never sees Money.
+// salesperson never sees Money. On top, the departments strip: every
+// department the member may open, one tap away. Content (content.view) has
+// its card and its Today items; the owner (accounting) also sees this month
+// in the books on the Money card and what the books ask of them in Today.
 
 type View = "overview" | "today";
 const ESCALATED_KEY = "credalti.control.escalated";
@@ -40,7 +47,11 @@ function readEscalated(): Set<string> {
 }
 
 export default function ControlPage() {
-  const { data, ready: clientsReady, clients, now, reload, viewer, can, locale } = useStaff();
+  const staff = useStaff();
+  const { data, ready: clientsReady, clients, now, reload, viewer, can, locale } = staff;
+  // The accounting module's own books and money rule (accounting/data.ts): nothing is read without `accounting`.
+  const acc = useBooks(staff);
+  const seesBooks = can("accounting");
   const { furnishers, gaps, ready: bookReady } = useMail();
   const { env, ready: autopilotReady } = useAutopilot();
   const t = useTx();
@@ -80,19 +91,34 @@ export default function ControlPage() {
     if (clientsReady && viewer) void load();
   }, [clientsReady, viewer, load]);
 
-  const ready = clientsReady && bookReady && autopilotReady;
+  const ready = clientsReady && bookReady && autopilotReady && (!seesBooks || acc.ready);
+  const books = useMemo(() => (ready && seesBooks ? { snapshot: booksSnapshot(acc.input, now), due: booksDue(acc.book, acc.input, now) } : null), [ready, seesBooks, acc.input, acc.book, now]);
+  const contentViewer = useMemo(() => ({ approve: can("content.approve"), edit: can("content.edit"), handle: viewer?.handle ?? null }), [viewer]);
   const queue = useMemo(() => (ready ? workQueue(clients, now, { furnishers, furnisherGaps: gaps, autopilot: env, locale }, viewer?.role ?? null) : []), [ready, clients, now, furnishers, gaps, env, locale, viewer]);
   const cards = useMemo(
     () =>
       ready
-        ? overviewCards({ clients, queue, leads, leadsError, extras, money: can("billing.view") ? moneySummary(clients, now) : null, can, now, locale })
+        ? overviewCards({ clients, queue, leads, leadsError, extras, money: can("billing.view") ? moneySummary(clients, now) : null, books: books?.snapshot ?? null, handle: viewer?.handle ?? null, can, now, locale })
         : [],
-    [ready, clients, queue, leads, leadsError, extras, now, locale, viewer],
+    [ready, clients, queue, leads, leadsError, extras, books, now, locale, viewer],
   );
   const items = useMemo(
-    () => (ready ? todayList({ queue, leads: worksLeads ? leads : null, partnerNotes: extras?.partnerNotes, escalations: extras?.escalations ?? undefined, now, locale }) : []),
-    [ready, queue, worksLeads, leads, extras, now, locale],
+    () =>
+      ready
+        ? todayList({
+            queue,
+            leads: worksLeads ? leads : null,
+            partnerNotes: extras?.partnerNotes,
+            escalations: extras?.escalations ?? undefined,
+            content: can("content.view") && extras?.content ? { summary: extras.content, viewer: contentViewer } : null,
+            books: books?.due ?? null,
+            now,
+            locale,
+          })
+        : [],
+    [ready, queue, worksLeads, leads, extras, contentViewer, books, now, locale, viewer],
   );
+  const tiles = useMemo(() => (ready ? departmentTiles({ can, cards, today: items, locale }) : []), [ready, cards, items, locale, viewer]);
 
   if (!ready) return null;
 
@@ -152,6 +178,10 @@ export default function ControlPage() {
           ))}
         </div>
       </div>
+
+      <SafeBoundary>
+        <DepartmentStrip tiles={tiles} />
+      </SafeBoundary>
 
       {view === "overview" ? (
         <>

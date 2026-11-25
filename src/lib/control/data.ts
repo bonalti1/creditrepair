@@ -1,9 +1,11 @@
+import { readDemoContentBoard } from "../content/store";
 import { readDemoThreads } from "../partners/portalDemo";
 import { isDemoMode } from "../supabase/config";
-import type { Viewer } from "../staff/permissions";
+import { can, type Viewer } from "../staff/permissions";
 import type { StaffLocale } from "../staff/i18n/locale";
 import type { StaffClient } from "../staff/types";
 import type { Lead } from "../leads/types";
+import { contentSummary } from "./content";
 import type { ControlExtras } from "./overview";
 import type { PartnerNoteWaiting } from "./server";
 
@@ -11,7 +13,8 @@ import type { PartnerNoteWaiting } from "./server";
 // carry, and where "Escalate to the owner" goes. The database one asks
 // /api/staff/control; the demo computes what it can from the invented
 // records (partner notes, the leads' hand-offs) and says plainly what it
-// cannot (no database: no tech health, no review requests).
+// cannot (no database: no tech health, no review requests). The content
+// board is the one the demo's Content tab keeps in this browser.
 
 export type Extras = ControlExtras & { partnerNotes: PartnerNoteWaiting[] };
 
@@ -68,7 +71,13 @@ export function getControlData(viewer: Viewer | null, locale: StaffLocale): Cont
             : [];
         });
         const escalations = viewer?.role === "admin" ? readEscalations().filter((e) => !e.resolvedAt) : null;
+        let content = null;
+        if (can(viewer?.role, "content.view")) {
+          const board = readDemoContentBoard();
+          content = contentSummary(board.pieces, board.schedules, board.settings, new Date());
+        }
         return {
+          content,
           partnerNotesWaiting: partnerNotes.length,
           partnerNotes,
           reviewRequests30d: null,

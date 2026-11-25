@@ -54,15 +54,21 @@ por su cuenta»**, with the count of each kind under «Resuelto solo»
 
 ## Credalti Control: Overview, Today, Leads, phone alerts
 
-Phase 1 of the owner's control center is in `docs/CONTROL.md`. In short:
+The owner's control center is in `docs/CONTROL.md`. In short:
 
 - **Resumen / Overview** (`/equipo/control`), a tab next to Home (Home stays
-  the specialist's day, above): one card per department (leads and sales,
-  clients in progress, money, support, partners, tech health) with real
+  the specialist's day, above): on top, a strip of tiles for every department
+  the member may open (Leads, Clients, Content, Accounting, Partners,
+  Reviews); then one card per department (leads and sales, clients in
+  progress, money, content, support, partners, tech health) with real
   numbers, "No data yet" and why when something cannot be read, and a "Needs
-  you" count that opens the right screen. Money never shows to sales.
+  you" count that opens the right screen. Money never shows to sales; for the
+  owner it adds this month's net revenue, expenses and net profit from the
+  books and links to Accounting. Content shows to the content team.
 - **Hoy / Today**: this page's work queue plus waiting leads, the autopilot's
-  hand-offs, partners' notes and, for the owner, escalations, ranked in one
+  hand-offs, partners' notes, Content (pieces to approve, changes asked of
+  an editor, posts that failed) and, for the owner, the books (a month not
+  closed after the 5th, receipts missing) and escalations, ranked in one
   list; each item with its steps and «Escalate to the owner».
 - **Prospectos / Leads** (`/equipo/leads`): every prospect conversation
   (WhatsApp, HighLevel, partners, the chat signup, by hand) with ✨ Suggest
@@ -163,9 +169,10 @@ that screen (`SCREEN_HELP`) with the cards that matter there.
 
 - **768 px and wider:** one compact top bar: Inicio, Resumen (Overview),
   Prospectos (Leads, for administrators and sales), Clientes, Respuestas, and
-  «Más» (Invitar, Acreedores, Actividad, Piloto automático, Negocio, Socios,
-  Equipo, Cartas, Alertas al teléfono, Mi perfil, Bienvenida, each only for the
-  roles that may open it), then search, «¿Qué hago aquí?» and the member's
+  «Más» (Contenido and Contabilidad first, then Invitar, Acreedores,
+  Actividad, Piloto automático, Negocio, Socios, Equipo, Cartas, Alertas al
+  teléfono, Mi perfil, Bienvenida, each only for the roles that may open it),
+  then search, «¿Qué hago aquí?» and the member's
   initial. With five tabs (Credalti Control, `docs/CONTROL.md`) the tabs show
   their names from 1280 px and their icons alone below (the name on hover and
   for screen readers); search and help are icons (Ctrl/Cmd+K still opens

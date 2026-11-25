@@ -329,8 +329,9 @@ describe("the Overview: real numbers, by role", () => {
 
   it("a salesperson never sees Money; a specialist sees no leads", () => {
     expect(overviewCards(base("sales")).map((c) => c.key)).toEqual(["leads", "clients", "support", "partners"]);
-    expect(overviewCards(base("specialist")).map((c) => c.key)).toEqual(["clients", "money", "support"]);
-    expect(overviewCards(base("admin")).map((c) => c.key)).toEqual(["leads", "clients", "money", "support", "partners", "health"]);
+    // Content (docs/CONTROL.md «Content») is the content team's: administrators and specialists.
+    expect(overviewCards(base("specialist")).map((c) => c.key)).toEqual(["clients", "money", "content", "support"]);
+    expect(overviewCards(base("admin")).map((c) => c.key)).toEqual(["leads", "clients", "money", "content", "support", "partners", "health"]);
   });
 
   it("what could not be read says 'No data yet' and why, never 0", () => {

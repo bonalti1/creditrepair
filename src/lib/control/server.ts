@@ -2,13 +2,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { handoffReason } from "../leads/autopilot";
 import { can } from "../staff/permissions";
 import type { StaffMember } from "../staff/access";
+import { loadPieces, loadPublishSettings, loadSchedules } from "../content/server";
+import { contentSummary, type ContentSummary } from "./content";
 import type { ControlExtras, HealthSignal } from "./overview";
 
 // What the Overview and the Today list need that the clients list does not
 // carry, read on the server. Everything that is about clients goes through
 // the member's OWN connection (`reader`), so the read policies decide; only
 // the tech health times (an administrator's) are read with the service role,
-// and they are times, nothing else.
+// and they are times, nothing else. The content board is read the same way,
+// with the content hub's own loaders (content/server.ts) on the member's
+// connection: its policies let administrators and specialists read it and
+// sales nothing (migration 0035).
 
 type Row = Record<string, unknown>;
 const DAY = 24 * 60 * 60 * 1000;
@@ -103,7 +108,10 @@ export async function loadControlExtras(reader: SupabaseClient, db: SupabaseClie
     ];
   }
 
+  const content = can(member.role, "content.view") ? await loadContentSummary(reader, now) : null;
+
   return {
+    content,
     partnerNotesWaiting: notes ? partnerNotes.length : null,
     reviewRequests30d: reviews ? reviews.length : null,
     complaints7d: complaints,
@@ -111,6 +119,16 @@ export async function loadControlExtras(reader: SupabaseClient, db: SupabaseClie
     health,
     partnerNotes,
   };
+}
+
+/** The content board in numbers, through the member's own connection; null when it could not be read. */
+export async function loadContentSummary(reader: SupabaseClient, now: Date): Promise<ContentSummary | null> {
+  try {
+    const [pieces, schedules, settings] = await Promise.all([loadPieces(reader), loadSchedules(reader), loadPublishSettings(reader)]);
+    return contentSummary(pieces, schedules, settings, now);
+  } catch {
+    return null;
+  }
 }
 
 /** The leads job's heartbeat, for the Tech health card. */

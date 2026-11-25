@@ -17,7 +17,10 @@ import { ContentHeader, DemoNote, PieceCard } from "@/components/staff/content/u
 // The content board (docs/CONTENT.md): one column per status, from Idea to
 // Measured, with "Changes requested" beside review. On a phone the columns
 // become a row of status chips and one list. Sales, who may see only the
-// approved partner material, is taken to it.
+// approved partner material, is taken to it. `?columna=<status>` (the
+// Overview's «Needs you», docs/CONTROL.md) opens on that column: the phone's
+// chip, the desk's column scrolled into view and outlined, and for «failed»
+// the folded list opened.
 
 export default function ContentBoardPage() {
   const t = useTx();
@@ -27,6 +30,25 @@ export default function ContentBoardPage() {
   const [filters, setFilters] = useState<ContentFilters>({});
   const [phoneColumn, setPhoneColumn] = useState<ContentStatus>("review");
   const [showFolded, setShowFolded] = useState(false);
+  const [focus, setFocus] = useState<ContentStatus | null>(null);
+
+  useEffect(() => {
+    const asked = new URLSearchParams(window.location.search).get("columna");
+    if (asked === "failed" || asked === "archived") {
+      setShowFolded(true);
+      setFocus(asked);
+    } else if ((BOARD_COLUMNS as readonly string[]).includes(asked ?? "")) {
+      setPhoneColumn(asked as ContentStatus);
+      setFocus(asked as ContentStatus);
+    }
+  }, []);
+
+  // The desk: bring the asked column (or the folded list) into view once the board is there.
+  useEffect(() => {
+    if (!focus || !content.ready) return;
+    const target = focus === "failed" || focus === "archived" ? document.getElementById("folded") : document.getElementById(`col-${focus}`)?.closest("section");
+    if (target && window.matchMedia("(min-width: 768px)").matches) target.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [focus, content.ready]);
 
   useEffect(() => {
     if (content.ready && content.viewer && !can(content.role, "content.view")) router.replace("/equipo/contenido/socios");
@@ -106,7 +128,7 @@ export default function ContentBoardPage() {
           {BOARD_COLUMNS.map((status) => {
             const list = columns[status] ?? [];
             return (
-              <section key={status} aria-labelledby={`col-${status}`} className="w-[248px] shrink-0 rounded-3xl bg-slate-100/70 p-2.5">
+              <section key={status} aria-labelledby={`col-${status}`} className={`w-[248px] shrink-0 rounded-3xl bg-slate-100/70 p-2.5 ${focus === status ? "ring-2 ring-amber-400" : ""}`} data-focus={focus === status ? "true" : undefined}>
                 <div className="flex items-baseline justify-between px-1.5 pb-1">
                   <h2 id={`col-${status}`} className="text-[13px] font-semibold uppercase tracking-wide text-slate-600">
                     {STATUS_LABEL[locale][status]}

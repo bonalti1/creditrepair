@@ -8,6 +8,9 @@ import { localDay } from "../autopilot/clock";
 import { STAFF_TIME_ZONE } from "../staff/stage";
 import type { StaffLocale } from "../staff/i18n/locale";
 import { businessMetrics, inRange, periodRange } from "../staff/metrics";
+import { formatCents } from "../accounting/money";
+import type { BooksSnapshot } from "./books";
+import { contentNeeds, type ContentSummary } from "./content";
 
 // The Overview (docs/CONTROL.md): one card per department, each with real
 // numbers from the records and a "Needs you" count that opens the right
@@ -17,10 +20,11 @@ import { businessMetrics, inRange, periodRange } from "../staff/metrics";
 // records and nothing is there) is a real 0.
 //
 // Each card shows only for a role that may see it: Money needs billing.view
-// (never sales), Leads needs leads.work, Partners partners.view, Tech health
-// business.view.
+// (never sales), and adds this month's books for `accounting` (the owner);
+// Leads needs leads.work, Content content.view, Partners partners.view, Tech
+// health business.view.
 
-export type CardKey = "leads" | "clients" | "money" | "support" | "partners" | "health";
+export type CardKey = "leads" | "clients" | "money" | "content" | "support" | "partners" | "health";
 
 export interface CardMetric {
   key: string;
@@ -38,6 +42,8 @@ export interface DeptCard {
   metrics: CardMetric[];
   /** What needs a person here; null count: we could not tell. */
   needsYou: { count: number | null; href: string; label: string };
+  /** The department's own screen, under the numbers ("Open Accounting"). */
+  link?: { href: string; label: string };
 }
 
 /** What the server adds that the clients list does not carry (or the demo's stand-in). Null fields: not readable. */
@@ -49,6 +55,8 @@ export interface ControlExtras {
   health: HealthSignal[] | null;
   /** Why the server-side numbers are missing, when they all are (the demo, a read error). */
   unavailable?: string | null;
+  /** The content board in numbers (control/content.ts), for content.view; null: not for this role, or it could not be read. */
+  content?: ContentSummary | null;
 }
 
 export type HealthKey = "whatsapp_inbound" | "highlevel_lead" | "lob_event" | "autopilot_message" | "cron_leads" | "staff_digest";
@@ -69,6 +77,10 @@ export interface OverviewInput {
   leadsError?: string | null;
   extras: ControlExtras | null;
   money: { collectedCents: number; collectedCount: number; failedCount: number; failedCents: number; scheduledCount: number; scheduledCents: number; anyCharge: boolean } | null;
+  /** This month in the books (control/books.ts, the accounting module's money rule). Only for `accounting`; null otherwise or until the books are read. */
+  books?: BooksSnapshot | null;
+  /** The member's handle: whose «Changes requested» are theirs on the Content card. */
+  handle?: string | null;
   can: (capability: Capability) => boolean;
   now: Date;
   locale: StaffLocale;
@@ -79,7 +91,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const T = {
   en: {
     noData: "No data yet",
-    cards: { leads: "Leads & sales", clients: "Clients in progress", money: "Money", support: "Support", partners: "Partners", health: "Tech health" },
+    cards: { leads: "Leads & sales", clients: "Clients in progress", money: "Money", content: "Content", support: "Support", partners: "Partners", health: "Tech health" },
     needsYou: "Needs you",
     leads: {
       open: "Open leads",
@@ -101,11 +113,32 @@ const T = {
       none: "No client has signed yet.",
     },
     money: {
-      collected: "Collected this month",
+      collected: "Charged this month (before refunds)",
       failed: "Charges that failed",
       pending: "Scheduled, next 30 days",
       none: "No charge has been made yet. A charge only happens after a round is mailed.",
       count: (n: number) => `${n} ${n === 1 ? "charge" : "charges"}`,
+      netRevenue: "Net revenue this month (books)",
+      expenses: "Expenses this month",
+      profit: "Net profit this month",
+      otherCosts: (amount: string) => `plus ${amount} in fees`,
+      estimate: "estimate",
+      profitHint: "Cash basis; test charges left out",
+      booksNone: "Nothing in the books this month yet: no payment taken and no expense recorded.",
+      openBooks: "Open Accounting",
+    },
+    content: {
+      review: "Waiting for review",
+      scheduled: "Scheduled to post this week",
+      approvedNotScheduled: (n: number) => `${n} approved, not scheduled`,
+      posted: "Posted this week",
+      failed: "Failed posts",
+      publishing: "Automatic publishing",
+      on: (n: number) => `On · ${n} ${n === 1 ? "channel" : "channels"}`,
+      off: "Off",
+      none: "No piece on the board yet. Pieces show up here as soon as someone starts one in Content.",
+      readError: "The content board could not be read right now.",
+      open: "Open Content",
     },
     support: {
       questions: "Client questions waiting",
@@ -128,7 +161,7 @@ const T = {
   },
   es: {
     noData: "Todavía sin datos",
-    cards: { leads: "Prospectos y ventas", clients: "Clientes en proceso", money: "Dinero", support: "Atención", partners: "Socios", health: "Estado técnico" },
+    cards: { leads: "Prospectos y ventas", clients: "Clientes en proceso", money: "Dinero", content: "Contenido", support: "Atención", partners: "Socios", health: "Estado técnico" },
     needsYou: "Te necesita",
     leads: {
       open: "Prospectos abiertos",
@@ -150,11 +183,32 @@ const T = {
       none: "Todavía no firma ningún cliente.",
     },
     money: {
-      collected: "Cobrado este mes",
+      collected: "Cobrado este mes (antes de reembolsos)",
       failed: "Cobros que no pasaron",
       pending: "Programado, próximos 30 días",
       none: "Todavía no se ha hecho ningún cobro. Solo se cobra después de enviar una ronda.",
       count: (n: number) => `${n} ${n === 1 ? "cobro" : "cobros"}`,
+      netRevenue: "Ingreso neto del mes (libros)",
+      expenses: "Gastos del mes",
+      profit: "Ganancia neta del mes",
+      otherCosts: (amount: string) => `más ${amount} en comisiones`,
+      estimate: "estimado",
+      profitHint: "Base de caja; sin cobros de prueba",
+      booksNone: "Todavía no hay nada en los libros este mes: ni pagos cobrados ni gastos registrados.",
+      openBooks: "Abrir Contabilidad",
+    },
+    content: {
+      review: "Esperan revisión",
+      scheduled: "Programadas para esta semana",
+      approvedNotScheduled: (n: number) => `${n} ${n === 1 ? "aprobada" : "aprobadas"} sin programar`,
+      posted: "Publicadas esta semana",
+      failed: "Publicaciones fallidas",
+      publishing: "Publicación automática",
+      on: (n: number) => `Encendida · ${n} ${n === 1 ? "canal" : "canales"}`,
+      off: "Apagada",
+      none: "Todavía no hay piezas en el tablero. Aparecen aquí en cuanto alguien empieza una en Contenido.",
+      readError: "No se pudo leer el tablero de contenido ahora.",
+      open: "Abrir Contenido",
     },
     support: {
       questions: "Preguntas de clientes esperando",
@@ -257,23 +311,80 @@ export function overviewCards(input: OverviewInput): DeptCard[] {
     needsYou: { count: fulfilment.length, href: "/equipo", label: t.needsYou },
   });
 
-  // Money: never for sales.
+  // Money: never for sales. The owner (accounting) also sees this month in the books.
   if (input.can("billing.view")) {
     const m = input.money;
     const moneyNeeds = input.queue.filter((q) => q.exception.kind === "payment_past_due" || q.exception.kind === "payment_method_missing").length;
+    const books = input.can("accounting") ? (input.books ?? null) : null;
     cards.push({
       key: "money",
       title: t.cards.money,
-      metrics:
-        !m || !m.anyCharge
+      metrics: [
+        ...(!m || !m.anyCharge
           ? [noData("collected", t.money.collected, t.money.none)]
           : [
               { key: "collected", label: t.money.collected, value: dollars(m.collectedCents), hint: t.money.count(m.collectedCount) },
               { key: "failed", label: t.money.failed, value: num(m.failedCount), hint: m.failedCount > 0 ? dollars(m.failedCents) : undefined },
               { key: "pending", label: t.money.pending, value: dollars(m.scheduledCents), hint: t.money.count(m.scheduledCount) },
-            ],
+            ]),
+        ...(!books
+          ? []
+          : !books.hasData
+            ? [noData("net_revenue", t.money.netRevenue, t.money.booksNone)]
+            : [
+                { key: "net_revenue", label: t.money.netRevenue, value: formatCents(books.netRevenueCents) },
+                {
+                  key: "expenses",
+                  label: t.money.expenses,
+                  value: formatCents(books.expensesCents),
+                  hint: books.otherCostsCents > 0 ? `${t.money.otherCosts(formatCents(books.otherCostsCents))}${books.feesEstimated ? ` (${t.money.estimate})` : ""}` : undefined,
+                },
+                { key: "profit", label: t.money.profit, value: formatCents(books.netProfitCents), hint: t.money.profitHint },
+              ]),
+      ],
       needsYou: { count: moneyNeeds, href: "/equipo/clientes?aviso=payment_past_due", label: t.needsYou },
+      ...(input.can("accounting") ? { link: { href: "/equipo/contabilidad", label: t.money.openBooks } } : {}),
     });
+  }
+
+  // Content: for the content team (content.view: administrators and specialists; never sales).
+  if (input.can("content.view")) {
+    const summary = input.extras?.content ?? null;
+    const viewer = { approve: input.can("content.approve"), edit: input.can("content.edit"), handle: input.handle ?? null };
+    const link = { href: "/equipo/contenido", label: t.content.open };
+    if (!summary) {
+      cards.push({
+        key: "content",
+        title: t.cards.content,
+        metrics: [noData("review", t.content.review, t.content.readError)],
+        needsYou: { count: null, href: "/equipo/contenido", label: t.needsYou },
+        link,
+      });
+    } else {
+      const publishing: CardMetric = { key: "publishing", label: t.content.publishing, value: summary.publishing.enabled ? t.content.on(summary.publishing.channelsOn) : t.content.off };
+      const needs = contentNeeds(summary, viewer);
+      cards.push({
+        key: "content",
+        title: t.cards.content,
+        metrics:
+          summary.pieces === 0
+            ? [noData("review", t.content.review, t.content.none), publishing]
+            : [
+                { key: "review", label: t.content.review, value: num(summary.review.length) },
+                {
+                  key: "scheduled",
+                  label: t.content.scheduled,
+                  value: num(summary.scheduledThisWeek),
+                  hint: summary.approvedNotScheduled > 0 ? t.content.approvedNotScheduled(summary.approvedNotScheduled) : undefined,
+                },
+                { key: "posted", label: t.content.posted, value: num(summary.postedThisWeek) },
+                { key: "failed", label: t.content.failed, value: num(summary.failed.length) },
+                publishing,
+              ],
+        needsYou: { count: needs.count, href: needs.href, label: t.needsYou },
+        link,
+      });
+    }
   }
 
   // Support.
@@ -332,7 +443,8 @@ export function overviewCards(input: OverviewInput): DeptCard[] {
 
 /**
  * The Money card's numbers, from the billing records the member may see:
- * collected this month (Texas month, refunds not taken off), charges whose
+ * charged this month (Texas month, before refunds; Accounting has the net,
+ * by its money rule), charges whose
  * last attempt failed, and what the system has scheduled in the next 30 days
  * (the dashboard's own rule, businessMetrics).
  */

@@ -81,6 +81,12 @@ function writeLocal(next: Local): void {
   }
 }
 
+/** The demo's board as this browser keeps it (pieces, schedules, switches), for the Overview (control/data.ts). Demo only. */
+export function readDemoContentBoard(): Pick<Local, "pieces" | "schedules" | "settings"> {
+  const { pieces, schedules, settings } = readLocal();
+  return { pieces, schedules, settings };
+}
+
 export function resetDemoContent(): void {
   try {
     window.localStorage.removeItem(CONTENT_KEY);

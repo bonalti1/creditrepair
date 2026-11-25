@@ -5,6 +5,10 @@ import { playbookFor } from "../staff/playbook";
 import { EXCEPTION_LABELS } from "../staff/stage";
 import type { StaffLocale } from "../staff/i18n/locale";
 import { fullName } from "../staff/types";
+import { formatCents } from "../accounting/money";
+import { monthLabel } from "../accounting/periods";
+import type { BooksDue } from "./books";
+import { myChanges, type ContentSummary, type ContentViewer } from "./content";
 
 // The Today list (docs/CONTROL.md): ALTO Control's "one list a single
 // assistant works top to bottom", for credit repair. It is the console's own
@@ -14,9 +18,26 @@ import { fullName } from "../staff/types";
 // item carries its short step-by-step procedure (the queue's «How to handle
 // it» card, or a lead procedure below) and two ends besides doing it:
 // «Handled» where the queue has one, and «Escalate to the owner».
+// Content adds the pieces waiting for approval (approvers), the changes asked
+// of an editor and the posts that failed, with the reason; Accounting (the
+// owner) a month not closed after the 5th of the next and the expenses of $75
+// or more without a receipt. Failed charges already come from billing through
+// the work queue (payment notices), so the books add none.
 // Nothing is sent from here.
 
-export type TodayKind = "lead_handoff" | "lead_waiting" | "signup_person" | "lead_new" | "queue" | "partner_note" | "escalation";
+export type TodayKind =
+  | "lead_handoff"
+  | "lead_waiting"
+  | "signup_person"
+  | "lead_new"
+  | "queue"
+  | "partner_note"
+  | "escalation"
+  | "content_review"
+  | "content_changes"
+  | "content_failed"
+  | "books_close"
+  | "books_receipts";
 
 export interface TodayItem {
   key: string;
@@ -38,7 +59,9 @@ export interface TodayItem {
 
 const MIN = 60_000;
 
-const LEAD_STEPS: Record<StaffLocale, Record<"waiting" | "handoff" | "money" | "signup" | "new" | "partner" | "escalation", { steps: string[]; doneWhen: string }>> = {
+type ProcedureKey = "waiting" | "handoff" | "money" | "signup" | "new" | "partner" | "escalation" | "contentReview" | "contentChanges" | "contentFailed" | "booksClose" | "booksReceipts";
+
+const LEAD_STEPS: Record<StaffLocale, Record<ProcedureKey, { steps: string[]; doneWhen: string }>> = {
   en: {
     waiting: {
       steps: [
@@ -97,6 +120,38 @@ const LEAD_STEPS: Record<StaffLocale, Record<"waiting" | "handoff" | "money" | "
     escalation: {
       steps: ["Read what the teammate wrote and open the item.", "Decide, and tell the teammate.", "Tap “Resolved”."],
       doneWhen: "You marked it resolved.",
+    },
+    contentReview: {
+      steps: [
+        "Open the piece and read it in each of its languages.",
+        "Look at the check: nothing may block, and every line of the checklist must be ticked.",
+        "Approve it, or tap “Request changes” and say what to change.",
+      ],
+      doneWhen: "It is approved or sent back with a note.",
+    },
+    contentChanges: {
+      steps: ["Open the piece and read the note from the approver.", "Make the changes, and fix anything the check marks.", "Tick the checklist again and send it for review."],
+      doneWhen: "It is back in review.",
+    },
+    contentFailed: {
+      steps: [
+        "Open the piece and read why the post failed.",
+        "Fix the cause: connect the account again in Publishing, or add the file the channel needs.",
+        "Tap “Back to approved”, then schedule it again or post it by hand and record the link.",
+      ],
+      doneWhen: "It is scheduled again or posted.",
+    },
+    booksClose: {
+      steps: [
+        "Open Accounting, Reports, on that month.",
+        "Go through the checklist: monthly expenses posted, bank statement imported, processor export reconciled, receipts.",
+        "Tap “Close the month”. A mistake found later is fixed with an adjustment.",
+      ],
+      doneWhen: "The month shows as closed.",
+    },
+    booksReceipts: {
+      steps: ["Open Accounting, Expenses, on that month.", "Find the expenses with no receipt (the largest first).", "Attach the photo or the PDF of each receipt (JPG, PNG or PDF, up to 10 MB)."],
+      doneWhen: "Every expense of $75 or more has its receipt.",
     },
   },
   es: {
@@ -158,6 +213,38 @@ const LEAD_STEPS: Record<StaffLocale, Record<"waiting" | "handoff" | "money" | "
       steps: ["Lee lo que escribió la persona del equipo y abre el asunto.", "Decide y avísale.", "Toca «Resuelto»."],
       doneWhen: "Lo marcaste como resuelto.",
     },
+    contentReview: {
+      steps: [
+        "Abre la pieza y léela en cada uno de sus idiomas.",
+        "Mira la revisión: nada puede bloquear y cada punto de la lista tiene que estar marcado.",
+        "Apruébala, o toca «Pedir cambios» y di qué cambiar.",
+      ],
+      doneWhen: "Está aprobada o devuelta con una nota.",
+    },
+    contentChanges: {
+      steps: ["Abre la pieza y lee la nota de quien la revisó.", "Haz los cambios y corrige lo que marque la revisión.", "Marca la lista otra vez y mándala a revisión."],
+      doneWhen: "Está otra vez en revisión.",
+    },
+    contentFailed: {
+      steps: [
+        "Abre la pieza y lee por qué falló la publicación.",
+        "Corrige la causa: conecta otra vez la cuenta en Publicar, o agrega el archivo que pide el canal.",
+        "Toca «Volver a aprobada» y prográmala otra vez, o publícala a mano y registra el enlace.",
+      ],
+      doneWhen: "Está programada otra vez o publicada.",
+    },
+    booksClose: {
+      steps: [
+        "Abre Contabilidad, Informes, en ese mes.",
+        "Revisa la lista: gastos mensuales registrados, estado de cuenta importado, exportación del procesador conciliada, recibos.",
+        "Toca «Cerrar el mes». Un error que aparezca después se corrige con un ajuste.",
+      ],
+      doneWhen: "El mes aparece como cerrado.",
+    },
+    booksReceipts: {
+      steps: ["Abre Contabilidad, Gastos, en ese mes.", "Busca los gastos sin recibo (los más grandes primero).", "Adjunta la foto o el PDF de cada recibo (JPG, PNG o PDF, hasta 10 MB)."],
+      doneWhen: "Cada gasto de $75 o más tiene su recibo.",
+    },
   },
 };
 
@@ -171,6 +258,15 @@ const WORDS = {
     fresh: (name: string) => `${name} arrived and nobody has written yet`,
     partner: (partner: string, client: string) => `${partner} wrote to the team about ${client}`,
     escalation: (by: string) => `Escalated by ${by}`,
+    review: (title: string) => `Approve this piece: ${title}`,
+    reviewDetail: "Ready for review in Content.",
+    changes: (title: string) => `Changes requested: ${title}`,
+    failed: (title: string, channel: string | null) => `A post failed: ${title}${channel ? ` (${channel})` : ""}`,
+    failedWhy: "The reason was not recorded: open the piece's history.",
+    close: (month: string) => `Close the books for ${month}`,
+    closeDetail: "The month is over and the 5th has passed. Closing keeps its figures as they are.",
+    receipts: (n: number) => `${n} ${n === 1 ? "expense" : "expenses"} of $75 or more without a receipt`,
+    receiptsDetail: (vendor: string, amount: string, total: string) => `The largest: ${vendor}, ${amount}. In all ${total}, in the last 90 days.`,
   },
   es: {
     waiting: (name: string, m: number) => `${name} espera respuesta · ${m < 60 ? `${m} min` : `${Math.round(m / 60)} h`}`,
@@ -179,6 +275,15 @@ const WORDS = {
     fresh: (name: string) => `${name} llegó y nadie le ha escrito`,
     partner: (partner: string, client: string) => `${partner} le escribió al equipo sobre ${client}`,
     escalation: (by: string) => `Lo pasó ${by}`,
+    review: (title: string) => `Aprueba esta pieza: ${title}`,
+    reviewDetail: "Lista para revisión en Contenido.",
+    changes: (title: string) => `Pidieron cambios: ${title}`,
+    failed: (title: string, channel: string | null) => `Falló una publicación: ${title}${channel ? ` (${channel})` : ""}`,
+    failedWhy: "No quedó la razón: abre la historia de la pieza.",
+    close: (month: string) => `Cierra los libros de ${month}`,
+    closeDetail: "El mes terminó y ya pasó el día 5. Cerrarlo guarda sus cifras como están.",
+    receipts: (n: number) => `${n} ${n === 1 ? "gasto" : "gastos"} de $75 o más sin recibo`,
+    receiptsDetail: (vendor: string, amount: string, total: string) => `El más grande: ${vendor}, ${amount}. En total ${total}, en los últimos 90 días.`,
   },
 };
 
@@ -189,6 +294,10 @@ export interface TodayInput {
   partnerNotes?: ReadonlyArray<{ id: string; clientId: string; clientName: string; partnerFirstName: string; at: string }>;
   /** Only for an administrator. */
   escalations?: ReadonlyArray<{ id: string; key: string; title: string; note: string | null; by: string; at: string }>;
+  /** The content board (control/content.ts) and who is looking; omit for a member without content.view. */
+  content?: { summary: ContentSummary; viewer: ContentViewer } | null;
+  /** What the books ask of the owner (control/books.ts); omit for a member without `accounting`. */
+  books?: BooksDue | null;
   now: Date;
   locale: StaffLocale;
 }
@@ -252,6 +361,65 @@ export function todayList(input: TodayInput): TodayItem[] {
       minutes: q.minutes,
       queueItem: q,
     });
+  }
+
+  // Content. Ranked below the people waiting (leads, clients' urgent notices):
+  // a failed post first (nothing goes out until someone fixes it), then a
+  // piece waiting for approval (sooner once it has waited two days), then
+  // the changes asked of an editor.
+  const content = input.content;
+  if (content) {
+    const { summary, viewer } = content;
+    const piece = (id: string) => `/equipo/contenido/pieza/${id}`;
+    if (viewer.edit || viewer.approve) {
+      for (const f of summary.failed) {
+        items.push({ key: `content-failed:${f.id}`, kind: "content_failed", priority: 68, title: w.failed(f.title, f.channel), detail: f.note ?? w.failedWhy, since: f.since, href: piece(f.id), ...steps.contentFailed, overdue: false, minutes: 10 });
+      }
+    }
+    if (viewer.approve) {
+      for (const r of summary.review) {
+        const waited = now.getTime() - Date.parse(r.since) >= 2 * 24 * 60 * MIN;
+        items.push({ key: `content-review:${r.id}`, kind: "content_review", priority: waited ? 55 : 45, title: w.review(r.title), detail: w.reviewDetail, since: r.since, href: piece(r.id), ...steps.contentReview, overdue: false, minutes: 10 });
+      }
+    } else if (viewer.edit) {
+      for (const c of myChanges(summary, viewer.handle)) {
+        items.push({ key: `content-changes:${c.id}`, kind: "content_changes", priority: 47, title: w.changes(c.title), detail: c.note ?? "", since: c.since, href: piece(c.id), ...steps.contentChanges, overdue: false, minutes: 15 });
+      }
+    }
+  }
+
+  // The books (the owner): a month left open past the 5th, then the missing receipts.
+  const books = input.books;
+  if (books) {
+    for (const month of books.unclosed) {
+      items.push({
+        key: `books-close:${month}`,
+        kind: "books_close",
+        priority: 58,
+        title: w.close(monthLabel(month, locale)),
+        detail: w.closeDetail,
+        since: `${month}-01T12:00:00.000Z`,
+        href: `/equipo/contabilidad?tab=reports&mes=${month}`,
+        ...steps.booksClose,
+        overdue: true,
+        minutes: 20,
+      });
+    }
+    const r = books.receipts;
+    if (r.count > 0 && r.month) {
+      items.push({
+        key: `books-receipts:${r.month}:${r.count}`,
+        kind: "books_receipts",
+        priority: 42,
+        title: w.receipts(r.count),
+        detail: r.largest ? w.receiptsDetail(r.largest.vendor, formatCents(r.largest.cents), formatCents(r.cents)) : "",
+        since: `${r.largest?.spentOn ?? `${r.month}-01`}T12:00:00.000Z`,
+        href: `/equipo/contabilidad?tab=expenses&mes=${r.month}`,
+        ...steps.booksReceipts,
+        overdue: false,
+        minutes: Math.min(30, 2 * r.count),
+      });
+    }
   }
 
   return items.sort((a, b) => b.priority - a.priority || a.since.localeCompare(b.since));

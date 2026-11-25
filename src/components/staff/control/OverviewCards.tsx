@@ -15,6 +15,7 @@ const ICON: Record<DeptCard["key"], IconName> = {
   leads: "inbox",
   clients: "person",
   money: "calc",
+  content: "grid",
   support: "chat",
   partners: "link",
   health: "info",
@@ -49,7 +50,7 @@ function Card({ card }: { card: DeptCard }) {
         {card.metrics.map((m) => (
           <div key={m.key} className="flex items-baseline justify-between gap-4 py-2">
             <dt className="min-w-0 text-[14px] leading-snug text-slate-600">{m.label}</dt>
-            <dd className="shrink-0 text-right">
+            <dd className="max-w-[60%] shrink-0 text-right">
               {m.value === null ? (
                 <span className="block text-[13px] font-semibold text-slate-500" data-testid="no-data">
                   {noData}
@@ -68,6 +69,12 @@ function Card({ card }: { card: DeptCard }) {
           {m.why}
         </p>
       ))}
+      {card.link && (
+        <Link href={card.link.href} className="mt-auto inline-flex min-h-11 items-center gap-1 self-start pt-2 text-[13.5px] font-semibold text-blue-700 underline-offset-2 hover:underline md:min-h-9" data-testid={`open-${card.key}`}>
+          {card.link.label}
+          <Icon name="chevron" size={14} />
+        </Link>
+      )}
       {card.key === "health" && (
         <p className="mt-2 text-[12px] leading-relaxed text-slate-500">
           {t(
