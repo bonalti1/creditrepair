@@ -69,6 +69,7 @@ import ReportImport from "@/components/staff/ReportImport";
 import ReportsTab from "@/components/staff/ReportsTab";
 import HouseholdMemberCard from "@/components/staff/HouseholdMember";
 import AftercareCard, { ItinBadge } from "@/components/staff/AftercareCard";
+import PartnerThreadCard from "@/components/staff/PartnerThreadCard";
 import { RELATIONSHIP_LABEL } from "@/lib/household/household";
 import { reportHistoryOf } from "@/lib/reports/history";
 import { reappearedItems } from "@/lib/reports/reimport";
@@ -909,6 +910,8 @@ export default function ClientePage() {
           <LeadSourceCard source={client.leadSource} />
 
           <AftercareCard client={client} now={now} />
+
+          <PartnerThreadCard client={client} viewer={viewer} canWrite={can("clients.followup")} />
 
           <AssignmentCard client={client} viewer={viewer} members={members} team={team} canAssign={can("clients.assign")} onChanged={reload} />
 

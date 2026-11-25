@@ -5,7 +5,7 @@ import { parseIdType, type IdType } from "./itin";
 import { introRoute, type IntroHow, type IntroPartner } from "./connect";
 import type { Graduation, GraduationReason } from "./graduation";
 import { partnerHomeFromRows, type PartnerHomeRow } from "./homeReady";
-import type { PartnerKind } from "../partners/rules";
+import { partnerKindOf, type PartnerKind } from "../partners/rules";
 
 // After-care on the database (migration 0030).
 //
@@ -20,8 +20,7 @@ import type { PartnerKind } from "../partners/rules";
 type Row = Record<string, unknown>;
 
 const iso = (v: unknown): string | null => (typeof v === "string" || v instanceof Date) && !Number.isNaN(new Date(v as string).getTime()) ? new Date(v as string).toISOString() : null;
-const KINDS: readonly PartnerKind[] = ["realtor", "loan_officer", "tax_preparer", "other"];
-const kindOf = (v: unknown): PartnerKind => (KINDS.find((k) => k === v) ?? "other");
+const kindOf = (v: unknown): PartnerKind => partnerKindOf(v);
 
 export interface IntroRequest {
   id: string;

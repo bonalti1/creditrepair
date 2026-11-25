@@ -72,6 +72,7 @@ const PAGE_TERMS: Record<string, string> = {
   letters: "cartas letters templates plantillas library biblioteca",
   plans: "planes plans billing cobros tarjetas cards household hogar",
   invoices: "facturas invoices cobros payments pagos chargebacks",
+  accounting: "contabilidad accounting books libros gastos expenses profit ganancia reconciliation conciliacion taxes impuestos 1099 quickbooks",
   profile: "perfil profile language idioma resumen summary",
   welcome: "bienvenida welcome tour guia",
 };

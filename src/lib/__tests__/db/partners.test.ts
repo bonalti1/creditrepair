@@ -5,6 +5,7 @@ import { deliverOutbox, queueStageEvents } from "../../highlevel/server";
 import type { StagePayload } from "../../highlevel/stages";
 import { creditPartner } from "../../partners/attribution";
 import { convertProspect } from "../../staff/server";
+import { PARTNER_REFERRAL_COLUMNS } from "../../partners/portal";
 import { startHarness, type Harness } from "./pg";
 import { addClient, addDocuments, addStaff, ago, sampleReport, signAgreement, uid } from "./seed";
 
@@ -138,14 +139,15 @@ const count = async (who: SupabaseClient, table: string): Promise<number> => {
 };
 
 describe("a partner sees only their own referrals, and nothing of anyone's case", () => {
-  it("partner_referrals(): first name, last initial, date and a coarse status, for their own referrals only", async () => {
+  it("partner_referrals(): first name, last initial, date, the coarse step, who looks after them; their own referrals only", async () => {
     const { data, error } = await h.as(laura).rpc("partner_referrals");
     expect(error).toBeNull();
     const rows = data as Array<Record<string, unknown>>;
     expect(rows.map((r) => r.first_name).sort()).toEqual(["Felipe", "Rosa"]);
-    expect(Object.keys(rows[0]!).sort()).toEqual(["first_name", "last_initial", "referral_id", "referred_at", "status"]);
-    expect(rows.find((r) => r.first_name === "Rosa")).toMatchObject({ last_initial: "M", status: "active" });
-    expect(rows.find((r) => r.first_name === "Felipe")).toMatchObject({ status: "contacted" });
+    expect(Object.keys(rows[0]!).sort()).toEqual([...PARTNER_REFERRAL_COLUMNS].sort());
+    expect(rows.find((r) => r.first_name === "Rosa")).toMatchObject({ last_initial: "M", status: "active", has_account: true, shared_client_id: null });
+    // Felipe: a lead sales has not reached yet (no invitation sent, no account). His salesperson looks after him.
+    expect(rows.find((r) => r.first_name === "Felipe")).toMatchObject({ status: "referred", contacted_at: null, has_account: false, care_first_name: "Ana", care_role: "sales" });
     const jorgeRows = (await h.as(jorge).rpc("partner_referrals")).data as Array<Record<string, unknown>>;
     expect(jorgeRows.map((r) => r.first_name)).toEqual(["Luis"]);
     // A client, a member of staff or a stranger gets nothing.
@@ -371,7 +373,8 @@ describe("partner routes", () => {
     expect(ok.status).toBe(200);
     const rows = await h.sql<Record<string, unknown>>(`select * from public.prospects where phone_e164 = '+17135550195'`);
     expect(rows[0]).toMatchObject({ source: "partner", partner_id: P1, salesperson: "ana", first_name: "Mario" });
-    expect(String(rows[0]!.consent_text)).toMatch(/aceptó que el equipo/);
+    // In the partner's language (English unless they chose Spanish: migration 0024).
+    expect(String(rows[0]!.consent_text)).toMatch(/agreed to be contacted by the Credalti team/);
     // Someone already in touch: the same answer, and no credit to the partner.
     as(h.as(jorge, { phone: "+19565550162" }));
     const already = await route.POST(request("/api/partners/referrals", { body: { firstName: "Mario", lastName: "Vega", phone: "713-555-0195", consent: true } }));

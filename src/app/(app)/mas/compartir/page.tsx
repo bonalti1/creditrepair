@@ -8,6 +8,7 @@ import { caseDay } from "@/lib/case/timeline";
 import { useClientSharing, type ClientPartner } from "@/lib/partners/clientSharing";
 import { partnerDisplay, progressFromCaseFacts, SHARE_LEVEL_LABEL, type ShareLevel, type SharingLevel } from "@/lib/partners/sharing";
 import { CLIENT_SHARING_COPY } from "@/lib/partners/sharingCopy";
+import { openShareRequest, SHARE_REQUEST_CARD } from "@/lib/partners/portal";
 import Icon from "@/components/Icon";
 import ShareChoice, { PartnerBadge, type SaveResult } from "@/components/partners/ShareChoice";
 
@@ -15,7 +16,9 @@ import ShareChoice, { PartnerBadge, type SaveResult } from "@/components/partner
 // (and any they added by code), what each one can see, a preview of exactly
 // that, who looked and when, and every choice the client made. Changing or
 // stopping takes effect at once (the database reads the newest record on
-// every request a partner makes).
+// every request a partner makes). When a partner asked to follow the client's
+// progress (migration 0033), their section says so and opens; the choice is
+// the same, off by default.
 
 export default function CompartirPage() {
   const { locale } = useLocale();
@@ -34,11 +37,19 @@ export default function CompartirPage() {
   useEffect(() => {
     if (!state || autoOpened) return;
     setAutoOpened(true);
-    if (state.partners.length === 1) setOpen(state.partners[0]!.id);
+    const asked = (state.requests ?? []).find((r) => !r.dismissedAt);
+    if (asked && state.partners.some((p) => p.id === asked.partnerId && p.level === "none")) setOpen(asked.partnerId);
+    else if (state.partners.length === 1) setOpen(state.partners[0]!.id);
   }, [state, autoOpened]);
 
   if (failed) return <p className="card p-5 text-[15px] text-slate-600">{c.error}</p>;
   if (!state || !now) return null;
+  const request = openShareRequest(
+    state.requests ?? [],
+    state.history.map((h) => ({ partnerId: h.partnerId, at: h.at })),
+    state.partners.map((p) => ({ partnerId: p.id, level: p.level })),
+    now,
+  );
 
   const nameOf = (id: string) => state.partners.find((p) => p.id === id)?.name ?? "";
   const preview = (level: SharingLevel) =>
@@ -78,6 +89,12 @@ export default function CompartirPage() {
 
       {state.partners.map((p) => (
         <section key={p.id} className="space-y-3" data-testid="sharing-partner">
+          {request?.partnerId === p.id && (
+            <p className="flex gap-2.5 rounded-2xl bg-amber-50 px-4 py-3 text-[14.5px] leading-snug text-blue-900" data-testid="share-request-note">
+              <Icon name="info" size={18} className="mt-0.5 shrink-0 text-amber-700" />
+              <span>{SHARE_REQUEST_CARD[locale].asked(p.name, caseDay(request.at, locale))}</span>
+            </p>
+          )}
           <div className="card p-4">
             <PartnerBadge partner={p} line={p.referred ? (locale === "es" ? "Te recomendó" : "Referred you") : c.addedByYou} />
             <div className="mt-3 flex items-center justify-between gap-3 border-t hairline pt-3">

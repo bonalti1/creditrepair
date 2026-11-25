@@ -3,8 +3,8 @@ import { toRefSlug } from "../sales/invite";
 import { cleanPersonName, normalizeEmail, normalizePhone } from "../staff/team";
 import type { StaffClient } from "../staff/types";
 
-// Referral partners: realtors, loan officers and tax preparers who send people
-// to Credalti. Pure rules here; the database is migration 0017 and the
+// Referral partners: realtors, loan officers, tax preparers, car dealers,
+// attorneys and anyone else who sends people to Credalti. Pure rules here; the database is migration 0017 and the
 // compliance text is copy.ts and docs/PARTNERS.md.
 //
 // A partner refers. They never see a referral's credit file, letters, score or
@@ -12,13 +12,19 @@ import type { StaffClient } from "../staff/types";
 // Commission terms are stored, and what is owed or paid is recorded by an
 // administrator by hand. The app never pays anyone.
 
-export const PARTNER_KINDS = ["realtor", "loan_officer", "tax_preparer", "other"] as const;
+/** What a partner does. The same list as the partners.kind check (migration 0033). */
+export const PARTNER_KINDS = ["realtor", "loan_officer", "tax_preparer", "car_dealer", "attorney", "other"] as const;
 export type PartnerKind = (typeof PARTNER_KINDS)[number];
 
 export const PARTNER_KIND_LABEL: Record<"es" | "en", Record<PartnerKind, string>> = {
-  es: { realtor: "Agente de bienes raíces", loan_officer: "Oficial de préstamos", tax_preparer: "Preparador de impuestos", other: "Otro" },
-  en: { realtor: "Real estate agent", loan_officer: "Loan officer", tax_preparer: "Tax preparer", other: "Other" },
+  en: { realtor: "Real estate agent", loan_officer: "Loan officer", tax_preparer: "Tax preparer", car_dealer: "Car dealer", attorney: "Attorney", other: "Other" },
+  es: { realtor: "Agente de bienes raíces", loan_officer: "Oficial de préstamos", tax_preparer: "Preparador de impuestos", car_dealer: "Concesionario de autos", attorney: "Abogado", other: "Otro" },
 };
+
+/** A kind from the database or a request; anything unknown is "other". */
+export function partnerKindOf(value: unknown): PartnerKind {
+  return (PARTNER_KINDS as readonly string[]).includes(String(value)) ? (value as PartnerKind) : "other";
+}
 
 export const PARTNER_STATUSES = ["pending", "approved", "declined", "suspended"] as const;
 export type PartnerStatus = (typeof PARTNER_STATUSES)[number];
@@ -81,6 +87,8 @@ export interface Partner {
   /** Co-branding logo (migration 0023): its review status, and the image for an administrator to look at. */
   logoStatus?: "none" | "pending" | "approved" | "rejected";
   logo?: string | null;
+  /** The language of their portal and their notices (partners.locale): English unless they chose Spanish. */
+  locale?: "es" | "en";
 }
 
 export interface CommissionRecord {
@@ -211,24 +219,58 @@ export function commissionTotals(records: CommissionRecord[], partnerId?: string
 
 // ── What a partner sees about a referral ────────────────────────────────
 
-export const REFERRAL_STATUSES = ["contacted", "signed", "active", "not_continued"] as const;
+/**
+ * The partner's pipeline: Referred → Contacted → Signed → Active → Finished
+ * (after-care), and "did not continue" beside it. The same rules as the
+ * database function partner_referrals() (migration 0033): change both together.
+ */
+export const REFERRAL_STATUSES = ["referred", "contacted", "signed", "active", "finished", "not_continued"] as const;
 export type ReferralStatus = (typeof REFERRAL_STATUSES)[number];
+/** The five stages of the pipeline, in order ("not_continued" is beside it). */
+export const PIPELINE_STAGES = ["referred", "contacted", "signed", "active", "finished"] as const satisfies readonly ReferralStatus[];
 
 export const REFERRAL_STATUS_LABEL: Record<"es" | "en", Record<ReferralStatus, string>> = {
-  es: { contacted: "Contactado", signed: "Firmó", active: "Activo", not_continued: "No siguió" },
-  en: { contacted: "Contacted", signed: "Signed", active: "Active", not_continued: "Did not continue" },
+  en: { referred: "Referred", contacted: "Contacted", signed: "Signed", active: "Active", finished: "Finished", not_continued: "Did not continue" },
+  es: { referred: "Referido", contacted: "Contactado", signed: "Firmó", active: "Activo", finished: "Terminó", not_continued: "No siguió" },
 };
 
 /**
- * The coarse status, from the console's record. The same rules as the
- * database function partner_referrals() (migration 0017): change both together.
+ * The coarse status, from the console's record:
+ *   referred       a lead the team has not reached yet (no invitation sent, no account);
+ *   contacted      sales sent the invitation, or they have an account without a signed agreement;
+ *   signed         signed the service agreement; no round mailed yet;
+ *   active         at least one round mailed and the service goes on;
+ *   finished       finished the program (graduation: after-care goes on);
+ *   not_continued  cancelled, asked to end the service, or sales closed them.
  */
-export function referralStatus(client: Pick<StaffClient, "agreementSignedAt" | "agreementCancelledAt" | "serviceEndRequestedAt" | "rounds"> & { lostAt?: string | null }): ReferralStatus {
+export function referralStatus(
+  client: Pick<StaffClient, "agreementSignedAt" | "agreementCancelledAt" | "serviceEndRequestedAt" | "rounds"> & {
+    lostAt?: string | null;
+    signedUpAt?: string | null;
+    invitedAt?: string | null;
+    finishedAt?: string | null;
+  },
+): ReferralStatus {
   if (client.lostAt) return "not_continued";
+  if (client.finishedAt) return "finished";
   if (client.agreementCancelledAt || client.serviceEndRequestedAt) return "not_continued";
   if (client.agreementSignedAt && client.rounds.some((r) => Boolean(r.mailedAt))) return "active";
   if (client.agreementSignedAt) return "signed";
+  if (client.signedUpAt === null && !client.invitedAt) return "referred";
   return "contacted";
+}
+
+/** How many of a partner's people are at each stage. */
+export function pipelineCounts(referrals: ReadonlyArray<{ status: ReferralStatus }>): Record<ReferralStatus, number> {
+  const out = Object.fromEntries(REFERRAL_STATUSES.map((s) => [s, 0])) as Record<ReferralStatus, number>;
+  for (const r of referrals) out[r.status] += 1;
+  return out;
+}
+
+/** Who on the team is taking care of a person: first name and role only. */
+export interface CareTeamMember {
+  firstName: string;
+  role: "admin" | "specialist" | "sales";
 }
 
 /** What the portal lists for one referral. Nothing else leaves the server. */
@@ -238,6 +280,16 @@ export interface PartnerReferral {
   lastInitial: string;
   referredAt: string;
   status: ReferralStatus;
+  /** When sales first reached out (the invitation went out: prospects.invited_at). */
+  contactedAt?: string | null;
+  /** The teammate who looks after them now. */
+  care?: CareTeamMember | null;
+  /** They have an account, so they can be asked to share their progress. */
+  hasAccount?: boolean;
+  /** The client id, only while this person shares their progress with the partner. */
+  sharedClientId?: string | null;
+  /** When the partner last asked them to share (partner_share_requests). */
+  shareRequestedAt?: string | null;
 }
 
 /** A client as their partner may see them: first name, last initial, date, coarse status. */
@@ -247,6 +299,6 @@ export function referralView(client: StaffClient): PartnerReferral {
     firstName: client.firstName,
     lastInitial: client.lastName.slice(0, 1),
     referredAt: client.createdAt,
-    status: referralStatus(client),
+    status: referralStatus({ ...client, invitedAt: client.leadSource?.invitedAt ?? null, finishedAt: client.graduation?.completedAt ?? null }),
   };
 }

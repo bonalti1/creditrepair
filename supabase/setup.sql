@@ -6673,3 +6673,2043 @@ revoke all on function public.call_messages_guard() from public;
 create trigger call_messages_guard
   before update or delete on public.call_messages
   for each row execute function public.call_messages_guard();
+
+-- ===== 0033_partner_portal.sql =====
+-- The partner portal, so a referral partner can see their clients are in good
+-- hands (docs/PARTNERS.md, "The partner portal"):
+--
+--   partners.kind              + car dealers and attorneys (and "other"), so the
+--                              program is not realtor-only.
+--   partner_referrals()        rebuilt: the pipeline (referred → contacted →
+--                              signed → active → finished, and "did not
+--                              continue"), when sales first reached out (the
+--                              invitation, prospects.invited_at), who on the
+--                              team looks after the person (first name and
+--                              role only), whether the person has an account
+--                              (so they can be asked to share), the client id
+--                              only while they share, and when the partner
+--                              last asked them to share. Still nothing from
+--                              the case.
+--   partner_share_requests     "Ask to follow progress": a partner asks a person
+--                              they referred to share their progress. The
+--                              client gets a card in their app and one message
+--                              (WhatsApp or email, never SMS); they decide on
+--                              their own sharing screen, with the consent of
+--                              migration 0023. At most one request per client
+--                              every 14 days; never to a client who already
+--                              shares; only from the partner who referred them.
+--                              The partner sees only the date they asked.
+--   partner_team_notes         Notes between a partner and the team about one
+--                              client, both ways, only while the client shares
+--                              with that partner. Staff read them under the
+--                              client's scope; the partner reads them only
+--                              through partner_team_thread(); the client never
+--                              does (staff may choose to write to the client
+--                              themselves, in the client's conversation).
+--   partner_client_care()      who on the team looks after a client who shares.
+--   partners.digest_channel    the weekly summary, opt-in (WhatsApp or email,
+--   partner_digests            never SMS), once per partner and week.
+--
+-- As in 0017 and 0023: a partner has NO read policy on any table here; they
+-- read only through security-definer functions that return the columns listed,
+-- only while approved (partner_id() is null otherwise). Who writes: only the
+-- server, with the service role, after checking the request; the triggers
+-- below hold the rules whatever the server sends.
+
+-- ── More kinds of partner ───────────────────────────────────────────────
+
+alter table public.partners drop constraint partners_kind_check;
+alter table public.partners add constraint partners_kind_check
+  check (kind in ('realtor', 'loan_officer', 'tax_preparer', 'car_dealer', 'attorney', 'other'));
+
+-- ── The current sharing level of a pair (internal) ──────────────────────
+
+-- The newest consent record of a client for a partner, or 'none'. Not granted
+-- to anyone: the functions below call it as their owner.
+create function public.partner_share_level(p_user uuid, p_partner uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce((
+    select c.level from public.partner_share_consents c
+    where c.user_id = p_user and c.partner_id = p_partner
+    order by c.seq desc limit 1
+  ), 'none');
+$$;
+
+revoke all on function public.partner_share_level(uuid, uuid) from public, anon, authenticated;
+
+-- ── "Ask to follow progress" ────────────────────────────────────────────
+
+create table public.partner_share_requests (
+  id uuid primary key default gen_random_uuid(),
+  partner_id uuid not null references public.partners (id) on delete restrict,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  -- The partner's sign-in that asked.
+  requested_by uuid references auth.users (id) on delete set null,
+  -- "María López, ABC Realty", as the client reads it.
+  partner_name_shown text not null check (char_length(partner_name_shown) between 2 and 210),
+  created_at timestamptz not null default now(),
+  -- The client tapped "Not now" on the card.
+  dismissed_at timestamptz,
+  -- The one message to the client: WhatsApp or email, never SMS.
+  message_status text not null default 'queued' check (message_status in ('queued', 'sending', 'sent', 'failed', 'skipped')),
+  message_channel text check (message_channel is null or message_channel in ('whatsapp', 'email')),
+  message_note text check (message_note is null or char_length(message_note) <= 200),
+  message_sent_at timestamptz,
+  constraint partner_share_requests_channel_when_sent check (message_status in ('queued', 'skipped') or message_channel is not null)
+);
+
+create index partner_share_requests_user_idx on public.partner_share_requests (user_id, created_at desc);
+create index partner_share_requests_queued_idx on public.partner_share_requests (created_at) where message_status = 'queued';
+
+alter table public.partner_share_requests enable row level security;
+
+create function public.partner_share_requests_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    -- Only together with the client's account.
+    if exists (select 1 from auth.users u where u.id = old.user_id) then
+      raise exception 'partner_share_requests: a request is never deleted';
+    end if;
+    return old;
+  end if;
+  if tg_op = 'INSERT' then
+    new.created_at := now();
+    if new.dismissed_at is not null or new.message_status <> 'queued' or new.message_channel is not null or new.message_sent_at is not null then
+      raise exception 'partner_share_requests: a request starts queued and not dismissed';
+    end if;
+    if not exists (select 1 from public.partners p where p.id = new.partner_id and p.status = 'approved') then
+      raise exception 'partner_share_requests: only an approved partner can ask';
+    end if;
+    if not exists (select 1 from public.profiles pr where pr.id = new.user_id and pr.referred_partner_id = new.partner_id) then
+      raise exception 'partner_share_requests: only the partner who referred this client can ask';
+    end if;
+    if public.partner_share_level(new.user_id, new.partner_id) <> 'none' then
+      raise exception 'partner_share_requests: this client already shares with this partner';
+    end if;
+    if exists (
+      select 1 from public.partner_share_requests q
+      where q.user_id = new.user_id and q.created_at > now() - interval '14 days'
+    ) then
+      raise exception 'partner_share_requests: at most one request every 14 days';
+    end if;
+    return new;
+  end if;
+  -- UPDATE: the client's "Not now", once; and the message's delivery, forward only.
+  if new.id is distinct from old.id or new.partner_id is distinct from old.partner_id or new.user_id is distinct from old.user_id
+    or new.requested_by is distinct from old.requested_by or new.partner_name_shown is distinct from old.partner_name_shown
+    or new.created_at is distinct from old.created_at then
+    raise exception 'partner_share_requests: a request cannot be changed';
+  end if;
+  if old.dismissed_at is not null and new.dismissed_at is distinct from old.dismissed_at then
+    raise exception 'partner_share_requests: a dismissal cannot be changed';
+  end if;
+  if new.message_status is distinct from old.message_status then
+    if not (
+      (old.message_status = 'queued' and new.message_status in ('sending', 'skipped'))
+      or (old.message_status = 'sending' and new.message_status in ('sent', 'failed'))
+    ) then
+      raise exception 'partner_share_requests: the message can only move forward, once';
+    end if;
+  elsif old.message_status in ('sent', 'failed', 'skipped') and (
+    new.message_channel is distinct from old.message_channel or new.message_note is distinct from old.message_note
+    or new.message_sent_at is distinct from old.message_sent_at
+  ) then
+    raise exception 'partner_share_requests: a delivered message cannot be changed';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.partner_share_requests_guard() from public;
+
+create trigger partner_share_requests_guard
+  before insert or update or delete on public.partner_share_requests
+  for each row execute function public.partner_share_requests_guard();
+
+-- The client sees their own requests (the card on their home and the note on
+-- their sharing screen). Staff, under the client's scope. Never a partner.
+create policy "own share requests read" on public.partner_share_requests
+  for select using (auth.uid() = user_id);
+
+create policy "staff read share requests" on public.partner_share_requests
+  for select using (public.staff_can_see_client(user_id));
+
+-- ── Notes between a partner and the team ────────────────────────────────
+
+create table public.partner_team_notes (
+  id uuid primary key default gen_random_uuid(),
+  partner_id uuid not null references public.partners (id) on delete restrict,
+  -- The client the note is about.
+  user_id uuid not null references auth.users (id) on delete cascade,
+  author_kind text not null check (author_kind in ('partner', 'staff')),
+  author uuid references auth.users (id) on delete set null,
+  -- First name only, as the other side reads it ("Ana").
+  author_first_name text not null check (char_length(btrim(author_first_name)) between 1 and 40),
+  -- A teammate's role ("Credit specialist"); null for the partner.
+  author_role text check (author_role is null or author_role in ('admin', 'specialist', 'sales')),
+  body text not null check (char_length(btrim(body)) between 2 and 1500),
+  created_at timestamptz not null default now(),
+  constraint partner_team_notes_role check ((author_kind = 'staff') = (author_role is not null))
+);
+
+create index partner_team_notes_thread_idx on public.partner_team_notes (user_id, partner_id, created_at);
+
+alter table public.partner_team_notes enable row level security;
+
+create function public.partner_team_notes_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'UPDATE' then
+    raise exception 'partner_team_notes: a note cannot be changed';
+  end if;
+  if tg_op = 'DELETE' then
+    if exists (select 1 from auth.users u where u.id = old.user_id) then
+      raise exception 'partner_team_notes: a note cannot be deleted';
+    end if;
+    return old;
+  end if;
+  new.created_at := now();
+  if not exists (select 1 from public.partners p where p.id = new.partner_id and p.status = 'approved') then
+    raise exception 'partner_team_notes: the partner is not approved';
+  end if;
+  -- Only while the client shares with this partner.
+  if public.partner_share_level(new.user_id, new.partner_id) = 'none' then
+    raise exception 'partner_team_notes: this client does not share with this partner';
+  end if;
+  if new.author_kind = 'partner' and not exists (
+    select 1 from public.partner_members m where m.user_id = new.author and m.partner_id = new.partner_id
+  ) then
+    raise exception 'partner_team_notes: the author is not this partner';
+  end if;
+  if new.author_kind = 'staff' and not exists (
+    select 1 from public.staff_members s where s.user_id = new.author and s.active and s.role = new.author_role
+  ) then
+    raise exception 'partner_team_notes: the author is not an active member of staff in that role';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.partner_team_notes_guard() from public;
+
+create trigger partner_team_notes_guard
+  before insert or update or delete on public.partner_team_notes
+  for each row execute function public.partner_team_notes_guard();
+
+create policy "staff read partner team notes" on public.partner_team_notes
+  for select using (public.staff_can_see_client(user_id));
+
+-- The thread of one client, for the signed-in partner: only while the client
+-- shares with them, only approved with the current terms. The notes' words,
+-- the authors' first names and roles, and the dates; nothing else.
+create function public.partner_team_thread(p_client uuid)
+returns table (note_id uuid, author_kind text, author_first_name text, author_role text, body text, created_at timestamptz)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select n.id, n.author_kind, n.author_first_name, n.author_role, n.body, n.created_at
+  from public.partner_team_notes n
+  where public.partner_id() is not null and p_client is not null and public.partner_terms_ok()
+    and n.partner_id = public.partner_id() and n.user_id = p_client
+    and public.partner_share_level(p_client, public.partner_id()) <> 'none'
+  order by n.created_at, n.id;
+$$;
+
+-- Who on the team looks after a client who shares with the signed-in partner:
+-- the assigned teammate, else the one their lead was given to, else their
+-- salesperson (the same order as partner_referrals()); first name and role
+-- only. Nothing for anyone else.
+create function public.partner_client_care(p_client uuid)
+returns table (care_first_name text, care_role text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select split_part(btrim(s.display_name), ' ', 1), s.role
+  from public.staff_members s
+  where public.partner_id() is not null and p_client is not null and public.partner_terms_ok()
+    and public.partner_share_level(p_client, public.partner_id()) <> 'none'
+    and s.active and s.user_id = coalesce(
+      (select a.staff_user_id from public.client_assignments a where a.user_id = p_client),
+      (select p.assigned_to from public.prospects p where p.converted_user_id = p_client order by p.created_at desc limit 1),
+      (select s2.user_id from public.staff_members s2 where s2.active and s2.handle = coalesce(
+        (select p.salesperson from public.prospects p where p.converted_user_id = p_client order by p.created_at desc limit 1),
+        (select pr.referred_by from public.profiles pr where pr.id = p_client)
+      ) limit 1)
+    )
+  limit 1;
+$$;
+
+revoke all on function public.partner_team_thread(uuid) from public, anon;
+revoke all on function public.partner_client_care(uuid) from public, anon;
+grant execute on function public.partner_team_thread(uuid) to authenticated;
+grant execute on function public.partner_client_care(uuid) to authenticated;
+
+-- ── The partner's referrals, as a pipeline ──────────────────────────────
+
+drop function public.partner_referrals();
+
+-- The signed-in partner's referrals:
+--   referred       a lead the team has not reached yet (no invitation sent, no account);
+--   contacted      sales sent the invitation, or they have an account without a signed agreement;
+--   signed         signed the service agreement; no round mailed yet;
+--   active         at least one round mailed and the service goes on;
+--   finished       finished the program (graduation: after-care goes on);
+--   not_continued  cancelled, asked to end the service, or sales closed them.
+-- First name and last initial only; when sales reached out; who looks after
+-- them (first name and role). The client id only while they share. Nothing
+-- from the credit file, the letters, the agreement's terms or the payments.
+-- The same rules as referralStatus() in src/lib/partners/rules.ts.
+create function public.partner_referrals()
+returns table (
+  referral_id uuid,
+  first_name text,
+  last_initial text,
+  referred_at timestamptz,
+  status text,
+  contacted_at timestamptz,
+  care_first_name text,
+  care_role text,
+  has_account boolean,
+  shared_client_id uuid,
+  share_requested_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with me as (select public.partner_id() as pid),
+  people as (
+    -- Referred as a prospect (the partner's form, or a HighLevel lead carrying their code).
+    select p.id as referral_id, p.first_name, left(p.last_name, 1) as last_initial, p.created_at as referred_at,
+           p.converted_user_id as user_id, p.lost_at, p.invited_at, p.assigned_to, p.salesperson
+    from public.prospects p, me
+    where me.pid is not null and p.partner_id = me.pid
+    union all
+    -- Came by the partner's link and signed up by themselves (no prospect row of this partner).
+    select pr.id, split_part(btrim(pr.full_name), ' ', 1), left(split_part(btrim(pr.full_name), ' ', 2), 1), pr.created_at,
+           pr.id, null::timestamptz, null::timestamptz, null::uuid, pr.referred_by
+    from public.profiles pr, me
+    where me.pid is not null and pr.referred_partner_id = me.pid
+      and not exists (select 1 from public.prospects p2 where p2.converted_user_id = pr.id and p2.partner_id = me.pid)
+  )
+  select x.referral_id, x.first_name, x.last_initial, x.referred_at,
+    case
+      when x.lost_at is not null then 'not_continued'
+      when x.user_id is not null and exists (select 1 from public.program_completions pc where pc.user_id = x.user_id) then 'finished'
+      when a.cancelled_at is not null or a.service_end_requested_at is not null then 'not_continued'
+      when a.signed_at is not null and exists (
+        select 1 from public.attack_rounds r where r.user_id = x.user_id and r.mailed_at is not null
+      ) then 'active'
+      when a.signed_at is not null then 'signed'
+      when x.user_id is null and x.invited_at is null then 'referred'
+      else 'contacted'
+    end as status,
+    x.invited_at,
+    split_part(btrim(care.display_name), ' ', 1),
+    care.role,
+    x.user_id is not null,
+    case
+      when x.user_id is not null and public.partner_terms_ok()
+        and public.partner_share_level(x.user_id, (select pid from me)) <> 'none' then x.user_id
+      else null
+    end,
+    (select max(q.created_at) from public.partner_share_requests q
+      where x.user_id is not null and q.user_id = x.user_id and q.partner_id = (select pid from me))
+  from people x
+  left join lateral (
+    select s.signed_at, s.cancelled_at, s.service_end_requested_at
+    from public.service_agreements s
+    where x.user_id is not null and s.user_id = x.user_id
+    order by s.created_at desc
+    limit 1
+  ) a on true
+  left join lateral (
+    -- The teammate who looks after them: the assigned specialist once they are a
+    -- client, else the one the lead was given to, else their salesperson.
+    select st.display_name, st.role
+    from public.staff_members st
+    where st.active and st.user_id = coalesce(
+      (select ca.staff_user_id from public.client_assignments ca where x.user_id is not null and ca.user_id = x.user_id),
+      x.assigned_to,
+      (select s2.user_id from public.staff_members s2 where s2.handle = x.salesperson and s2.active limit 1)
+    )
+    limit 1
+  ) care on true
+  order by x.referred_at desc;
+$$;
+
+revoke all on function public.partner_referrals() from public, anon;
+grant execute on function public.partner_referrals() to authenticated;
+
+-- ── The weekly summary ──────────────────────────────────────────────────
+
+alter table public.partners
+  -- Off (null) unless the partner chose a channel. Never SMS.
+  add column digest_channel text check (digest_channel is null or digest_channel in ('whatsapp', 'email'));
+
+create table public.partner_digests (
+  id uuid primary key default gen_random_uuid(),
+  partner_id uuid not null references public.partners (id) on delete restrict,
+  -- The partner's local ISO week: "2026-W48". Once per partner and week.
+  week_key text not null check (week_key ~ '^[0-9]{4}-W[0-9]{2}$'),
+  channel text not null check (channel in ('email', 'whatsapp')),
+  -- How many milestones it carried (the words are only what the partner may see anyway).
+  items integer not null check (items between 1 and 200),
+  status text not null default 'sending' check (status in ('sending', 'sent', 'failed')),
+  created_at timestamptz not null default now(),
+  sent_at timestamptz,
+  note text check (note is null or char_length(note) <= 200),
+  unique (partner_id, week_key)
+);
+
+alter table public.partner_digests enable row level security;
+
+create function public.partner_digests_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'partner_digests: a summary is never deleted';
+  end if;
+  if new.id is distinct from old.id or new.partner_id is distinct from old.partner_id or new.week_key is distinct from old.week_key
+    or new.channel is distinct from old.channel or new.items is distinct from old.items or new.created_at is distinct from old.created_at
+    or old.status <> 'sending' then
+    raise exception 'partner_digests: only the delivery of a summary being sent can be recorded';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.partner_digests_guard() from public;
+
+create trigger partner_digests_guard
+  before update or delete on public.partner_digests
+  for each row execute function public.partner_digests_guard();
+
+create policy "admin read partner digests" on public.partner_digests
+  for select using (public.staff_role() = 'admin');
+
+-- ===== 0034_control_leads.sql =====
+-- Credalti Control, phase 1 (docs/CONTROL.md): the lead inbox, its pipeline,
+-- the lead autopilot (off), staff phone alerts (off for everyone) and the
+-- Overview's "escalate to the owner".
+--
+-- What it adds:
+--   leads                     One row per prospect conversation, keyed by the
+--                             phone. Created and kept up to date by the
+--                             database itself (triggers below) from what
+--                             already happens: a WhatsApp message from a
+--                             number with no account, a prospect added by
+--                             hand, from HighLevel or by a partner, a chat
+--                             signup (/registro) that reached a phone. The
+--                             facts on it (invited, signed, last message,
+--                             first reply by a person) are written only by
+--                             those triggers.
+--   lead_stage_events         Every pipeline move. ONLY PEOPLE MOVE LEADS: a
+--                             move needs a person (actor not null) and can
+--                             only go to New, Contacted, Qualified, Not
+--                             interested, Closed-lost or Archived. "Invited"
+--                             and "Signed" are not moves at all: they are the
+--                             facts invited_at (the invitation was sent) and
+--                             signed_at (the agreement was signed).
+--   lead_notes                The team's notes on a lead. Append-only.
+--   lead_autopilot_settings   The lead autopilot's switch and numbers: OFF.
+--   lead_autopilot_changes    Who turned it on or off, and the numbers. Append-only.
+--   lead_auto_messages        One row for every automatic message to a lead,
+--                             sent or handed to a person. WhatsApp only.
+--   staff_alert_topics        Each member's phone alerts, per topic. Off.
+--   staff_push_subscriptions  The browsers a member turned alerts on in.
+--   staff_alerts              The alerts themselves (once per member and key).
+--   control_escalations       "Escalate to the owner" from the Today list.
+--   cron_heartbeats           When a scheduled job last ran.
+--
+-- Who writes: only the server (service role), after the caller's role is
+-- checked (src/app/api/staff/leads, …/alerts, …/control, /api/cron/leads),
+-- and the triggers. Nobody gets an insert, update or delete policy.
+-- Who reads: leads and everything about them, an administrator, or sales for
+-- the leads they work (theirs, or nobody's yet). A specialist, a client, a
+-- partner and anon read none of it. A member reads only their own alerts.
+
+-- ── The leads ───────────────────────────────────────────────────────────
+
+create table public.leads (
+  id uuid primary key default gen_random_uuid(),
+  phone_e164 text not null unique check (phone_e164 ~ '^\+[1-9][0-9]{7,14}$'),
+  display_name text check (display_name is null or char_length(btrim(display_name)) between 1 and 80),
+  locale text check (locale is null or locale in ('en', 'es')),
+  -- Where the first touch came from. Never overwritten (first touch wins).
+  source text not null check (source in ('whatsapp', 'highlevel', 'partner', 'signup_chat', 'manual', 'household')),
+  -- Marketing tags only: campaign, UTM, the partner, the signup's case reference.
+  first_touch jsonb not null default '{}' check (jsonb_typeof(first_touch) = 'object' and octet_length(first_touch::text) <= 4000),
+  prospect_id uuid references public.prospects (id) on delete set null,
+  partner_id uuid references public.partners (id) on delete set null,
+  signup_case_ref text references public.signup_cases (case_ref) on delete set null,
+  -- The salesperson who works the lead (staff_members.handle); null: nobody yet.
+  salesperson text check (salesperson is null or salesperson ~ '^[a-z0-9-]{2,30}$'),
+  assigned_at timestamptz,
+  -- The stage a PERSON chose. Invited and Signed come from the facts below.
+  stage text not null default 'new' check (stage in ('new', 'contacted', 'qualified', 'not_interested', 'closed_lost', 'archived')),
+  stage_at timestamptz,
+  stage_by uuid references auth.users (id) on delete set null,
+  -- Facts, written by the triggers only.
+  invited_at timestamptz,
+  signed_at timestamptz,
+  client_user_id uuid references auth.users (id) on delete set null,
+  last_inbound_at timestamptz,
+  -- The last answer after an inbound message: by a person, or by the AI (the lead autopilot, the coach).
+  last_reply_at timestamptz,
+  last_human_at timestamptz,
+  first_human_reply_at timestamptz,
+  last_message_at timestamptz,
+  last_message_role text check (last_message_role is null or last_message_role in ('user', 'assistant')),
+  last_message_source text check (last_message_source is null or last_message_source in ('journey', 'coach', 'human')),
+  last_message_excerpt text check (last_message_excerpt is null or char_length(last_message_excerpt) <= 160),
+  created_at timestamptz not null default now()
+);
+
+create index leads_salesperson_idx on public.leads (salesperson);
+create index leads_created_idx on public.leads (created_at desc);
+create index leads_prospect_idx on public.leads (prospect_id) where prospect_id is not null;
+create index leads_client_idx on public.leads (client_user_id) where client_user_id is not null;
+
+alter table public.leads enable row level security;
+
+-- Who may see a lead: an administrator; sales for their own leads and for the ones nobody has yet.
+create function public.staff_can_see_lead(p_salesperson text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(public.staff_role() = 'admin', false)
+      or coalesce(public.staff_role() = 'sales' and (p_salesperson is null or p_salesperson = public.staff_handle()), false);
+$$;
+
+create function public.staff_can_see_lead_id(p_lead uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.leads l where l.id = p_lead and public.staff_can_see_lead(l.salesperson));
+$$;
+
+create function public.staff_can_see_lead_phone(p_phone text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.leads l where l.phone_e164 = p_phone and public.staff_can_see_lead(l.salesperson));
+$$;
+
+revoke all on function public.staff_can_see_lead(text) from public;
+revoke all on function public.staff_can_see_lead_id(uuid) from public;
+revoke all on function public.staff_can_see_lead_phone(text) from public;
+grant execute on function public.staff_can_see_lead(text) to authenticated;
+grant execute on function public.staff_can_see_lead_id(uuid) to authenticated;
+grant execute on function public.staff_can_see_lead_phone(text) to authenticated;
+
+create policy "staff read leads" on public.leads
+  for select using (public.staff_can_see_lead(salesperson));
+
+-- A lead's WhatsApp conversation (chat_messages with no account) was for an
+-- administrator only (0012). Sales reads the conversations of the leads they work.
+create policy "staff read lead chat" on public.chat_messages
+  for select using (user_id is null and channel = 'whatsapp' and phone_e164 is not null and public.staff_can_see_lead_phone(phone_e164));
+
+-- And whether that number said STOP.
+create policy "staff read lead opt-outs" on public.message_opt_outs
+  for select using (user_id is null and phone_e164 is not null and public.staff_can_see_lead_phone(phone_e164));
+
+-- Only people move leads. A stage changes only through a lead_stage_events
+-- row (which needs a person); the facts change only through the triggers.
+create function public.leads_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'leads: a lead is a record and is never deleted (archive it)';
+  end if;
+  if new.stage is distinct from old.stage or new.stage_at is distinct from old.stage_at or new.stage_by is distinct from old.stage_by then
+    if coalesce(current_setting('credalti.lead_stage_move', true), '') <> 'on' then
+      raise exception 'leads: only a person moves a lead, through lead_stage_events';
+    end if;
+  end if;
+  if new.phone_e164 <> old.phone_e164 or new.source <> old.source or new.created_at <> old.created_at then
+    raise exception 'leads: the phone, the first source and the first touch never change';
+  end if;
+  -- Facts only move forward: once invited or signed, always.
+  if old.invited_at is not null then new.invited_at := old.invited_at; end if;
+  if old.signed_at is not null then new.signed_at := old.signed_at; end if;
+  if old.first_human_reply_at is not null then new.first_human_reply_at := old.first_human_reply_at; end if;
+  if old.first_touch <> '{}'::jsonb then new.first_touch := old.first_touch; end if;
+  return new;
+end;
+$$;
+
+create trigger leads_guard
+  before update or delete on public.leads
+  for each row execute function public.leads_guard();
+
+-- ── Pipeline moves (people only) ────────────────────────────────────────
+
+create table public.lead_stage_events (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid not null references public.leads (id) on delete cascade,
+  from_stage text,
+  to_stage text not null check (to_stage in ('new', 'contacted', 'qualified', 'not_interested', 'closed_lost', 'archived')),
+  -- Only people move leads: never null, never the system.
+  actor uuid not null references auth.users (id) on delete restrict,
+  actor_handle text check (actor_handle is null or actor_handle ~ '^[a-z0-9-]{2,30}$'),
+  at timestamptz not null default now()
+);
+
+create index lead_stage_events_lead_idx on public.lead_stage_events (lead_id, at);
+
+alter table public.lead_stage_events enable row level security;
+
+create policy "staff read lead stage events" on public.lead_stage_events
+  for select using (public.staff_can_see_lead_id(lead_id));
+
+create function public.lead_stage_events_apply()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if tg_op <> 'INSERT' then
+    raise exception 'lead_stage_events: the pipeline history is append-only';
+  end if;
+  if not exists (select 1 from public.staff_members s where s.user_id = new.actor and s.active) then
+    raise exception 'lead_stage_events: only an active member of the team moves a lead';
+  end if;
+  select l.stage into new.from_stage from public.leads l where l.id = new.lead_id;
+  new.at := now();
+  perform set_config('credalti.lead_stage_move', 'on', true);
+  update public.leads set stage = new.to_stage, stage_at = new.at, stage_by = new.actor where id = new.lead_id;
+  perform set_config('credalti.lead_stage_move', '', true);
+  return new;
+end;
+$$;
+
+revoke all on function public.lead_stage_events_apply() from public;
+
+create trigger lead_stage_events_apply
+  before insert or update or delete on public.lead_stage_events
+  for each row execute function public.lead_stage_events_apply();
+
+-- ── Notes ───────────────────────────────────────────────────────────────
+
+create table public.lead_notes (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid not null references public.leads (id) on delete cascade,
+  author uuid not null references auth.users (id) on delete restrict,
+  author_handle text check (author_handle is null or author_handle ~ '^[a-z0-9-]{2,30}$'),
+  author_name text not null check (char_length(btrim(author_name)) between 1 and 80),
+  body text not null check (char_length(btrim(body)) between 2 and 2000),
+  created_at timestamptz not null default now()
+);
+
+create index lead_notes_lead_idx on public.lead_notes (lead_id, created_at);
+
+alter table public.lead_notes enable row level security;
+
+create policy "staff read lead notes" on public.lead_notes
+  for select using (public.staff_can_see_lead_id(lead_id));
+
+create function public.control_append_only()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception '%: this record is append-only', tg_table_name;
+end;
+$$;
+
+create trigger lead_notes_append_only
+  before update or delete on public.lead_notes
+  for each row execute function public.control_append_only();
+
+-- ── The lead autopilot: OFF ─────────────────────────────────────────────
+
+create table public.lead_autopilot_settings (
+  id boolean primary key default true check (id),
+  enabled boolean not null default false,
+  -- Wait this long after the lead's message, so a person can answer first.
+  reply_delay_seconds integer not null default 120 check (reply_delay_seconds between 30 and 3600),
+  per_lead_daily_cap integer not null default 3 check (per_lead_daily_cap between 1 and 10),
+  daily_cap integer not null default 40 check (daily_cap between 1 and 500),
+  quiet_start_hour integer not null default 21 check (quiet_start_hour between 0 and 23),
+  quiet_end_hour integer not null default 8 check (quiet_end_hour between 0 and 23),
+  send_signup_link boolean not null default true,
+  -- When it was last turned on: it never answers a message older than this.
+  enabled_at timestamptz,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users (id) on delete set null,
+  updated_by_name text check (updated_by_name is null or char_length(updated_by_name) between 1 and 80)
+);
+
+insert into public.lead_autopilot_settings (id) values (true);
+
+alter table public.lead_autopilot_settings enable row level security;
+
+create policy "staff read lead autopilot" on public.lead_autopilot_settings
+  for select using (public.is_staff());
+
+create table public.lead_autopilot_changes (
+  id uuid primary key default gen_random_uuid(),
+  at timestamptz not null default now(),
+  actor uuid not null references auth.users (id) on delete restrict,
+  actor_name text not null check (char_length(actor_name) between 1 and 80),
+  enabled boolean not null,
+  detail jsonb not null default '{}' check (jsonb_typeof(detail) = 'object')
+);
+
+alter table public.lead_autopilot_changes enable row level security;
+
+create policy "admin read lead autopilot changes" on public.lead_autopilot_changes
+  for select using (public.staff_role() = 'admin');
+
+create trigger lead_autopilot_changes_append_only
+  before update or delete on public.lead_autopilot_changes
+  for each row execute function public.control_append_only();
+
+create table public.lead_auto_messages (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid not null references public.leads (id) on delete cascade,
+  -- WhatsApp only. Never SMS, for anything automatic.
+  channel text not null default 'whatsapp' check (channel = 'whatsapp'),
+  kind text not null check (kind in ('greeting', 'faq', 'signup_link', 'handoff')),
+  -- claimed → sent | failed; a hand-off is recorded as handed_off and never sends anything.
+  status text not null check (status in ('claimed', 'sent', 'failed', 'handed_off')),
+  -- Why a person was called in, or why the send failed.
+  reason text check (reason is null or char_length(reason) <= 200),
+  -- The exact words (with the AI label), or null for a hand-off.
+  body text check (body is null or char_length(body) between 1 and 1500),
+  -- The lead's message it answers, so the same message is never answered twice.
+  inbound_at timestamptz not null,
+  dedupe_key text not null unique check (char_length(dedupe_key) between 8 and 200),
+  created_at timestamptz not null default now(),
+  constraint lead_auto_messages_body check ((kind = 'handoff') = (body is null)),
+  constraint lead_auto_messages_handoff check ((kind = 'handoff') = (status = 'handed_off'))
+);
+
+create index lead_auto_messages_lead_idx on public.lead_auto_messages (lead_id, created_at);
+create index lead_auto_messages_day_idx on public.lead_auto_messages (created_at);
+
+alter table public.lead_auto_messages enable row level security;
+
+create policy "staff read lead auto messages" on public.lead_auto_messages
+  for select using (public.staff_can_see_lead_id(lead_id));
+
+-- The words, the lead and the key never change; the status only moves from claimed to sent or failed.
+create function public.lead_auto_messages_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'lead_auto_messages: the record of automatic messages is never deleted';
+  end if;
+  if new.lead_id <> old.lead_id or new.kind <> old.kind or new.body is distinct from old.body
+     or new.dedupe_key <> old.dedupe_key or new.inbound_at <> old.inbound_at or new.created_at <> old.created_at then
+    raise exception 'lead_auto_messages: what was sent and to whom never changes';
+  end if;
+  if new.status <> old.status and not (old.status = 'claimed' and new.status in ('sent', 'failed')) then
+    raise exception 'lead_auto_messages: the status only moves from claimed to sent or failed';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger lead_auto_messages_guard
+  before update or delete on public.lead_auto_messages
+  for each row execute function public.lead_auto_messages_guard();
+
+-- ── Staff phone alerts: off until each person turns them on ─────────────
+
+create table public.staff_alert_topics (
+  user_id uuid not null references public.staff_members (user_id) on delete cascade,
+  topic text not null check (topic in ('new_lead', 'lead_waiting', 'complaint', 'partner_note', 'escalation')),
+  enabled boolean not null default false,
+  waiting_minutes integer not null default 15 check (waiting_minutes between 5 and 240),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, topic)
+);
+
+alter table public.staff_alert_topics enable row level security;
+
+create policy "own alert topics" on public.staff_alert_topics
+  for select using (auth.uid() = user_id);
+
+create table public.staff_push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.staff_members (user_id) on delete cascade,
+  endpoint text not null unique check (endpoint ~ '^https://' and char_length(endpoint) <= 1000),
+  p256dh text check (p256dh is null or char_length(p256dh) <= 200),
+  auth text check (auth is null or char_length(auth) <= 100),
+  user_agent text check (user_agent is null or char_length(user_agent) <= 300),
+  created_at timestamptz not null default now(),
+  revoked_at timestamptz
+);
+
+create index staff_push_subscriptions_user_idx on public.staff_push_subscriptions (user_id) where revoked_at is null;
+
+alter table public.staff_push_subscriptions enable row level security;
+
+create policy "own push subscriptions" on public.staff_push_subscriptions
+  for select using (auth.uid() = user_id);
+
+create table public.staff_alerts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.staff_members (user_id) on delete cascade,
+  -- 'test': the member's own "Send me a test" on the alerts screen.
+  topic text not null check (topic in ('new_lead', 'lead_waiting', 'complaint', 'partner_note', 'escalation', 'test')),
+  -- One alert per member per thing: "lead_waiting:<lead>:<message time>".
+  dedupe_key text not null check (char_length(dedupe_key) between 4 and 200),
+  title text not null check (char_length(title) between 1 and 140),
+  body text check (body is null or char_length(body) <= 300),
+  url text not null check (url ~ '^/equipo'),
+  created_at timestamptz not null default now(),
+  pushed_at timestamptz,
+  seen_at timestamptz,
+  unique (user_id, dedupe_key)
+);
+
+create index staff_alerts_user_idx on public.staff_alerts (user_id, created_at desc);
+
+alter table public.staff_alerts enable row level security;
+
+create policy "own alerts" on public.staff_alerts
+  for select using (auth.uid() = user_id);
+
+-- ── Escalate to the owner ───────────────────────────────────────────────
+
+create table public.control_escalations (
+  id uuid primary key default gen_random_uuid(),
+  item_key text not null check (char_length(item_key) between 3 and 200),
+  title text not null check (char_length(title) between 1 and 160),
+  note text check (note is null or char_length(note) <= 500),
+  by_user uuid not null references auth.users (id) on delete restrict,
+  by_handle text,
+  created_at timestamptz not null default now(),
+  resolved_at timestamptz,
+  resolved_by uuid references auth.users (id) on delete set null
+);
+
+create index control_escalations_open_idx on public.control_escalations (created_at desc) where resolved_at is null;
+
+alter table public.control_escalations enable row level security;
+
+create policy "admin read escalations" on public.control_escalations
+  for select using (public.staff_role() = 'admin');
+
+create policy "own escalations" on public.control_escalations
+  for select using (auth.uid() = by_user);
+
+-- Only the resolution is ever written after the fact, once.
+create function public.control_escalations_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'control_escalations: never deleted';
+  end if;
+  if new.item_key <> old.item_key or new.title <> old.title or new.note is distinct from old.note
+     or new.by_user <> old.by_user or new.created_at <> old.created_at then
+    raise exception 'control_escalations: what was escalated never changes';
+  end if;
+  if old.resolved_at is not null and (new.resolved_at is distinct from old.resolved_at or new.resolved_by is distinct from old.resolved_by) then
+    raise exception 'control_escalations: resolved once';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger control_escalations_guard
+  before update or delete on public.control_escalations
+  for each row execute function public.control_escalations_guard();
+
+-- ── When a scheduled job last ran ───────────────────────────────────────
+
+create table public.cron_heartbeats (
+  job text primary key check (job ~ '^[a-z0-9-]{2,40}$'),
+  last_run_at timestamptz not null,
+  last_ok_at timestamptz,
+  last_error text check (last_error is null or char_length(last_error) <= 300),
+  detail jsonb not null default '{}' check (jsonb_typeof(detail) = 'object' and octet_length(detail::text) <= 2000)
+);
+
+alter table public.cron_heartbeats enable row level security;
+
+create policy "admin read heartbeats" on public.cron_heartbeats
+  for select using (public.staff_role() = 'admin');
+
+-- ── Keeping the leads up to date, from what already happens ─────────────
+
+-- A prospect (by hand, HighLevel, a partner, a household member) is a lead.
+create function public.leads_from_prospect()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  touch jsonb := coalesce(new.source_detail -> 'firstTouch', '{}'::jsonb);
+begin
+  if tg_op = 'INSERT' then
+    if new.partner_id is not null then
+      touch := touch || jsonb_build_object('partnerId', new.partner_id);
+    end if;
+    insert into public.leads (phone_e164, display_name, locale, source, first_touch, prospect_id, partner_id, salesperson, assigned_at, invited_at, client_user_id, created_at)
+    values (new.phone_e164, left(btrim(new.first_name || ' ' || new.last_name), 80), new.locale, new.source, touch, new.id, new.partner_id,
+            new.salesperson, case when new.salesperson is not null then new.created_at end, new.invited_at, new.converted_user_id, new.created_at)
+    on conflict (phone_e164) do update set
+      prospect_id = case when excluded.prospect_id is not null and new.lost_at is null then excluded.prospect_id else public.leads.prospect_id end,
+      display_name = coalesce(public.leads.display_name, excluded.display_name),
+      locale = coalesce(public.leads.locale, excluded.locale),
+      partner_id = coalesce(public.leads.partner_id, excluded.partner_id),
+      salesperson = coalesce(public.leads.salesperson, excluded.salesperson),
+      assigned_at = coalesce(public.leads.assigned_at, excluded.assigned_at),
+      invited_at = coalesce(public.leads.invited_at, excluded.invited_at);
+  else
+    update public.leads set
+      invited_at = coalesce(invited_at, new.invited_at),
+      client_user_id = coalesce(client_user_id, new.converted_user_id),
+      display_name = coalesce(display_name, left(btrim(new.first_name || ' ' || new.last_name), 80))
+    where prospect_id = new.id or (phone_e164 = new.phone_e164 and new.lost_at is null);
+  end if;
+  return null;
+end;
+$$;
+
+revoke all on function public.leads_from_prospect() from public;
+
+create trigger leads_from_prospect
+  after insert or update of invited_at, converted_user_id on public.prospects
+  for each row execute function public.leads_from_prospect();
+
+-- A WhatsApp message: a number with no account that writes is a lead; every
+-- message keeps the lead's last message, and a teammate's answer counts as
+-- the first reply by a person.
+create function public.leads_from_whatsapp()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  excerpt text := left(regexp_replace(btrim(new.body), '\s+', ' ', 'g'), 160);
+begin
+  if new.channel <> 'whatsapp' or new.phone_e164 is null then
+    return null;
+  end if;
+  if new.role = 'user' then
+    if new.user_id is null then
+      insert into public.leads (phone_e164, source, first_touch, created_at)
+      values (new.phone_e164, 'whatsapp', jsonb_build_object('channel', 'whatsapp', 'at', new.created_at), new.created_at)
+      on conflict (phone_e164) do nothing;
+    end if;
+    update public.leads set
+      last_inbound_at = greatest(coalesce(last_inbound_at, new.created_at), new.created_at),
+      last_message_at = new.created_at, last_message_role = 'user', last_message_source = new.source, last_message_excerpt = excerpt
+    where phone_e164 = new.phone_e164;
+  else
+    update public.leads set
+      last_reply_at = case when new.source in ('coach', 'human') then greatest(coalesce(last_reply_at, new.created_at), new.created_at) else last_reply_at end,
+      last_human_at = case when new.source = 'human' then greatest(coalesce(last_human_at, new.created_at), new.created_at) else last_human_at end,
+      first_human_reply_at = case when new.source = 'human' then coalesce(first_human_reply_at, new.created_at) else first_human_reply_at end,
+      last_message_at = new.created_at, last_message_role = 'assistant', last_message_source = new.source, last_message_excerpt = excerpt
+    where phone_e164 = new.phone_e164;
+  end if;
+  return null;
+end;
+$$;
+
+revoke all on function public.leads_from_whatsapp() from public;
+
+create trigger leads_from_whatsapp
+  after insert on public.chat_messages
+  for each row execute function public.leads_from_whatsapp();
+
+-- A chat signup (/registro) that reached a verified phone is a lead, with its case reference.
+create function public.leads_from_signup()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  phone text;
+begin
+  if new.user_id is null or (tg_op = 'UPDATE' and old.user_id is not null) then
+    return null;
+  end if;
+  select p.phone_e164 into phone from public.profiles p where p.id = new.user_id;
+  if phone is null then
+    select '+' || ltrim(u.phone, '+') into phone from auth.users u where u.id = new.user_id and u.phone is not null and u.phone <> '';
+  end if;
+  if phone is null or phone !~ '^\+[1-9][0-9]{7,14}$' then
+    return null;
+  end if;
+  insert into public.leads (phone_e164, locale, source, first_touch, signup_case_ref, client_user_id, created_at)
+  values (phone, new.locale, 'signup_chat', jsonb_build_object('caseRef', new.case_ref), new.case_ref, new.user_id, new.started_at)
+  on conflict (phone_e164) do update set
+    signup_case_ref = coalesce(public.leads.signup_case_ref, excluded.signup_case_ref),
+    client_user_id = coalesce(public.leads.client_user_id, excluded.client_user_id),
+    locale = coalesce(public.leads.locale, excluded.locale);
+  return null;
+end;
+$$;
+
+revoke all on function public.leads_from_signup() from public;
+
+create trigger leads_from_signup
+  after insert or update of user_id on public.signup_cases
+  for each row execute function public.leads_from_signup();
+
+-- "Signed" is set automatically, and only here: when the agreement is signed.
+create function public.leads_from_agreement()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  phone text;
+begin
+  if new.signed_at is null or (tg_op = 'UPDATE' and old.signed_at is not null) then
+    return null;
+  end if;
+  select p.phone_e164 into phone from public.profiles p where p.id = new.user_id;
+  update public.leads set
+    signed_at = coalesce(signed_at, new.signed_at),
+    client_user_id = coalesce(client_user_id, new.user_id)
+  where client_user_id = new.user_id
+     or (phone is not null and phone_e164 = phone)
+     or prospect_id in (select pr.id from public.prospects pr where pr.converted_user_id = new.user_id);
+  return null;
+end;
+$$;
+
+revoke all on function public.leads_from_agreement() from public;
+
+create trigger leads_from_agreement
+  after insert or update of signed_at on public.service_agreements
+  for each row execute function public.leads_from_agreement();
+
+-- ── What is already on record becomes the first leads ───────────────────
+
+insert into public.leads (phone_e164, display_name, locale, source, first_touch, prospect_id, partner_id, salesperson, assigned_at, invited_at, client_user_id, created_at)
+select distinct on (p.phone_e164)
+  p.phone_e164, left(btrim(p.first_name || ' ' || p.last_name), 80), p.locale, p.source,
+  coalesce(p.source_detail -> 'firstTouch', '{}'::jsonb) || case when p.partner_id is not null then jsonb_build_object('partnerId', p.partner_id) else '{}'::jsonb end,
+  p.id, p.partner_id, p.salesperson, case when p.salesperson is not null then p.created_at end, p.invited_at, p.converted_user_id, p.created_at
+from public.prospects p
+order by p.phone_e164, (p.lost_at is null) desc, p.created_at desc
+on conflict (phone_e164) do nothing;
+
+insert into public.leads (phone_e164, source, first_touch, created_at)
+select m.phone_e164, 'whatsapp', jsonb_build_object('channel', 'whatsapp', 'at', min(m.created_at)), min(m.created_at)
+from public.chat_messages m
+where m.channel = 'whatsapp' and m.user_id is null and m.role = 'user' and m.phone_e164 ~ '^\+[1-9][0-9]{7,14}$'
+group by m.phone_e164
+on conflict (phone_e164) do nothing;
+
+update public.leads l set
+  last_inbound_at = x.last_in, last_reply_at = x.last_reply, last_human_at = x.last_human, first_human_reply_at = x.first_human
+from (
+  select m.phone_e164,
+    max(m.created_at) filter (where m.role = 'user') as last_in,
+    max(m.created_at) filter (where m.role = 'assistant' and m.source in ('coach', 'human')) as last_reply,
+    max(m.created_at) filter (where m.role = 'assistant' and m.source = 'human') as last_human,
+    min(m.created_at) filter (where m.role = 'assistant' and m.source = 'human') as first_human
+  from public.chat_messages m
+  where m.channel = 'whatsapp' and m.phone_e164 is not null
+  group by m.phone_e164
+) x
+where x.phone_e164 = l.phone_e164;
+
+update public.leads l set
+  signed_at = a.signed_at, client_user_id = coalesce(l.client_user_id, a.user_id)
+from public.service_agreements a
+left join public.profiles p on p.id = a.user_id
+where a.signed_at is not null and l.signed_at is null
+  and (l.client_user_id = a.user_id or p.phone_e164 = l.phone_e164);
+
+-- ===== 0035_content.sql =====
+-- The content hub (/equipo/contenido, src/lib/content, docs/CONTENT.md):
+-- marketing content from idea to measured results, the checks and approvals,
+-- and publishing to social networks (off by default).
+--
+--   content_pieces       One row per piece: type, channels, language, audience,
+--                        theme, the words (copy: hook, on-screen, script,
+--                        caption, call to action, in English and Spanish),
+--                        links, owner, due date, status, the checklist, the
+--                        hash of what it says now (content_hash, computed by
+--                        the server from the words, links, channels and files)
+--                        and the approval (approved_hash: the hash that was
+--                        approved). Never deleted: archived.
+--   content_assets       Files (in the private content-assets bucket) and
+--                        links (https) attached to a piece, with alt text.
+--                        Removed by marking, so what was approved stays known.
+--   content_events       The piece's history: created, edited, moved,
+--                        submitted, checked, approved, changes requested,
+--                        approval reset, posted. Append-only.
+--   content_results      Numbers per piece and channel: typed in by a person,
+--                        or read from a network. Append-only; a missing metric
+--                        is absent, never 0.
+--   content_settings     One row: publishing on or off (OFF by default) and
+--                        per channel (all OFF by default).
+--   content_connections  The connected accounts (Meta, TikTok, YouTube): the
+--                        account's ids and names, the scopes granted, and the
+--                        tokens ENCRYPTED by the server (AES-256-GCM,
+--                        CONTENT_TOKEN_KEY). No policy at all: only the server
+--                        (service role) reads it; tokens never reach a browser.
+--   content_schedules    One row per piece, channel and time. The publish key
+--                        (piece, channel, approved hash) is unique while the
+--                        row is live, so the same approved content is never
+--                        posted twice to a channel; a row is claimed before the
+--                        provider is called.
+--   content_publish_log  Every scheduling, hold, claim, send, answer, retry
+--                        and failure, with who approved and exactly what was
+--                        sent. Append-only.
+--
+-- Who reads (row level security): administrators and specialists read the
+-- board, history, results, schedules and log (content.view in
+-- src/lib/staff/permissions.ts); sales reads only approved partner material
+-- and its files (content.share). Clients, partners and anyone signed out read
+-- nothing. Every write is the server's (service role), after the caller's
+-- capability is checked; the triggers below hold the approval rule and the
+-- append-only records again.
+
+create table public.content_pieces (
+  id text primary key check (id ~ '^[a-z]{2}_[a-z0-9]{6,40}$'),
+  title text not null check (char_length(title) between 2 and 120),
+  type text not null check (type in ('short_video', 'carousel', 'image', 'story', 'youtube', 'whatsapp_status', 'partner', 'email', 'blog')),
+  channels text[] not null default '{}' check (channels <@ array['instagram', 'facebook', 'tiktok', 'youtube', 'whatsapp', 'partners', 'email', 'website']::text[]),
+  language text not null check (language in ('en', 'es', 'both')),
+  audience text not null check (audience in ('consumers', 'hispanic', 'partners')),
+  theme text not null check (theme in ('rights', 'myths', 'disputes', 'process', 'itin', 'partners', 'aftercare', 'team')),
+  goal text not null default '' check (char_length(goal) <= 300),
+  copy jsonb not null default '{}' check (jsonb_typeof(copy) = 'object' and octet_length(copy::text) <= 60000),
+  characters text[] not null default '{}' check (characters <@ array['alti', 'altibot']::text[]),
+  links text[] not null default '{}' check (coalesce(array_length(links, 1), 0) <= 10),
+  owner text check (owner is null or owner ~ '^[a-z0-9._-]{1,40}$'),
+  due_date date,
+  status text not null default 'idea' check (status in ('idea', 'planned', 'in_production', 'review', 'changes', 'approved', 'scheduled', 'posted', 'measured', 'failed', 'archived')),
+  campaign_code text not null unique check (campaign_code ~ '^cnt-[a-z0-9]{6}$'),
+  template_id text check (template_id is null or template_id ~ '^[a-z0-9-]{2,60}$'),
+  ai_draft boolean not null default false,
+  checklist jsonb not null default '{}' check (jsonb_typeof(checklist) = 'object'),
+  content_hash text not null check (content_hash ~ '^[0-9a-f]{64}$'),
+  blocking_issues integer not null default 0 check (blocking_issues >= 0),
+  approved_hash text check (approved_hash is null or approved_hash ~ '^[0-9a-f]{64}$'),
+  approved_by uuid references auth.users (id) on delete set null,
+  approved_by_handle text check (approved_by_handle is null or char_length(approved_by_handle) between 1 and 40),
+  approved_at timestamptz,
+  changes_note text check (changes_note is null or char_length(changes_note) <= 600),
+  posts jsonb not null default '[]' check (jsonb_typeof(posts) = 'array' and octet_length(posts::text) <= 20000),
+  failure text check (failure is null or char_length(failure) <= 500),
+  created_by uuid references auth.users (id) on delete set null,
+  created_by_handle text not null check (char_length(created_by_handle) between 1 and 40),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint content_pieces_approval_pair check ((approved_hash is null) = (approved_at is null)),
+  -- An approved, scheduled, posted or measured piece carries an approval of
+  -- exactly what it says now, and no blocking issue.
+  constraint content_pieces_approval_holds check (
+    status not in ('approved', 'scheduled', 'posted', 'measured')
+    or (approved_hash is not null and approved_hash = content_hash and blocking_issues = 0)
+  )
+);
+
+create index content_pieces_status_idx on public.content_pieces (status);
+create index content_pieces_due_idx on public.content_pieces (due_date) where due_date is not null;
+
+create table public.content_assets (
+  id text primary key check (id ~ '^as_[a-z0-9]{6,40}$'),
+  piece_id text not null references public.content_pieces (id) on delete restrict,
+  kind text not null check (kind in ('upload', 'url')),
+  ref text not null check (
+    char_length(ref) <= 600
+    and ((kind = 'upload' and ref ~ '^[a-z0-9_]+/[a-z0-9_.-]+$') or (kind = 'url' and ref ~ '^https://'))
+  ),
+  name text not null check (char_length(name) between 1 and 160),
+  media_type text check (media_type is null or media_type in ('image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf', 'video/mp4', 'video/quicktime', 'video/webm')),
+  bytes bigint check (bytes is null or (bytes between 1 and 524288000)),
+  alt_text text not null default '' check (char_length(alt_text) <= 500),
+  added_by uuid references auth.users (id) on delete set null,
+  added_by_handle text not null check (char_length(added_by_handle) between 1 and 40),
+  added_at timestamptz not null default now(),
+  removed_at timestamptz,
+  constraint content_assets_upload_fields check (kind <> 'upload' or (media_type is not null and bytes is not null))
+);
+
+create index content_assets_piece_idx on public.content_assets (piece_id);
+
+create table public.content_events (
+  id uuid primary key default gen_random_uuid(),
+  piece_id text not null references public.content_pieces (id) on delete restrict,
+  at timestamptz not null default now(),
+  actor uuid references auth.users (id) on delete set null,
+  actor_handle text not null check (char_length(actor_handle) between 1 and 40),
+  kind text not null check (kind in (
+    'created', 'edited', 'moved', 'submitted', 'checked', 'approved', 'approval_reset', 'changes_requested',
+    'posted', 'scheduled', 'schedule_cancelled', 'result_added', 'asset_added', 'asset_removed', 'archived', 'restored', 'failed'
+  )),
+  from_status text,
+  to_status text,
+  note text check (note is null or char_length(note) <= 1000),
+  hash text check (hash is null or hash ~ '^[0-9a-f]{64}$'),
+  blocking integer check (blocking is null or blocking >= 0)
+);
+
+create index content_events_piece_idx on public.content_events (piece_id, at);
+
+create table public.content_results (
+  id uuid primary key default gen_random_uuid(),
+  piece_id text not null references public.content_pieces (id) on delete restrict,
+  channel text not null check (channel in ('instagram', 'facebook', 'tiktok', 'youtube', 'whatsapp', 'partners', 'email', 'website')),
+  source text not null check (source in ('manual', 'meta', 'tiktok', 'youtube')),
+  at timestamptz not null default now(),
+  -- {"views": 1200, "leads": 3}: only what was measured; whole numbers from 0.
+  metrics jsonb not null check (jsonb_typeof(metrics) = 'object' and metrics <> '{}'::jsonb and octet_length(metrics::text) <= 1000),
+  note text check (note is null or char_length(note) <= 300),
+  entered_by uuid references auth.users (id) on delete set null,
+  entered_by_handle text not null check (char_length(entered_by_handle) between 1 and 40)
+);
+
+create index content_results_piece_idx on public.content_results (piece_id, at);
+
+create table public.content_settings (
+  id boolean primary key default true check (id),
+  publishing_enabled boolean not null default false,
+  channels jsonb not null default '{"facebook": false, "instagram": false, "tiktok": false, "youtube": false}'
+    check (jsonb_typeof(channels) = 'object'),
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users (id) on delete set null,
+  updated_by_handle text check (updated_by_handle is null or char_length(updated_by_handle) between 1 and 40)
+);
+
+insert into public.content_settings (id) values (true);
+
+create table public.content_connections (
+  provider text primary key check (provider in ('meta', 'tiktok', 'youtube')),
+  -- Ids and names only (Page, Instagram account, channel): never a token.
+  account jsonb not null default '{}' check (jsonb_typeof(account) = 'object' and octet_length(account::text) <= 2000),
+  scopes text[] not null default '{}',
+  -- AES-256-GCM, written by the server: "v1.<iv>.<tag>.<ciphertext>".
+  token_enc text not null check (token_enc ~ '^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'),
+  refresh_enc text check (refresh_enc is null or refresh_enc ~ '^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'),
+  expires_at timestamptz,
+  refresh_expires_at timestamptz,
+  status text not null default 'connected' check (status in ('connected', 'expired', 'error')),
+  last_error text check (last_error is null or char_length(last_error) <= 300),
+  connected_by uuid references auth.users (id) on delete set null,
+  connected_by_handle text not null check (char_length(connected_by_handle) between 1 and 40),
+  connected_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.content_schedules (
+  id uuid primary key default gen_random_uuid(),
+  piece_id text not null references public.content_pieces (id) on delete restrict,
+  channel text not null check (channel in ('facebook', 'instagram', 'tiktok', 'youtube')),
+  lang text not null check (lang in ('en', 'es')),
+  scheduled_at timestamptz not null,
+  status text not null default 'scheduled' check (status in ('scheduled', 'retry', 'publishing', 'posted', 'failed', 'cancelled')),
+  approval_hash text not null check (approval_hash ~ '^[0-9a-f]{64}$'),
+  publish_key text not null check (char_length(publish_key) between 10 and 200),
+  attempts integer not null default 0 check (attempts between 0 and 20),
+  next_attempt_at timestamptz not null,
+  claimed_at timestamptz,
+  posted_at timestamptz,
+  external_id text check (external_id is null or char_length(external_id) <= 200),
+  url text check (url is null or (char_length(url) <= 500 and url ~ '^https://')),
+  last_error text check (last_error is null or char_length(last_error) <= 500),
+  note text check (note is null or char_length(note) <= 300),
+  metrics_at timestamptz,
+  created_by uuid references auth.users (id) on delete set null,
+  created_by_handle text not null check (char_length(created_by_handle) between 1 and 40),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- One live schedule per approved content and channel: never posted twice.
+create unique index content_schedules_publish_key on public.content_schedules (publish_key) where status not in ('cancelled', 'failed');
+create index content_schedules_due_idx on public.content_schedules (next_attempt_at) where status in ('scheduled', 'retry');
+
+create table public.content_publish_log (
+  id uuid primary key default gen_random_uuid(),
+  at timestamptz not null default now(),
+  schedule_id uuid references public.content_schedules (id) on delete restrict,
+  piece_id text references public.content_pieces (id) on delete restrict,
+  channel text check (channel is null or channel in ('facebook', 'instagram', 'tiktok', 'youtube')),
+  event text not null check (event in (
+    'scheduled', 'held', 'claimed', 'sent', 'posted', 'retry', 'failed', 'cancelled', 'blocked', 'metrics',
+    'settings_changed', 'connected', 'disconnected'
+  )),
+  actor uuid references auth.users (id) on delete set null,
+  -- A person's handle, or 'system' for the scheduler.
+  actor_handle text not null check (char_length(actor_handle) between 1 and 40),
+  approved_by_handle text,
+  approval_hash text check (approval_hash is null or approval_hash ~ '^[0-9a-f]{64}$'),
+  -- What was sent (the text, the files' ids), and what came back, trimmed. Never a token.
+  payload jsonb check (payload is null or (jsonb_typeof(payload) = 'object' and octet_length(payload::text) <= 12000)),
+  response jsonb check (response is null or (jsonb_typeof(response) = 'object' and octet_length(response::text) <= 4000)),
+  note text check (note is null or char_length(note) <= 500)
+);
+
+create index content_publish_log_piece_idx on public.content_publish_log (piece_id, at);
+
+-- ── Who reads ───────────────────────────────────────────────────────────
+
+alter table public.content_pieces enable row level security;
+alter table public.content_assets enable row level security;
+alter table public.content_events enable row level security;
+alter table public.content_results enable row level security;
+alter table public.content_settings enable row level security;
+alter table public.content_connections enable row level security;
+alter table public.content_schedules enable row level security;
+alter table public.content_publish_log enable row level security;
+
+create policy "content team reads pieces" on public.content_pieces
+  for select using (public.staff_role() in ('admin', 'specialist'));
+-- Sales: approved partner material only, to see and copy.
+create policy "sales reads approved partner material" on public.content_pieces
+  for select using (
+    public.staff_role() = 'sales'
+    and (audience = 'partners' or type = 'partner')
+    and status in ('approved', 'scheduled', 'posted', 'measured')
+  );
+-- A file is readable with its piece (the subquery applies the piece's policies).
+create policy "content files with their piece" on public.content_assets
+  for select using (public.is_staff() and exists (select 1 from public.content_pieces p where p.id = piece_id));
+create policy "content team reads history" on public.content_events
+  for select using (public.staff_role() in ('admin', 'specialist'));
+create policy "content team reads results" on public.content_results
+  for select using (public.staff_role() in ('admin', 'specialist'));
+create policy "content team reads publishing settings" on public.content_settings
+  for select using (public.staff_role() in ('admin', 'specialist'));
+create policy "content team reads schedules" on public.content_schedules
+  for select using (public.staff_role() in ('admin', 'specialist'));
+create policy "content team reads the publish log" on public.content_publish_log
+  for select using (public.staff_role() in ('admin', 'specialist'));
+-- content_connections: no policy. Only the server reads the encrypted tokens.
+
+-- ── The approval rule, again in the database ────────────────────────────
+
+-- A piece is never deleted (archived instead). When its words, links,
+-- channels, type, language or characters change, its hash must change too,
+-- and an approval of the old hash is dropped: the piece goes back to review.
+create function public.content_pieces_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'content_pieces: a piece is archived, never deleted';
+  end if;
+  if (new.copy, new.links, new.channels, new.type, new.language, new.characters)
+     is distinct from (old.copy, old.links, old.channels, old.type, old.language, old.characters)
+     and new.content_hash = old.content_hash then
+    raise exception 'content_pieces: the content changed, so content_hash must change with it';
+  end if;
+  if new.approved_hash is not null and new.approved_hash <> new.content_hash then
+    new.approved_hash := null;
+    new.approved_at := null;
+    new.approved_by := null;
+    new.approved_by_handle := null;
+    if new.status in ('approved', 'scheduled', 'failed') then
+      new.status := 'review';
+    end if;
+  end if;
+  if new.campaign_code <> old.campaign_code or new.created_at <> old.created_at then
+    raise exception 'content_pieces: the campaign code and creation date never change';
+  end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+revoke all on function public.content_pieces_guard() from public;
+
+create trigger content_pieces_guard
+  before update or delete on public.content_pieces
+  for each row execute function public.content_pieces_guard();
+
+-- A file added, changed (alt text) or removed changes what would be published:
+-- an approval of the piece is dropped (the server then stores the new hash).
+create function public.content_assets_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'content_assets: a file is marked removed, never deleted';
+  end if;
+  if tg_op = 'UPDATE' and (new.piece_id, new.kind, new.ref, new.media_type, new.bytes, new.added_at)
+     is distinct from (old.piece_id, old.kind, old.ref, old.media_type, old.bytes, old.added_at) then
+    raise exception 'content_assets: only the alt text and the removal can change';
+  end if;
+  if exists (select 1 from public.content_pieces where id = new.piece_id and status in ('posted', 'measured')) then
+    raise exception 'content_assets: the piece is already posted; its files no longer change';
+  end if;
+  update public.content_pieces
+     set approved_hash = null, approved_at = null, approved_by = null, approved_by_handle = null,
+         status = case when status in ('approved', 'scheduled', 'failed') then 'review' else status end
+   where id = new.piece_id and approved_hash is not null;
+  return new;
+end;
+$$;
+
+revoke all on function public.content_assets_guard() from public;
+
+create trigger content_assets_guard
+  before insert or update or delete on public.content_assets
+  for each row execute function public.content_assets_guard();
+
+-- History, results and the publish log are records: never changed or deleted.
+create function public.content_records_append_only()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception '%: a record cannot be changed or deleted', tg_table_name;
+end;
+$$;
+
+revoke all on function public.content_records_append_only() from public;
+
+create trigger content_events_append_only
+  before update or delete on public.content_events
+  for each row execute function public.content_records_append_only();
+create trigger content_results_append_only
+  before update or delete on public.content_results
+  for each row execute function public.content_records_append_only();
+create trigger content_publish_log_append_only
+  before update or delete on public.content_publish_log
+  for each row execute function public.content_records_append_only();
+
+create function public.content_settings_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'content_settings: the setting is kept; change it instead';
+  end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+revoke all on function public.content_settings_guard() from public;
+
+create trigger content_settings_guard
+  before update or delete on public.content_settings
+  for each row execute function public.content_settings_guard();
+
+-- A schedule is accepted only for a piece approved for exactly this content
+-- with no blocking issue; it only moves forward, and is never deleted.
+create function public.content_schedules_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  piece public.content_pieces%rowtype;
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'content_schedules: a schedule is cancelled, never deleted';
+  end if;
+  if tg_op = 'INSERT' then
+    select * into piece from public.content_pieces where id = new.piece_id;
+    if piece.id is null
+       or piece.status not in ('approved', 'scheduled', 'posted', 'measured', 'failed')
+       or piece.approved_hash is distinct from new.approval_hash
+       or piece.blocking_issues > 0
+       or not (new.channel = any (piece.channels)) then
+      raise exception 'content_schedules: only an approved piece, as approved, on one of its channels, can be scheduled';
+    end if;
+    if new.status <> 'scheduled' then
+      raise exception 'content_schedules: a schedule starts as scheduled';
+    end if;
+    return new;
+  end if;
+  if new.piece_id <> old.piece_id or new.channel <> old.channel or new.approval_hash <> old.approval_hash or new.publish_key <> old.publish_key then
+    raise exception 'content_schedules: what is scheduled never changes; cancel and schedule again';
+  end if;
+  if old.status in ('posted', 'failed', 'cancelled') and new.status <> old.status then
+    raise exception 'content_schedules: % is final', old.status;
+  end if;
+  if new.status <> old.status and not (
+    (old.status in ('scheduled', 'retry') and new.status in ('publishing', 'cancelled', 'failed'))
+    or (old.status = 'publishing' and new.status in ('posted', 'retry', 'failed'))
+  ) then
+    raise exception 'content_schedules: cannot go from % to %', old.status, new.status;
+  end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+revoke all on function public.content_schedules_guard() from public;
+
+create trigger content_schedules_guard
+  before insert or update or delete on public.content_schedules
+  for each row execute function public.content_schedules_guard();
+
+-- Files: a private bucket, no policy. Only the server writes, reads and hands
+-- out short-lived signed links (an upload link for one file, a view link).
+-- On Supabase the bucket also enforces the size and the types allowed.
+insert into storage.buckets (id, name, public) values ('content-assets', 'content-assets', false)
+  on conflict (id) do nothing;
+
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema = 'storage' and table_name = 'buckets' and column_name = 'allowed_mime_types') then
+    execute $sql$
+      update storage.buckets
+         set file_size_limit = 524288000,
+             allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf', 'video/mp4', 'video/quicktime', 'video/webm']
+       where id = 'content-assets'
+    $sql$;
+  end if;
+end;
+$$;
+
+-- ===== 0036_accounting.sql =====
+-- The accounting department (/equipo/contabilidad; src/lib/accounting).
+--
+-- What is here is only what billing does not already know: what the company
+-- spends, money from elsewhere (monitoring commissions), the processor's own
+-- export, people's decisions (reconciliation, collections), the tax details
+-- of partners for the 1099-NEC, closed months and an append-only audit trail.
+-- Income from clients is NOT copied here: the books read charges, refunds,
+-- chargebacks and returns as billing recorded them (migrations 0011, 0026),
+-- so the two can never disagree. Nothing in this migration touches a billing
+-- table, trigger or rule.
+--
+-- Money is integer cents everywhere. Calendar days are dates (Texas).
+--
+-- Who reads: only staff with the accounting capability (today: active
+-- administrators; staff_can_see_accounting()). Clients, partners, anonymous
+-- visitors, specialists and sales read nothing here. Who writes: only the
+-- server with the service role, after requireCapability('accounting'); there
+-- is no insert, update or delete policy for anyone.
+--
+-- Closed months: once a month is in month_closes, nothing dated in it can be
+-- added, changed or voided in expenses or other_income (trigger
+-- accounting_closed_month_guard), except an ADJUSTMENT: a new row marked as
+-- one, dated in that month, which can never change afterwards. There is no
+-- reopen: month_closes is append-only.
+
+-- ── Who may read the books ──────────────────────────────────────────────
+
+create function public.staff_can_see_accounting()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(public.staff_role() = 'admin', false);
+$$;
+
+revoke all on function public.staff_can_see_accounting() from public;
+-- Anonymous visitors too, so a signed-out read is an empty answer (the
+-- function is false for them), not an error.
+grant execute on function public.staff_can_see_accounting() to authenticated, anon;
+
+create function public.accounting_append_only()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception '%: the books keep this record as it was; it cannot be changed or deleted', tg_table_name;
+end;
+$$;
+
+revoke all on function public.accounting_append_only() from public;
+
+-- ── Categories ──────────────────────────────────────────────────────────
+-- The same keys as src/lib/accounting/categories.ts (a test keeps them equal).
+
+create table public.expense_categories (
+  key text primary key check (key ~ '^[a-z_]{2,40}$'),
+  category_group text not null check (category_group in ('advertising', 'operations', 'people', 'compliance', 'financial', 'other')),
+  name_en text not null check (char_length(name_en) between 2 and 80),
+  name_es text not null check (char_length(name_es) between 2 and 80),
+  account text not null check (char_length(account) between 2 and 80),
+  sort integer not null default 0
+);
+
+insert into public.expense_categories (key, category_group, name_en, name_es, account, sort) values
+  ('advertising_meta', 'advertising', 'Advertising: Meta (Facebook, Instagram)', 'Publicidad: Meta (Facebook, Instagram)', 'Advertising & Marketing:Meta Ads', 1),
+  ('advertising_google', 'advertising', 'Advertising: Google', 'Publicidad: Google', 'Advertising & Marketing:Google Ads', 2),
+  ('advertising_tiktok', 'advertising', 'Advertising: TikTok', 'Publicidad: TikTok', 'Advertising & Marketing:TikTok Ads', 3),
+  ('advertising_other', 'advertising', 'Advertising: other', 'Publicidad: otra', 'Advertising & Marketing:Other', 4),
+  ('software', 'operations', 'Software and subscriptions', 'Software y suscripciones', 'Software & Subscriptions', 5),
+  ('postage', 'operations', 'Postage: Lob and certified mail', 'Correo: Lob y correo certificado', 'Postage & Delivery', 6),
+  ('credit_monitoring', 'operations', 'Credit monitoring', 'Monitoreo de crédito', 'Credit Monitoring Services', 7),
+  ('payroll', 'people', 'Payroll', 'Nómina', 'Payroll Expenses', 8),
+  ('contractors', 'people', 'Contractors', 'Contratistas', 'Contract Labor', 9),
+  ('legal_compliance', 'compliance', 'Legal and compliance', 'Legal y cumplimiento', 'Legal & Professional Fees', 10),
+  ('insurance', 'compliance', 'Insurance', 'Seguros', 'Insurance', 11),
+  ('office_rent', 'operations', 'Office and rent', 'Oficina y renta', 'Rent & Office', 12),
+  ('bank_fees', 'financial', 'Bank fees', 'Comisiones bancarias', 'Bank Service Charges', 13),
+  ('processing_fees', 'financial', 'Card and ACH processing fees', 'Comisiones del procesador (tarjeta y ACH)', 'Merchant Account Fees', 14),
+  ('phone_whatsapp', 'operations', 'Phone and WhatsApp', 'Teléfono y WhatsApp', 'Telephone & Messaging', 15),
+  ('taxes_licenses', 'compliance', 'Taxes and licenses', 'Impuestos y licencias', 'Taxes & Licenses', 16),
+  ('other', 'other', 'Other', 'Otros', 'Other Expenses', 17);
+
+-- ── Settings ────────────────────────────────────────────────────────────
+
+create table public.accounting_settings (
+  id boolean primary key default true check (id),
+  -- The share of profit the owner puts aside for taxes (an estimate), in basis points.
+  tax_set_aside_bps integer not null default 2500 check (tax_set_aside_bps between 0 and 6000),
+  -- Bank feeds are off until the owner sets one up (src/lib/accounting/bankFeeds.ts).
+  bank_feed_provider text not null default 'none' check (bank_feed_provider in ('none', 'plaid')),
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users (id) on delete set null
+);
+
+insert into public.accounting_settings (id) values (true);
+
+-- ── Closed months ───────────────────────────────────────────────────────
+
+create table public.month_closes (
+  month text primary key check (month ~ '^\d{4}-(0[1-9]|1[0-2])$'),
+  closed_at timestamptz not null default now(),
+  closed_by uuid references auth.users (id) on delete set null,
+  closed_by_name text not null default '' check (char_length(closed_by_name) <= 80),
+  -- The figures as they were that day (src/lib/accounting/summary.ts snapshotOf).
+  totals jsonb not null check (jsonb_typeof(totals) = 'object' and octet_length(totals::text) <= 4000),
+  note text not null default '' check (char_length(note) <= 500)
+);
+
+create function public.month_closes_guard_insert()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  -- Only a month that is over on the Texas calendar.
+  if (new.month || '-01')::date + interval '1 month' > (now() at time zone 'America/Chicago')::date then
+    raise exception 'month_closes: % is not over yet', new.month;
+  end if;
+  new.closed_at := now();
+  return new;
+end;
+$$;
+
+create trigger month_closes_guard_insert
+  before insert on public.month_closes
+  for each row execute function public.month_closes_guard_insert();
+
+create trigger month_closes_append_only
+  before update or delete on public.month_closes
+  for each row execute function public.accounting_append_only();
+
+create function public.accounting_month_closed(d date)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.month_closes c where c.month = to_char(d, 'YYYY-MM'));
+$$;
+
+revoke all on function public.accounting_month_closed(date) from public;
+
+-- ── Imports (bank statements, processor exports) ────────────────────────
+
+create table public.accounting_imports (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('bank_statement', 'processor_settlement', 'other_income')),
+  gateway text check (gateway is null or gateway in ('nmi', 'authorize_net')),
+  file_name text not null check (char_length(file_name) between 1 and 200),
+  -- The same file twice is refused.
+  file_sha256 text not null check (file_sha256 ~ '^[0-9a-f]{64}$'),
+  row_count integer not null check (row_count >= 0),
+  added_count integer not null check (added_count >= 0),
+  duplicate_count integer not null check (duplicate_count >= 0),
+  created_by uuid references auth.users (id) on delete set null,
+  created_by_name text not null default '' check (char_length(created_by_name) <= 80),
+  created_at timestamptz not null default now(),
+  constraint accounting_imports_gateway check ((kind = 'processor_settlement') = (gateway is not null)),
+  unique (kind, file_sha256)
+);
+
+create trigger accounting_imports_append_only
+  before update or delete on public.accounting_imports
+  for each row execute function public.accounting_append_only();
+
+-- ── Monthly expense rules ───────────────────────────────────────────────
+
+create table public.accounting_recurring (
+  id uuid primary key default gen_random_uuid(),
+  vendor text not null check (char_length(vendor) between 2 and 120),
+  description text not null default '' check (char_length(description) <= 500),
+  category_key text not null references public.expense_categories (key) on delete restrict,
+  amount_cents integer not null check (amount_cents between 1 and 100000000),
+  day_of_month integer not null check (day_of_month between 1 and 31),
+  payment_method text not null check (payment_method in ('business_card', 'bank_transfer', 'ach', 'check', 'cash', 'personal_card', 'other')),
+  starts_on date not null,
+  ends_on date,
+  active boolean not null default true,
+  created_by uuid references auth.users (id) on delete set null,
+  created_by_name text not null default '' check (char_length(created_by_name) <= 80),
+  created_at timestamptz not null default now(),
+  constraint accounting_recurring_dates check (ends_on is null or ends_on >= starts_on)
+);
+
+create function public.accounting_recurring_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'accounting_recurring: a monthly rule is stopped, not deleted';
+  end if;
+  -- Only stopping, resuming or ending it. A different amount is a new rule.
+  if new.vendor is distinct from old.vendor or new.category_key is distinct from old.category_key
+     or new.amount_cents is distinct from old.amount_cents or new.day_of_month is distinct from old.day_of_month
+     or new.starts_on is distinct from old.starts_on or new.created_at is distinct from old.created_at then
+    raise exception 'accounting_recurring: a monthly rule keeps its terms; stop it and add a new one';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger accounting_recurring_guard
+  before update or delete on public.accounting_recurring
+  for each row execute function public.accounting_recurring_guard();
+
+-- ── Expenses ────────────────────────────────────────────────────────────
+
+create table public.expenses (
+  id uuid primary key default gen_random_uuid(),
+  spent_on date not null,
+  -- Positive; only an adjustment to a closed month may be negative.
+  amount_cents integer not null check (amount_cents between -100000000 and 100000000 and amount_cents <> 0),
+  category_key text not null references public.expense_categories (key) on delete restrict,
+  vendor text not null check (char_length(vendor) between 2 and 120),
+  description text not null default '' check (char_length(description) <= 500),
+  payment_method text not null check (payment_method in ('business_card', 'bank_transfer', 'ach', 'check', 'cash', 'personal_card', 'other')),
+  source text not null default 'manual' check (source in ('manual', 'recurring', 'bank_import', 'adjustment')),
+  recurring_id uuid references public.accounting_recurring (id) on delete restrict,
+  import_id uuid references public.accounting_imports (id) on delete restrict,
+  bank_fingerprint text check (bank_fingerprint is null or char_length(bank_fingerprint) <= 200),
+  adjusts_month text check (adjusts_month is null or adjusts_month ~ '^\d{4}-(0[1-9]|1[0-2])$'),
+  -- The receipt, in the private bucket accounting-receipts (server only).
+  receipt_path text check (receipt_path is null or receipt_path ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}\.(pdf|jpg|png)$'),
+  receipt_kind text check (receipt_kind is null or receipt_kind in ('pdf', 'jpeg', 'png')),
+  receipt_bytes integer check (receipt_bytes is null or receipt_bytes between 1 and 10485760),
+  receipt_name text check (receipt_name is null or char_length(receipt_name) <= 200),
+  receipt_uploaded_at timestamptz,
+  voided_at timestamptz,
+  void_reason text check (void_reason is null or char_length(btrim(void_reason)) between 5 and 500),
+  created_by uuid references auth.users (id) on delete set null,
+  created_by_name text not null default '' check (char_length(created_by_name) <= 80),
+  created_at timestamptz not null default now(),
+  constraint expenses_positive_unless_adjustment check (source = 'adjustment' or amount_cents > 0),
+  constraint expenses_adjustment_month check ((source = 'adjustment') = (adjusts_month is not null)),
+  constraint expenses_adjustment_in_its_month check (adjusts_month is null or to_char(spent_on, 'YYYY-MM') = adjusts_month),
+  constraint expenses_recurring_source check ((source = 'recurring') = (recurring_id is not null)),
+  constraint expenses_void_pair check ((voided_at is null) = (void_reason is null)),
+  constraint expenses_receipt_pair check ((receipt_path is null) = (receipt_kind is null) and (receipt_path is null) = (receipt_bytes is null))
+);
+
+create index expenses_spent_idx on public.expenses (spent_on);
+-- A monthly rule posts once per month; a bank line comes in once.
+create unique index expenses_one_per_rule_month on public.expenses (recurring_id, (date_trunc('month', spent_on::timestamp))) where recurring_id is not null and voided_at is null;
+create unique index expenses_one_per_bank_line on public.expenses (bank_fingerprint) where bank_fingerprint is not null and voided_at is null;
+
+-- ── Money from elsewhere: monitoring commissions, other income ─────────
+
+create table public.other_income (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('monitoring_commission', 'other')),
+  source text not null check (char_length(source) between 2 and 120),
+  received_on date not null,
+  amount_cents integer not null check (amount_cents between -100000000 and 100000000 and amount_cents <> 0),
+  note text not null default '' check (char_length(note) <= 500),
+  import_id uuid references public.accounting_imports (id) on delete restrict,
+  is_adjustment boolean not null default false,
+  adjusts_month text check (adjusts_month is null or adjusts_month ~ '^\d{4}-(0[1-9]|1[0-2])$'),
+  voided_at timestamptz,
+  void_reason text check (void_reason is null or char_length(btrim(void_reason)) between 5 and 500),
+  created_by uuid references auth.users (id) on delete set null,
+  created_by_name text not null default '' check (char_length(created_by_name) <= 80),
+  created_at timestamptz not null default now(),
+  constraint other_income_positive_unless_adjustment check (is_adjustment or amount_cents > 0),
+  constraint other_income_adjustment_month check (is_adjustment = (adjusts_month is not null)),
+  constraint other_income_adjustment_in_its_month check (adjusts_month is null or to_char(received_on, 'YYYY-MM') = adjusts_month),
+  constraint other_income_void_pair check ((voided_at is null) = (void_reason is null))
+);
+
+create index other_income_received_idx on public.other_income (received_on);
+
+-- The closed-month rule, for both tables. tg_argv[0] is the date column.
+create function public.accounting_closed_month_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  col text := tg_argv[0];
+  new_day date;
+  old_day date;
+  new_adjustment boolean;
+  old_adjustment boolean;
+  n jsonb;
+  o jsonb;
+begin
+  if tg_op = 'DELETE' then
+    raise exception '%: a line in the books is voided, never deleted', tg_table_name;
+  end if;
+  n := to_jsonb(new);
+  new_day := (n ->> col)::date;
+  new_adjustment := coalesce((n ->> 'source') = 'adjustment', false) or coalesce((n ->> 'is_adjustment')::boolean, false);
+  if tg_op = 'INSERT' then
+    if public.accounting_month_closed(new_day) and not new_adjustment then
+      raise exception '%: % is a closed month; record an adjustment instead', tg_table_name, to_char(new_day, 'YYYY-MM');
+    end if;
+    if new_adjustment and not public.accounting_month_closed(new_day) then
+      raise exception '%: an adjustment is only for a closed month', tg_table_name;
+    end if;
+    return new;
+  end if;
+  o := to_jsonb(old);
+  old_day := (o ->> col)::date;
+  old_adjustment := coalesce((o ->> 'source') = 'adjustment', false) or coalesce((o ->> 'is_adjustment')::boolean, false);
+  if (n - 'receipt_path' - 'receipt_kind' - 'receipt_bytes' - 'receipt_name' - 'receipt_uploaded_at') = (o - 'receipt_path' - 'receipt_kind' - 'receipt_bytes' - 'receipt_name' - 'receipt_uploaded_at') then
+    -- Only the receipt changed: a receipt can be attached at any time.
+    return new;
+  end if;
+  if old_adjustment then
+    raise exception '%: an adjustment is never changed; record another adjustment', tg_table_name;
+  end if;
+  if (o ->> 'voided_at') is not null then
+    raise exception '%: a voided line stays voided', tg_table_name;
+  end if;
+  if public.accounting_month_closed(old_day) or public.accounting_month_closed(new_day) then
+    raise exception '%: % is a closed month; record an adjustment instead', tg_table_name, to_char(case when public.accounting_month_closed(old_day) then old_day else new_day end, 'YYYY-MM');
+  end if;
+  if (n ->> 'created_at') is distinct from (o ->> 'created_at') or (n ->> 'id') is distinct from (o ->> 'id')
+     or (n ->> 'source') is distinct from (o ->> 'source') or (n ->> 'is_adjustment') is distinct from (o ->> 'is_adjustment') then
+    raise exception '%: where a line came from cannot change', tg_table_name;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.accounting_closed_month_guard() from public;
+
+create trigger expenses_closed_month_guard
+  before insert or update or delete on public.expenses
+  for each row execute function public.accounting_closed_month_guard('spent_on');
+
+create trigger other_income_closed_month_guard
+  before insert or update or delete on public.other_income
+  for each row execute function public.accounting_closed_month_guard('received_on');
+
+-- ── The processor's export ──────────────────────────────────────────────
+
+create table public.settlement_rows (
+  id uuid primary key default gen_random_uuid(),
+  import_id uuid not null references public.accounting_imports (id) on delete restrict,
+  gateway text not null check (gateway in ('nmi', 'authorize_net')),
+  transaction_id text not null check (char_length(transaction_id) between 1 and 120),
+  order_id text check (order_id is null or char_length(order_id) <= 120),
+  kind text not null check (kind in ('sale', 'refund', 'void', 'chargeback', 'return', 'fee', 'other')),
+  status text not null check (status in ('settled', 'declined', 'voided', 'pending', 'other')),
+  amount_cents integer not null check (amount_cents between 0 and 100000000),
+  fee_cents integer not null default 0 check (fee_cents between 0 and 100000000),
+  settled_on date not null,
+  batch_id text check (batch_id is null or char_length(batch_id) <= 80),
+  created_at timestamptz not null default now(),
+  unique (gateway, transaction_id, kind)
+);
+
+create index settlement_rows_day_idx on public.settlement_rows (settled_on);
+
+create trigger settlement_rows_append_only
+  before update or delete on public.settlement_rows
+  for each row execute function public.accounting_append_only();
+
+-- A person's decision on a reconciliation line: paired by hand, or a difference explained.
+create table public.reconciliation_matches (
+  id uuid primary key default gen_random_uuid(),
+  settlement_row_id uuid references public.settlement_rows (id) on delete restrict,
+  charge_id uuid references public.charges (id) on delete restrict,
+  decision text not null check (decision in ('manual_match', 'explained')),
+  note text not null check (char_length(btrim(note)) between 5 and 500),
+  decided_by uuid references auth.users (id) on delete set null,
+  decided_by_name text not null default '' check (char_length(decided_by_name) <= 80),
+  decided_at timestamptz not null default now(),
+  constraint reconciliation_matches_something check (settlement_row_id is not null or charge_id is not null),
+  constraint reconciliation_matches_pair check (decision <> 'manual_match' or (settlement_row_id is not null and charge_id is not null))
+);
+
+create trigger reconciliation_matches_append_only
+  before update or delete on public.reconciliation_matches
+  for each row execute function public.accounting_append_only();
+
+-- ── Collections: what a person did about a payment that did not go through ──
+-- Reminders are WhatsApp or email only: there is no SMS kind, on purpose.
+
+create table public.collection_actions (
+  id uuid primary key default gen_random_uuid(),
+  charge_id uuid not null references public.charges (id) on delete restrict,
+  user_id uuid not null references auth.users (id) on delete restrict,
+  kind text not null check (kind in ('reminder_whatsapp', 'reminder_email', 'called', 'note', 'decided_wait', 'decided_write_off', 'decided_pause')),
+  note text not null default '' check (char_length(note) <= 1000),
+  by_user uuid references auth.users (id) on delete set null,
+  by_name text not null default '' check (char_length(by_name) <= 80),
+  at timestamptz not null default now()
+);
+
+create index collection_actions_charge_idx on public.collection_actions (charge_id, at);
+
+create function public.collection_actions_guard_insert()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  c public.charges%rowtype;
+begin
+  select * into c from public.charges where id = new.charge_id;
+  if not found or c.user_id <> new.user_id then
+    raise exception 'collection_actions: the charge belongs to another client';
+  end if;
+  -- Only a charge that is not paid: nothing is asked for money already taken.
+  if c.status not in ('pending', 'failed') then
+    raise exception 'collection_actions: only an unpaid charge is in collections';
+  end if;
+  -- Never a reminder to a client who asked for no messages (their newest
+  -- record in message_opt_outs, migration 0015, decides).
+  if new.kind in ('reminder_whatsapp', 'reminder_email') and coalesce((
+    select o.kind from public.message_opt_outs o where o.user_id = new.user_id order by o.at desc limit 1
+  ), 'opt_in') = 'opt_out' then
+    raise exception 'collection_actions: the client asked for no messages';
+  end if;
+  new.at := now();
+  return new;
+end;
+$$;
+
+create trigger collection_actions_guard_insert
+  before insert on public.collection_actions
+  for each row execute function public.collection_actions_guard_insert();
+
+create trigger collection_actions_append_only
+  before update or delete on public.collection_actions
+  for each row execute function public.accounting_append_only();
+
+-- ── Partners' tax details for the 1099-NEC ─────────────────────────────
+-- Never the tax id itself: only whether the W-9 is on file, the legal name
+-- it gives, and whether it says the partner is exempt. The CPA files.
+
+create table public.partner_tax_info (
+  partner_id uuid primary key references public.partners (id) on delete restrict,
+  legal_name text not null default '' check (char_length(legal_name) <= 120 and legal_name !~ '\d{3}-?\d{2}-?\d{4}' and legal_name !~ '\d{2}-?\d{7}'),
+  w9_received_on date,
+  exempt boolean not null default false,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users (id) on delete set null
+);
+
+-- ── The audit trail ─────────────────────────────────────────────────────
+
+create table public.accounting_audit (
+  id uuid primary key default gen_random_uuid(),
+  at timestamptz not null default now(),
+  actor uuid,
+  actor_name text not null default '' check (char_length(actor_name) <= 80),
+  action text not null check (action ~ '^[a-z_]{2,60}$'),
+  entity text not null check (entity ~ '^[a-z_]{2,40}$'),
+  entity_id text check (entity_id is null or char_length(entity_id) <= 120),
+  detail jsonb not null default '{}' check (jsonb_typeof(detail) = 'object' and octet_length(detail::text) <= 4000)
+);
+
+create index accounting_audit_at_idx on public.accounting_audit (at desc);
+
+create trigger accounting_audit_append_only
+  before update or delete on public.accounting_audit
+  for each row execute function public.accounting_append_only();
+
+-- ── Receipts: a private bucket, no policy (the server hands out short links) ──
+
+insert into storage.buckets (id, name, public) values ('accounting-receipts', 'accounting-receipts', false)
+  on conflict (id) do nothing;
+
+-- ── Row level security: read by accounting staff only, written by nobody ──
+
+alter table public.expense_categories enable row level security;
+alter table public.accounting_settings enable row level security;
+alter table public.month_closes enable row level security;
+alter table public.accounting_imports enable row level security;
+alter table public.accounting_recurring enable row level security;
+alter table public.expenses enable row level security;
+alter table public.other_income enable row level security;
+alter table public.settlement_rows enable row level security;
+alter table public.reconciliation_matches enable row level security;
+alter table public.collection_actions enable row level security;
+alter table public.partner_tax_info enable row level security;
+alter table public.accounting_audit enable row level security;
+
+create policy "accounting read categories" on public.expense_categories for select using (public.staff_can_see_accounting());
+create policy "accounting read settings" on public.accounting_settings for select using (public.staff_can_see_accounting());
+create policy "accounting read month closes" on public.month_closes for select using (public.staff_can_see_accounting());
+create policy "accounting read imports" on public.accounting_imports for select using (public.staff_can_see_accounting());
+create policy "accounting read recurring" on public.accounting_recurring for select using (public.staff_can_see_accounting());
+create policy "accounting read expenses" on public.expenses for select using (public.staff_can_see_accounting());
+create policy "accounting read other income" on public.other_income for select using (public.staff_can_see_accounting());
+create policy "accounting read settlement" on public.settlement_rows for select using (public.staff_can_see_accounting());
+create policy "accounting read reconciliation" on public.reconciliation_matches for select using (public.staff_can_see_accounting());
+create policy "accounting read collections" on public.collection_actions for select using (public.staff_can_see_accounting());
+create policy "accounting read partner tax" on public.partner_tax_info for select using (public.staff_can_see_accounting());
+create policy "accounting read audit" on public.accounting_audit for select using (public.staff_can_see_accounting());

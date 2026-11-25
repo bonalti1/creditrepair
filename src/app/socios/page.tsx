@@ -8,8 +8,8 @@ import { SITE_COPY } from "@/lib/site/copy";
 import { siteMetadata } from "@/lib/site/seo";
 import { getAdminClient } from "@/lib/supabase/admin";
 
-// /socios: the website's page for realtors, loan officers and tax
-// preparers, above the existing application (SociosContent). It describes the
+// /socios: the website's page for realtors, loan officers, tax preparers, car
+// dealers, attorneys and anyone else who refers people, above the existing application (SociosContent). It describes the
 // consent-based progress sharing (src/lib/partners/sharing.ts) and reads the
 // "Comisiones a socios" switch (src/lib/partners/program.ts) on the server:
 // while it is off, or without a database (the demo), the page says the
@@ -29,7 +29,7 @@ async function feesOn(): Promise<boolean> {
   }
 }
 
-const WHO_ICONS: IconName[] = ["home", "calc", "doc"];
+const WHO_ICONS: IconName[] = ["home", "calc", "doc", "search", "book", "team"];
 
 export default async function Socios() {
   const { locale } = await requestLocale();

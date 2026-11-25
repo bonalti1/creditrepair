@@ -675,7 +675,19 @@ describe("team: what the staff routes accept", () => {
     expect(read("src/app/api/staff/offers/route.ts")).toMatch(/requireCapability\("partners\.manage"\)/);
     // Calls with a person (migration 0032, off by default): whoever handles calls (administrators and sales).
     expect(read("src/app/api/staff/calls/route.ts")).toMatch(/requireCapability\("calls\.manage"\)/);
-    expect(staffRoutes.length).toBe(27);
+    // Notes with a referral partner about a client (migration 0033): whoever follows up a client.
+    expect(read("src/app/api/staff/partner-notes/route.ts")).toMatch(/requireCapability\("clients\.followup"\)/);
+    // Credalti Control (migration 0034): the lead inbox and its autopilot switch, phone alerts, the Overview.
+    expect(read("src/app/api/staff/leads/route.ts")).toMatch(/requireCapability\("leads\.work"\)/);
+    expect(read("src/app/api/staff/leads/autopilot/route.ts")).toMatch(/requireCapability\("autopilot\.manage"\)/);
+    expect(read("src/app/api/staff/alerts/route.ts")).toMatch(/requireCapability\("clients\.followup"\)/);
+    expect(read("src/app/api/staff/control/route.ts")).toMatch(/requireCapability\("clients\.followup"\)/);
+    // Content (migration 0035): the board, files, Alti's assistant and connecting accounts.
+    expect(read("src/app/api/staff/content/assist/route.ts")).toMatch(/requireCapability\("content\.edit"\)/);
+    // The accounting department (migration 0036): the accounting capability.
+    expect(read("src/app/api/staff/accounting/route.ts")).toMatch(/requireCapability\("accounting"\)/);
+    expect(read("src/app/api/staff/accounting/receipt/route.ts")).toMatch(/requireCapability\("accounting"\)/);
+    expect(staffRoutes.length).toBe(38);
   });
 });
 

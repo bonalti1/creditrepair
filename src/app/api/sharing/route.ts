@@ -3,6 +3,7 @@ import { z } from "zod";
 import { reportError } from "@/lib/observability/errors";
 import { consentHash, homeReadyAllowed, partnerDisplay, SHARING_CONSENT_VERSION, type ShareHow } from "@/lib/partners/sharing";
 import { loadClientConsents, loadClientSharing, loadClientViews, loadPreviewCounts, partnerByCode } from "@/lib/partners/sharingServer";
+import { loadClientShareRequests } from "@/lib/partners/portalServer";
 import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -13,7 +14,8 @@ import { getServerSupabase, getSessionUser } from "@/lib/supabase/server";
 //
 // GET   through the client's OWN connection: client_sharing() (the partner who
 //       referred them and any they added: public facts only), their own view
-//       log and consent history, and the two counts for the preview.
+//       log and consent history, the two counts for the preview, and the
+//       requests a partner made to follow their progress (migration 0033).
 // POST  {action: "lookup", code}: a partner's public face, to add them by code.
 //       {action: "set", partnerId | code, level, locale, version, textHash}: a
 //       new consent record. A grant or change must carry the hash of the text
@@ -23,10 +25,13 @@ import { getServerSupabase, getSessionUser } from "@/lib/supabase/server";
 //       service role; the database fills in the previous level and the kind
 //       of change, refuses a "referred" record for a partner who did not refer
 //       this client, and refuses a grant to a partner who is not approved.
+//       {action: "dismiss_request", id}: "Not now" on a partner's request to
+//       follow their progress: the card goes away; nothing is shared.
 
 type Row = Record<string, unknown>;
 
 const bodySchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("dismiss_request"), id: z.string().uuid() }),
   z.object({ action: z.literal("lookup"), code: z.string().trim().toLowerCase().regex(/^[a-z0-9-]{3,30}$/) }),
   z.object({
     action: z.literal("set"),
@@ -49,12 +54,13 @@ export async function GET(req: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   try {
-    const [partners, views, history, counts, profile] = await Promise.all([
+    const [partners, views, history, counts, profile, requests] = await Promise.all([
       loadClientSharing(reader),
       loadClientViews(reader, user.id),
       loadClientConsents(reader, user.id),
       loadPreviewCounts(reader, user.id),
       reader.from("profiles").select("full_name, goal").eq("id", user.id).maybeSingle(),
+      loadClientShareRequests(reader, user.id),
     ]);
     const p = (profile.data as Row | null) ?? {};
     return NextResponse.json({
@@ -62,6 +68,7 @@ export async function GET(req: Request) {
       views,
       history,
       counts,
+      requests,
       me: { name: String(p.full_name ?? "").trim(), goal: typeof p.goal === "string" ? p.goal : null },
       version: SHARING_CONSENT_VERSION,
     });
@@ -86,6 +93,17 @@ export async function POST(req: Request) {
   const input = parsed.data;
 
   try {
+    if (input.action === "dismiss_request") {
+      // Only the client's own request (their own connection finds it), and only once.
+      const { data: mine } = await reader.from("partner_share_requests").select("id, dismissed_at").eq("id", input.id).maybeSingle();
+      if (!mine) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      if (!(mine as Row).dismissed_at) {
+        const { error } = await db.from("partner_share_requests").update({ dismissed_at: new Date().toISOString() }).eq("id", input.id).eq("user_id", user.id).is("dismissed_at", null);
+        if (error) throw new Error(error.message);
+      }
+      return NextResponse.json({ ok: true });
+    }
+
     if (input.action === "lookup") {
       const partner = await partnerByCode(reader, input.code);
       // The same answer for a code that does not exist and one that is not approved.

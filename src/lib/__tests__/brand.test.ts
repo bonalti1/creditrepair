@@ -212,6 +212,13 @@ describe("brand", () => {
       "src/components/site/MailCameo.tsx",
       "src/app/nosotros/page.tsx",
       "src/lib/site/copy.ts",
+      // The content hub: the brand kit shows his cameo rule with one small
+      // reference picture (never speaking), and the content check and Alti's
+      // writing assistant keep his name out of the copy (docs/CONTENT.md).
+      "src/components/staff/content/BrandKit.tsx",
+      "src/lib/content/brandKit.ts",
+      "src/lib/content/check.ts",
+      "src/lib/content/assist.ts",
     ]);
     const uses = (text: string) => new RegExp(`\\b${CAMEO_NAME}\\b|character="cameo"|BRAND\\.cameo|CAMEO_NAME|cameoImages`).test(text);
     const users = sourceFiles("src").filter((file) => uses(readFileSync(file, "utf8")));

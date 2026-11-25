@@ -38,6 +38,22 @@ The app exposes everything n8n needs; n8n only provides the clock.
   time chosen; hourly works too, just later. Running it twice sends nothing
   twice. See `docs/STAFF.md`.
 
+## Workflow 6: the lead inbox's clock (every 2 to 5 minutes)
+
+- `POST {APP_URL}/api/cron/leads`, same header. Gives leads nobody has to the
+  next salesperson in turn, runs the lead autopilot (does nothing while its
+  switch is off, the default), sends the staff phone alerts members turned on,
+  and records a heartbeat for the Overview's Tech health card. The autopilot's
+  "wait before replying" is measured from the lead's message, so a run every
+  2–5 minutes keeps it close. Safe to run twice. See `docs/CONTROL.md`.
+
+## Workflow 7: content publishing and metrics (every 10 minutes)
+
+- `POST {APP_URL}/api/cron/content`, same header. Posts the approved, scheduled
+  content pieces that are due (only when the owner has turned publishing on;
+  it starts off), retries temporary errors, and reads the numbers of recent
+  posts. Running it twice posts nothing twice. See `docs/CONTENT.md`.
+
 ## Workflow 2 (optional): notification relays
 
 For ad-hoc messages (e.g. manual "attack ready" nudges), call

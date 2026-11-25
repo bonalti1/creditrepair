@@ -306,18 +306,22 @@ describe("revocation, suspension and the database's own checks", () => {
   });
 });
 
-describe("Escribir al equipo", () => {
-  it("lands as a note the assigned specialist reads; the client never does; only about a client who shares", async () => {
+describe("Write to the team (the thread of migration 0033)", () => {
+  it("lands in the client's thread, which the assigned specialist reads; the client never does; only about a client who shares", async () => {
     await share(A, { partnerId: P1, level: "progress", textHash: consentHash("progress", LAURA, "es") });
     const route = await import("@/app/api/partners/portal/route");
     as(h.as(laura, { phone: "+17135550161" }));
     const ok = await route.POST(request("/api/partners/portal", { action: "message", clientId: A, text: "Rosa quiere saber si necesita algo más para su ronda." }));
     expect(ok.status).toBe(200);
-    const notes = (await h.as(marta.userId).from("staff_notes").select("author_name, body").eq("user_id", A)).data as Array<Record<string, string>>;
-    expect(notes.some((n) => n.author_name === "Socio · Laura Benítez" && n.body.includes("Rosa quiere saber"))).toBe(true);
-    expect(((await h.as(A).from("staff_notes").select("*")).data as unknown[]).length).toBe(0);
+    const notes = (await h.as(marta.userId).from("partner_team_notes").select("author_kind, author_first_name, body").eq("user_id", A)).data as Array<Record<string, string>>;
+    expect(notes.some((n) => n.author_kind === "partner" && n.author_first_name === "Laura" && n.body.includes("Rosa quiere saber"))).toBe(true);
+    expect(((await h.as(A).from("partner_team_notes").select("*")).data as unknown[]).length).toBe(0);
     const notMine = await route.POST(request("/api/partners/portal", { action: "message", clientId: B, text: "¿Cómo va Luis?" }));
     expect(notMine.status).toBe(404);
+    // A promise or credit data does not go.
+    const promise = await json(await route.POST(request("/api/partners/portal", { action: "message", clientId: A, text: "Tell her the collection will be deleted and her score will go up." })));
+    expect(promise.status).toBe(422);
+    expect((promise.body.problems as unknown[]).length).toBeGreaterThan(0);
   });
 });
 

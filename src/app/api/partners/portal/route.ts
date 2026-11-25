@@ -3,7 +3,8 @@ import { z } from "zod";
 import { notifyTeam } from "@/lib/agreement/server";
 import { reportError } from "@/lib/observability/errors";
 import { commissionFromRow, requirePartner } from "@/lib/partners/server";
-import { commissionTotals, REFERRAL_STATUSES, type PartnerReferral, type ReferralStatus } from "@/lib/partners/rules";
+import { commissionTotals } from "@/lib/partners/rules";
+import { addPartnerNote, loadReferrals, requestShare } from "@/lib/partners/portalServer";
 import { commissionsEnabled, loadPartnerClients } from "@/lib/partners/sharingServer";
 import { checkLogo } from "@/lib/partners/logo";
 import { PARTNER_CLIENT_TERMS_VERSION, partnerTermsHash } from "@/lib/partners/terms";
@@ -21,13 +22,20 @@ import { rateLimit } from "@/lib/security/rateLimit";
 // POST, the partner's own actions (written with the service role after the
 // partner check):
 //   accept_terms  the current terms, with the hash of the text they saw;
-//   settings      milestone notices by email and/or WhatsApp (never SMS);
+//   settings      milestone notices by email and/or WhatsApp, and the weekly
+//                 summary's channel (or off); never SMS;
 //   language      the language the partner reads the portal in, which their
 //                 milestone notices go out in (partners.locale, migration 0024);
 //   logo          a small image for co-branding, shown to clients only after
 //                 an administrator approves it (or null to remove it);
-//   message       "Escribir al equipo" about a client who shares with them: a
-//                 note in the staff console, never shown to the client.
+//   ask_share     "Ask to follow progress": a person they referred, with an
+//                 account, not sharing, not asked in 14 days (migration 0033;
+//                 the database checks again). The client gets a card in their
+//                 app and one message; the partner sees only the date;
+//   message       a note to the team about a client who shares with them (the
+//                 thread on that client's page, migration 0033), after the
+//                 guardrails: no promises, no credit data. Never shown to the
+//                 client.
 
 type Row = Record<string, unknown>;
 
@@ -38,20 +46,12 @@ export async function GET(req: Request) {
   if (!allowed.ok) return allowed.response;
   const { member, reader } = allowed;
   try {
-    const [referrals, fees, own, terms] = await Promise.all([
-      reader.rpc("partner_referrals"),
+    const [list, fees, own, terms] = await Promise.all([
+      loadReferrals(reader),
       commissionsEnabled(reader),
-      reader.from("partners").select("logo_status, notify_email, notify_whatsapp, email, locale").eq("id", member.partner.id).maybeSingle(),
+      reader.from("partners").select("logo_status, notify_email, notify_whatsapp, digest_channel, email, locale").eq("id", member.partner.id).maybeSingle(),
       reader.from("partner_terms_acceptances").select("accepted_at").eq("version", PARTNER_CLIENT_TERMS_VERSION).limit(1),
     ]);
-    if (referrals.error) throw new Error(referrals.error.message);
-    const list: PartnerReferral[] = (((referrals.data as Row[] | null) ?? []) as Row[]).map((r) => ({
-      id: String(r.referral_id),
-      firstName: String(r.first_name ?? ""),
-      lastInitial: String(r.last_initial ?? ""),
-      referredAt: String(r.referred_at ?? ""),
-      status: ((REFERRAL_STATUSES as readonly string[]).includes(String(r.status)) ? r.status : "contacted") as ReferralStatus,
-    }));
     let commissions: null | ReturnType<typeof commissionTotals> & { records: Array<{ id: string; kind: "owed" | "paid"; amountCents: number; note: string | null; recordedAt: string }> } = null;
     if (fees) {
       const { data, error } = await reader.from("partner_commissions").select("id, partner_id, kind, amount_cents, referral_id, note, recorded_at, recorded_by_name").order("recorded_at", { ascending: false });
@@ -83,6 +83,7 @@ export async function GET(req: Request) {
         logoStatus: typeof settings.logo_status === "string" ? settings.logo_status : "none",
         notifyEmail: settings.notify_email === true,
         notifyWhatsapp: settings.notify_whatsapp === true,
+        digestChannel: settings.digest_channel === "whatsapp" || settings.digest_channel === "email" ? settings.digest_channel : null,
         hasEmail: typeof settings.email === "string" && settings.email !== "",
         locale: settings.locale === "es" ? "es" : "en",
       },
@@ -101,10 +102,11 @@ export async function GET(req: Request) {
 
 const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("accept_terms"), locale: z.enum(["es", "en"]), version: z.string().max(40), textHash: z.string().regex(/^[0-9a-f]{64}$/) }),
-  z.object({ action: z.literal("settings"), notifyEmail: z.boolean(), notifyWhatsapp: z.boolean() }),
+  z.object({ action: z.literal("settings"), notifyEmail: z.boolean(), notifyWhatsapp: z.boolean(), digestChannel: z.enum(["whatsapp", "email"]).nullable().optional() }),
+  z.object({ action: z.literal("ask_share"), referralId: z.string().uuid() }),
   z.object({ action: z.literal("language"), locale: z.enum(["es", "en"]) }),
   z.object({ action: z.literal("logo"), dataUrl: z.string().max(210_000).nullable() }),
-  z.object({ action: z.literal("message"), clientId: z.string().uuid(), text: z.string().trim().min(2).max(1500) }),
+  z.object({ action: z.literal("message"), clientId: z.string().uuid(), text: z.string().trim().min(2).max(1500), locale: z.enum(["es", "en"]).optional() }),
 ]);
 
 export async function POST(req: Request) {
@@ -131,7 +133,10 @@ export async function POST(req: Request) {
     }
 
     if (input.action === "settings") {
-      const { error } = await db.from("partners").update({ notify_email: input.notifyEmail, notify_whatsapp: input.notifyWhatsapp }).eq("id", partnerId);
+      const { error } = await db
+        .from("partners")
+        .update({ notify_email: input.notifyEmail, notify_whatsapp: input.notifyWhatsapp, ...(input.digestChannel !== undefined ? { digest_channel: input.digestChannel } : {}) })
+        .eq("id", partnerId);
       if (error) throw new Error(error.message);
       return NextResponse.json({ ok: true });
     }
@@ -156,20 +161,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, logoStatus: "pending" });
     }
 
+    if (input.action === "ask_share") {
+      const result = await requestShare(db, reader, member, input.referralId);
+      if (!result.ok) return NextResponse.json({ error: "Not possible", code: result.code }, { status: result.status });
+      return NextResponse.json({ ok: true, requestedAt: result.requestedAt });
+    }
+
     // message: only about a client who shares with this partner right now (their own connection decides).
-    const clients = await loadPartnerClients(reader);
-    const client = clients.find((c) => c.clientId === input.clientId);
-    if (!client) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const who = member.partner.company ? `${member.partner.name} (${member.partner.company})` : member.partner.name;
-    const { error } = await db.from("staff_notes").insert({
-      user_id: client.clientId,
-      author: member.userId,
-      author_name: `Socio · ${member.partner.name}`.slice(0, 80),
-      body: `Mensaje del socio ${who}, para el especialista. No lo ve el cliente.\n\n${input.text}`.slice(0, 2000),
-    });
-    if (error) throw new Error(error.message);
-    await notifyTeam(`Un socio escribió al equipo sobre un cliente (${client.clientId}). Está en las notas del cliente.`);
-    return NextResponse.json({ ok: true });
+    const result = await addPartnerNote(db, reader, member, input.clientId, input.text, input.locale ?? member.partner.locale ?? "en");
+    if (!result.ok) return NextResponse.json({ error: "Not sent", code: result.code, problems: result.problems }, { status: result.status });
+    await notifyTeam(`Un socio escribió al equipo sobre un cliente (${input.clientId}). Está en «Notas con el socio» del cliente.`);
+    return NextResponse.json({ ok: true, note: result.note });
   } catch (error) {
     await reportError(error, { where: "api/partners/portal:write", userId: member.userId });
     return NextResponse.json({ error: "Could not save it. Nothing changed; please try again." }, { status: 500 });

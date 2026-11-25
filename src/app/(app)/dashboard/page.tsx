@@ -13,6 +13,7 @@ import Icon, { type IconName } from "@/components/Icon";
 import { CaseCard, CaseStatus } from "@/components/case/CaseViews";
 import { useCase } from "@/lib/case/useCase";
 import Pulse from "@/components/Pulse";
+import ShareRequestCard from "@/components/partners/ShareRequestCard";
 
 // Home. "¿Qué está pasando?" comes first: one plain sentence of where the case
 // stands (src/lib/case/timeline.ts), so the client never has to ask for an
@@ -93,6 +94,9 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {/* A partner who referred the client asked to follow their progress (migration 0033): the client decides. */}
+      <ShareRequestCard locale={locale} />
 
       <Pulse state={caseView.timeline.state} facts={caseView.facts} />
 

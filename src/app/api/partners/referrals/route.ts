@@ -72,7 +72,7 @@ export async function POST(req: Request) {
         contactId: null,
         campaign: null,
         utm: null,
-        consentText: PARTNER_COPY.es.referralConsent,
+        consentText: PARTNER_COPY[member.partner.locale === "es" ? "es" : "en"].referralConsent,
         consentAt: now.toISOString(),
         salespersonHint: null,
         partner: { id: member.partner.id, salesperson: member.partner.salesperson },

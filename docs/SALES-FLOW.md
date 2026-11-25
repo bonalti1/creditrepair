@@ -198,8 +198,8 @@ both.
 
 ## Not built yet
 
-- A list of leads and clients per salesperson. The data is recorded
-  (`events.kind = 'whatsapp_lead'`, `profiles.referred_by`); the screen belongs
-  in ALTO Control.
+- ~~A list of leads per salesperson~~: built as Credalti Control's lead inbox
+  (`/equipo/leads`, `docs/CONTROL.md`), with the pipeline, the numbers and an
+  autopilot that is off by default.
 - Billing for the monthly service fee. No amount appears anywhere in the app
   or its copy.

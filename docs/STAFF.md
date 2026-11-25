@@ -52,6 +52,32 @@ The home screen says how much: **«Esta semana el sistema resolvió N cosas
 por su cuenta»**, with the count of each kind under «Resuelto solo»
 (`autopilot_resolutions`, migration 0022).
 
+## Credalti Control: Overview, Today, Leads, phone alerts
+
+The owner's control center is in `docs/CONTROL.md`. In short:
+
+- **Resumen / Overview** (`/equipo/control`), a tab next to Home (Home stays
+  the specialist's day, above): on top, a strip of tiles for every department
+  the member may open (Leads, Clients, Content, Accounting, Partners,
+  Reviews); then one card per department (leads and sales, clients in
+  progress, money, content, support, partners, tech health) with real
+  numbers, "No data yet" and why when something cannot be read, and a "Needs
+  you" count that opens the right screen. Money never shows to sales; for the
+  owner it adds this month's net revenue, expenses and net profit from the
+  books and links to Accounting. Content shows to the content team.
+- **Hoy / Today**: this page's work queue plus waiting leads, the autopilot's
+  hand-offs, partners' notes, Content (pieces to approve, changes asked of
+  an editor, posts that failed) and, for the owner, the books (a month not
+  closed after the 5th, receipts missing) and escalations, ranked in one
+  list; each item with its steps and «Escalate to the owner».
+- **Prospectos / Leads** (`/equipo/leads`): every prospect conversation
+  (WhatsApp, HighLevel, partners, the chat signup, by hand) with ✨ Suggest
+  reply (the drafted-reply engine below, pointed at a lead), saved answers,
+  «Prepare invitation», notes, assignment, the pipeline (only people move it;
+  Invited and Signed set themselves) and the lead quality numbers.
+- **The lead autopilot**, off until an administrator turns it on, and **phone
+  alerts**, off until each member turns them on (`/equipo/alertas`).
+
 ## Alti's drafted replies
 
 `src/lib/staff/drafts.ts`, `src/lib/staff/draftModel.ts`, `POST /api/staff/drafts`,
@@ -141,13 +167,20 @@ that screen (`SCREEN_HELP`) with the cards that matter there.
 
 `src/components/staff/StaffShell.tsx`.
 
-- **768 px and wider:** one compact top bar: Inicio, Clientes, Respuestas, and
-  «Más» (Invitar, Acreedores, Actividad, Piloto automático, Negocio, Socios,
-  Equipo, Cartas, Mi perfil, Bienvenida, each only for the roles that may open
-  it), then «¿Qué hago aquí?» and the member's initial. One line from 768 to
-  any desktop width (checked at 1024, 1280 and 1440).
+- **768 px and wider:** one compact top bar: Inicio, Resumen (Overview),
+  Prospectos (Leads, for administrators and sales), Clientes, Respuestas, and
+  «Más» (Contenido and Contabilidad first, then Invitar, Acreedores,
+  Actividad, Piloto automático, Negocio, Socios, Equipo, Cartas, Alertas al
+  teléfono, Mi perfil, Bienvenida, each only for the roles that may open it),
+  then search, «¿Qué hago aquí?» and the member's
+  initial. With five tabs (Credalti Control, `docs/CONTROL.md`) the tabs show
+  their names from 1280 px and their icons alone below (the name on hover and
+  for screen readers); search and help are icons (Ctrl/Cmd+K still opens
+  search). One line from 768 to any desktop width (checked at 768, 1024, 1280,
+  1440, 1536 and 1920, in both languages).
 - **Phone:** logo, help and initial on top; a bottom tab bar like the client
-  app's (Inicio, Clientes, Respuestas, Más); «Más» opens a sheet.
+  app's (Inicio, Resumen, Prospectos, Clientes, Respuestas, Más, each for the
+  roles that may open it); «Más» opens a sheet.
 - The demo's «Ver como» bar scrolls away with the page.
 - At 390 px every staff screen checked (home, focus mode, client page,
   conversation, send screen, import preview, clients, saved answers, profile,
@@ -167,6 +200,20 @@ that screen (`SCREEN_HELP`) with the cards that matter there.
 - **The client page has two tabs**: «Caso» and «Reportes» (every report in
   the file, with what it changed, and Open / Print / Download; see
   `src/lib/reports/history.ts`). `?pestana=reportes` opens the second.
+
+## Accounting
+
+«Contabilidad» / «Accounting» (`/equipo/contabilidad`, under «Más») is the
+accounting department, for the owner and administrators only (the capability
+`accounting`; specialists and sales see why they can't open it, and the
+routes and the database refuse them). Dashboard, the income ledger built from
+billing (test charges never counted), expenses with receipts and monthly
+rules, bank CSV import with a mapping step, reconciliation against the NMI or
+Authorize.Net export, collections (WhatsApp or email reminders a person sends,
+never SMS), unit economics, partner commissions and the 1099-NEC list,
+reports with the QuickBooks / Xero file and the printable monthly report,
+month close, and a tax set-aside estimate with the year's dates. Everything,
+including the questions for the CPA, is in `docs/ACCOUNTING.md`.
 
 ## The morning summary
 
@@ -263,6 +310,19 @@ screen text is `t("Spanish", "English")` from `useTx()`; sentence builders in
 `src/lib/staff/` take a `locale`. `src/lib/__tests__/staffLanguage.test.ts`
 walks every table in both languages and fails on a missing language or on
 Spanish words left in the English.
+
+## Content
+
+«Contenido» (`/equipo/contenido`, under «Más») is the marketing hub: a board
+and a calendar of content pieces (videos, carousels, stories, WhatsApp
+statuses, partner flyers, emails), each checked against the claim and brand
+rules as it is typed, with a checklist before approval, Alti's writing
+assistant (AI, always a draft), templates that already pass the rules,
+posting (by a person, or by the app once the owner connects the accounts and
+turns it on), results, the brand kit and the partner kit. Specialists make
+content (`content.edit`); only an administrator approves (`content.approve`)
+and connects accounts (`content.publish`); sales sees the brand kit and the
+approved partner material only (`content.share`). See `docs/CONTENT.md`.
 
 ## What is not done
 

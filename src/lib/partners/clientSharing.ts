@@ -5,6 +5,8 @@ import { isDemoMode } from "../supabase/config";
 import { buildDemoPartners } from "./demo";
 import { SHARING_CONSENT_VERSION, type ShareHow, type ShareLevel } from "./sharing";
 import { demoClientViews, demoPartnerByCode, demoReferringPartner, readDemoClientSharing, writeDemoClientSharing } from "./sharingDemo";
+import { DEMO_ME, demoClientShareRequests, dismissDemoShareRequest } from "./portalDemo";
+import type { ClientShareRequest } from "./portal";
 import type { PartnerKind } from "./rules";
 
 // The client's side of partner sharing, for "Quién puede ver tu progreso" and
@@ -30,6 +32,8 @@ export interface ClientSharingState {
   history: Array<{ partnerId: string; level: ShareLevel; previousLevel: ShareLevel; at: string }>;
   counts: { disputing: number; noLongerReported: number } | null;
   me: { name: string; goal: string | null };
+  /** A partner's requests to follow the client's progress (migration 0033). */
+  requests?: ClientShareRequest[];
 }
 
 export type SharingSave = { ok: true; unchanged?: boolean } | { ok: false; message: string; code?: string };
@@ -59,6 +63,7 @@ function demoState(): ClientSharingState {
     history: sharing.history,
     counts: null,
     me: { name: name || "Rosa Martínez", goal: goal ?? "mortgage" },
+    requests: demoClientShareRequests(now),
   };
 }
 
@@ -127,5 +132,20 @@ export function useClientSharing() {
     [demo],
   );
 
-  return { demo, state, failed, reload, save, lookup };
+  /** "Not now" on a partner's request: the card goes away; nothing is shared. */
+  const dismissRequest = useCallback(
+    async (id: string): Promise<boolean> => {
+      if (demo) {
+        dismissDemoShareRequest(DEMO_ME, new Date().toISOString());
+        await reload();
+        return true;
+      }
+      const res = await fetch("/api/sharing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "dismiss_request", id }) }).catch(() => null);
+      await reload();
+      return Boolean(res?.ok);
+    },
+    [demo, reload],
+  );
+
+  return { demo, state, failed, reload, save, lookup, dismissRequest };
 }

@@ -13,6 +13,8 @@ import { SHELL_TEXT } from "@/lib/staff/i18n/ui/shell";
 import { demoViewAs } from "@/lib/staff/teamData";
 import { resetDemoAnswers } from "@/lib/staff/useSavedAnswers";
 import { resetDemoPreferences } from "@/lib/staff/usePreferences";
+import { resetDemoLeads } from "@/lib/leads/data";
+import { resetDemoControl } from "@/lib/control/data";
 import { StaffViewerContext, useViewer, VIEWER_CHANGED } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
 import Logo from "@/components/Logo";
@@ -293,12 +295,15 @@ function Frame({ children }: { children: React.ReactNode }) {
                   key={n.href}
                   href={n.href}
                   aria-current={isActive(n.href) ? "page" : undefined}
-                  className={`pressable flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-sm font-medium ${
+                  aria-label={t.nav[n.label]}
+                  title={t.nav[n.label]}
+                  className={`pressable flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm font-medium xl:px-3.5 ${
                     isActive(n.href) ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
                   <Icon name={n.icon} size={16} />
-                  {t.nav[n.label]}
+                  {/* Five tabs since Credalti Control: the words from 1280 px, the icons alone below, so the bar stays one line. */}
+                  <span className="hidden xl:inline">{t.nav[n.label]}</span>
                 </Link>
               ))}
             {ready && more.length > 0 && <MoreMenu items={more} active={moreActive} isActive={isActive} />}
@@ -314,12 +319,13 @@ function Frame({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => setHelp(true)}
-              className="pressable flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-2 text-sm font-medium text-blue-700 hover:bg-slate-100 lg:px-3"
+              className="pressable flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-2 text-sm font-medium text-blue-700 hover:bg-slate-100 "
               aria-label={t.help}
               data-testid="help-button"
             >
               <Icon name="info" size={20} />
-              <span className="hidden whitespace-nowrap lg:inline">{t.help}</span>
+              {/* The bar is 1152 px at most and carries five tabs: the help is its icon (its name is the label). */}
+              <span className="sr-only">{t.help}</span>
             </button>
             {/* Who is signed in, as a round initial that opens a small menu: the name, the role, the profile, the way out. */}
             {viewer && <MemberMenu viewer={viewer} demo={demo} />}
@@ -368,6 +374,8 @@ function Frame({ children }: { children: React.ReactNode }) {
                 resetDemo();
                 resetDemoAnswers();
                 resetDemoPreferences();
+                resetDemoLeads();
+                resetDemoControl();
                 window.location.reload();
               }}
               className="inline-flex min-h-11 items-center font-medium text-blue-700 underline-offset-2 hover:underline md:min-h-0"

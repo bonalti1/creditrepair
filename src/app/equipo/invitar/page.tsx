@@ -21,6 +21,8 @@ import { NoAccess } from "@/components/staff/ui";
 import HouseholdMemberCard from "@/components/staff/HouseholdMember";
 import type { StaffClient } from "@/lib/staff/types";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
+import { getLeadData } from "@/lib/leads/data";
+import { leadLanguage } from "@/lib/leads/inbox";
 
 // The salesperson's side of the handoff. After the WhatsApp conversation they
 // fill in four things and get a personal link plus a ready message. The
@@ -56,6 +58,7 @@ export default function Invitar() {
   const [copied, setCopied] = useState<"link" | "message" | null>(null);
   const [partner, setPartner] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
+  const [leadId, setLeadId] = useState<string | null>(null);
   // The person the page was opened for: a household member can be added for them.
   const [record, setRecord] = useState<StaffClient | null>(null);
 
@@ -72,6 +75,23 @@ export default function Invitar() {
   useEffect(() => {
     if (!loaded) return;
     if (viewer) setMe(viewer.name.split(" ")[0] ?? "");
+    // From the lead inbox (/equipo/leads): «Prepare invitation» fills in what the lead gave, and sending it sets the lead's "Invited".
+    const leadId = new URLSearchParams(window.location.search).get("lead");
+    if (leadId) {
+      setLeadId(leadId);
+      void getLeadData(viewer, locale)
+        .thread(leadId)
+        .then((thread) => {
+          const lead = thread?.lead;
+          if (!lead) return;
+          if (lead.name) setName(lead.name.split(" ")[0] ?? "");
+          if (lead.state && (ALL_STATES as readonly string[]).includes(lead.state)) setState(lead.state);
+          setPhone(formatPhone(lead.phone));
+          if (GOALS.some((g) => g.key === lead.goal)) setGoal(lead.goal as GoalKey);
+          setLang(leadLanguage(lead));
+          if (lead.firstTouch.partnerCode) setPartner(lead.firstTouch.partnerCode);
+        });
+    }
     const clientId = new URLSearchParams(window.location.search).get("cliente");
     if (!clientId) return;
     void data
@@ -87,7 +107,7 @@ export default function Invitar() {
         setClientId(client.id);
         setRecord(client);
       });
-  }, [loaded, viewer, data]);
+  }, [loaded, viewer, data, locale]);
 
   // With a database, the link credits the member by their handle (staff_members.handle): it becomes the
   // client's profiles.referred_by, which is what lets a salesperson see the people they brought in (migration 0012).
@@ -98,6 +118,7 @@ export default function Invitar() {
   );
   // Sending or copying the message for a prospect records when the invitation went out (HighLevel's "Invitado").
   const markInvited = () => {
+    if (leadId) void getLeadData(viewer, locale).invited(leadId);
     if (!clientId || data.demo) return;
     void fetch("/api/staff/prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "invited", id: clientId }) }).catch(() => undefined);
   };
