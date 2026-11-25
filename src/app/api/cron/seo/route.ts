@@ -7,8 +7,9 @@ import { siteUrl } from "@/lib/site/routes";
 import { reportError } from "@/lib/observability/errors";
 import { hasSharedSecret } from "@/lib/security/signatures";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { safeBeat } from "@/lib/control/heartbeat";
 
-// The SEO department's clock (docs/n8n.md, Workflow 8): once a day, n8n (or
+// The SEO department's clock (docs/n8n.md, Workflow 9): once a day, n8n (or
 // Render's cron) calls it with the shared secret, like the other crons.
 //
 //   1. Search Console: the last 10 days with final numbers into
@@ -39,9 +40,11 @@ export async function POST(req: Request) {
       now,
     });
     await saveHealth(db, report);
+    await safeBeat(db, "seo", new Date(), { ok: true });
     return NextResponse.json({ search, health: { checkedAt: report.checkedAt, pages: report.pages, toFix: report.findings.filter((f) => f.state === "fix").length, errors: report.errors.length } });
   } catch (error) {
     await reportError(error, { where: "api/cron/seo" });
+    await safeBeat(db, "seo", new Date(), { ok: false, error: error instanceof Error ? error.message : "error" });
     return NextResponse.json({ error: "The SEO run stopped. The next run starts again." }, { status: 500 });
   }
 }

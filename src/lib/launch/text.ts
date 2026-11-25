@@ -340,6 +340,21 @@ export const LAUNCH_TEXT = defineText({
         "Posting to YouTube from the app needs it.",
         "Create a Google OAuth client and set YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET.",
       ),
+      meta_ads: item(
+        "Meta ads (read only)",
+        "The Ads Manager shows Meta's spend and results beside the leads they brought.",
+        "Make a System User token with ads_read only and set META_ADS_ACCESS_TOKEN and META_AD_ACCOUNT_ID.",
+      ),
+      search_console: item(
+        "Google Search Console",
+        "SEO shows the searches, clicks and positions that bring people to the site.",
+        "Verify the domain in Search Console, then set GOOGLE_SEARCH_CONSOLE_SITE and a service account (docs/SEO.md).",
+      ),
+      transcribe: item(
+        "Automatic captions",
+        "The Video Studio writes captions from a clip's sound; typed captions work without it.",
+        "Set TRANSCRIBE_API_KEY (an OpenAI key for Whisper); only the clips' sound is sent.",
+      ),
       highlevel: item(
         "HighLevel",
         "Only if leads come through HighLevel.",
@@ -394,6 +409,16 @@ export const LAUNCH_TEXT = defineText({
         "Content publishing and numbers",
         "Posts approved, scheduled pieces (when publishing is on) and reads their numbers.",
         "In n8n, call /api/cron/content every 10 minutes (Workflow 7).",
+      ),
+      job_ads: item(
+        "The Ads Manager's read of Meta",
+        "Keeps the Ads Manager's numbers fresh; it never changes anything in Meta.",
+        "In n8n, call /api/cron/ads every 3 hours (Workflow 8).",
+      ),
+      job_seo: item(
+        "SEO: Search Console and site health",
+        "Reads the search numbers and checks the public site once a day.",
+        "In n8n, call /api/cron/seo once a day (Workflow 9).",
       ),
       job_partners: item(
         "Partner notices and summaries",
@@ -803,6 +828,21 @@ export const LAUNCH_TEXT = defineText({
         "Publicar en YouTube desde la app la necesita.",
         "Crea un cliente OAuth de Google y configura YOUTUBE_CLIENT_ID y YOUTUBE_CLIENT_SECRET.",
       ),
+      meta_ads: item(
+        "Anuncios de Meta (solo lectura)",
+        "El Administrador de anuncios muestra el gasto y los resultados de Meta junto a los prospectos que trajeron.",
+        "Crea un token de usuario del sistema solo con ads_read y configura META_ADS_ACCESS_TOKEN y META_AD_ACCOUNT_ID.",
+      ),
+      search_console: item(
+        "Search Console de Google",
+        "SEO muestra las búsquedas, clics y posiciones que traen gente al sitio.",
+        "Verifica el dominio en Search Console y configura GOOGLE_SEARCH_CONSOLE_SITE y una cuenta de servicio (docs/SEO.md).",
+      ),
+      transcribe: item(
+        "Subtítulos automáticos",
+        "El Estudio de video escribe subtítulos con el sonido del clip; los subtítulos escritos a mano funcionan sin esto.",
+        "Configura TRANSCRIBE_API_KEY (una clave de OpenAI para Whisper); solo se envía el sonido de los clips.",
+      ),
       highlevel: item(
         "HighLevel",
         "Solo si los prospectos llegan por HighLevel.",
@@ -857,6 +897,16 @@ export const LAUNCH_TEXT = defineText({
         "Publicación de contenido y sus números",
         "Publica las piezas aprobadas y programadas (si publicar está encendido) y lee sus números.",
         "En n8n, llama a /api/cron/content cada 10 minutos (flujo 7).",
+      ),
+      job_ads: item(
+        "La lectura de Meta del Administrador de anuncios",
+        "Mantiene al día los números de los anuncios; nunca cambia nada en Meta.",
+        "En n8n, llama a /api/cron/ads cada 3 horas (flujo 8).",
+      ),
+      job_seo: item(
+        "SEO: Search Console y salud del sitio",
+        "Lee los números de búsqueda y revisa el sitio público una vez al día.",
+        "En n8n, llama a /api/cron/seo una vez al día (flujo 9).",
       ),
       job_partners: item(
         "Avisos y resúmenes para socios",

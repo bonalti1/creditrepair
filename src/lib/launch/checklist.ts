@@ -171,6 +171,16 @@ function allSet(names: readonly string[]) {
   };
 }
 
+/** Search Console: the site, plus a service account (email + key) or an OAuth client (id + secret + refresh token). */
+function searchConsoleSet(f: LaunchFacts): Evaluation {
+  const site = unset(f, ["GOOGLE_SEARCH_CONSOLE_SITE"]);
+  const service = unset(f, ["GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL", "GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY"]);
+  const oauth = unset(f, ["GOOGLE_SEARCH_CONSOLE_CLIENT_ID", "GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET", "GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN"]);
+  if (site.length === 0 && (service.length === 0 || oauth.length === 0)) return { state: "ready", notes: [{ code: "set" }] };
+  const missing = [...site, ...(service.length <= oauth.length ? service : oauth)];
+  return { state: "missing", notes: [{ code: "not_set", args: [missing.join(", ")] }], missingEnv: missing };
+}
+
 /** Ready when at least one of them is set. */
 function anySet(names: readonly string[]) {
   return (f: LaunchFacts): Evaluation =>
@@ -229,6 +239,8 @@ export const CRON_JOBS: readonly CronJob[] = [
   { job: "content", path: "/api/cron/content", workflow: 7, everyMinutes: 10, needed: "recommended" },
   { job: "partners", path: "/api/cron/partners", workflow: 11, everyMinutes: 60, needed: "recommended" },
   { job: "highlevel", path: "/api/cron/highlevel", workflow: 12, everyMinutes: 30, needed: "later" },
+  { job: "ads", path: "/api/cron/ads", workflow: 8, everyMinutes: 180, needed: "later" },
+  { job: "seo", path: "/api/cron/seo", workflow: 9, everyMinutes: 24 * 60, needed: "later" },
   { job: "ideas", path: "/api/cron/ideas", workflow: 10, everyMinutes: 7 * 24 * 60, needed: "later" },
 ];
 
@@ -314,6 +326,7 @@ export const MIGRATION_SENTINELS: Record<string, { table: string; column?: strin
   "0035_content": { table: "content_publish_log" },
   "0036_accounting": { table: "accounting_audit" },
   "0037_ads": { table: "ads_sync_runs" },
+  "0038_video": { table: "video_music" },
   "0039_seo": { table: "seo_settings" },
   "0040_ideas_launch": { table: "launch_probes" },
 };
@@ -551,6 +564,9 @@ const ITEMS: LaunchItem[] = [
     },
   },
   { key: "youtube_app", group: "accounts", needed: "later", who: "owner", kind: "auto", env: ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET"], docs: { file: "docs/CONTENT.md", section: "Connecting the accounts" }, blocks: ["publishing"], waitsOn: ["content_token_key"], priority: 94, evaluate: allSet(["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET"]) },
+  { key: "meta_ads", group: "accounts", needed: "later", who: "owner", kind: "auto", env: ["META_ADS_ACCESS_TOKEN", "META_AD_ACCOUNT_ID"], docs: { file: "docs/ADS.md", section: "For the owner" }, blocks: [], priority: 94.1, evaluate: allSet(["META_ADS_ACCESS_TOKEN", "META_AD_ACCOUNT_ID"]) },
+  { key: "search_console", group: "accounts", needed: "later", who: "owner", kind: "auto", env: ["GOOGLE_SEARCH_CONSOLE_SITE", "GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL", "GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY", "GOOGLE_SEARCH_CONSOLE_CLIENT_ID", "GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET", "GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN"], docs: { file: "docs/SEO.md", section: "Search Console" }, blocks: [], priority: 94.2, evaluate: searchConsoleSet },
+  { key: "transcribe", group: "accounts", needed: "later", who: "owner", kind: "auto", env: ["TRANSCRIBE_API_KEY", "TRANSCRIBE_PROVIDER", "TRANSCRIBE_MODEL", "TRANSCRIBE_API_URL"], docs: { file: "docs/VIDEO.md", section: "What needs the owner" }, blocks: [], priority: 94.3, evaluate: allSet(["TRANSCRIBE_API_KEY"]) },
   { key: "highlevel", group: "accounts", needed: "later", who: "owner", kind: "auto", env: ["HIGHLEVEL_WEBHOOK_SECRET", "HIGHLEVEL_INBOUND_WEBHOOK_URL", "LEAD_CONVERSATIONS_PROVIDER", "HIGHLEVEL_API_TOKEN", "HIGHLEVEL_LOCATION_ID"], docs: { file: "docs/HIGHLEVEL.md", section: "1. In the app (once)" }, blocks: [], priority: 95, evaluate: allSet(["HIGHLEVEL_WEBHOOK_SECRET"]) },
 
   // ── Database ──
@@ -700,6 +716,7 @@ export const NOT_FOR_LAUNCH: Record<string, string> = {
   DRAFT_MODEL: "Optional: which model drafts staff replies; it has a default.",
   CONTENT_MODEL: "Optional: which model the content assistant uses; it has a default.",
   IDEAS_MODEL: "Optional: which model Alti uses for ideas; it has a default.",
+  META_GRAPH_VERSION: "Optional: the Graph API version for the ads calls; it has a default.",
   STRIPE_SECRET_KEY: "Not used with IdentityIQ: clients pay the provider directly.",
   STRIPE_WEBHOOK_SECRET: "Not used with IdentityIQ.",
   WHATSAPP_LEAD_REPLIES: "Optional: leave empty so Alti greets a lead once and a person answers.",
