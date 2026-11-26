@@ -145,6 +145,12 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     optionalRows(sel("client_files", "id, user_id, kind, file_name, content_type, bytes, description, uploaded_by, uploaded_at, withdrawn_at"), "client_files"),
   ]);
 
+  // Service options (migration 0042): each client's chosen option and their "Mail them for me" requests, by scope.
+  const [serviceOptions, mailRequests] = await Promise.all([
+    optionalRows(sel("client_service_options", "user_id, service_option, chosen_via, chosen_at"), "client_service_options"),
+    optionalRows(sel("mail_requests", "id, user_id, round_id, letter_ids, letter_count, total_cents, status, accepted_at, mailed_at"), "mail_requests"),
+  ]);
+
   // "¿Cómo vamos?" answers (migration 0018): the "staff read pulses" policy decides (admin, assigned specialist).
   const pulses = await optionalRows(sel("client_pulses", "user_id, moment, rating, comment, created_at"), "client_pulses");
 
@@ -213,6 +219,8 @@ export async function loadStaffRows(db: SupabaseClient, options: { clientId?: st
     monitoringChecks,
     documentReviews,
     clientFiles,
+    serviceOptions,
+    mailRequests,
   };
 }
 

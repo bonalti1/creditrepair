@@ -99,6 +99,36 @@ gold line on the left, and any business fact not yet set shows as a gold
 In Spanish, a statutory passage is shown as translation first and the official
 English second. That is a choice made for the reader; see question 4.
 
+### Credalti DIY's agreement (migration 0042)
+
+Each service option has its own text and version (`docs/SERVICE-OPTIONS.md`).
+A client who chose Credalti DIY signs `DIY_AGREEMENT_VERSION`
+(`2026-11-25-diy-draft.1`): the same federal and Texas disclosures, the same
+e-sign consent, the same 3-business-day cancellation and notice, the same
+typed signature, fingerprint and snapshot. What differs:
+
+- **Contract, section 2**, in bold: "You prepare and send your own disputes
+  with the software." Alti prepares each letter from what the client decided
+  and from the approved templates; the client prints, signs and mails it. We
+  mail a letter only when the client asks, for the fee per letter in the costs
+  section, shown before they confirm.
+- **Costs**: the Credalti DIY plan's monthly subscription, charged from the end
+  of the cancellation window, the most it can cost, and the fee per letter.
+- **Authorization**: to prepare the letters for the client to send (and to
+  mail only the ones they ask us to), instead of the authorization to prepare
+  and mail them.
+
+The signed terms carry `serviceOption: "diy"`; a Credalti Complete agreement
+carries no option, so every agreement signed before keeps its hash.
+`ATTESTATION_TEXT` is unchanged. `/acuerdo/copia` shows the client's own
+option and version.
+
+**Switching** (`/mas/opcion`): signing the other option's agreement
+supersedes the one in force at that moment (`superseded_at`,
+`superseded_by`, trigger `service_agreements_supersede`). Until then the one
+in force keeps governing. The new agreement has its own 3-business-day
+window.
+
 ## Verification of the statutory text
 
 **None of the statutory text has been compared word for word with an official
@@ -143,7 +173,7 @@ screen prints them in the contract.
 | `NEXT_PUBLIC_TX_AGENT_NAME` | The agent in Texas authorized to receive service of process | `[PENDIENTE: nombre del agente registrado en Texas]` |
 | `NEXT_PUBLIC_TX_AGENT_ADDRESS` | Its address | `[PENDIENTE: domicilio del agente registrado en Texas]` |
 | `NEXT_PUBLIC_AGREEMENT_APPROVED_VERSION` | Set to `AGREEMENT_VERSION` only after the attorney approves that version | — |
-| `NEXT_PUBLIC_SERVICE_MODE` | Empty = full service. `self_serve` = the client sends their own letters | — |
+| `NEXT_PUBLIC_DIY_AGREEMENT_APPROVED_VERSION` | Set to `DIY_AGREEMENT_VERSION` only after the attorney approves the Credalti DIY text. Until then nobody can sign DIY | — |
 | `TEAM_WEBHOOK_URL` | Optional. Told when a client cancels or asks to end the service (falls back to `SALES_WEBHOOK_URL`) | — |
 
 The monitoring price and provider printed in the contract come from
@@ -174,7 +204,9 @@ change (each is a sentence in the contract):
 3. Change `AGREEMENT_VERSION` to a non-draft value.
 4. Apply migration `0010_service_agreements.sql` (it is in `supabase/setup.sql`).
 5. Set every variable in the table above, and set
-   `NEXT_PUBLIC_AGREEMENT_APPROVED_VERSION` to the new version.
+   `NEXT_PUBLIC_AGREEMENT_APPROVED_VERSION` to the new version (and, to offer
+   Credalti DIY, `NEXT_PUBLIC_DIY_AGREEMENT_APPROVED_VERSION` to the approved
+   DIY version). `NEXT_PUBLIC_SERVICE_MODE` is retired: remove it.
 6. `GET /api/health` (with the shared secret) reports "Service agreement" as
    ready, or says what is missing.
 

@@ -165,6 +165,11 @@ export const LAUNCH_TEXT = defineText({
         "No client can sign, so no work can start, until this exact version of the text is approved.",
         "After the attorney approves, set NEXT_PUBLIC_AGREEMENT_APPROVED_VERSION to the version shown on /acuerdo/copia.",
       ),
+      diy_agreement_approved: item(
+        "Credalti DIY agreement approved by the attorney",
+        "Only to offer Credalti DIY: it has its own agreement text. Nobody can sign DIY until this exact version is approved.",
+        "After the attorney approves it, set NEXT_PUBLIC_DIY_AGREEMENT_APPROVED_VERSION to the DIY version shown on /acuerdo/copia.",
+      ),
       statutes_verified: item(
         "Statutory text compared with the official source",
         "The agreement quotes Texas law; every quoted passage must match the official text word for word.",
@@ -652,6 +657,11 @@ export const LAUNCH_TEXT = defineText({
         "Acuerdo de servicio aprobado por el abogado",
         "Ningún cliente puede firmar, así que no empieza ningún trabajo, hasta que se apruebe esta versión exacta del texto.",
         "Cuando el abogado apruebe, pon en NEXT_PUBLIC_AGREEMENT_APPROVED_VERSION la versión que muestra /acuerdo/copia.",
+      ),
+      diy_agreement_approved: item(
+        "Acuerdo de Credalti DIY aprobado por el abogado",
+        "Solo para ofrecer Credalti DIY: tiene su propio texto de acuerdo. Nadie puede firmar DIY hasta que se apruebe esta versión exacta.",
+        "Cuando el abogado lo apruebe, pon en NEXT_PUBLIC_DIY_AGREEMENT_APPROVED_VERSION la versión DIY que muestra /acuerdo/copia.",
       ),
       statutes_verified: item(
         "Texto de la ley comparado con la fuente oficial",

@@ -4,7 +4,11 @@ import Link from "next/link";
 import { category } from "@/lib/accounting/categories";
 import { testChargesExcluded } from "@/lib/accounting/ledger";
 import { formatCents } from "@/lib/accounting/money";
-import { monthLabel, type MonthKey } from "@/lib/accounting/periods";
+import { monthLabel, monthOf, type MonthKey } from "@/lib/accounting/periods";
+import { realCharges } from "@/lib/accounting/facts";
+import { planOption } from "@/lib/billing/plans";
+import { OPTION_NAME, SERVICE_OPTIONS, type ServiceOption } from "@/lib/service/options";
+import OptionBadge from "@/components/staff/OptionBadge";
 import { dashboard, type MonthTotals } from "@/lib/accounting/summary";
 import type { useAccounting } from "@/lib/accounting/data";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
@@ -28,6 +32,14 @@ export default function Dashboard({ acc, month }: { acc: Acc; month: MonthKey })
   const { locale } = useStaffLocale();
   const d = dashboard(acc.input, month, acc.staff.now, acc.commissionsOn);
   const tests = testChargesExcluded(acc.facts);
+  // Revenue by service option (docs/SERVICE-OPTIONS.md): what was collected this month, Credalti Complete and Credalti DIY.
+  const byOption = Object.fromEntries(SERVICE_OPTIONS.map((o) => [o, { cents: 0, clients: new Set<string>() }])) as Record<ServiceOption, { cents: number; clients: Set<string> }>;
+  for (const f of realCharges(acc.facts)) {
+    if (!f.charge.chargedAt || monthOf(f.charge.chargedAt) !== month) continue;
+    const option = f.planType ? planOption({ type: f.planType }) : "full_service";
+    byOption[option].cents += f.collectedCents;
+    if (f.collectedCents > 0) byOption[option].clients.add(f.clientId);
+  }
   const rows: Row[] = [
     { key: "revenue", label: t("Ingresos cobrados", "Revenue collected"), definition: t("Lo que el procesador cobró de verdad por cobros reales, el día que lo cobró. Los cobros de prueba nunca cuentan.", "What the processor actually took for real charges, on the day it took it. Test charges never count."), value: (x) => x.revenueCents },
     { key: "refunds", label: t("Reembolsos", "Refunds"), definition: t("Reembolsos y anulaciones confirmados por el procesador, el día de la confirmación.", "Refunds and voids the processor confirmed, on the day it confirmed them."), value: (x) => -x.refundsCents, out: true },
@@ -135,6 +147,25 @@ export default function Dashboard({ acc, month }: { acc: Acc; month: MonthKey })
             {t(`${tests.count} cobro(s) de prueba (${formatCents(tests.amountCents)}) no cuentan como ingresos.`, `${tests.count} test charge(s) (${formatCents(tests.amountCents)}) are not counted as revenue.`)}
           </p>
         )}
+      </section>
+
+      <section aria-labelledby="by-option">
+        <SectionTitle>
+          <span id="by-option">{t("Ingresos por opción, este mes", "Revenue by option, this month")}</span>
+        </SectionTitle>
+        <div className="card grid grid-cols-1 overflow-hidden sm:grid-cols-2" data-testid="revenue-by-option">
+          {SERVICE_OPTIONS.map((o) => (
+            <div key={o} className="border-b hairline px-5 py-3.5 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
+              <p className="flex items-center gap-2 text-[13px] text-slate-600">
+                <OptionBadge option={o} /> {OPTION_NAME[o][locale]}
+              </p>
+              <p className="mt-1 font-display text-[22px] font-semibold tabular-nums text-slate-900">{formatCents(byOption[o].cents)}</p>
+              <p className="text-[12.5px] text-slate-500">
+                {t(`${byOption[o].clients.size} cliente(s) pagaron`, `${byOption[o].clients.size} client(s) paid`)}
+              </p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section aria-labelledby="by-category">

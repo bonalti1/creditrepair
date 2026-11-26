@@ -45,6 +45,16 @@ export function unitWork(e: Extract<ChargeEligibility, { eligible: true }> | Bil
       return es ? `Pago ${e.installmentNumber} de la tarifa fija: ronda ${n} enviada${fw ? " + primer trabajo" : ""}` : `Flat fee installment ${e.installmentNumber}: round ${n} mailed${fw ? " + first work" : ""}`;
     case "flat":
       return es ? `Tarifa fija: ronda ${n} enviada` : `Flat fee: round ${n} mailed`;
+    case "diy_period":
+      return es
+        ? `Suscripción Credalti DIY: ${billingDay(e.periodStart!, "es")} – ${billingDay(e.periodEnd!, "es")}`
+        : `Credalti DIY subscription: ${billingDay(e.periodStart!, "en")} – ${billingDay(e.periodEnd!, "en")}`;
+    case "mailing": {
+      const k = "letterCount" in e && e.letterCount ? e.letterCount : null;
+      return es
+        ? `Envío por ti de ${k ? `${k} ${k === 1 ? "carta" : "cartas"}` : "tus cartas"} de la ronda ${n}`
+        : `Mailing ${k ? `${k} ${k === 1 ? "letter" : "letters"}` : "your letters"} of round ${n} for you`;
+    }
     case "results": {
       const k = e.resultItemIds?.length ?? 0;
       return es ? `${k} ${k === 1 ? "punto disputado que ya no aparece" : "puntos disputados que ya no aparecen"} en un reporte posterior` : `${k} disputed ${k === 1 ? "item" : "items"} no longer on a later report`;
@@ -77,6 +87,7 @@ function projected(e: Extract<ChargeEligibility, { eligible: true }>, at: Date, 
     periodEnd: e.periodEnd ?? null,
     installmentNumber: e.installmentNumber ?? null,
     resultItemIds: e.resultItemIds ?? [],
+    ...(e.mailRequestId ? { mailRequestId: e.mailRequestId } : {}),
   };
 }
 
@@ -139,6 +150,7 @@ export interface TimelineOptions {
  * rule. What the preview shows is what billing would do.
  */
 export function paymentTimeline(plan: PlanSnapshot, options: TimelineOptions = {}): TimelineEvent[] {
+  if (plan.terms.type === "diy_subscription") return diyTimeline(plan, options);
   const rounds = options.rounds ?? 6;
   const every = options.everyDays ?? 40;
   const days = options.days ?? Math.max(rounds * every + 90, 240);
@@ -204,6 +216,58 @@ export function paymentTimeline(plan: PlanSnapshot, options: TimelineOptions = {
       if (!mailed.some((d) => d >= start && d < start + 30)) {
         events.push({ day: start + 30, kind: "no_work", label: { en: "No work this month, no charge", es: "Sin trabajo este mes, sin cobro" } });
       }
+    }
+  }
+  const order: Record<TimelineEvent["kind"], number> = { signed: 0, work_starts: 1, round: 2, report: 3, no_work: 4, charge: 5 };
+  return events.sort((a, b) => a.day - b.day || order[a.kind] - order[b.kind]);
+}
+
+/**
+ * The plan editor's preview for a Credalti DIY subscription: an invented
+ * client who signs, whose cancellation window ends, who mails rounds every
+ * `everyDays` days themselves, and who asks us to mail round 2 (when the plan
+ * offers mailing). Billed day by day by the real rule.
+ */
+function diyTimeline(plan: PlanSnapshot, options: TimelineOptions): TimelineEvent[] {
+  const rounds = options.rounds ?? 4;
+  const every = options.everyDays ?? 40;
+  const days = options.days ?? Math.max(rounds * every + 60, 200);
+  const t0 = Date.UTC(2026, 0, 5, 17, 0, 0);
+  const at = (day: number) => new Date(t0 + day * DAY_MS);
+  const agreement: AgreementRecord = {
+    disclosureAcknowledgedAt: at(-6).toISOString(),
+    signedAt: at(-5.9).toISOString(),
+    cancellationDeadline: at(-2).toISOString(),
+    cancelledAt: null,
+    serviceEndRequestedAt: null,
+  };
+  const mailFee = plan.effective.mailFeeCents ?? 0;
+  const events: TimelineEvent[] = [
+    { day: -6, kind: "signed", label: { en: "Agreement signed: nothing is charged", es: "Acuerdo firmado: no se cobra nada" } },
+    { day: -2, kind: "work_starts", label: { en: "Cancellation window ends; the subscription starts", es: "Termina el periodo de cancelación; empieza la suscripción" } },
+  ];
+  for (let i = 0; i < rounds; i++) {
+    const viaUs = mailFee > 0 && i === 1;
+    events.push({
+      day: i * every,
+      kind: "round",
+      label: viaUs
+        ? { en: `Round ${i + 1}: the client asks us to mail 3 letters`, es: `Ronda ${i + 1}: el cliente nos pide enviar 3 cartas` }
+        : { en: `Round ${i + 1}: the client mails their letters`, es: `Ronda ${i + 1}: el cliente envía sus cartas` },
+    });
+  }
+  const mailings = mailFee > 0 ? [{ id: "example-mailing", roundNumber: 2, letterCount: 3, feeCents: mailFee, totalCents: 3 * mailFee, status: "mailed" as const, requestedAt: at(every - 1).toISOString(), mailedAt: at(every).toISOString() }] : [];
+  let charges: BillingCharge[] = [];
+  let total = 0;
+  const method: PaymentMethodSummary = { brand: "visa", last4: "4242", addedAt: at(-5).toISOString(), authorizationVersion: "preview", authorizedAt: at(-5).toISOString() };
+  for (let day = -2; day <= days; day++) {
+    const now = at(day + 0.1);
+    for (let guard = 0; guard < 3; guard++) {
+      const e = chargeEligibility({ agreement, signedMonthlyFee: null, rounds: [], plan, mailings, account: { paymentMethod: method, charges, pause: null } }, now);
+      if (!e.eligible) break;
+      total += e.unit === "diy_period" ? e.amountCents : 0;
+      charges = [...charges, projected(e, now, charges.length)];
+      events.push({ day, kind: "charge", label: { en: unitWork(e, "en"), es: unitWork(e, "es") }, amountCents: e.amountCents, totalCents: total });
     }
   }
   const order: Record<TimelineEvent["kind"], number> = { signed: 0, work_starts: 1, round: 2, report: 3, no_work: 4, charge: 5 };

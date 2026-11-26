@@ -16,7 +16,8 @@ import { roundMailedDate, teamRoundStatus } from "@/lib/ux/teamRound";
 import { nextRoundDue } from "@/lib/rounds/timing";
 import { clientLetterMail, clientResponseWindowStart, letterCameBack, letterMailLine } from "@/lib/mail/clientView";
 import { letterMailKey, useLetterMail } from "@/lib/ux/letterMail";
-import { isFullService } from "@/lib/service/mode";
+import { useServiceOption } from "@/lib/service/useServiceOption";
+import UpgradeOffer from "@/components/service/UpgradeOffer";
 import { useLocale } from "@/lib/i18n";
 import Icon from "@/components/Icon";
 import { InfoNote } from "@/components/RoundNotes";
@@ -63,8 +64,11 @@ export default function Rounds() {
   const confirmedNow = useMemo(() => sessionPlan(items, flags).attestedFlags, [items, flags]);
   // How each mailed letter travels and where it is (mail/clientView.ts).
   const savedMail = useLetterMail();
+  // The client's option: Credalti Complete (the team mails) or Credalti DIY (the client mails, Alti reminds).
+  const { option, hydrated: optionHydrated } = useServiceOption();
+  const isFullService = option === "full_service";
 
-  if (!hydrated || !view.ready) return null;
+  if (!hydrated || !view.ready || !optionHydrated) return null;
   if (view.waiting) {
     return (
       <main className="animate-rise space-y-5">
@@ -119,7 +123,7 @@ export default function Rounds() {
       <header className="px-1">
         <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{d.rounds.title}</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-slate-500">
-          {(isFullService ? d.team.roundsSubtitle : d.rounds.subtitle)(RESPONSE_WINDOW_DAYS, NEXT_ROUND_DAYS)}
+          {(isFullService ? d.team.roundsSubtitle : d.diy.roundsSubtitle)(RESPONSE_WINDOW_DAYS, NEXT_ROUND_DAYS)}
         </p>
       </header>
 
@@ -151,7 +155,7 @@ export default function Rounds() {
                 </div>
                 {daysLeft > 0 && (
                   <p className="mt-3 text-[15px] leading-relaxed text-slate-700">
-                    {(isFullService ? d.team.waitDays : d.rounds.waitDays)(daysLeft)}
+                    {(isFullService ? d.team.waitDays : d.diy.waitDays)(daysLeft)}
                   </p>
                 )}
               </div>
@@ -248,10 +252,10 @@ export default function Rounds() {
             </span>
           )}
           <h2 className="mt-4 text-[22px] font-semibold leading-snug text-slate-900">
-            {isFullService ? d.team.roundsEmptyTitle : d.rounds.emptyTitle}
+            {isFullService ? d.team.roundsEmptyTitle : d.diy.roundsEmptyTitle}
           </h2>
           <p className="mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-slate-500">
-            {isFullService ? d.team.roundsEmptyBody : d.rounds.emptyBody}
+            {isFullService ? d.team.roundsEmptyBody : d.diy.roundsEmptyBody}
           </p>
           <p className="mx-auto mt-4 max-w-sm text-[15px] font-medium leading-snug text-slate-900">{step.title}</p>
           <Link
@@ -263,8 +267,11 @@ export default function Rounds() {
         </section>
       )}
 
+      {/* Credalti DIY: when the next round is due, Alti offers the team's help once (no pressure). */}
+      {!isFullService && sent && Date.now() >= nextRoundAt.getTime() && <UpgradeOffer moment={`round-due:${roundNumber + 1}`} />}
+
       {/* Optional: results come from the next report; a letter is never asked for (components/BureauLetterUpload.tsx). */}
-      {isFullService && <BureauLetterUpload />}
+      <BureauLetterUpload />
     </main>
   );
 }

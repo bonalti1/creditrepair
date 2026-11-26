@@ -330,6 +330,7 @@ export const MIGRATION_SENTINELS: Record<string, { table: string; column?: strin
   "0039_seo": { table: "seo_settings" },
   "0040_ideas_launch": { table: "launch_probes" },
   "0041_fulfillment": { table: "notification_settings" },
+  "0042_service_options": { table: "mail_requests" },
 };
 
 // ── The registry ──────────────────────────────────────────────────────────
@@ -355,6 +356,23 @@ const ITEMS: LaunchItem[] = [
     waitsOn: ["attorney_review"],
     priority: 2,
     evaluate: (f) => (f.env.agreementApproved ? { state: "ready", notes: [{ code: "approved_current" }] } : { state: "missing", notes: [{ code: "not_approved_current" }], missingEnv: ["NEXT_PUBLIC_AGREEMENT_APPROVED_VERSION"] }),
+  },
+  // Credalti DIY (docs/SERVICE-OPTIONS.md): its own agreement text and version. Only needed to offer DIY.
+  {
+    key: "diy_agreement_approved",
+    group: "legal",
+    needed: "later",
+    who: "attorney",
+    kind: "auto",
+    env: ["NEXT_PUBLIC_DIY_AGREEMENT_APPROVED_VERSION"],
+    docs: { file: "docs/SERVICE-OPTIONS.md", section: "What the owner must do" },
+    blocks: [],
+    waitsOn: ["attorney_review"],
+    priority: 93,
+    evaluate: (f) =>
+      f.env.diyAgreementApproved
+        ? { state: "ready", notes: [{ code: "approved_current" }] }
+        : { state: "missing", notes: [{ code: "not_approved_current" }], missingEnv: ["NEXT_PUBLIC_DIY_AGREEMENT_APPROVED_VERSION"] },
   },
   {
     key: "statutes_verified",
@@ -721,7 +739,6 @@ export const NOT_FOR_LAUNCH: Record<string, string> = {
   STRIPE_SECRET_KEY: "Not used with IdentityIQ: clients pay the provider directly.",
   STRIPE_WEBHOOK_SECRET: "Not used with IdentityIQ.",
   WHATSAPP_LEAD_REPLIES: "Optional: leave empty so Alti greets a lead once and a person answers.",
-  NEXT_PUBLIC_SERVICE_MODE: "Leave empty for full service, the business today.",
   NEXT_PUBLIC_FEATURE_ABA_HANDOFF: "Ships off until the attorney signs off on it.",
   NEXT_PUBLIC_CALLS_ENABLED: "Built and off until the attorney answers the Telemarketing Sales Rule question.",
   SOFT_PULL_PROVIDER: "No soft-pull provider is connected; the default is correct.",

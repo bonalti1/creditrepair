@@ -11,8 +11,11 @@ import {
   NO_SETUP_FEE_WHY,
   PLAN_TYPE_HELP,
   PLAN_TYPE_LABEL,
-  PLAN_TYPES,
+  PLAN_TYPES_FOR,
+  PERIOD_TIMING_OPTIONS,
   effectiveAmounts,
+  planOption,
+  type PeriodTiming,
   paymentTermsLines,
   planMaxTotalCents,
   snapshotPlan,
@@ -29,6 +32,8 @@ import { staffAuthor, useStaff } from "@/lib/staff/useStaff";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
 import { CARD_BRAND_NAME, CARD_BRANDS, DEFAULT_ACCEPTED_CARDS, type AcceptedCards } from "@/lib/billing/cardBrands";
 import { Chip, DemoNote, NoAccess, PRIMARY_BUTTON, QUIET_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SectionTitle } from "@/components/staff/ui";
+import OptionBadge from "@/components/staff/OptionBadge";
+import { OPTION_NAME, OPTION_SUBTITLE, SERVICE_OPTIONS, type ServiceOption } from "@/lib/service/options";
 
 // Billing plans, the way Credit Repair Cloud's "Manage Plans" lays them out
 // (name, first work fee, recurring amount, due date, duration, household
@@ -40,6 +45,12 @@ import { Chip, DemoNote, NoAccess, PRIMARY_BUTTON, QUIET_BUTTON, ROW_BUTTON, SEC
 // A plan version is a draft until an administrator records the attorney's
 // approval and offers it; an offered version never changes (a change is a new
 // version), and a client's signed agreement keeps the version they signed.
+//
+// Each plan is for one service option (docs/SERVICE-OPTIONS.md): Credalti
+// Complete (the four plan types above, charged after the work) or Credalti DIY
+// (a monthly subscription from the start, after the cancellation window, with
+// an optional fee per letter we mail). One default plan per option. Prices are
+// the owner's to set here; each version still needs the attorney's approval.
 
 type L = "es" | "en";
 
@@ -48,7 +59,13 @@ interface Form {
   key: string | null;
   nameEn: string;
   nameEs: string;
+  /** Which option the plan is for. */
+  option: ServiceOption;
   type: PlanType;
+  /** Subscription: charged right after the period's round is mailed (default), or when it ends. */
+  periodTiming: PeriodTiming;
+  /** DIY: the fee per letter mailed for the client ("" = mailing not offered). */
+  mailFee: string;
   firstWork: boolean;
   firstWorkFee: string;
   recurring: string;
@@ -69,7 +86,11 @@ const EMPTY: Form = {
   key: null,
   nameEn: "",
   nameEs: "",
+  option: "full_service",
   type: "per_round",
+  // The owner's decision (2026-11-25): new monthly plans charge right after the period's letters are mailed.
+  periodTiming: "on_mailing",
+  mailFee: "4.00",
   firstWork: false,
   firstWorkFee: "",
   recurring: "89.00",
@@ -92,6 +113,20 @@ const cents = (dollars: string): number => {
 const dollars = (c: number) => (c / 100).toFixed(2);
 
 function formToTerms(f: Form): PlanTerms {
+  if (f.type === "diy_subscription") {
+    return {
+      type: "diy_subscription",
+      firstWorkFeeCents: 0,
+      recurringCents: cents(f.recurring),
+      flat: null,
+      dueRule: { kind: "after_cancellation_window" },
+      duration: f.durationKind === "months" ? { kind: "months", count: Number(f.durationCount) || 0 } : { kind: "indefinite" },
+      maxTotalCents: f.cap.trim() === "" ? null : cents(f.cap),
+      householdDiscountPercent: Number(f.household) || 0,
+      countsUpdated: false,
+      mailFeeCents: f.mailFee.trim() === "" ? 0 : cents(f.mailFee),
+    };
+  }
   const flat = f.type === "flat_fee";
   const rounds = Number(f.flatRounds) || 0;
   return {
@@ -108,6 +143,7 @@ function formToTerms(f: Form): PlanTerms {
     maxTotalCents: f.cap.trim() === "" ? null : cents(f.cap),
     householdDiscountPercent: Number(f.household) || 0,
     countsUpdated: f.type === "pay_per_delete" && f.countsUpdated,
+    ...(f.type === "subscription" ? { periodTiming: f.periodTiming } : {}),
   } as PlanTerms;
 }
 
@@ -118,14 +154,18 @@ function planToForm(p: PlanVersion): Form {
     key: p.key,
     nameEn: p.name.en,
     nameEs: p.name.es,
+    option: planOption(t),
     type: t.type,
+    // A plan made before the timing existed reads as "when the period ends", and keeps it in a new version.
+    periodTiming: t.type === "subscription" ? (t.periodTiming ?? "period_end") : "on_mailing",
+    mailFee: t.type === "diy_subscription" ? dollars(t.mailFeeCents ?? 0) : EMPTY.mailFee,
     firstWork: t.firstWorkFeeCents > 0,
     firstWorkFee: t.firstWorkFeeCents > 0 ? dollars(t.firstWorkFeeCents) : "",
     recurring: dollars(t.recurringCents),
     flatTotal: t.flat ? dollars(t.flat.totalCents) : EMPTY.flatTotal,
     flatRounds: t.flat ? String(t.flat.rounds) : EMPTY.flatRounds,
     flatSchedule: t.flat?.schedule ?? "installments",
-    due: t.dueRule.kind,
+    due: t.dueRule.kind === "after_cancellation_window" ? "after_first_round" : t.dueRule.kind,
     dueDays: t.dueRule.kind === "days_after_first_round" ? String(t.dueRule.days) : EMPTY.dueDays,
     durationKind: t.duration.kind,
     durationCount: t.duration.kind === "indefinite" ? EMPTY.durationCount : String(t.duration.count),
@@ -154,6 +194,10 @@ function durationText(t: PlanTerms, l: L): string {
 
 function amountText(t: PlanTerms, l: L): string {
   if (t.type === "flat_fee" && t.flat) return `${formatCents(t.flat.totalCents)} / ${t.flat.rounds} ${l === "es" ? "rondas" : "rounds"}`;
+  if (t.type === "diy_subscription") {
+    const mail = t.mailFeeCents ?? 0;
+    return `${formatCents(t.recurringCents)} / ${l === "es" ? "mes" : "month"}${mail > 0 ? ` + ${formatCents(mail)} / ${l === "es" ? "carta enviada" : "letter mailed"}` : ""}`;
+  }
   const per = t.type === "subscription" ? (l === "es" ? "mes con trabajo" : "month with work") : t.type === "per_round" ? (l === "es" ? "ronda" : "round") : l === "es" ? "punto" : "item";
   return `${formatCents(t.recurringCents)} / ${per}`;
 }
@@ -187,10 +231,15 @@ function Timeline({ terms, l }: { terms: PlanTerms | null; l: L }) {
       </SectionTitle>
       <div className="card px-5 py-4">
         <p className="text-[12.5px] leading-snug text-slate-500">
-          {t(
-            "Un cliente de ejemplo: rondas enviadas cada 40 días. Calculado por las mismas reglas que cobran.",
-            "An example client: rounds mailed every 40 days. Worked out by the same rules that charge.",
-          )}
+          {terms?.type === "diy_subscription"
+            ? t(
+                "Un cliente de ejemplo de Credalti DIY: envía sus rondas cada 40 días y nos pide enviar la segunda. Calculado por las mismas reglas que cobran.",
+                "An example Credalti DIY client: mails their rounds every 40 days and asks us to mail the second. Worked out by the same rules that charge.",
+              )
+            : t(
+                "Un cliente de ejemplo: rondas enviadas cada 40 días. Calculado por las mismas reglas que cobran.",
+                "An example client: rounds mailed every 40 days. Worked out by the same rules that charge.",
+              )}
         </p>
         {!events ? (
           <p className="mt-3 text-[14px] text-slate-600">{t("Completa el plan para ver cuándo se cobraría.", "Complete the plan to see when each charge would happen.")}</p>
@@ -242,7 +291,9 @@ function Editor({ form, setForm, onSave, saving, problems, l, switches }: { form
   const live = validatePlanTerms(terms);
   const max = live.length === 0 ? planMaxTotalCents(terms) : null;
   const recurringLabel =
-    form.type === "subscription"
+    form.type === "diy_subscription"
+      ? t("Suscripción mensual", "Monthly subscription")
+      : form.type === "subscription"
       ? t("Monto recurrente (por mes con trabajo)", "Recurring amount (per month with work)")
       : form.type === "per_round"
         ? t("Monto recurrente (por ronda enviada)", "Recurring amount (per round mailed)")
@@ -262,10 +313,42 @@ function Editor({ form, setForm, onSave, saving, problems, l, switches }: { form
         </label>
       </div>
 
+      <fieldset className="mt-5" data-testid="plan-option">
+        <legend className={LABEL}>{t("Opción de servicio", "Service option")}</legend>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {SERVICE_OPTIONS.map((option) => (
+            <label key={option} className={`flex cursor-pointer gap-3 rounded-2xl px-3.5 py-3 ${form.option === option ? "bg-blue-50 ring-2 ring-blue-300" : "bg-slate-50"}`}>
+              <input
+                type="radio"
+                name="plan-option"
+                checked={form.option === option}
+                disabled={Boolean(form.key)}
+                onChange={() => {
+                  const type = PLAN_TYPES_FOR[option][0]!;
+                  setForm({ ...form, option, type, firstWork: option === "diy" ? false : form.firstWork, recurring: option === "diy" ? "39.00" : "89.00", durationKind: DURATIONS_FOR[type][0]!, cap: option === "diy" && form.cap.trim() === "" ? "468.00" : form.cap });
+                }}
+                className="mt-0.5 h-5 w-5 shrink-0 accent-blue-700"
+                data-testid={`plan-option-${option}`}
+              />
+              <span className="min-w-0">
+                <span className="block text-[14.5px] font-semibold text-slate-900">{OPTION_NAME[option][l]}</span>
+                <span className="mt-0.5 block text-[12.5px] leading-snug text-slate-600">
+                  {OPTION_SUBTITLE[option][l]}.{" "}
+                  {option === "diy"
+                    ? t("Suscripción mensual desde el inicio, después de los 3 días hábiles para cancelar.", "Monthly subscription from the start, after the 3 business days to cancel.")
+                    : t("Cada cobro, después del trabajo que paga.", "Every charge after the work it pays for.")}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+        {form.key && <p className={HINT}>{t("Una versión nueva es de la misma opción que el plan.", "A new version is for the same option as the plan.")}</p>}
+      </fieldset>
+
       <fieldset className="mt-5">
         <legend className={LABEL}>{t("Tipo de plan", "Plan type")}</legend>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          {PLAN_TYPES.map((type) => {
+          {PLAN_TYPES_FOR[form.option].map((type) => {
             const off = type === "pay_per_delete" && !switches.payPerDelete;
             return (
               <label key={type} className={`flex cursor-pointer gap-3 rounded-2xl px-3.5 py-3 ${form.type === type ? "bg-blue-50 ring-2 ring-blue-300" : "bg-slate-50"}`}>
@@ -292,6 +375,18 @@ function Editor({ form, setForm, onSave, saving, problems, l, switches }: { form
       </fieldset>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        {form.type === "diy_subscription" ? (
+          <label className="min-w-0">
+            <span className={LABEL}>{t("Envío por el cliente: cuota por carta", "Mailing for the client: fee per letter")}</span>
+            <input className={`${FIELD} mt-1.5`} inputMode="decimal" value={form.mailFee} onChange={(e) => set("mailFee", e.target.value)} placeholder="4.00" data-testid="plan-mail-fee" />
+            <p className={HINT}>
+              {t(
+                `«Envíenlas por mí»: se le muestra al cliente antes de confirmar y se cobra después de enviar. 0 = no se ofrece. Hasta ${formatCents(LIMITS.maxMailFeeCents)}.`,
+                `"Mail them for me": shown to the client before they confirm, charged after we mail. 0 = not offered. Up to ${formatCents(LIMITS.maxMailFeeCents)}.`,
+              )}
+            </p>
+          </label>
+        ) : (
         <div className="min-w-0">
           <span className={LABEL}>{t("Cuota de primer trabajo", "First work fee")}</span>
           <div className="mt-1.5 flex gap-1 rounded-xl bg-slate-100 p-1" role="group">
@@ -316,6 +411,7 @@ function Editor({ form, setForm, onSave, saving, problems, l, switches }: { form
           </p>
           {form.type === "pay_per_delete" && <p className={HINT}>{t("El pago por eliminación no lleva cuota de primer trabajo.", "Pay per delete has no first work fee.")}</p>}
         </div>
+        )}
 
         {form.type === "flat_fee" ? (
           <div className="grid min-w-0 grid-cols-2 gap-3">
@@ -349,6 +445,34 @@ function Editor({ form, setForm, onSave, saving, problems, l, switches }: { form
         )}
       </div>
 
+      {form.type === "subscription" && (
+        <fieldset className="mt-5" data-testid="period-timing">
+          <legend className={LABEL}>{t("Cuándo se cobra cada mes", "When each month is charged")}</legend>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {PERIOD_TIMING_OPTIONS.map((o) => (
+              <label key={o.key} className={`flex cursor-pointer items-start gap-3 rounded-xl px-3 py-2 ${form.periodTiming === o.key ? "bg-blue-50 ring-2 ring-blue-300" : "bg-slate-50"}`}>
+                <input type="radio" name="timing" checked={form.periodTiming === o.key} onChange={() => set("periodTiming", o.key)} className="mt-0.5 h-4 w-4 shrink-0 accent-blue-700" data-testid={`timing-${o.key}`} />
+                <span className="min-w-0">
+                  <span className="block text-[14px] font-medium text-slate-900">{o.label[l]}</span>
+                  <span className="block text-[12px] leading-snug text-slate-500">{o.help[l]}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+
+      {form.type === "diy_subscription" ? (
+        <div className="mt-5 rounded-2xl bg-slate-50 px-4 py-3" data-testid="due-date">
+          <p className="text-[13px] font-semibold text-slate-800">{t("Fecha de cobro", "Due date")}</p>
+          <p className="mt-0.5 text-[12.5px] leading-snug text-slate-600">
+            {t(
+              "Desde el inicio: el primer periodo empieza cuando terminan los 3 días hábiles para cancelar, y cada periodo de 30 días se cobra al empezar. El dueño informa que el abogado aprobó este precio para DIY (2026-11-25), porque el cliente hace sus disputas con el software. Cada versión necesita igual su aprobación.",
+              "From the start: the first period begins when the 3 business days to cancel end, and each 30-day period is charged when it begins. The owner reports the attorney approved this pricing for DIY (2026-11-25), because the client performs the disputes with the software. Each version still needs its approval.",
+            )}
+          </p>
+        </div>
+      ) : (
       <fieldset className="mt-5" data-testid="due-date">
         <legend className={LABEL}>{t("Fecha de cobro", "Due date")}</legend>
         <div className="mt-2 space-y-1.5">
@@ -373,6 +497,7 @@ function Editor({ form, setForm, onSave, saving, problems, l, switches }: { form
           ))}
         </div>
       </fieldset>
+      )}
 
       <div className="mt-5 grid gap-4 sm:grid-cols-3">
         <label className="min-w-0">
@@ -619,8 +744,8 @@ export default function PlanesPage() {
           <h1 className="page-title">{t("Planes de cobro", "Manage plans")}</h1>
           <p className="mt-0.5 max-w-3xl text-[14px] leading-snug text-slate-500">
             {t(
-              "Como en Credit Repair Cloud, con una diferencia que manda la ley: cada cobro se hace solo después del trabajo que paga. Cada cliente queda con la versión exacta que firmó.",
-              "Like Credit Repair Cloud, with one difference the law requires: every charge happens only after the work it pays for. Each client keeps the exact version they signed.",
+              "Como en Credit Repair Cloud, con una diferencia que manda la ley: en Credalti Complete cada cobro se hace solo después del trabajo que paga. Credalti DIY es una suscripción mensual desde el inicio, después de los 3 días hábiles para cancelar. Los precios se fijan aquí; cada versión necesita la aprobación del abogado. Cada cliente queda con la versión exacta que firmó.",
+              "Like Credit Repair Cloud, with one difference the law requires: under Credalti Complete every charge happens only after the work it pays for. Credalti DIY is a monthly subscription from the start, after the 3 business days to cancel. Prices are set here; each version needs the attorney's approval. Each client keeps the exact version they signed.",
             )}
           </p>
         </div>
@@ -652,6 +777,7 @@ export default function PlanesPage() {
             <thead>
               <tr className="border-b hairline text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-5 py-2.5">{t("Plan", "Plan")}</th>
+                <th className="px-3 py-2.5">{t("Opción", "Option")}</th>
                 <th className="px-3 py-2.5">{t("Tipo", "Type")}</th>
                 <th className="px-3 py-2.5">{t("Primer trabajo", "First work fee")}</th>
                 <th className="px-3 py-2.5">{t("Monto", "Amount")}</th>
@@ -674,6 +800,7 @@ export default function PlanesPage() {
                       <span className="ml-1.5 text-[12px] text-slate-500">v{p.version}</span>
                       {p.isDefault && <Chip tone="ml-1.5 bg-blue-50 text-blue-700">{t("Predeterminado", "Default")}</Chip>}
                     </td>
+                    <td className="whitespace-nowrap px-3 py-2.5"><OptionBadge option={planOption(p.terms)} /></td>
                     <td className="whitespace-nowrap px-3 py-2.5">{PLAN_TYPE_LABEL[p.terms.type][l]}</td>
                     <td className="px-3 py-2.5 tabular-nums">{p.terms.firstWorkFeeCents > 0 ? formatCents(p.terms.firstWorkFeeCents) : t("No", "No")}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 tabular-nums">{amountText(p.terms, l)}</td>

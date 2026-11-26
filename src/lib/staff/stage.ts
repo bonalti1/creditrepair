@@ -15,7 +15,7 @@ import { responseWindowStart, returnReason } from "../mail/tracking";
 import { billingContextFor } from "./billing";
 import { intakeExceptions } from "../intake/exceptions";
 import { documentRejected } from "../fulfillment/documents";
-import { REQUIRED_DOCUMENTS, type DocumentKind, type StaffClient, type StaffLetter, type StaffRound } from "./types";
+import { REQUIRED_DOCUMENTS, type DocumentKind, type StaffClient, type StaffLetter, type StaffMailRequest, type StaffRound } from "./types";
 import { dateLocale, listJoin, type StaffLocale, staffLocaleFallback } from "./i18n/locale";
 
 // Where is this client, what is wrong, and what happens next.
@@ -89,6 +89,8 @@ export const STAGE_ORDER = [
   "waiting_on_bureaus",
   "results_in",
   "next_round_ready",
+  // Credalti DIY (docs/SERVICE-OPTIONS.md): the letters are the client's to print and mail. Nothing for the team.
+  "with_client",
   "paused",
   // Finished the program (docs/AFTERCARE.md): billing stopped, after-care goes on. Nothing for the team to do.
   "graduated",
@@ -181,6 +183,13 @@ const STAGES_ES: Record<Stage, StageInfo> = {
     description: "La siguiente ronda de cartas está preparada. El equipo la envía.",
     actor: "staff",
   },
+  with_client: {
+    label: "Cartas con el cliente (DIY)",
+    short: "Con el cliente",
+    description:
+      "Credalti DIY: Alti prepara las cartas y el cliente las imprime y las envía. El equipo no envía nada salvo lo que el cliente pida en «Envíenlas por mí»; responde sus preguntas.",
+    actor: "client",
+  },
   paused: {
     label: "En pausa",
     short: "En pausa",
@@ -265,6 +274,13 @@ const STAGES_EN: Record<Stage, StageInfo> = {
     short: "Next round",
     description: "The next round of letters is ready. The team sends it.",
     actor: "staff",
+  },
+  with_client: {
+    label: "Letters with the client (DIY)",
+    short: "With client",
+    description:
+      "Credalti DIY: Alti prepares the letters and the client prints and mails them. The team mails nothing unless the client asks for it with “Mail them for me”; it answers their questions.",
+    actor: "client",
   },
   paused: {
     label: "Paused",
@@ -446,7 +462,32 @@ export function reviewProgress(client: StaffClient): ReviewProgress {
  * without penalty and the law allows no work. `now` decides that one; left
  * out, the current time is used.
  */
+/** The client's option: Credalti Complete unless they chose Credalti DIY (migration 0042). */
+export function clientOption(client: Pick<StaffClient, "serviceOption">): "full_service" | "diy" {
+  return client.serviceOption === "diy" ? "diy" : "full_service";
+}
+
+export function isDiy(client: Pick<StaffClient, "serviceOption">): boolean {
+  return clientOption(client) === "diy";
+}
+
+/** DIY: the open "Mail them for me" request on a round, if any. */
+export function openMailRequest(client: StaffClient, round: StaffRound | null = latestRound(client)): StaffMailRequest | null {
+  if (!round) return null;
+  return round.mailRequest ?? client.mailRequests?.find((r) => r.status === "requested" && r.roundNumber === round.number) ?? null;
+}
+
+/** The days after Alti prepared a DIY round with nothing marked as mailed, before a salesperson gets a gentle follow-up. */
+export const DIY_FOLLOWUP_DAYS = 14;
+
 export function clientStage(client: StaffClient, now: Date = new Date()): Stage {
+  const stage = baseStage(client, now);
+  // Credalti DIY: the next round is the client's to print and mail, unless they asked us to mail it.
+  if (isDiy(client) && (stage === "ready_to_send" || stage === "next_round_ready" || stage === "results_in") && !openMailRequest(client)) return "with_client";
+  return stage;
+}
+
+function baseStage(client: StaffClient, now: Date): Stage {
   // A cancelled agreement ends everything, whatever else is on record.
   if (client.agreementCancelledAt) return "cancelled";
   // Finished the program: the service ended by the client's own choice (it records the end of the service).
@@ -496,6 +537,9 @@ export const EXCEPTION_KINDS = [
   "bureau_letter_needs_person",
   // The post office's data could not confirm the client's own address (mail/verify.ts): the client is asked first.
   "client_address_unconfirmed",
+  // Credalti DIY (migration 0042): letters prepared 14 days ago and not marked as mailed. A gentle follow-up for sales:
+  // ask if they need help; mention Credalti Complete only if they want it. Never pressure.
+  "diy_followup",
 ] as const;
 
 export type ExceptionKind = (typeof EXCEPTION_KINDS)[number];
@@ -518,6 +562,7 @@ const EXCEPTION_LABEL_ES: Record<ExceptionKind, string> = {
   document_check_needs_person: "Documento para revisar",
   bureau_letter_needs_person: "Carta de un buró para revisar",
   client_address_unconfirmed: "Dirección del cliente sin confirmar",
+  diy_followup: "DIY: cartas sin enviar",
 };
 
 const EXCEPTION_LABEL_EN: Record<ExceptionKind, string> = {
@@ -536,6 +581,7 @@ const EXCEPTION_LABEL_EN: Record<ExceptionKind, string> = {
   document_check_needs_person: "Document to review",
   bureau_letter_needs_person: "Bureau letter to review",
   client_address_unconfirmed: "Client address unconfirmed",
+  diy_followup: "DIY: letters not mailed",
 };
 
 /** Each kind of notice's short name, in each language. */
@@ -662,8 +708,49 @@ export function overdueResponseRound(client: StaffClient, now: Date): StaffRound
   return responseOverdue(client, now);
 }
 
+/**
+ * What a Credalti DIY client can need a person for: their questions, their
+ * money, their agreement, and the letters they asked us to mail. The team's
+ * round work (the review, documents, reports, sending) is the client's own.
+ */
+const DIY_EXCEPTIONS: readonly ExceptionKind[] = [
+  "question_waiting",
+  "service_end_requested",
+  "payment_past_due",
+  "payment_method_missing",
+  "agreement_unsigned",
+  "diy_followup",
+];
+/** And only while a "Mail them for me" request is open: what would hold those letters. */
+const DIY_MAILING_EXCEPTIONS: readonly ExceptionKind[] = ["furnisher_address_missing", "client_address_unconfirmed", "identity_theft_report_missing", "letter_returned"];
+
 /** Every exception that applies right now, whether or not someone marked it handled. */
 function openExceptions(client: StaffClient, now: Date, context: StaffContext = {}): StaffException[] {
+  const found = allOpenExceptions(client, now, context);
+  if (!isDiy(client)) return found;
+  const mailing = Boolean(openMailRequest(client));
+  const kept = found.filter((e) => DIY_EXCEPTIONS.includes(e.kind) || (mailing && DIY_MAILING_EXCEPTIONS.includes(e.kind)));
+  // Letters Alti prepared two weeks ago and not marked as mailed: a gentle follow-up for sales (once; "handled" quiets it).
+  const round = latestRound(client);
+  if (!client.agreementCancelledAt && !serviceEndPending(client) && round && round.status !== "mailed" && round.status !== "responded" && !mailing && round.diyPreparedAt && daysSince(round.diyPreparedAt, now) >= DIY_FOLLOWUP_DAYS) {
+    const es = (context.locale ?? staffLocaleFallback()) === "es";
+    const days = daysSince(round.diyPreparedAt, now);
+    kept.push({
+      key: `diy_followup:${round.number}`,
+      kind: "diy_followup",
+      severity: "low",
+      sentence: es
+        ? `Credalti DIY: Alti preparó sus cartas de la ronda ${round.number} hace ${daysPhrase(days, "es")} y no las ha marcado como enviadas. Pregúntale si necesita ayuda; si quiere que nos encarguemos, existe Credalti Complete. Sin presión.`
+        : `Credalti DIY: Alti prepared their round ${round.number} letters ${daysPhrase(days, "en")} ago and they haven't marked them as mailed. Ask if they need help; if they want us to handle it, Credalti Complete exists. No pressure.`,
+      actionLabel: es ? "Preguntarle si necesita ayuda" : "Ask if they need help",
+      action: "whatsapp",
+      since: round.diyPreparedAt,
+    });
+  }
+  return kept;
+}
+
+function allOpenExceptions(client: StaffClient, now: Date, context: StaffContext = {}): StaffException[] {
   // A cancelled client has nothing in flight, so nothing can be wrong with it.
   if (client.agreementCancelledAt) return [];
 
@@ -1026,6 +1113,8 @@ export function nextBillingStep(client: StaffClient, now: Date, locale: StaffLoc
 
 function nextWorkStep(client: StaffClient, now: Date, locale: StaffLocale): AutomaticStep | null {
   const stage = clientStage(client, now);
+  // Credalti DIY: preparing the next round is the client's (with Alti), not the team's.
+  if (isDiy(client) && (stage === "with_client" || stage === "results_in" || stage === "ready_to_send")) return null;
   const es = locale === "es";
 
   if (stage === "cancellation_window") {
@@ -1107,8 +1196,11 @@ export function nextStep(client: StaffClient, now: Date, locale: StaffLocale = s
     case "next_round_ready": {
       const round = latestRound(client);
       if (sendBlockReason(client, now)) return person("client", L("Actualizar su reporte antes de enviar", "Refresh their report before sending"));
+      if (isDiy(client)) return person("staff", L(`Enviar las cartas que pidió («Envíenlas por mí»), ronda ${round?.number ?? 1}`, `Mail the letters they asked for ("Mail them for me"), round ${round?.number ?? 1}`));
       return person("staff", L(`Enviar la ronda ${round?.number ?? 1}`, `Send round ${round?.number ?? 1}`));
     }
+    case "with_client":
+      return person("client", L("Imprimir y enviar sus cartas (DIY); el equipo responde sus preguntas", "Print and mail their letters (DIY); the team answers their questions"));
     case "waiting_on_bureaus":
       return person("client", L("Revisar su monitoreo: falta el reporte nuevo", "Check their monitoring: the new report is missing"));
     case "results_in":
@@ -1184,12 +1276,23 @@ export function sendBlockReason(client: StaffClient, now: Date, context: StaffCo
   return null;
 }
 
-/** The round that can be mailed now, or null. This is what "Listas para enviar" lists. */
+/**
+ * The round that can be mailed now, or null. This is what "Listas para enviar" lists.
+ * A Credalti DIY client's round is here only with a "Mail them for me" request
+ * open, and then with only the letters they asked us to mail.
+ */
 export function sendableRound(client: StaffClient, now: Date, context: StaffContext = {}): StaffRound | null {
   const stage = clientStage(client, now);
   if (stage !== "ready_to_send" && stage !== "next_round_ready") return null;
   const round = latestRound(client);
   if (!round || round.status !== "ready" || round.letters.length === 0) return null;
+  if (isDiy(client)) {
+    const request = openMailRequest(client, round);
+    if (!request) return null;
+    const letters = round.letters.filter((l) => request.letterIds.includes(l.id));
+    if (letters.length === 0) return null;
+    return sendBlockReason(client, now, context) ? null : { ...round, letters, mailRequest: request };
+  }
   return sendBlockReason(client, now, context) ? null : round;
 }
 

@@ -24,8 +24,23 @@ export async function loadAgreementRow(db: SupabaseClient, userId: string): Prom
   return (data as Record<string, unknown> | null) ?? null;
 }
 
+/**
+ * The agreement that governs the client: the one in force (signed, not
+ * cancelled, not superseded) when there is one, else the newest. The same
+ * rule as public.governing_agreement (migration 0042). Differs from the
+ * newest only while a client who is switching option has acknowledged the new
+ * option's disclosures and not signed yet: until they sign, their current
+ * agreement still applies (work, billing, the gate).
+ */
+export async function loadGoverningAgreementRow(db: SupabaseClient, userId: string): Promise<Record<string, unknown> | null> {
+  const { data, error } = await db.from(AGREEMENT_TABLE).select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(10);
+  if (error) throw new Error(`service_agreements: ${error.message}`);
+  const rows = (data as Record<string, unknown>[] | null) ?? [];
+  return rows.find((r) => r.signed_at && !r.cancelled_at && !r.superseded_at) ?? rows[0] ?? null;
+}
+
 export async function loadAgreement(db: SupabaseClient, userId: string): Promise<AgreementState | null> {
-  const row = await loadAgreementRow(db, userId);
+  const row = await loadGoverningAgreementRow(db, userId);
   return row ? agreementFromRow(row) : null;
 }
 

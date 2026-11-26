@@ -1,4 +1,4 @@
-import { AGREEMENT_VERSION } from "../agreement/documents";
+import { AGREEMENT_VERSION, DIY_AGREEMENT_VERSION } from "../agreement/documents";
 import { unverifiedStatuteCitations } from "../agreement/readiness";
 import { resolveTerms, TERM_ENV, type TermKey, type TermsSource } from "../agreement/terms";
 import { ACH_AUTHORIZATION_VERSION } from "../billing/achAuthorization";
@@ -78,8 +78,8 @@ export interface EnvFacts {
   templatesListed: string[];
   tiktokAudited: boolean;
   monitoringProvider: "demo" | "identityiq" | "other";
-  /** NEXT_PUBLIC_SERVICE_MODE: full service unless "self_serve". */
-  selfServe: boolean;
+  /** NEXT_PUBLIC_DIY_AGREEMENT_APPROVED_VERSION equals the Credalti DIY agreement's version (docs/SERVICE-OPTIONS.md). */
+  diyAgreementApproved: boolean;
 }
 
 const blank = (v: string | undefined) => !v || v.trim() === "";
@@ -133,7 +133,7 @@ export function envFacts(env: Record<string, string | undefined> = process.env, 
       .filter((t) => /^[a-z0-9_]{2,80}$/.test(t)),
     tiktokAudited: (env.TIKTOK_AUDITED ?? "").trim() === "true",
     monitoringProvider: !provider || provider === "demo" ? "demo" : provider === "identityiq" ? "identityiq" : "other",
-    selfServe: (env.NEXT_PUBLIC_SERVICE_MODE ?? "").trim() === "self_serve",
+    diyAgreementApproved: (env.NEXT_PUBLIC_DIY_AGREEMENT_APPROVED_VERSION ?? "").trim() === DIY_AGREEMENT_VERSION,
   };
 }
 

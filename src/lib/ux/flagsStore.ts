@@ -200,11 +200,12 @@ export function useFlags() {
   );
 
   const setRoundApproved = useCallback(
-    (value: boolean) => {
+    (value: boolean, mailedAt?: string) => {
       // Approving keeps a copy of the answers the letters were built from, so
       // an answer changed later does not rewrite what was already mailed.
+      // Credalti DIY's "I mailed them" passes the date the client chose.
       const snapshot = value ? flags : null;
-      const at = value ? new Date().toISOString() : null;
+      const at = value ? (mailedAt ?? new Date().toISOString()) : null;
       setRoundApprovedState(value);
       setMailedFlags(snapshot);
       setRoundMailedAt(at);

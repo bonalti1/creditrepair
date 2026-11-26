@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { loadAgreementRow, notifyTeam } from "../agreement/server";
+import { loadGoverningAgreementRow, notifyTeam } from "../agreement/server";
 import { agreementFromRow, type AgreementState } from "../agreement/record";
 import { BRAND } from "../brand";
 import { isOptedOut, queueStatus } from "../autopilot/store";
@@ -24,6 +24,7 @@ import type {
   ChargeUnit,
   ChargebackSummary,
   L,
+  MailingWork,
   MethodKind,
   PaymentMethodSummary,
   ProvenResult,
@@ -58,7 +59,7 @@ export function refundFromRow(row: Row): BillingRefund {
   };
 }
 
-const UNITS: readonly ChargeUnit[] = ["round", "period", "installment", "flat", "results", "first_work"];
+const UNITS: readonly ChargeUnit[] = ["round", "period", "installment", "flat", "results", "first_work", "diy_period", "mailing"];
 
 export function chargebackFromRow(row: Row): ChargebackSummary {
   const status = row.status === "won" || row.status === "lost" || row.status === "accepted" ? row.status : "open";
@@ -100,6 +101,27 @@ export function chargeFromRow(row: Row, refund: Row | null | undefined = null, c
     ...(row.method_kind ? { methodKind: (row.method_kind === "ach" ? "ach" : "card") as MethodKind } : {}),
     ...(row.return_code ? { returnCode: text(row.return_code) } : {}),
     ...(chargeback ? { chargeback: chargebackFromRow(chargeback) } : {}),
+    ...(row.mail_request_id ? { mailRequestId: text(row.mail_request_id) } : {}),
+    ...(row.agreement_id ? { agreementId: text(row.agreement_id) } : {}),
+  };
+}
+
+/** A "Mail them for me" request (mail_requests, migration 0042) as billing reads it. */
+export function mailingFromRow(row: Row, roundNumber: number, letters: Row[]): MailingWork {
+  const ids = Array.isArray(row.letter_ids) ? (row.letter_ids as unknown[]).map(String) : [];
+  const mine = letters.filter((l) => ids.includes(text(l.id)));
+  const status = row.status === "mailed" || row.status === "cancelled" ? row.status : "requested";
+  return {
+    id: text(row.id),
+    roundNumber,
+    letterCount: Number(row.letter_count ?? ids.length),
+    feeCents: Number(row.fee_cents ?? 0),
+    totalCents: Number(row.total_cents ?? 0),
+    status,
+    requestedAt: iso(row.accepted_at) ?? iso(row.created_at) ?? "",
+    mailedAt: iso(row.mailed_at),
+    allReturned: mine.length > 0 && mine.every((l) => l.status === "failed" || l.mail_status === "returned" || l.mail_status === "undeliverable"),
+    agreementId: text(row.agreement_id) || null,
   };
 }
 
@@ -168,7 +190,7 @@ async function rows(query: PromiseLike<{ data: unknown; error: { message: string
  */
 export async function loadBilling(db: SupabaseClient, userId: string, options: { withHandle?: boolean } = {}): Promise<LoadedBilling> {
   const [agreementRow, roundRows, letterRows, methodRows, chargeRows, refundRows, pauseRows] = await Promise.all([
-    loadAgreementRow(db, userId),
+    loadGoverningAgreementRow(db, userId),
     rows(db.from("attack_rounds").select("id, round_number, status, mailed_at").eq("user_id", userId), "attack_rounds"),
     rows(db.from("letters").select("id, round_id, target_type, target_key, target_name, status, mail_status").eq("user_id", userId), "letters"),
     rows(db.from("payment_methods").select("*").eq("user_id", userId).is("removed_at", null).limit(1), "payment_methods"),
@@ -213,6 +235,12 @@ export async function loadBilling(db: SupabaseClient, userId: string, options: {
   const switches = plan ? await loadSwitches(db) : undefined;
   const creditBalanceCents = switches?.referralCredits ? await creditBalance(db, userId) : 0;
   const results = plan?.terms.type === "pay_per_delete" ? await loadProvenResults(db, userId, roundRows, letterRows) : undefined;
+  // Credalti DIY: the mailings the client asked for (migration 0042).
+  const roundNumberOf = new Map(roundRows.map((r) => [text(r.id), Number(r.round_number)]));
+  const mailings =
+    plan?.terms.type === "diy_subscription"
+      ? (await optionalRows(db.from("mail_requests").select("*").eq("user_id", userId))).map((m) => mailingFromRow(m, roundNumberOf.get(text(m.round_id)) ?? 0, letterRows))
+      : undefined;
   return {
     agreement,
     authorizationTerms: {
@@ -227,7 +255,8 @@ export async function loadBilling(db: SupabaseClient, userId: string, options: {
       signedMonthlyFee: terms?.monthlyFee ?? null,
       rounds: roundRows.map((round) => billableRoundFromRows(round, lettersByRound.get(text(round.id)) ?? [])),
       account,
-      ...(plan ? { plan, switches, creditBalanceCents, ...(results ? { results } : {}) } : {}),
+      ...(plan ? { plan, switches, creditBalanceCents, ...(results ? { results } : {}), ...(mailings ? { mailings } : {}) } : {}),
+      ...(agreementRow?.id ? { agreementId: text(agreementRow.id) } : {}),
     },
     roundIds: new Map(roundRows.map((round) => [Number(round.round_number), text(round.id)])),
     paymentMethodId: method ? text(method.id) : null,
@@ -323,9 +352,10 @@ export function databaseChargeStore(
   methodKind: MethodKind = "card",
 ): ChargeStore {
   return {
-    async createCharge({ roundNumber, amountCents, unit, firstWorkCents, creditCents, resultItemIds }) {
-      const roundId = unit === "results" ? null : roundIds.get(roundNumber);
-      if (unit !== "results" && !roundId) return { created: false, reason: `round ${roundNumber} has no row` };
+    async createCharge({ roundNumber, amountCents, unit, firstWorkCents, creditCents, resultItemIds, mailRequestId }) {
+      const roundless = unit === "results" || unit === "diy_period";
+      const roundId = roundless ? null : roundIds.get(roundNumber);
+      if (!roundless && !roundId) return { created: false, reason: `round ${roundNumber} has no row` };
       // The work and the amount; the trigger fills in the rest (work date, period, installment, invoice) and refuses anything else.
       const row: Record<string, unknown> = { user_id: userId, round_id: roundId, amount_cents: amountCents };
       if (unit) {
@@ -333,6 +363,7 @@ export function databaseChargeStore(
         row.first_work_cents = firstWorkCents ?? 0;
         row.credit_cents = creditCents ?? 0;
         if (unit === "results") row.result_item_ids = resultItemIds ?? [];
+        if (unit === "mailing") row.mail_request_id = mailRequestId ?? null;
       }
       const { data, error } = await db.from("charges").insert(row).select("*").single();
       if (error || !data) return { created: false, reason: error?.message ?? "insert returned no row" };

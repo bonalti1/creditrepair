@@ -189,6 +189,16 @@ export const PLAYBOOK: Record<ExceptionKind, PlaybookCard> = {
     ],
     doneWhen: "El cliente confirmó una dirección que el correo reconoce; la ronda sale sola.",
   },
+  diy_followup: {
+    title: EXCEPTION_LABEL.diy_followup,
+    steps: [
+      "Credalti DIY: Alti preparó las cartas del cliente hace 14 días o más y no las marcó como enviadas. El cliente envía sus propias cartas.",
+      "Escríbele una vez por WhatsApp para preguntar si necesita ayuda para imprimirlas o enviarlas. Si quiere que nos encarguemos, menciona Credalti Complete, sin presión.",
+      "Nunca le digas qué marcar ni prometas resultados. Si dice que no, respétalo: no insistas.",
+      "Marca «Atendido» y deja una nota con lo que dijo.",
+    ],
+    doneWhen: "El cliente respondió, marcó sus cartas como enviadas, pidió «Envíenlas por mí» o eligió cambiar de opción.",
+  },
 };
 
 const PLAYBOOK_EN: Record<ExceptionKind, PlaybookCard> = {
@@ -345,6 +355,16 @@ const PLAYBOOK_EN: Record<ExceptionKind, PlaybookCard> = {
     ],
     doneWhen: "The client confirmed an address the post office recognizes; the round goes out on its own.",
   },
+  diy_followup: {
+    title: EXCEPTION_LABEL_EN.diy_followup,
+    steps: [
+      "Credalti DIY: Alti prepared the client's letters 14 days ago or more and they haven't marked them as mailed. The client mails their own letters.",
+      "Message them once on WhatsApp to ask whether they need help printing or mailing them. If they'd like us to handle it, mention Credalti Complete, with no pressure.",
+      "Never tell them what to mark or promise results. If they say no, respect it: don't insist.",
+      "Mark it “Handled” and leave a note with what they said.",
+    ],
+    doneWhen: "The client answered, marked their letters as mailed, asked for “Mail them for me” or chose to change option.",
+  },
 };
 
 /** Every card, in each language. */
@@ -384,8 +404,8 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
   },
   "/equipo/clientes": {
     title: "Clientes",
-    what: "La lista de clientes que te tocan, con su etapa y quién hace lo siguiente.",
-    steps: ["Busca por nombre o teléfono.", "Filtra por etapa con los chips de arriba.", "Toca un nombre para abrir su caso."],
+    what: "La lista de clientes que te tocan, con su etapa, su opción (Complete o DIY) y quién hace lo siguiente.",
+    steps: ["Busca por nombre o teléfono.", "Filtra por etapa o por opción.", "Toca un nombre para abrir su caso.", "Un cliente DIY imprime y envía sus cartas; solo trabajas su caso cuando pregunta algo o pide «Envíenlas por mí»."],
     playbooks: [],
   },
   "/equipo/clientes/": {
@@ -413,7 +433,12 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
   "/equipo/enviar": {
     title: "Enviar rondas",
     what: "Antes de que salga una carta ves a dónde va, cómo va (normal o certificada) y cuánto cuesta.",
-    steps: ["Revisa la dirección de cada carta.", "Cambia la clase de envío solo si hace falta.", "Confirma. Las reglas (acuerdo, reporte vigente, direcciones) se revisan otra vez al enviar."],
+    steps: [
+      "Revisa la dirección de cada carta.",
+      "Cambia la clase de envío solo si hace falta.",
+      "Confirma. Las reglas (acuerdo, reporte vigente, direcciones) se revisan otra vez al enviar.",
+      "Un cliente DIY con «Envíenlas por mí» trae solo las cartas que pidió y pagó por carta: salen solo por el servicio de correo, nunca impresas aquí.",
+    ],
     playbooks: ["furnisher_address_missing", "report_stale"],
   },
   "/equipo/imprimir": {
@@ -470,7 +495,7 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
   },
   "/equipo/socios": { title: "Socios", what: "Las personas y negocios que refieren clientes, y sus comisiones.", steps: ["Revisa solicitudes nuevas.", "Solo un administrador aprueba y fija comisiones."], playbooks: [] },
   "/equipo/equipo": { title: "Equipo", what: "Quién está en el equipo y con qué rol.", steps: ["Agrega por correo o teléfono.", "Cambia el rol o desactiva; nadie se borra."], playbooks: [] },
-  "/equipo/invitar": { title: "Invitar", what: "El enlace de invitación que ventas le manda a un prospecto.", steps: ["Escribe su nombre y teléfono.", "Copia el mensaje y envíalo por WhatsApp."], playbooks: ["agreement_unsigned"] },
+  "/equipo/invitar": { title: "Invitar", what: "El enlace de invitación que ventas le manda a un prospecto.", steps: ["Escribe su nombre y teléfono.", "Si ya eligió una opción, márcala; si no, la elige en la app. Explica la diferencia si pregunta, sin empujar ninguna.", "Copia el mensaje y envíalo por WhatsApp."], playbooks: ["agreement_unsigned", "diy_followup"] },
   "/equipo/perfil": {
     title: "Tu perfil",
     what: "Tus datos, tu idioma, tu resumen de la mañana y tu lista del primer día.",
@@ -507,12 +532,14 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
       "Guarda un borrador, envíalo al abogado y registra su aprobación; solo entonces se puede ofrecer.",
       "Un plan ofrecido no cambia: para cambiarlo, guarda una versión nueva. Quien ya firmó sigue con la suya.",
       "No hay cuota de inscripción: la cuota de primer trabajo se cobra después de enviar la primera ronda.",
+      "Cada plan es de una opción. Credalti Complete: nunca se cobra antes del trabajo; un plan mensual nuevo cobra justo después de enviar las cartas del mes. Credalti DIY: suscripción mensual desde el fin de los 3 días hábiles, más la cuota por carta si pide que enviemos.",
+      "Cada opción tiene su propio plan predeterminado.",
     ],
     playbooks: [],
   },
   "/equipo/cobros": {
     title: "Facturas y contracargos",
-    what: "Cada cobro es una factura. Filtra, exporta a CSV o a QuickBooks y registra contracargos.",
+    what: "Cada cobro es una factura. Filtra, exporta a CSV o a QuickBooks y registra contracargos. Debajo de los totales, lo cobrado por opción.",
     steps: ["Filtra por estado, método o fecha.", "Descarga el CSV que necesites.", "Ante un contracargo, abre el paquete de evidencia y envíalo al procesador."],
     playbooks: [],
   },
@@ -623,8 +650,8 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
   },
   "/equipo/clientes": {
     title: "Clients",
-    what: "The list of clients that are yours, with their stage and who does the next thing.",
-    steps: ["Search by name or phone.", "Filter by stage with the chips at the top.", "Tap a name to open their case."],
+    what: "The list of clients that are yours, with their stage, their option (Complete or DIY) and who does the next thing.",
+    steps: ["Search by name or phone.", "Filter by stage or by option.", "Tap a name to open their case.", "A DIY client prints and mails their own letters; you only work their case when they ask something or ask \"Mail them for me\"."],
     playbooks: [],
   },
   "/equipo/clientes/": {
@@ -652,7 +679,12 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
   "/equipo/enviar": {
     title: "Send rounds",
     what: "Before a letter goes out you see where it's going, how (regular or certified) and what it costs.",
-    steps: ["Check each letter's address.", "Change the mail class only if needed.", "Confirm. The rules (agreement, current report, addresses) are checked again when sending."],
+    steps: [
+      "Check each letter's address.",
+      "Change the mail class only if needed.",
+      "Confirm. The rules (agreement, current report, addresses) are checked again when sending.",
+      "A DIY client's \"Mail them for me\" brings only the letters they asked for and paid per letter: they go only by the mail service, never printed here.",
+    ],
     playbooks: ["furnisher_address_missing", "report_stale"],
   },
   "/equipo/imprimir": {
@@ -709,7 +741,7 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
   },
   "/equipo/socios": { title: "Partners", what: "The people and businesses who refer clients, and their commissions.", steps: ["Review new applications.", "Only an administrator approves and sets commissions."], playbooks: [] },
   "/equipo/equipo": { title: "Team", what: "Who's on the team and with what role.", steps: ["Add people by email or phone.", "Change the role or deactivate; nobody gets deleted."], playbooks: [] },
-  "/equipo/invitar": { title: "Invite", what: "The invite link sales sends to a lead.", steps: ["Enter their name and phone.", "Copy the message and send it on WhatsApp."], playbooks: ["agreement_unsigned"] },
+  "/equipo/invitar": { title: "Invite", what: "The invite link sales sends to a lead.", steps: ["Enter their name and phone.", "If they already chose an option, mark it; if not, they choose in the app. Explain the difference if they ask, without pushing either.", "Copy the message and send it on WhatsApp."], playbooks: ["agreement_unsigned", "diy_followup"] },
   "/equipo/perfil": {
     title: "Your profile",
     what: "Your details, your language, your morning summary and your first-day list.",
@@ -746,12 +778,14 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
       "Save a draft, send it to the attorney and record the approval; only then can it be offered.",
       "An offered plan never changes: to change it, save a new version. Clients who signed keep theirs.",
       "There is no setup fee: the first work fee is charged after the first round is mailed.",
+      "Each plan belongs to one option. Credalti Complete: never charged before the work; a new monthly plan charges right after that month's letters are mailed. Credalti DIY: a monthly subscription from the end of the 3 business days, plus the per-letter fee when they ask us to mail.",
+      "Each option has its own default plan.",
     ],
     playbooks: [],
   },
   "/equipo/cobros": {
     title: "Invoices and chargebacks",
-    what: "Every charge is an invoice. Filter, export to CSV or QuickBooks, and record chargebacks.",
+    what: "Every charge is an invoice. Filter, export to CSV or QuickBooks, and record chargebacks. Under the totals, what was collected by option.",
     steps: ["Filter by status, method or date.", "Download the CSV you need.", "For a chargeback, open the evidence pack and send it to the processor."],
     playbooks: [],
   },

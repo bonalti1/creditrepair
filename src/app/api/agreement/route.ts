@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { agreementReadiness } from "@/lib/agreement/readiness";
-import { resolveTerms, withPlan } from "@/lib/agreement/terms";
+import { resolveTerms, withOption, withPlan } from "@/lib/agreement/terms";
+import { loadClientOption } from "@/lib/service/server";
 import { offeredSnapshot } from "@/lib/billing/planStore";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { agreementFromRow } from "@/lib/agreement/record";
@@ -36,11 +37,17 @@ export async function GET() {
 
   // The plan the client would sign (read with the service role: the catalogue is not the client's to read).
   const admin = getAdminClient();
-  const plan = admin ? await offeredSnapshot(admin, user.id).catch(() => null) : null;
+  // The option the client chose (or signed): the agreement shown is that option's (migration 0042).
+  const choice = admin ? await loadClientOption(admin, user.id).catch(() => null) : null;
+  const option = choice ? (choice.chosen ?? choice.option) : "full_service";
+  const plan = admin ? await offeredSnapshot(admin, user.id, option).catch(() => null) : null;
   const state = typeof profile?.state === "string" ? (profile.state as string) : null;
-  const readiness = agreementReadiness({ terms: withPlan(resolveTerms(), plan), state });
+  const readiness = agreementReadiness({ terms: withOption(withPlan(resolveTerms(), plan), option), state });
   return NextResponse.json({
     plan,
+    option,
+    switchPending: choice?.switchPending ?? false,
+    signedOption: choice?.signed ?? null,
     authenticated: true,
     agreement: row ? agreementFromRow(row as Record<string, unknown>) : null,
     profileName: (profile?.full_name as string | undefined) || null,

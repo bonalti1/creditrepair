@@ -16,6 +16,7 @@ import {
 } from "../agreement/businessDays";
 import {
   AGREEMENT_VERSION,
+  DIY_AGREEMENT_VERSION,
   agreementDocument,
   agreementDocuments,
   CONTRACT_STEP,
@@ -48,7 +49,7 @@ import {
 import { missingTerms, PLACEHOLDER_PATTERN, REQUIRED_TERMS, resolveTerms, TERM_ENV, type TermsSource } from "../agreement/terms";
 import { checkClaimGuardrails } from "../compliance/guardrails";
 import { DEMO_REPORT } from "../demo";
-import { SERVICE_MODE, isFullService } from "../service/mode";
+import { DEFAULT_SERVICE_MODE } from "../service/mode";
 import { buildDemoClients } from "../staff/demoClients";
 import { exceptionMessage } from "../staff/messages";
 import {
@@ -94,9 +95,8 @@ const complete = resolveTerms(COMPLETE);
 const empty = resolveTerms({});
 
 describe("service mode", () => {
-  it("is full service unless the environment says self-serve", () => {
-    expect(SERVICE_MODE).toBe("full_service");
-    expect(isFullService).toBe(true);
+  it("is chosen per client, and is full service (Credalti Complete) when nothing says otherwise", () => {
+    expect(DEFAULT_SERVICE_MODE).toBe("full_service");
   });
 });
 
@@ -785,7 +785,7 @@ describe("the journey", () => {
   const base = (flags: Record<string, { state: string }>, roundApproved: boolean, agreement: AgreementRecord | null): JourneyState =>
     sessionJourneyState(items, flags, roundApproved, agreement);
   const full = (state: JourneyState, now: Date) => nextAction(state, "es", { mode: "full_service", now });
-  const self = (state: JourneyState, now: Date) => nextAction(state, "es", { mode: "self_serve", now });
+  const self = (state: JourneyState, now: Date) => nextAction(state, "es", { mode: "diy", now });
   const NOW = cst("2026-11-17");
   const LATER = after(24 * 3600 * 1000);
 
@@ -894,7 +894,8 @@ describe("the staff console and the agreement", () => {
   it("every signed demo client has the whole record: acknowledged first, a version and a deadline", () => {
     for (const c of clients.filter((c) => c.agreementSignedAt)) {
       expect(c.disclosureAcknowledgedAt! < c.agreementSignedAt!, c.id).toBe(true);
-      expect(c.agreementVersion).toBe(AGREEMENT_VERSION);
+      // Each option has its own agreement text and version (docs/SERVICE-OPTIONS.md).
+      expect(c.agreementVersion, c.id).toBe(c.serviceOption === "diy" ? DIY_AGREEMENT_VERSION : AGREEMENT_VERSION);
       expect(c.cancellationDeadline).toBe(cancellationDeadline(new Date(c.agreementSignedAt!)).toISOString());
     }
     for (const c of clients.filter((c) => !c.agreementSignedAt)) {

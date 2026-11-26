@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { canCancelWithoutPenalty } from "@/lib/agreement/gate";
 import { agreementFromRow } from "@/lib/agreement/record";
-import { AGREEMENT_TABLE, loadAgreementRow, notifyTeam } from "@/lib/agreement/server";
+import { AGREEMENT_TABLE, loadGoverningAgreementRow, notifyTeam } from "@/lib/agreement/server";
 import { BRAND } from "@/lib/brand";
 import { reportError } from "@/lib/observability/errors";
 import { readJsonBody } from "@/lib/security/body";
@@ -45,7 +45,8 @@ export async function POST(req: Request) {
   const reason = parsed.data.reason?.trim() || null;
 
   try {
-    const current = await loadAgreementRow(db, user.id);
+    // The agreement that governs: during a switch not yet signed, the one still in force.
+    const current = await loadGoverningAgreementRow(db, user.id);
     if (!current?.signed_at) {
       return NextResponse.json({ error: "There is no signed agreement to cancel.", code: "not_signed" }, { status: 409 });
     }

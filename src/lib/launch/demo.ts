@@ -81,7 +81,7 @@ export function demoLaunchFacts(now: Date, ticks: Record<string, Tick> = {}): La
     templatesListed: SAMPLE_TEMPLATES,
     tiktokAudited: false,
     monitoringProvider: "demo",
-    selfServe: false,
+    diyAgreementApproved: false,
   };
   const at = (minutesAgo: number) => new Date(now.getTime() - minutesAgo * MIN).toISOString();
   const migrations = Object.keys(MIGRATION_SENTINELS).sort();

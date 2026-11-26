@@ -6,14 +6,16 @@ import AgreementDocumentCard, { Blocks, DraftBanner } from "@/components/agreeme
 import Icon, { type IconName } from "@/components/Icon";
 import IdentityDocs from "@/components/IdentityDocs";
 import { cancellationDeadline, firstWorkingDay } from "@/lib/agreement/businessDays";
-import { AGREEMENT_VERSION, agreementDocuments, type AgreementDocument } from "@/lib/agreement/documents";
+import { agreementDocuments, agreementVersionOf, type AgreementDocument } from "@/lib/agreement/documents";
+import OptionNotice from "@/components/service/OptionNotice";
+import { optionOfTerms } from "@/lib/service/options";
 import { clockTime, deadlineMoment, longDate, recordMoment } from "@/lib/agreement/format";
 import { agreementPhase, canCancelWithoutPenalty, deadlineOf } from "@/lib/agreement/gate";
 import { agreementReadiness } from "@/lib/agreement/readiness";
 import { stateLaw } from "@/lib/compliance/states";
 import type { AgreementState } from "@/lib/agreement/record";
 import { isFullName, signerNameMatches } from "@/lib/agreement/signature";
-import { resolveTerms, withPlan, type ResolvedTerms } from "@/lib/agreement/terms";
+import { resolveTerms, withOption, withPlan, type ResolvedTerms } from "@/lib/agreement/terms";
 import { mostYoullPay, planSummary } from "@/lib/billing/plans";
 import { useClientReport, withReport } from "@/lib/ux/reportStore";
 import { useLocale } from "@/lib/i18n";
@@ -134,9 +136,12 @@ function errorText(code: string, locale: L, profileName: string | null): string 
 
 export default function AcuerdoPage() {
   const { locale } = useLocale();
-  const { agreement, hydrated, signedIn, profileName, mode, plan, stateDocuments, acknowledge, sign, cancel } = useAgreement();
-  // Under a plan, the contract's payment terms are generated from it (billing/plans.ts).
-  const terms = useMemo(() => withPlan(resolveTerms(), plan), [plan]);
+  const { agreement, hydrated, signedIn, profileName, mode, plan, stateDocuments, acknowledge, sign, cancel, option, previous } = useAgreement();
+  // Under a plan, the contract's payment terms are generated from it (billing/plans.ts); the option decides
+  // which agreement (Credalti Complete or Credalti DIY, docs/SERVICE-OPTIONS.md).
+  const terms = useMemo(() => withOption(withPlan(resolveTerms(), plan), option), [plan, option]);
+  const previousOption = previous?.signedAt ? optionOfTerms(previous.terms) : null;
+  const notice = <OptionNotice option={option} previous={previousOption} locale={locale} />;
   const readiness = useMemo(() => agreementReadiness({ terms, state: stateDocuments.state }), [terms, stateDocuments.state]);
   // A new agreement after a cancellation starts again at step 1.
   const [startOver, setStartOver] = useState(false);
@@ -187,6 +192,8 @@ export default function AcuerdoPage() {
 
   if (phase === "none" || startOver || rereading) {
     return (
+      <>
+      {notice}
       <StepOne
         locale={locale}
         banner={banner}
@@ -206,10 +213,13 @@ export default function AcuerdoPage() {
         }}
         profileName={profileName}
       />
+      </>
     );
   }
 
   return (
+    <>
+    {notice}
     <StepTwo
       locale={locale}
       banner={banner}
@@ -234,6 +244,7 @@ export default function AcuerdoPage() {
         return result;
       }}
     />
+    </>
   );
 }
 
@@ -813,7 +824,7 @@ function Signed({
 
       <p className="px-1 text-center text-xs leading-relaxed text-slate-500">
         {es ? "Versión del acuerdo: " : "Agreement version: "}
-        {agreement.version ?? AGREEMENT_VERSION}
+        {agreement.version ?? agreementVersionOf(agreement.terms ?? resolveTerms())}
         {agreement.documentHash && (
           <>
             {" · "}

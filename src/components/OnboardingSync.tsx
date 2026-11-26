@@ -17,6 +17,15 @@ export default function OnboardingSync() {
       if (!signedIn) return;
 
       const read = (key: string) => window.localStorage.getItem(key);
+      // The service option chosen before sign-in (an invitation link, the website): sent once (migration 0042).
+      const pendingOption = read("credalti.serviceOption.pending");
+      if (pendingOption === "diy" || pendingOption === "full_service") {
+        fetch("/api/service-option", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ option: pendingOption, via: "invitation" }) })
+          .then((res) => {
+            if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 401 && res.status !== 429)) window.localStorage.removeItem("credalti.serviceOption.pending");
+          })
+          .catch(() => undefined);
+      }
       // A partner-sharing choice made during onboarding, recorded once signed in
       // (after the profile, so the partner on the link is credited first).
       const pendingShare = read("bonalti.partnerShare");

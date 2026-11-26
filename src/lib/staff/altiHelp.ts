@@ -47,6 +47,8 @@ const JOBS: Partial<Record<NavGroupKey, AltiJob[]>> = {
     { id: "saved_answers", icon: "chat", needs: "clients.reply", href: "/equipo/respuestas", gate: "approved" },
     // The AI intake's first look at an ID or a proof of address (src/lib/intake); a person accepts or asks for another (fulfillment/documents.ts).
     { id: "document_check", icon: "doc", needs: "documents.review", href: "/equipo/clientes?aviso=document_check_needs_person", gate: "check" },
+    // Credalti DIY (docs/SERVICE-OPTIONS.md): Alti guides the client; a salesperson gets a gentle follow-up after 14 days unmailed.
+    { id: "diy_guide", icon: "sparkle", needs: "options.followup", href: "/equipo/clientes?opcion=diy", gate: "approved" },
   ],
   content: [
     { id: "content_words", icon: "doc", needs: "content.edit", href: "/equipo/contenido", gate: "words" },
@@ -126,6 +128,10 @@ export const ALTI_HELP_TEXT = defineText({
         title: "Draft a video's script and shots",
         desc: "In the Video Studio, open a video's plan and ask for a draft: from the brief I write a script, a shot list and the post's words, checked against the claim rules. A person edits it and saves it; the video is approved by an administrator.",
       },
+      diy_guide: {
+        title: "Guide Credalti DIY clients",
+        desc: "For a DIY client I prepare the letters from the approved templates, with only what they marked as inaccurate, and say when the next round is due. If letters wait 14 days unmailed, sales gets a gentle follow-up. Questions come to the team.",
+      },
     },
     searchLabel: "Search the team's playbook",
     searchPlaceholder: "e.g. returned letter, missing documents",
@@ -198,6 +204,10 @@ export const ALTI_HELP_TEXT = defineText({
       video_script: {
         title: "Borrador del guion y las tomas de un video",
         desc: "En el Estudio de video, abre el plan de un video y pide un borrador: con el brief escribo un guion, una lista de tomas y el texto de la publicación, revisados con las reglas. Una persona lo edita y lo guarda; un administrador aprueba el video.",
+      },
+      diy_guide: {
+        title: "Guiar a los clientes de Credalti DIY",
+        desc: "Para un cliente DIY preparo las cartas con los modelos aprobados, solo con lo que marcó como inexacto, y le digo cuándo toca la siguiente ronda. Si las cartas esperan 14 días sin enviarse, ventas recibe un seguimiento amable. Las preguntas llegan al equipo.",
       },
     },
     searchLabel: "Buscar en la guía del equipo",

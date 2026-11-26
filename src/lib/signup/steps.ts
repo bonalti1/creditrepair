@@ -71,6 +71,12 @@ export interface SignupProgress {
   reportSeen: boolean;
   /** The plan was shown in the chat. */
   planSeen: boolean;
+  /**
+   * The option the person chose (docs/SERVICE-OPTIONS.md): Credalti Complete or
+   * Credalti DIY. Null until they choose; never pre-selected (a website link
+   * that says which one they started with counts as their choice).
+   */
+  option: "full_service" | "diy" | null;
   /** What the report listed, in counts only (never a score), when one was on file. */
   reportCounts: ReportCounts | null;
   /** The counts are the demo's example report. */
@@ -84,7 +90,7 @@ export interface SignupProgress {
 export const EMPTY_ANSWERS: SignupAnswers = { firstName: null, goal: null, state: null, lastName: null, idType: null, email: null };
 
 export function newProgress(caseRef: string, token: string | null, now: Date = new Date()): SignupProgress {
-  return { version: 1, caseRef, token, stage: "start", path: null, answers: { ...EMPTY_ANSWERS }, signedIn: false, identity: null, reportSeen: false, planSeen: false, reportCounts: null, reportDemo: false, signedName: null, deadlineIso: null, startedAt: now.toISOString() };
+  return { version: 1, caseRef, token, stage: "start", path: null, answers: { ...EMPTY_ANSWERS }, signedIn: false, identity: null, reportSeen: false, planSeen: false, option: null, reportCounts: null, reportDemo: false, signedName: null, deadlineIso: null, startedAt: now.toISOString() };
 }
 
 export const SIGNUP_STORAGE_KEY = "bonalti.signupChat.v1";
@@ -122,6 +128,7 @@ export function parseProgress(raw: string | null): SignupProgress | null {
     identity: v.identity === "done" || v.identity === "later" ? v.identity : null,
     reportSeen: v.reportSeen === true,
     planSeen: v.planSeen === true,
+    option: v.option === "diy" || v.option === "full_service" ? v.option : null,
     reportCounts: parseCounts(v.reportCounts),
     reportDemo: v.reportDemo === true,
     signedName: s(v.signedName, 120),
@@ -156,6 +163,7 @@ export type SignupQuestion =
   | "phone"
   | "identity"
   | "report"
+  | "option"
   | "plan"
   | "agreement"
   | "done";
@@ -172,6 +180,7 @@ export function currentQuestion(p: SignupProgress): SignupQuestion {
   if (!p.signedIn) return "phone";
   if (!p.identity) return "identity";
   if (!p.reportSeen) return "report";
+  if (!p.option) return "option";
   if (!p.planSeen) return "plan";
   if (p.stage !== "done") return "agreement";
   return "done";
@@ -194,6 +203,7 @@ export function stageOf(question: SignupQuestion): SignupStage {
       return "identity";
     case "report":
       return "report";
+    case "option":
     case "plan":
     case "agreement":
       return "signup";

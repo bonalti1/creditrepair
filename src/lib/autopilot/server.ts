@@ -269,7 +269,8 @@ export async function runAutopilot(db: SupabaseClient, now: Date = new Date(), d
       if (error) throw new Error(`autopilot_ready_rounds: ${error.message}`);
       round.readyAt = now.toISOString();
       summary.newlyReady += 1;
-      await queueStatus(db, client.id, { kind: "next_round_prepared", roundNumber: round.number, planKey }, now);
+      // A Credalti DIY "Mail them for me" request: the client already knows; nothing to announce.
+      if (!round.mailRequest) await queueStatus(db, client.id, { kind: "next_round_prepared", roundNumber: round.number, planKey }, now);
     }
     const state = autoSendState(client, round, now, settings);
     if (state.status === "held") summary.roundsHeld += 1;
@@ -291,6 +292,8 @@ export async function runAutopilot(db: SupabaseClient, now: Date = new Date(), d
         sender: { kind: "staff", name: "sistema" },
         requireAgreement: true,
         via: "mail",
+        // Credalti DIY (docs/SERVICE-OPTIONS.md): only the letters the client paid us to mail, and the request closed.
+        ...(round.mailRequest ? { onlyLetterIds: round.mailRequest.letterRowIds ?? round.mailRequest.letterIds, mailRequestId: round.mailRequest.id } : {}),
         now,
         deps: { ...deps.sendDeps, sendWhatsApp: queueingWhatsApp(db, client.id, now) },
       });

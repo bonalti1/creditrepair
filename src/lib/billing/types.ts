@@ -40,7 +40,10 @@ export interface BillingRefund {
  * fee's installment or its last round, items a later report no longer shows,
  * or the first work fee after the first round was mailed.
  */
-export type ChargeUnit = "round" | "period" | "installment" | "flat" | "results" | "first_work";
+export type ChargeUnit = "round" | "period" | "installment" | "flat" | "results" | "first_work" | "diy_period" | "mailing";
+
+/** The units only a signed DIY plan charges (migration 0042). */
+export const DIY_UNITS: readonly ChargeUnit[] = ["diy_period", "mailing"];
 
 export type MethodKind = "card" | "ach";
 
@@ -102,6 +105,32 @@ export interface BillingCharge {
   chargeback?: ChargebackSummary | null;
   /** The last ACH return code on this charge (R01…), when the bank sent one back. */
   returnCode?: string | null;
+  /** DIY "Mail them for me": the request it pays for (mail_requests.id). */
+  mailRequestId?: string | null;
+  /** DIY mailing: how many letters it paid for. */
+  letterCount?: number | null;
+  /** The agreement it was charged under, when known (a client who switched option has more than one). */
+  agreementId?: string | null;
+}
+
+/**
+ * DIY "Mail them for me" (mail_requests, migration 0042): the letters a client
+ * asked Credalti to mail, the fee per letter from their signed plan and the
+ * total they accepted. Charged once, after Credalti mailed them.
+ */
+export interface MailingWork {
+  id: string;
+  roundNumber: number;
+  letterCount: number;
+  feeCents: number;
+  totalCents: number;
+  status: "requested" | "mailed" | "cancelled";
+  requestedAt: string;
+  mailedAt: string | null;
+  /** True when the post office returned every one of its letters. */
+  allReturned?: boolean;
+  /** The agreement it was asked under. */
+  agreementId?: string | null;
 }
 
 /** What the app knows about the payment method on file. No token, no card number. */
@@ -202,6 +231,10 @@ export interface BillingContext {
   switches?: BillingSwitches;
   /** Referral credit the client has not used yet, in cents. */
   creditBalanceCents?: number;
+  /** DIY only: the mailings the client asked for. */
+  mailings?: MailingWork[];
+  /** The id of the agreement in force: charges under another agreement (before a switch) are told apart by it. */
+  agreementId?: string | null;
 }
 
 export type L = "es" | "en";

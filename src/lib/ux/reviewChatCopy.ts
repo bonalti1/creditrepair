@@ -1,9 +1,10 @@
 import type { ServiceMode } from "../service/mode";
 
 // The assistant's scripted lines around the end of the review: the place in the chat
-// where the two service modes say different things. Under full service the
+// where the two options say different things. Under Credalti Complete the
 // team prepares and mails the letters, and the client has nothing to approve.
-// Under self-serve the client reads the letters and gives the OK.
+// Under Credalti DIY the client reads the letters, gives the OK to prepare
+// them, and prints and mails them (or asks us to).
 //
 // Every line is written in both languages at once (the thread follows the
 // language switch) and is run through the claim rules in the tests. None of
@@ -41,8 +42,8 @@ export function reviewCompleteLine(mode: ServiceMode, confirmed: number): ChatLi
     };
   }
   return {
-    es: `Tu revisión está completa: ${confirmedEs(confirmed)}. Preparé tus cartas. Revísalas y dame el OK.`,
-    en: `Your review is complete: ${confirmedEn(confirmed)}. I prepared your letters. Review them and give me the OK.`,
+    es: `Tu revisión está completa: ${confirmedEs(confirmed)}. Armé tus cartas para que las imprimas y las envíes. Revísalas y dame el OK.`,
+    en: `Your review is complete: ${confirmedEn(confirmed)}. I put your letters together for you to print and mail. Review them and give me the OK.`,
   };
 }
 
@@ -55,8 +56,8 @@ export function reviewFinishedLine(mode: ServiceMode): ChatLine {
     };
   }
   return {
-    es: "¡Revisaste todo! 🎉 Preparé tus cartas. Revísalas abajo y dame el OK cuando lo tengas claro.",
-    en: "You reviewed everything! 🎉 I prepared your letters. Review them below and give me the OK when you're sure.",
+    es: "¡Revisaste todo! 🎉 Armé tus cartas para que las imprimas y las envíes. Revísalas abajo y dame el OK cuando lo tengas claro.",
+    en: "You reviewed everything! 🎉 I put your letters together for you to print and mail. Review them below and give me the OK when you're sure.",
   };
 }
 

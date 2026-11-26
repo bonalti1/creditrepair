@@ -4,13 +4,14 @@ import { unpaidCharge } from "../billing/dunning";
 import type { FurnisherEntry } from "../mail/furnishers";
 import { exceptionKindOfKey } from "./guard";
 import { collectedCents, feeEstimateCents } from "../billing/invoices";
-import type { PlanType } from "../billing/plans";
+import { planOption, type PlanType } from "../billing/plans";
+import type { ServiceOption } from "../service/options";
 import { feeToCents } from "../billing/rules";
 import { upcomingCharges } from "../billing/schedule";
 import { nextRoundDueForStaffRound } from "../rounds/timing";
 import { actorHandle } from "./activity";
 import { pulseSummary, type PulseSummary } from "../pulse/pulse";
-import { clientBilling, clientBillingOutlook, clientExceptions, clientStage, daysSince, roundItemCount, STAFF_TIME_ZONE } from "./stage";
+import { clientBilling, clientBillingOutlook, clientExceptions, clientOption, clientStage, daysSince, roundItemCount, STAFF_TIME_ZONE } from "./stage";
 import { memberName, type TeamMember } from "./team";
 import type { StaffClient, StaffRole, StaffRound } from "./types";
 import { dateLocale, type StaffLocale } from "./i18n/locale";
@@ -349,6 +350,8 @@ export interface BusinessMetrics {
     conversion: number | null;
     /** 0–1; null when nobody had an agreement in force. */
     churn: number | null;
+    /** By service option (docs/SERVICE-OPTIONS.md): active today and signed in the period. */
+    byOption: Record<ServiceOption, { active: number; signed: number }>;
   };
   work: {
     roundsMailed: number;
@@ -379,6 +382,8 @@ export interface BusinessMetrics {
     revenuePerActiveCents: number | null;
     /** What was charged in the period, by plan type ("legacy": signed before plans). */
     byPlanType: Array<{ type: PlanType | "legacy"; cents: number }>;
+    /** What was charged in the period, by service option: Credalti Complete and Credalti DIY. */
+    byOption: Record<ServiceOption, number>;
     achCents: number;
     cardCents: number;
     /** Null when nothing was charged. */
@@ -458,6 +463,19 @@ export function businessMetrics(
     return cents > 0 ? [cents] : [];
   });
   const chargedCents = sum(charged.map((ch) => ch.amountCents));
+  // By service option: a charge's own plan type decides (a DIY plan is Credalti DIY), else the client's option.
+  const chargedByOption: Record<ServiceOption, number> = { full_service: 0, diy: 0 };
+  for (const client of clients) {
+    for (const ch of client.billing.charges) {
+      if (!ch.chargedAt || !within(ch.chargedAt)) continue;
+      const type = ch.planType ?? client.agreementPlan?.terms.type ?? null;
+      chargedByOption[type ? planOption({ type }) : clientOption(client)] += ch.amountCents;
+    }
+  }
+  const clientsByOption = (option: ServiceOption) => ({
+    active: active.filter((c) => clientOption(c) === option).length,
+    signed: clients.filter((c) => clientOption(c) === option && within(c.agreementSignedAt)).length,
+  });
   // By plan type, by method, the processor's estimated share and the chargebacks of the period.
   const planOf = new Map(clients.flatMap((c) => c.billing.charges.map((ch) => [ch.id, ch.planType ?? c.agreementPlan?.terms.type ?? "legacy"] as const)));
   const methodOf = new Map(clients.flatMap((c) => c.billing.charges.map((ch) => [ch.id, ch.methodKind ?? c.billing.paymentMethod?.kind ?? "card"] as const)));
@@ -514,6 +532,7 @@ export function businessMetrics(
       ended: ended.length,
       conversion: leads.length === 0 ? null : leads.filter((c) => c.agreementSignedAt).length / leads.length,
       churn: inForceDuringRange.length === 0 ? null : stoppedInRange.filter((c) => inForceDuringRange.includes(c)).length / inForceDuringRange.length,
+      byOption: { full_service: clientsByOption("full_service"), diy: clientsByOption("diy") },
     },
     work: {
       roundsMailed: mailedInRange.length,
@@ -538,6 +557,7 @@ export function businessMetrics(
       scheduledCents: sum(scheduled),
       revenuePerActiveCents: active.length === 0 ? null : Math.round(netCents / active.length),
       byPlanType: [...byPlan.entries()].map(([type, cents]) => ({ type, cents })).sort((a, b) => b.cents - a.cents),
+      byOption: chargedByOption,
       achCents,
       cardCents,
       achShare: achCents + cardCents === 0 ? null : achCents / (achCents + cardCents),

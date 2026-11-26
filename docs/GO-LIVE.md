@@ -123,7 +123,7 @@ Also set, with no account needed:
 | `NEXT_PUBLIC_MONITORING_SIGNUP_URL` | The partner link from IdentityIQ (when you have it) |
 | `NEXT_PUBLIC_MONITORING_PRICE` | The price on that link's checkout page, for example `$31.49` |
 | `MONITORING_PROVIDER` | Leave empty until report reading is built |
-| `NEXT_PUBLIC_SERVICE_MODE` | Leave empty: that is full service, where the team prepares and mails the letters. `self_serve` brings back the version where the client approves and sends their own letters; it is kept for later. |
+| `NEXT_PUBLIC_DIY_AGREEMENT_APPROVED_VERSION` | Only to offer Credalti DIY: the DIY agreement version, set after the attorney approves it (`docs/SERVICE-OPTIONS.md`). The old `NEXT_PUBLIC_SERVICE_MODE` is retired: each client chooses Credalti Complete or Credalti DIY. |
 
 ### The service agreement
 

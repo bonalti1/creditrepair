@@ -6,7 +6,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { hasSharedSecret } from "@/lib/security/signatures";
 import { workMayStart } from "@/lib/agreement/gate";
 import { loadAgreement } from "@/lib/agreement/server";
-import { isFullService } from "@/lib/service/mode";
+
 import { nextRoundDueFromRows } from "@/lib/rounds/timing";
 
 // The round loop (spec §4.4), as one idempotent endpoint that n8n (or any
@@ -56,10 +56,10 @@ export async function POST(req: Request) {
         processed.push({ userId: round.user_id, round: round.round_number, ok: false, error: "not_due_yet" });
         continue;
       }
-      // Full service: a client who cancelled, or asked to end the service, gets
+      // Either option: a client who cancelled, or asked to end the service, gets
       // no more work done, and that includes pulling their report again. The
       // round stays as it is for a person to close.
-      if (isFullService) {
+      {
         const gate = workMayStart(await loadAgreement(db, round.user_id), new Date());
         if (!gate.allowed) {
           processed.push({ userId: round.user_id, round: round.round_number, ok: false, error: `agreement_${gate.code}` });

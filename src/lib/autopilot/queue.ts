@@ -43,6 +43,8 @@ export const MINUTES_BY_KIND: Record<ExceptionKind, number> = {
   bureau_letter_needs_person: 10,
   // Reaches a person only after the client did not confirm (or a second check failed): a call, and the address on the client page.
   client_address_unconfirmed: 6,
+  // Credalti DIY: one friendly message to ask whether they need help mailing their letters.
+  diy_followup: 4,
 };
 
 /** The severity each kind of notice carries (as stage.ts writes them), for the settings screen. */
@@ -62,6 +64,7 @@ export const SEVERITY_BY_KIND: Record<ExceptionKind, Severity> = {
   document_check_needs_person: "medium",
   bureau_letter_needs_person: "high",
   client_address_unconfirmed: "high",
+  diy_followup: "low",
 };
 
 /** How soon a notice should be handled once it is a person's (hours). */

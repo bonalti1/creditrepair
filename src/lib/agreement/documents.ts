@@ -12,6 +12,7 @@ import {
 } from "./statutes";
 import { neverInAdvance, paymentTermsLines } from "../billing/plans";
 import { placeholder, type ResolvedTerms, type TermKey } from "./terms";
+import type { ServiceOption } from "../service/options";
 
 // The agreement: six documents a client reads and signs before any work
 // begins. What each one is and which law asks for it is in docs/AGREEMENT.md.
@@ -27,6 +28,25 @@ import { placeholder, type ResolvedTerms, type TermKey } from "./terms";
 // signature records the version and a hash of exactly what was on screen.
 
 export const AGREEMENT_VERSION = "2026-11-21-draft.1";
+
+/**
+ * Credalti DIY has its own agreement text and version (docs/SERVICE-OPTIONS.md):
+ * the same disclosures, the same 3-business-day cancellation, the same
+ * signature and snapshot, and a contract that says the client prepares and
+ * sends their own disputes with the software. Approved separately
+ * (NEXT_PUBLIC_DIY_AGREEMENT_APPROVED_VERSION, readiness.ts).
+ */
+export const DIY_AGREEMENT_VERSION = "2026-11-25-diy-draft.1";
+
+/** The agreement version for an option. */
+export function agreementVersionFor(option: ServiceOption): string {
+  return option === "diy" ? DIY_AGREEMENT_VERSION : AGREEMENT_VERSION;
+}
+
+/** The version of the text these terms are shown with (terms.serviceOption; absent: Credalti Complete). */
+export function agreementVersionOf(terms: ResolvedTerms): string {
+  return agreementVersionFor(terms.serviceOption === "diy" ? "diy" : "full_service");
+}
 
 export type AgreementLocale = "es" | "en";
 
@@ -272,6 +292,9 @@ function costItems(terms: ResolvedTerms, locale: L): string[] {
 function texasDisclosure(terms: ResolvedTerms, locale: L): AgreementDocument {
   const T: BlockOrigin = "texas_draft";
   const company = termText(terms, "companyLegalName", locale);
+  const diy = terms.serviceOption === "diy";
+  const services = diy ? diyServiceItems(terms, locale) : serviceItems(terms, locale);
+  const costs = diy ? diyCostItems(terms, locale) : costItems(terms, locale);
   const blocks: Block[] =
     locale === "es"
       ? [
@@ -280,12 +303,14 @@ function texasDisclosure(terms: ResolvedTerms, locale: L): AgreementDocument {
             T,
           ),
           heading("1. Los servicios y su costo total", T),
-          para("Estos son los servicios que realizaremos para usted:", T),
-          ...serviceItems(terms, locale).map((text) => item(text, T)),
+          para(diy ? "Esto es lo que le damos y lo que usted hace:" : "Estos son los servicios que realizaremos para usted:", T),
+          ...services.map((text) => item(text, T)),
           para("No garantizamos ningún resultado. Esto es lo que cuesta:", T),
-          ...costItems(terms, locale).map((text) => item(text, T)),
+          ...costs.map((text) => item(text, T)),
           para(
-            "No cobramos ni recibimos ningún pago por un servicio antes de haberlo realizado por completo.",
+            diy
+              ? "Usted realiza sus propias disputas con el software, por eso la suscripción se cobra al inicio de cada periodo de 30 días, nunca durante su periodo de cancelación. Un envío que usted nos pida se cobra solo después de hacerlo."
+              : "No cobramos ni recibimos ningún pago por un servicio antes de haberlo realizado por completo.",
             T,
           ),
           heading("2. Su derecho a reclamar contra nuestra fianza", T),
@@ -341,11 +366,16 @@ function texasDisclosure(terms: ResolvedTerms, locale: L): AgreementDocument {
             T,
           ),
           heading("1. The services and their total cost", T),
-          para("These are the services we will perform for you:", T),
-          ...serviceItems(terms, locale).map((text) => item(text, T)),
+          para(diy ? "This is what we give you and what you do:" : "These are the services we will perform for you:", T),
+          ...services.map((text) => item(text, T)),
           para("We do not guarantee any result. This is what it costs:", T),
-          ...costItems(terms, locale).map((text) => item(text, T)),
-          para("We do not charge or receive any payment for a service before it has been fully performed.", T),
+          ...costs.map((text) => item(text, T)),
+          para(
+            diy
+              ? "You perform your own disputes with the software, so the subscription is charged at the start of each 30-day period, never during your cancellation period. A mailing you ask us for is charged only after we do it."
+              : "We do not charge or receive any payment for a service before it has been fully performed.",
+            T,
+          ),
           heading("2. Your right to proceed against our surety bond", T),
           para(
             "Texas law requires us to keep a $10,000 surety bond for the benefit of our clients. If you are harmed because we violate the Texas law on credit services organizations (Texas Finance Code, chapter 393), you may bring a claim against that bond to recover your damages.",
@@ -457,6 +487,7 @@ const TEXAS_CONTRACT_CANCEL_ES =
   "Usted, el comprador, puede cancelar este contrato en cualquier momento antes de la medianoche del tercer día posterior a la fecha de la transacción. Consulte el formulario de aviso de cancelación adjunto para una explicación de este derecho.";
 
 function contract(terms: ResolvedTerms, locale: L): AgreementDocument {
+  if (terms.serviceOption === "diy") return diyContract(terms, locale);
   const company = termText(terms, "companyLegalName", locale);
   const address = termText(terms, "companyAddress", locale);
   const email = termText(terms, "companyEmail", locale);
@@ -676,6 +707,7 @@ function contract(terms: ResolvedTerms, locale: L): AgreementDocument {
 // ── 5. Limited authorization ────────────────────────────────────────────
 
 function authorization(terms: ResolvedTerms, locale: L): AgreementDocument {
+  if (terms.serviceOption === "diy") return diyAuthorization(terms, locale);
   const company = termText(terms, "companyLegalName", locale);
   const address = termText(terms, "companyAddress", locale);
   const email = termText(terms, "companyEmail", locale);
@@ -864,6 +896,341 @@ function cancellationNotice(terms: ResolvedTerms, locale: L, fill: AgreementFill
     reviewStatus: "attorney_pending",
     statutes: [CROA_CANCELLATION_FORM, TEXAS_CANCELLATION_FORM],
     verified: CROA_CANCELLATION_FORM.verified && TEXAS_CANCELLATION_FORM.verified,
+    blocks,
+  };
+}
+
+// ── Credalti DIY: the services, the costs, the contract, the authorization ──
+//
+// Draft text for the attorney, like everything here. What differs from the
+// Complete agreement: the client prepares and sends their own disputes with
+// the software (said plainly, in bold, in the contract); we mail a letter
+// only when the client asks and pays the fee shown; the subscription is
+// charged at the start of each 30-day period after the cancellation window
+// (the owner reports the attorney approved this pricing, 2026-11-25).
+
+function diyServiceItems(terms: ResolvedTerms, locale: L): string[] {
+  const provider = toMonitoringProvider(terms, locale);
+  return locale === "es"
+    ? [
+        `El software y su reporte. Le damos acceso al software de ${BRAND.name} y a ${BRAND.assistant}, nuestro asistente con inteligencia artificial. Con su permiso, importamos sus reportes de los tres burós a través de la suscripción de monitoreo que usted contrata y paga directamente ${provider}.`,
+        `Su revisión. ${BRAND.assistant} le muestra cada punto de su reporte en palabras sencillas. Usted, y solo usted, decide cuáles considera inexactos, incompletos, desactualizados o no verificables, y por qué. Nadie decide por usted.`,
+        `Sus cartas. Con lo que usted confirmó, ${BRAND.assistant} prepara sus cartas de disputa a su nombre, con los mismos modelos aprobados que usamos para todos nuestros clientes.`,
+        "Usted las envía. Usted imprime sus cartas desde la aplicación, las firma y las envía por correo a los burós de crédito y, cuando corresponde, a quien reportó la información. En la aplicación anota la fecha en que las envió.",
+        "Envío por usted, solo si lo pide. Si usted lo pide para una carta, la enviamos por correo por usted, por la cuota por carta de la sección de costos, que le mostramos antes de que confirme.",
+        `Rondas. ${BRAND.assistant} le avisa cuándo toca la siguiente ronda, unos 40 días después de cada envío, y le prepara las cartas de seguimiento sobre lo que usted confirmó.`,
+        "Ayuda. Una persona de nuestro equipo responde sus preguntas por la aplicación, WhatsApp o correo electrónico.",
+      ]
+    : [
+        `The software and your report. We give you access to the ${BRAND.name} software and to ${BRAND.assistant}, our AI assistant. With your permission, we import your reports from the three bureaus through the credit monitoring subscription that you buy and pay for directly ${provider}.`,
+        `Your review. ${BRAND.assistant} shows you every item on your report in plain words. You, and only you, decide which items you believe are inaccurate, incomplete, outdated or unverifiable, and why. Nobody decides for you.`,
+        `Your letters. From what you confirmed, ${BRAND.assistant} prepares your dispute letters in your name, from the same approved templates we use for all our clients.`,
+        "You send them. You print your letters from the app, sign them and mail them to the credit bureaus and, where appropriate, to the company that reported the information. In the app you record the date you mailed them.",
+        "Mailing for you, only if you ask. If you ask us to for a letter, we mail it for you, for the fee per letter in the costs section, which we show you before you confirm.",
+        `Rounds. ${BRAND.assistant} tells you when the next round is due, about 40 days after each mailing, and prepares the follow-up letters on what you confirmed.`,
+        "Help. A person on our team answers your questions in the app, on WhatsApp or by email.",
+      ];
+}
+
+function diyCostItems(terms: ResolvedTerms, locale: L): string[] {
+  const provider = toMonitoringProvider(terms, locale);
+  const price = monitoringPrice(terms);
+  const plan = terms.plan && terms.plan.terms.type === "diy_subscription" ? terms.plan : null;
+  const lines = plan
+    ? paymentTermsLines(plan.terms, plan.effective, locale)
+    : [
+        locale === "es"
+          ? "Suscripción mensual al software: [PENDIENTE: plan hazlo tú aprobado por el abogado], por cada periodo de 30 días, cobrada al inicio de cada periodo, a partir del final de su periodo de cancelación."
+          : "Monthly subscription to the software: [PENDING: attorney-approved DIY plan], for each 30-day period, charged at the start of each period, from the end of your cancellation period.",
+      ];
+  return [
+    ...lines,
+    ...(locale === "es"
+      ? [
+          `Pagos a otra empresa: el servicio requiere una suscripción activa de monitoreo de crédito, que usted contrata y paga directamente ${provider}: aproximadamente ${price} al mes. Ese pago no es para nosotros. ${BRAND.name} recibe una comisión del servicio de monitoreo cuando usted contrata su suscripción.`,
+          "Usted paga además el franqueo de las cartas que envía por su cuenta. No hay otros cargos: no hay cuota de inscripción ni cargo por cancelar.",
+        ]
+      : [
+          `Payments to another company: the service requires an active credit monitoring subscription, which you buy and pay for directly ${provider}: about ${price} per month. That payment is not to us. ${BRAND.name} earns a commission from the monitoring service when you subscribe.`,
+          "You also pay the postage of the letters you mail yourself. There are no other charges: no enrollment fee and no charge for cancelling.",
+        ]),
+  ];
+}
+
+function diyContract(terms: ResolvedTerms, locale: L): AgreementDocument {
+  const company = termText(terms, "companyLegalName", locale);
+  const address = termText(terms, "companyAddress", locale);
+  const email = termText(terms, "companyEmail", locale);
+  const TX: BlockOrigin = "texas_draft";
+  const plan = terms.plan && terms.plan.terms.type === "diy_subscription" ? terms.plan : null;
+  const months = plan && plan.terms.duration.kind === "months" ? plan.terms.duration.count : null;
+  const es = locale === "es";
+
+  const blocks: Block[] = es
+    ? [
+        heading("1. Quiénes firman"),
+        para(
+          `Este contrato es entre ${company} (en adelante «${BRAND.name}» o «nosotros»), con domicilio principal en ${address}, y usted, la persona que firma al final («usted»). Es el contrato de Credalti DIY («Hazlo tú, con la guía de Alti»). Lleva la fecha del día en que usted lo firma.`,
+        ),
+        heading("2. Usted hace sus propias disputas"),
+        para(
+          `Usted prepara y envía sus propias disputas con el software. ${BRAND.assistant} prepara cada carta con lo que usted decidió y con nuestros modelos aprobados; usted la imprime, la firma y la envía. Nosotros no enviamos sus cartas, salvo las que usted nos pida enviar por la cuota de la sección 5.`,
+          "draft",
+          true,
+        ),
+        heading("3. Lo que le damos (los servicios)"),
+        para("Le damos lo siguiente, y solo esto:"),
+        ...diyServiceItems(terms, locale).map((text) => item(text)),
+        heading("4. Lo que no hacemos y lo que no prometemos"),
+        item(
+          "No garantizamos ningún resultado. No prometemos que algún punto será corregido o quitado de su reporte, que su puntaje de crédito cambiará, ni que le aprobarán un préstamo, una tarjeta, un arrendamiento o una hipoteca. Los burós de crédito y las empresas que reportan la información deciden cómo responden a una disputa.",
+        ),
+        item(
+          "Nadie puede lograr legalmente que se quite de un reporte de crédito información que es exacta, actual y verificable. El software no prepara una carta que diga algo que usted nos haya dicho que no es cierto.",
+        ),
+        item(
+          "No somos un despacho de abogados y no damos asesoría legal. No somos un prestamista, un buró de crédito ni una empresa de liquidación de deudas, y no negociamos ni pagamos sus deudas.",
+        ),
+        item(
+          "Usted puede disputar información inexacta por su cuenta, directamente ante los burós de crédito, sin costo y sin nuestro software. Usted nos paga por el software, la ayuda de Alti y las respuestas de nuestro equipo.",
+        ),
+        heading("5. Cuándo empieza y lo que cuesta"),
+        para(
+          "Durante su periodo de cancelación no preparamos cartas ni cobramos nada. El software prepara cartas a partir del primer día hábil después de que termina su derecho a cancelar sin penalidad (sección 7).",
+        ),
+        para(
+          months
+            ? `Duración: hasta ${months} periodos de 30 días, o hasta que usted termine el servicio. Cada ronda toma unos 40 días: los burós tienen por lo general 30 días para responder.`
+            : "Duración: mes a mes, hasta que usted termine el servicio. Cada ronda toma unos 40 días: los burós tienen por lo general 30 días para responder.",
+          TX,
+        ),
+        ...diyCostItems(terms, locale).map((text) => item(text)),
+        para(plan ? neverInAdvance(plan.terms, locale) : "La suscripción se cobra al inicio de cada periodo de 30 días, nunca durante su periodo de cancelación de 3 días hábiles."),
+        heading("6. Garantías y reembolsos"),
+        para(
+          "No damos ninguna garantía de resultados. Si usted cancela dentro del periodo de cancelación no se cobra nada. Si le cobramos por error, le devolvemos ese cobro dentro de los 10 días siguientes a su aviso.",
+          TX,
+        ),
+        heading("7. Su derecho a cancelar en los primeros 3 días hábiles"),
+        para(
+          "Usted puede cancelar este contrato sin penalidad ni obligación en cualquier momento antes de la medianoche del 3.er día hábil posterior a la fecha en que lo firmó. Para contar los días hábiles no contamos sábados, domingos ni días feriados federales, y usamos la hora de Texas.",
+        ),
+        para(
+          `Para cancelar puede tocar «Cancelar sin costo» en la aplicación, o enviar por correo o entregar el aviso de cancelación adjunto, o cualquier otro aviso por escrito, a nuestro domicilio (${address}) o a ${email}. Si cancela, no nos debe nada, y cualquier pago que hubiera hecho se le devuelve dentro de los 10 días siguientes a que recibamos su aviso.`,
+        ),
+        para("Este contrato lleva adjunto, por duplicado, un formulario de aviso de cancelación."),
+        heading("8. Terminar el servicio o cambiar de opción"),
+        para(
+          "Pasado el periodo de cancelación, usted puede terminar el servicio en cualquier momento, desde la aplicación o escribiéndonos. Terminar no tiene costo: desde que recibimos su solicitud no se cobra ningún periodo nuevo ni ningún envío nuevo.",
+        ),
+        para(
+          "Usted puede cambiar a Credalti Complete («Lo hacemos por ti») cuando quiera, firmando el contrato de esa opción; conserva todo lo que ya hizo. Desde esa firma este contrato queda reemplazado y no se cobra ningún periodo nuevo de esta suscripción.",
+        ),
+        para("Podemos terminar el servicio si usted usa el software para enviar información que nos ha dicho que es exacta, o si nos da información falsa."),
+        heading("9. Lo que necesitamos de usted"),
+        item("Que la información que nos dé sea verdadera, y que confirme como inexacto solo lo que de verdad considera inexacto."),
+        item("Que mantenga activa su suscripción de monitoreo de crédito mientras dure el servicio."),
+        item("Que imprima, firme y envíe sus cartas, y anote en la aplicación la fecha en que las envió."),
+        item("Que mantenga al día su domicilio y su teléfono."),
+        heading("10. Su información"),
+        para("Usamos su información personal y sus reportes de crédito únicamente para darle este servicio. No los vendemos."),
+        heading("11. Texas", TX),
+        para(
+          `${company} está registrada ante el Secretario de Estado de Texas como organización de servicios de crédito, con el número de registro ${termText(terms, "texasRegistrationNumber", locale)}. Mantenemos una fianza de $10,000 emitida por ${termText(terms, "bondSuretyName", locale)}, ${termText(terms, "bondSuretyAddress", locale)}.`,
+          TX,
+        ),
+        para(
+          `Nuestro agente en Texas autorizado para recibir notificaciones judiciales es ${termText(terms, "texasAgentName", locale)}, ${termText(terms, "texasAgentAddress", locale)}.`,
+          TX,
+        ),
+        heading("12. Sus derechos no se pueden renunciar"),
+        para(
+          "Nada en este contrato le quita ningún derecho que usted tenga conforme a la ley federal de organizaciones de reparación de crédito (Credit Repair Organizations Act) o al capítulo 393 del Código de Finanzas de Texas. Cualquier parte de este contrato que lo intentara no tendría validez.",
+        ),
+        heading("13. Copias y firma electrónica"),
+        para(
+          "Usted firma este contrato de forma electrónica. Al firmar recibe una copia completa de este contrato, de las declaraciones informativas que recibió antes, del aviso de cancelación y de la autorización. Están disponibles en cualquier momento en la aplicación, en «Mi acuerdo», desde donde puede imprimirlas.",
+        ),
+        heading("14. Idioma"),
+        para(
+          "Le entregamos este contrato en el idioma en que le explicamos el servicio. Las declaraciones que exigen la ley federal y la ley de Texas aparecen en inglés, tal como la ley las redacta, con una traducción al español para su comodidad; en esas declaraciones prevalece el texto en inglés.",
+          TX,
+        ),
+      ]
+    : [
+        heading("1. The parties"),
+        para(
+          `This agreement is between ${company} ("${BRAND.name}", "we" or "us"), whose principal place of business is ${address}, and you, the person who signs at the end ("you"). It is the Credalti DIY ("Do it yourself, guided by Alti") agreement. It is dated the day you sign it.`,
+        ),
+        heading("2. You do your own disputes"),
+        para(
+          `You prepare and send your own disputes with the software. ${BRAND.assistant} prepares each letter from what you decided and from our approved templates; you print it, sign it and mail it. We do not mail your letters, except the ones you ask us to mail for the fee in section 5.`,
+          "draft",
+          true,
+        ),
+        heading("3. What we give you (the services)"),
+        para("We give you the following, and only this:"),
+        ...diyServiceItems(terms, locale).map((text) => item(text)),
+        heading("4. What we do not do and do not promise"),
+        item(
+          "We do not guarantee any result. We do not promise that any item will be corrected or taken off your report, that your credit score will change, or that you will be approved for a loan, a card, a lease or a mortgage. The credit bureaus and the companies that report the information decide how they respond to a dispute.",
+        ),
+        item(
+          "No one can lawfully have accurate, current and verifiable information taken off a credit report. The software does not prepare a letter that says something you have told us is not true.",
+        ),
+        item(
+          "We are not a law firm and we do not give legal advice. We are not a lender, a credit bureau or a debt settlement company, and we do not negotiate or pay your debts.",
+        ),
+        item(
+          "You can dispute inaccurate information yourself, directly with the credit bureaus, at no cost and without our software. You are paying us for the software, Alti's help and our team's answers.",
+        ),
+        heading("5. When it starts and what it costs"),
+        para(
+          "During your cancellation period we prepare no letters and charge nothing. The software prepares letters from the first business day after your right to cancel without penalty ends (section 7).",
+        ),
+        para(
+          months
+            ? `Length: up to ${months} periods of 30 days, or until you end the service. Each round takes about 40 days: the bureaus generally have 30 days to answer.`
+            : "Length: month to month, until you end the service. Each round takes about 40 days: the bureaus generally have 30 days to answer.",
+          TX,
+        ),
+        ...diyCostItems(terms, locale).map((text) => item(text)),
+        para(plan ? neverInAdvance(plan.terms, locale) : "The subscription is charged at the start of each 30-day period, never during your 3-business-day cancellation period."),
+        heading("6. Guarantees and refunds"),
+        para(
+          "We give no guarantee of results. If you cancel within the cancellation period nothing is charged. If we charge you by mistake, we return that charge within 10 days of your telling us.",
+          TX,
+        ),
+        heading("7. Your right to cancel in the first 3 business days"),
+        para(
+          "You may cancel this agreement without penalty or obligation at any time before midnight of the 3rd business day after the date on which you signed it. In counting business days we do not count Saturdays, Sundays or federal holidays, and we use Texas time.",
+        ),
+        para(
+          `To cancel you can tap "Cancel at no cost" in the app, or mail or deliver the attached notice of cancellation, or any other written notice, to our address (${address}) or to ${email}. If you cancel you owe us nothing, and any payment you may have made is returned within 10 days after we receive your notice.`,
+        ),
+        para("A notice of cancellation form is attached to this agreement, in duplicate."),
+        heading("8. Ending the service or changing options"),
+        para(
+          "After the cancellation period you can end the service at any time, from the app or by writing to us. Ending it costs nothing: from when we receive your request, no new period and no new mailing is charged.",
+        ),
+        para(
+          'You can change to Credalti Complete ("Done for you") at any time by signing the agreement for that option; you keep everything you have done. From that signature this agreement is replaced and no new period of this subscription is charged.',
+        ),
+        para("We may end the service if you use the software to send information you have told us is accurate, or if you give us false information."),
+        heading("9. What we need from you"),
+        item("That the information you give us is true, and that you confirm as inaccurate only what you really believe is inaccurate."),
+        item("That you keep your credit monitoring subscription active while the service lasts."),
+        item("That you print, sign and mail your letters, and record in the app the date you mailed them."),
+        item("That you keep your address and phone number current."),
+        heading("10. Your information"),
+        para("We use your personal information and your credit reports only to provide this service. We do not sell them."),
+        heading("11. Texas", TX),
+        para(
+          `${company} is registered with the Texas Secretary of State as a credit services organization, registration number ${termText(terms, "texasRegistrationNumber", locale)}. We maintain a $10,000 surety bond issued by ${termText(terms, "bondSuretyName", locale)}, ${termText(terms, "bondSuretyAddress", locale)}.`,
+          TX,
+        ),
+        para(
+          `Our agent in Texas authorized to receive service of process is ${termText(terms, "texasAgentName", locale)}, ${termText(terms, "texasAgentAddress", locale)}.`,
+          TX,
+        ),
+        heading("12. Your rights cannot be waived"),
+        para(
+          "Nothing in this agreement takes away any right you have under the federal Credit Repair Organizations Act or chapter 393 of the Texas Finance Code. Any part of this agreement that tried to would have no effect.",
+        ),
+        heading("13. Copies and electronic signature"),
+        para(
+          'You sign this agreement electronically. When you sign, you receive a complete copy of this agreement, of the disclosure statements you received before it, of the notice of cancellation and of the authorization. They are available at any time in the app, under "My agreement", where you can print them.',
+        ),
+        heading("14. Language"),
+        para(
+          "We give you this agreement in the language in which we explained the service to you. The statements required by federal law and by Texas law appear in English, as the law words them, with a Spanish translation for convenience; for those statements the English text controls.",
+          TX,
+        ),
+      ];
+
+  // The same statements by the signature as the Complete agreement.
+  const signatureStatements: Block[] = [
+    ...(es ? [para(CONTRACT_CANCEL_ES, "translation", true)] : []),
+    para(CROA_CONTRACT_CANCEL_SENTENCE.text, "federal_statute", true),
+    ...(es ? [para(TEXAS_CONTRACT_CANCEL_ES, "translation", true)] : []),
+    para(TEXAS_CONTRACT_CANCEL_SENTENCE.text, "texas_statute", true),
+    para(
+      pick(
+        locale,
+        "Estas declaraciones las exige la ley, una federal y una de Texas, y por eso aparecen también en inglés, tal como la ley las redacta. Aplicamos el plazo más largo: 3 días hábiles.",
+        "The two statements above are required by law, one federal and one Texas. The longer period applies: 3 business days.",
+      ),
+      TX,
+    ),
+  ];
+
+  return {
+    key: "contract",
+    title: pick(locale, "Contrato de servicios · Credalti DIY", "Service agreement · Credalti DIY"),
+    law: "15 U.S.C. §1679d(b); Tex. Fin. Code §393.201",
+    reviewStatus: "attorney_pending",
+    statutes: [CROA_CONTRACT_CANCEL_SENTENCE, TEXAS_CONTRACT_CANCEL_SENTENCE],
+    verified: CROA_CONTRACT_CANCEL_SENTENCE.verified && TEXAS_CONTRACT_CANCEL_SENTENCE.verified,
+    blocks,
+    signatureStatements,
+  };
+}
+
+function diyAuthorization(terms: ResolvedTerms, locale: L): AgreementDocument {
+  const company = termText(terms, "companyLegalName", locale);
+  const address = termText(terms, "companyAddress", locale);
+  const email = termText(terms, "companyEmail", locale);
+  const blocks: Block[] =
+    locale === "es"
+      ? [
+          para(`Autorizo a ${company} («${BRAND.name}») a hacer por mí lo siguiente, y nada más:`),
+          item(
+            `Que el software y ${BRAND.assistant} preparen cartas de disputa a mi nombre sobre los puntos de mis reportes de crédito que yo revisé personalmente y confirmé en la aplicación como inexactos, incompletos, desactualizados o no verificables, para que yo las imprima, las firme y las envíe.`,
+          ),
+          item(
+            "Enviar por correo, por mí, únicamente las cartas que yo pida enviar en la aplicación, después de ver y aceptar su costo, con las copias de mi identificación y de mi comprobante de domicilio que entregué para ese fin.",
+          ),
+          item("Obtener mis reportes de crédito a través de mi suscripción de monitoreo, para mostrarme qué cambió después de cada ronda."),
+          heading("Límites de esta autorización"),
+          item(
+            `${BRAND.name} y ${BRAND.assistant} nunca deciden qué es inexacto. Solo los puntos que yo confirmo, uno por uno, pueden entrar en una carta. Nadie puede agregar un punto, cambiar mi respuesta ni elegir un motivo por mí.`,
+          ),
+          item(
+            `Esta autorización no permite a ${BRAND.name}: enviar una carta que yo no haya pedido enviar; abrir, cerrar o modificar ninguna cuenta; hablar por teléfono en mi nombre con un acreedor o una agencia de cobranza; negociar, liquidar o pagar ninguna deuda; solicitar crédito; actuar como mi abogado; ni firmar ningún documento por mí.`,
+          ),
+          item("No es un poder general."),
+          item(`Puedo revocar esta autorización en cualquier momento, desde la aplicación o escribiendo a ${BRAND.name} a ${address} o a ${email}.`),
+          item("Termina por sí sola cuando mi contrato de servicios se cancela, termina o queda reemplazado."),
+          para("Confirmo que la información que doy es verdadera según mi leal saber y entender."),
+        ]
+      : [
+          para(`I authorize ${company} ("${BRAND.name}") to do the following for me, and nothing else:`),
+          item(
+            `Have the software and ${BRAND.assistant} prepare dispute letters in my name about the items on my credit reports that I personally reviewed and confirmed in the app as inaccurate, incomplete, outdated or unverifiable, for me to print, sign and mail.`,
+          ),
+          item(
+            "Mail for me only the letters I ask to have mailed in the app, after I see and accept the cost, with the copies of my identification and proof of address that I provided for that purpose.",
+          ),
+          item("Obtain my credit reports through my monitoring subscription, to show me what changed after each round."),
+          heading("Limits of this authorization"),
+          item(
+            `${BRAND.name} and ${BRAND.assistant} never decide what is inaccurate. Only the items I confirm, one by one, can go into a letter. No one may add an item, change my answer or choose a reason for me.`,
+          ),
+          item(
+            `This authorization does not allow ${BRAND.name} to: mail a letter I did not ask to have mailed; open, close or change any account; speak by telephone on my behalf with a creditor or a debt collector; negotiate, settle or pay any debt; apply for credit; act as my attorney; or sign any document for me.`,
+          ),
+          item("It is not a general power of attorney."),
+          item(`I can revoke this authorization at any time, from the app or by writing to ${BRAND.name} at ${address} or ${email}.`),
+          item("It ends by itself when my service agreement is cancelled, ends or is replaced."),
+          para("I confirm that the information I give is true to the best of my knowledge."),
+        ];
+  return {
+    key: "authorization",
+    title: pick(locale, "Autorización limitada para preparar mis cartas y enviar las que yo pida", "Limited authorization to prepare my letters and mail the ones I ask for"),
+    law: pick(locale, "Borrador de la empresa; no lo redacta una ley", "Company draft; not worded by a statute"),
+    reviewStatus: "attorney_pending",
+    statutes: [],
+    verified: false,
     blocks,
   };
 }

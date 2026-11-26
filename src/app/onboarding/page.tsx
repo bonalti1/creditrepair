@@ -14,8 +14,9 @@ import { MARKETING } from "@/lib/i18n/marketing";
 import { MONITORING_OFFER } from "@/lib/monitoring/offer";
 import { GOALS, parseInvite, type Invite } from "@/lib/sales/invite";
 import { BRAND, aiByline } from "@/lib/brand";
-import { isFullService } from "@/lib/service/mode";
+
 import { readStoredAgreement } from "@/lib/ux/agreementLocal";
+import { OPTION_PENDING_KEY, writeStoredOption } from "@/lib/service/optionLocal";
 import { isFullName } from "@/lib/agreement/signature";
 import { markMilestone, readMilestones, resumeStep, type FirstWeekStep } from "@/lib/ux/firstWeek";
 import FirstWeekProgress from "@/components/FirstWeekProgress";
@@ -153,7 +154,7 @@ function Onboarding() {
     const parsed = parseInvite(query);
     // Back again after signing: straight to the first step not done (no welcome a second time).
     const signed = Boolean(readStoredAgreement()?.signedAt);
-    if (isFullService && signed) {
+    if (signed) {
       const next = resumeStep(readMilestones(), true);
       if (next === "monitoring") {
         if (parsed) setInvite(parsed);
@@ -172,6 +173,12 @@ function Onboarding() {
       // A full name on the link fills in the signature field later; the client checks it there.
       if (parsed.name && isFullName(parsed.name)) save("bonalti.inviteName", parsed.name);
       setInvite(parsed);
+      // The option the salesperson's link carries (Credalti Complete or DIY): chosen on this device,
+      // sent to the account once signed in (OnboardingSync). The client can still change it before signing.
+      if (parsed.option && !readStoredAgreement()?.signedAt) {
+        writeStoredOption({ chosen: parsed.option, signed: null });
+        save(OPTION_PENDING_KEY, parsed.option);
+      }
       if (parsed.goal) {
         setGoal(parsed.goal);
         save("bonalti.goal", parsed.goal);
@@ -192,7 +199,7 @@ function Onboarding() {
    */
   const toMonitoring = () => {
     markMilestone("details_done");
-    if (isFullService && !readStoredAgreement()?.signedAt) {
+    if (!readStoredAgreement()?.signedAt) {
       save(RETURN_KEY, window.location.search);
       router.push("/acuerdo?desde=inicio");
       return;

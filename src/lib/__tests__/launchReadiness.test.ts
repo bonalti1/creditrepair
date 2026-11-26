@@ -202,7 +202,7 @@ function perfectFacts(): LaunchFacts {
     templatesListed: [...WHATSAPP_TEMPLATE_NAMES],
     tiktokAudited: true,
     monitoringProvider: "identityiq",
-    selfServe: false,
+    diyAgreementApproved: true,
   };
   const at = new Date(NOW.getTime() - 5 * 60_000).toISOString();
   return {

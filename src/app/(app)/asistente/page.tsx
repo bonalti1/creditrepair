@@ -17,7 +17,7 @@ import { canConfirmDispute, includedCheckIds, reasonLabel } from "@/lib/ux/dispu
 import type { DisputeReasonCode } from "@/lib/letters/reasons";
 import { sessionPlan } from "@/lib/ux/sessionPlan";
 import { LETTERS_OUT_LINE, reviewCompleteLine, reviewFinishedLine, reviewIntroLine } from "@/lib/ux/reviewChatCopy";
-import { isFullService, SERVICE_MODE } from "@/lib/service/mode";
+import { useServiceOption } from "@/lib/service/useServiceOption";
 import { useLocale } from "@/lib/i18n";
 import { DICTS } from "@/lib/i18n/dictionaries";
 import DisputeFields, { EMPTY_DRAFT } from "@/components/DisputeFields";
@@ -69,8 +69,11 @@ const plain = (label: string) => label.replace(/^[^\p{L}]+/u, "");
 export default function Asistente() {
   const { locale, d } = useLocale();
   const es = locale === "es";
-  const { flags, review, roundApproved, setRoundApproved, hydrated } = useFlags();
+  const { flags, review, roundApproved, hydrated } = useFlags();
   const { messages, append, hydrated: chatHydrated, signedIn } = useChatThread();
+  // The client's option (Credalti Complete or Credalti DIY): what Alti says after the review, and whether there is anything to approve.
+  const { option: SERVICE_MODE } = useServiceOption();
+  const isFullService = SERVICE_MODE === "full_service";
   const seeded = useRef(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -267,13 +270,16 @@ export default function Asistente() {
     });
   };
 
-  /** Self-serve only: under full service the team mails the letters and this is never offered. */
+  /**
+   * Credalti DIY only: under Credalti Complete the team mails the letters and this is never offered.
+   * The OK prepares the letters for the client to print and mail, on the letters page: nothing is mailed here.
+   */
   const approve = () => {
     if (isFullService) return;
-    youSay("Apruebo. Envía mis cartas.", "Approved. Send my letters.");
-    setRoundApproved(true);
-    // Which letters went out, what each covers, and what waits for the next round.
+    youSay("Prepara mis cartas para imprimirlas.", "Prepare my letters to print.");
+    // Which letters there are, what each covers, and what waits for the next round.
     say(approvedMessage(session, items, "es"), approvedMessage(session, items, "en"));
+    window.location.assign("/attack");
   };
 
   /** Demo only (no WhatsApp number): say plainly that nobody is online. No coach call. */
@@ -604,9 +610,7 @@ export default function Asistente() {
                   onClick={approve}
                   className="pressable h-14 w-full rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500"
                 >
-                  {es
-                    ? plan.letters.length === 1 ? "Aprobar y enviar 1 carta" : `Aprobar y enviar ${plan.letters.length} cartas`
-                    : plan.letters.length === 1 ? "Approve and send 1 letter" : `Approve and send ${plan.letters.length} letters`}
+                  {d.attack.approveButton(plan.letters.length)}
                 </button>
               )}
               <Link

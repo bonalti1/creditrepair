@@ -146,8 +146,8 @@ function invariants(c: BillingContext, charges: BillingCharge[]) {
 // ── The catalogue ───────────────────────────────────────────────────────
 
 describe("plans: what can be offered", () => {
-  it("has CRC's four types, by CRC's names", () => {
-    expect(PLAN_TYPES).toEqual(["subscription", "per_round", "flat_fee", "pay_per_delete"]);
+  it("has CRC's four types, by CRC's names, and the Credalti DIY subscription", () => {
+    expect(PLAN_TYPES).toEqual(["subscription", "per_round", "flat_fee", "pay_per_delete", "diy_subscription"]);
     expect(validatePlanTerms(BASE)).toEqual([]);
   });
 
@@ -396,8 +396,14 @@ describe("the payment timeline preview and upcoming charges come from the rule",
       const events = paymentTimeline(snapshotPlan(v));
       const charges = events.filter((e) => e.kind === "charge");
       expect(charges.length, v.key).toBeGreaterThan(0);
+      // Credalti Complete: after the first round's work. Credalti DIY: the client does the work with the software,
+      // so the subscription is charged from the end of the cancellation window (docs/SERVICE-OPTIONS.md).
       const firstRound = events.find((e) => e.kind === "round")!.day;
-      for (const e of charges) expect(e.day, v.key).toBeGreaterThan(firstRound);
+      const windowEnds = events.find((e) => e.kind === "work_starts")!.day;
+      for (const e of charges) {
+        if (v.terms.type === "diy_subscription") expect(e.day, v.key).toBeGreaterThanOrEqual(windowEnds);
+        else expect(e.day, v.key).toBeGreaterThan(firstRound);
+      }
       expect(charges.at(-1)!.totalCents!, v.key).toBeLessThanOrEqual(snapshotPlan(v).effective.maxTotalCents);
     }
   });

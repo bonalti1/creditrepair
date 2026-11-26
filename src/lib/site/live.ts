@@ -222,6 +222,11 @@ const en: LiveCopy = {
     whatsappText: `Hi! I have a question for the ${brand} team.`,
     library: [
       {
+        q: "What is the difference between Credalti Complete and Credalti DIY?",
+        a: "Both start with your review: you decide what is inaccurate. With Credalti Complete our team prepares and mails your letters, and every charge waits for the work. With Credalti DIY, Alti prepares your letters and you print and mail them, for a monthly subscription after your 3 business days to cancel. You can start with Credalti DIY, upgrade to Credalti Complete anytime and keep everything you've done.",
+        keys: "difference options option complete diy do it yourself done for you which plan choose mail myself print upgrade",
+      },
+      {
         q: "What is a collection?",
         a: "A collection means a debt collector says you owe a debt, often an old bill handed or sold to them. If it isn't yours, or the amount is wrong, you can dispute it.",
         keys: "collection collector debt collections agency owe cobranza",
@@ -487,6 +492,11 @@ const es: LiveCopy = {
     footnote: `${alti} es IA y da información general, no asesoría legal. Los resultados varían. No guardamos este chat.`,
     whatsappText: `¡Hola! Tengo una pregunta para el equipo de ${brand}.`,
     library: [
+      {
+        q: "¿Qué diferencia hay entre Credalti Complete y Credalti DIY?",
+        a: "Las dos empiezan con tu revisión: tú decides qué es inexacto. Con Credalti Complete nuestro equipo prepara y envía tus cartas, y cada cobro espera al trabajo. Con Credalti DIY, Alti prepara tus cartas y tú las imprimes y las envías. Es una suscripción mensual que empieza después de tus 3 días hábiles para cancelar. Puedes empezar con Credalti DIY, cambiar a Credalti Complete cuando quieras y conservar todo lo que ya hiciste.",
+        keys: "diferencia opciones opcion complete diy hazlo tu lo hacemos por ti cual elegir enviar yo imprimir cambiar",
+      },
       {
         q: "¿Qué es una cobranza?",
         a: "Una cobranza quiere decir que un cobrador dice que debes una deuda, muchas veces una cuenta vieja que le pasaron o vendieron. Si no es tuya, o el monto está mal, puedes disputarla.",

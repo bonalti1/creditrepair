@@ -18,6 +18,9 @@ import { fullName } from "@/lib/staff/types";
 import { useStaff } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
 import { MailModeNote, SimulatedPill } from "@/components/staff/MailBits";
+import OptionBadge from "@/components/staff/OptionBadge";
+import { clientOption } from "@/lib/staff/stage";
+import { formatCents } from "@/lib/billing/money";
 import { EmptyState, PRIMARY_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SectionTitle, BACK_LINK } from "@/components/staff/ui";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import { staffMessage } from "@/lib/staff/i18n/messages";
@@ -102,9 +105,12 @@ function RoundCard({ plan, onClass, held }: { plan: RoundMailPlan; onClass: (let
     <section className="card overflow-hidden" aria-label={t(`${fullName(plan.client)}, ronda ${plan.round.number}`, `${fullName(plan.client)}, round ${plan.round.number}`)}>
       <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4">
         <div className="min-w-0">
-          <Link href={`/equipo/clientes/${plan.client.id}#cartas`} className="text-[17px] font-semibold text-slate-900 underline-offset-2 hover:underline">
-            {fullName(plan.client)}
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href={`/equipo/clientes/${plan.client.id}#cartas`} className="text-[17px] font-semibold text-slate-900 underline-offset-2 hover:underline">
+              {fullName(plan.client)}
+            </Link>
+            <OptionBadge option={clientOption(plan.client)} />
+          </div>
           <p className="text-[13px] leading-snug text-slate-500">
             {t(
               `Ronda ${plan.round.number} · ${count(plan.letters.length, "carta", "cartas")} · remitente:`,
@@ -115,6 +121,14 @@ function RoundCard({ plan, onClass, held }: { plan: RoundMailPlan; onClass: (let
         </div>
         <p className="text-[15px] font-semibold tabular-nums text-slate-900">{formatMills(plan.totalMills)}</p>
       </div>
+      {plan.round.mailRequest && (
+        <p className="mx-5 mb-3 rounded-2xl bg-slate-50 px-4 py-2.5 text-[14px] leading-snug text-slate-700" data-testid="diy-mail-request">
+          {t(
+            `Cliente DIY: pidió «Envíenlas por mí» para ${count(plan.round.mailRequest.letterCount, "carta", "cartas")} (${formatCents(plan.round.mailRequest.totalCents)}, se cobra después de enviarlas). Solo salen esas cartas, y solo por el servicio de correo.`,
+            `DIY client: asked "Mail them for me" for ${count(plan.round.mailRequest.letterCount, "letter", "letters")} (${formatCents(plan.round.mailRequest.totalCents)}, charged after we mail them). Only those letters go, and only by the mail service.`,
+          )}
+        </p>
+      )}
       {held && (
         <p className="mx-5 mb-3 rounded-2xl bg-amber-50 px-4 py-2.5 text-[14px] leading-snug text-blue-900" data-testid="round-held">
           {t("No sale en este envío.", "Not going out in this send.")} {held}
@@ -289,9 +303,9 @@ function SendView() {
                     `Send ${count(batch.ready.length, "round", "rounds")}${mode === "simulated" ? " (simulated)" : ""}`,
                   )}
             </button>
-            {batch.ready.length > 0 && (
+            {batch.ready.some((p) => !p.round.mailRequest) && (
               <Link
-                href={roundRefsHref(batch.ready.map((p) => ({ clientId: p.client.id, roundNumber: p.round.number })))}
+                href={roundRefsHref(batch.ready.filter((p) => !p.round.mailRequest).map((p) => ({ clientId: p.client.id, roundNumber: p.round.number })))}
                 className={`${SECONDARY_BUTTON} mt-2 w-full`}
               >
                 {t("Mejor imprimirlas aquí", "Print them here instead")}
