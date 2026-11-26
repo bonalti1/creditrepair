@@ -1,6 +1,6 @@
 import { CHARGE_DELAY_DAYS, MIN_DAYS_BETWEEN_CHARGES, PERIOD_DAYS } from "../billing/rules";
 import { formatCents } from "../billing/money";
-import type { EffectiveAmounts, PlanTerms } from "../billing/plans";
+import { periodTiming, type EffectiveAmounts, type PlanTerms } from "../billing/plans";
 import { ESTIMATED_CYCLE_DAYS } from "../rounds/timing";
 import { TIMELINE_DAYS, type PayEvent, type PayEventKind } from "./payTimelineShared";
 
@@ -50,6 +50,8 @@ export interface TimelinePlan {
   maxTotalCents: number;
   /** Per round: the rounds the plan covers; subscription: its months. Null: until the service ends. */
   limit: number | null;
+  /** Subscription: charged right after the period's round is mailed (the owner's decision, 2026-11-25), or when it ends. */
+  periodTiming?: "on_mailing" | "period_end";
 }
 
 export function timelinePlan(terms: PlanTerms, effective: EffectiveAmounts): TimelinePlan {
@@ -62,6 +64,7 @@ export function timelinePlan(terms: PlanTerms, effective: EffectiveAmounts): Tim
     flatSchedule: terms.flat?.schedule ?? null,
     maxTotalCents: effective.maxTotalCents,
     limit: terms.duration.kind === "indefinite" ? null : terms.duration.count,
+    ...(terms.type === "subscription" ? { periodTiming: periodTiming(terms) } : {}),
   };
 }
 
@@ -105,6 +108,34 @@ export function payEvents(plan: TimelinePlan | null, horizon: number = TIMELINE_
   if (!plan) {
     // The rule: each mailed round can be charged after the delay, at most once every 30 days.
     rounds.forEach((day, i) => charge(day + CHARGE_DELAY_DAYS, i + 1, null));
+  } else if (plan.type === "diy_subscription") {
+    // Credalti DIY: a subscription from the start, after the 3 business days to cancel, every 30 days.
+    const months = plan.limit ?? Infinity;
+    for (let i = 0; i < months; i++) {
+      const day = EXAMPLE_CANCEL_ENDS_DAY + i * PERIOD_DAYS;
+      if (day > horizon) break;
+      const amount = Math.min(plan.recurringCents, cap - charged);
+      if (amount <= 0) break;
+      charged += amount;
+      charges.push({ day, kind: "charge", round: i + 1, amount: formatCents(amount) });
+    }
+  } else if (plan.type === "subscription" && plan.periodTiming === "on_mailing") {
+    // 30-day periods from the first mailing; a period with letters is charged right after its round is mailed.
+    const anchor = rounds[0]!;
+    const months = plan.limit ?? Infinity;
+    for (let i = 0; i < months; i++) {
+      const start = anchor + i * PERIOD_DAYS;
+      const end = start + PERIOD_DAYS;
+      if (start > horizon) break;
+      const inside = rounds.filter((d) => d >= start && d < end);
+      if (inside.length === 0) {
+        if (end <= horizon) events.push({ day: end, kind: "quiet", amount: null });
+        continue;
+      }
+      const round = rounds.indexOf(inside[0]!) + 1;
+      const fee = i === 0 ? plan.firstWorkFeeCents : 0;
+      charge(inside[0]! + CHARGE_DELAY_DAYS, round, plan.recurringCents + fee);
+    }
   } else if (plan.type === "subscription") {
     // 30-day periods from the first mailing; a period with letters is charged when it ends.
     const anchor = rounds[0]!;

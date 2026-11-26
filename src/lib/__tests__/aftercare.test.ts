@@ -55,7 +55,7 @@ describe("every client-facing line passes the claim rules", () => {
       const lines = clientLines(locale);
       expect(lines.length).toBeGreaterThan(120);
       for (const line of lines) {
-        for (const mode of ["full_service", "self_serve"] as const) {
+        for (const mode of ["full_service", "diy"] as const) {
           expect(checkClaimGuardrails(line, mode), line).toEqual([]);
           expect(checkMarketingCopy(line, mode), line).toEqual([]);
         }
@@ -377,7 +377,7 @@ describe("ITIN clients", () => {
     expect(prompt).toMatch(/ITIN: una persona con ITIN puede tener un expediente/);
     expect(prompt).toMatch(/todavía no está confirmado; di que una persona del equipo le responde/);
     expect(prompt).toMatch(/NUNCA pidas, repitas ni guardes un número de Seguro Social o un ITIN completo/);
-    expect(coachSystemPrompt("self_serve", "en")).not.toMatch(/ITIN/);
+    expect(coachSystemPrompt("diy", "en")).not.toMatch(/ITIN/);
     expect(libraryReplyFor("¿Cómo pido mi reporte de crédito si tengo ITIN?", DEMO_SAVED_ANSWERS)?.answer.id).toBe("00000000-0000-4000-a000-000000000022");
     expect(libraryReplyFor("Do my letters show my ITIN number?", DEMO_SAVED_ANSWERS, "en")?.answer.id).toBe("00000000-0000-4000-a000-000000000026");
     expect(bestMatch("¿Puedo activar el monitoreo con mi ITIN?", DEMO_SAVED_ANSWERS)).toBeNull();

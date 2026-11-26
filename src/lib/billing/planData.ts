@@ -36,7 +36,7 @@ export interface PlanCatalogueData {
 
 // ── Demo ────────────────────────────────────────────────────────────────
 
-const DEMO_KEY = "credalti.staffDemo.billingPlans.v1";
+const DEMO_KEY = "credalti.staffDemo.billingPlans.v2";
 const SWITCH_KEY = "credalti.staffDemo.billingSwitches.v1";
 // Read by the client app's demo payment screens too (same browser).
 export const DEMO_CARD_BRANDS_KEY = "credalti.demo.cardBrands.v1";
@@ -82,9 +82,9 @@ export function resetDemoPlans(): void {
   }
 }
 
-/** The plan the demo's client would sign: the catalogue's default. */
-export function demoOfferedPlan(): PlanSnapshot | null {
-  const plan = offeredPlan(loadDemoPlans());
+/** The plan the demo's client would sign: the catalogue's default for their option. */
+export function demoOfferedPlan(option: import("../service/options").ServiceOption = "full_service"): PlanSnapshot | null {
+  const plan = offeredPlan(loadDemoPlans(), null, option);
   return plan ? snapshotPlan(plan) : null;
 }
 

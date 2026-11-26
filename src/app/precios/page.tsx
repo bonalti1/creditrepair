@@ -10,6 +10,7 @@ import { payEvents } from "@/lib/site/payTimeline";
 import { PayTimeline } from "@/components/site/islands";
 import { Reveal } from "@/components/site/motion";
 import { siteMetadata } from "@/lib/site/seo";
+import OptionsSection from "@/components/site/OptionsSection";
 
 // /precios: how charging works, for everyone, and the offered plans when the
 // catalogue has attorney-approved ones (src/lib/site/plans.ts). Until then,
@@ -37,6 +38,9 @@ export default async function Pricing() {
     <SiteShell>
       <main>
         <PageHero eyebrow={p.eyebrow} title={p.title} lead={p.lead} figure={<CharacterFigure character="assistant" pose="thumbsUp" height={250} decorative />} />
+
+        {/* The two options side by side: Credalti Complete and Credalti DIY (docs/SERVICE-OPTIONS.md). */}
+        <OptionsSection locale={locale} />
 
         {/* Plans, or how they are explained */}
         <section aria-labelledby="plans" className="py-14 sm:py-20">

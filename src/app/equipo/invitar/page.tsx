@@ -23,6 +23,10 @@ import type { StaffClient } from "@/lib/staff/types";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
 import { getLeadData } from "@/lib/leads/data";
 import { leadLanguage } from "@/lib/leads/inbox";
+import OptionComparison from "@/components/service/OptionComparison";
+import { OPTION_NAME, OPTION_SUBTITLE, SERVICE_OPTIONS, type ServiceOption } from "@/lib/service/options";
+import { getPlanCatalogue } from "@/lib/billing/planData";
+import { monitoringNote, optionPricesFrom, type OptionPrice } from "@/lib/site/planText";
 
 // The salesperson's side of the handoff. After the WhatsApp conversation they
 // fill in four things and get a personal link plus a ready message. The
@@ -61,6 +65,10 @@ export default function Invitar() {
   const [leadId, setLeadId] = useState<string | null>(null);
   // The person the page was opened for: a household member can be added for them.
   const [record, setRecord] = useState<StaffClient | null>(null);
+  // The option the client said they want (docs/SERVICE-OPTIONS.md). Nothing by default: they choose in the app.
+  const [option, setOption] = useState<ServiceOption | null>(null);
+  const [comparing, setComparing] = useState(false);
+  const [prices, setPrices] = useState<Record<ServiceOption, OptionPrice | null>>({ full_service: null, diy: null });
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -70,6 +78,22 @@ export default function Invitar() {
       // ignore
     }
   }, []);
+
+  // The prices in the comparison: the offered plans, for whoever may read the catalogue; else "Price set by the team".
+  const mayReadPlans = loaded && !data.demo && can("billing.plans");
+  useEffect(() => {
+    if (!mayReadPlans) return;
+    let live = true;
+    void getPlanCatalogue()
+      .list()
+      .then(({ plans }) => {
+        if (live) setPrices(optionPricesFrom(plans, lang));
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [mayReadPlans, lang]);
 
   // The member using the console signs the invitation; then the client, when the page came from their file.
   useEffect(() => {
@@ -113,8 +137,8 @@ export default function Invitar() {
   // client's profiles.referred_by, which is what lets a salesperson see the people they brought in (migration 0012).
   const handle = !data.demo && viewer ? viewer.handle : undefined;
   const url = useMemo(
-    () => origin + buildInvitePath({ name, goal, state, refName: me, ref: handle, partner, lang }),
-    [origin, name, goal, state, me, handle, partner, lang],
+    () => origin + buildInvitePath({ name, goal, state, refName: me, ref: handle, partner, lang, option }),
+    [origin, name, goal, state, me, handle, partner, lang, option],
   );
   // Sending or copying the message for a prospect records when the invitation went out (HighLevel's "Invitado").
   const markInvited = () => {
@@ -122,7 +146,7 @@ export default function Invitar() {
     if (!clientId || data.demo) return;
     void fetch("/api/staff/prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "invited", id: clientId }) }).catch(() => undefined);
   };
-  const message = useMemo(() => inviteMessage({ name }, url, lang), [name, url, lang]);
+  const message = useMemo(() => inviteMessage({ name, option }, url, lang), [name, option, url, lang]);
   const open = openStates.status(state) === "open";
   const ready = me.trim().length >= 2 && name.trim().length >= 2;
   const digits = phone.replace(/\D/g, "");
@@ -203,6 +227,35 @@ export default function Invitar() {
             </p>
           )}
         </div>
+        <fieldset data-testid="invite-option">
+          <legend className={label}>{t("La opción que quiere", "The option they want")}</legend>
+          <div className="space-y-2">
+            {([null, ...SERVICE_OPTIONS] as Array<ServiceOption | null>).map((o) => (
+              <label key={o ?? "none"} className="flex min-h-12 cursor-pointer items-start gap-3 rounded-2xl bg-white px-4 py-3 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] has-[:checked]:ring-2 has-[:checked]:ring-blue-300">
+                <input type="radio" name="option" className="mt-1 h-4 w-4 accent-blue-700" checked={option === o} onChange={() => setOption(o)} />
+                <span className="min-w-0">
+                  <span className="block text-[15px] font-medium text-slate-900">{o ? OPTION_NAME[o][locale] : t("Todavía no decide: elige en la app", "Hasn't decided: they choose in the app")}</span>
+                  {o && <span className="block text-[13px] text-slate-500">{OPTION_SUBTITLE[o][locale]}</span>}
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[13px] leading-snug text-slate-500">
+            {t(
+              "Solo deja lista la opción que la persona ya eligió. Explica la diferencia si pregunta; nunca empujes una. En la app ve las dos lado a lado y puede cambiar.",
+              "Only preset the option the person already chose. Explain the difference if they ask; never push one. In the app they see both side by side and can change.",
+            )}
+          </p>
+          <button type="button" onClick={() => setComparing(!comparing)} aria-expanded={comparing} className="mt-1 inline-flex min-h-11 items-center text-[14px] font-medium text-blue-700 underline-offset-2 hover:underline" data-testid="invite-compare">
+            {comparing ? t("Ocultar la comparación", "Hide the comparison") : t("Ver las dos lado a lado", "See both side by side")}
+          </button>
+          {comparing && (
+            <div className="mt-2">
+              <OptionComparison locale={lang} prices={prices} monitoring={monitoringNote(lang)} chosen={option} headingLevel={3} />
+              <p className="mt-1.5 text-[12.5px] text-slate-500">{t("Así lo ve el cliente, en su idioma.", "This is how the client sees it, in their language.")}</p>
+            </div>
+          )}
+        </fieldset>
         <div>
           <label className={label} htmlFor="phone">{t("WhatsApp del cliente (opcional)", "Client's WhatsApp (optional)")}</label>
           <input

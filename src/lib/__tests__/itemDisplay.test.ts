@@ -386,7 +386,7 @@ describe("new customer-facing copy stays within the claim rules", () => {
           sessionJourneyState(items, every, false, agreement),
           sessionJourneyState(items, every, true, agreement),
         ]) {
-          for (const mode of ["full_service", "self_serve"] as const) {
+          for (const mode of ["full_service", "diy"] as const) {
             const step = nextAction(state, locale, { mode });
             clean(`${step.title} ${step.description} ${step.cta}`);
           }
@@ -435,7 +435,7 @@ describe("new customer-facing copy stays within the claim rules", () => {
       es.items.attestationRequired,
       es.items.flaggedPending,
       es.attack.approveNote,
-      nextAction(sessionJourneyState(DEMO_REPORT.items, { [midland.fingerprint]: { state: "attested" } }, false), "es", { mode: "self_serve" })
+      nextAction(sessionJourneyState(DEMO_REPORT.items, { [midland.fingerprint]: { state: "attested" } }, false), "es", { mode: "diy" })
         .description,
       nextAction(
         sessionJourneyState(DEMO_REPORT.items, { [midland.fingerprint]: { state: "attested" } }, false, SIGNED_LONG_AGO),

@@ -52,6 +52,31 @@ The home screen says how much: **«Esta semana el sistema resolvió N cosas
 por su cuenta»**, with the count of each kind under «Resuelto solo»
 (`autopilot_resolutions`, migration 0022).
 
+## The two service options in the console
+
+Each client has an option (`docs/SERVICE-OPTIONS.md`): **Complete** (the team
+prepares and mails) or **DIY** (the client prints and mails). A badge says
+which on the client list (filter «Opción de servicio», `?opcion=diy`), the
+client page, «Listas para enviar» and the send screen.
+
+- A DIY client is not round work: their stage is «Con el cliente» while the
+  letters are theirs to mail, and no full-service notice is raised for them.
+  They show in «Necesita una persona» when they ask a question.
+- **«Envíenlas por mí»**: the letters a DIY client paid us to mail appear in
+  «Listas para enviar» with only those letters. They go only by the mail
+  service, never the office print (the print view leaves them out and says
+  why). Capability `diy.mail_requests` (admin and specialist).
+- **DIY follow-up** (`diy_followup`): letters prepared 14 days ago and not
+  marked mailed. A gentle follow-up for sales (capability `options.followup`,
+  admin and sales): one message asking if they need help, Complete mentioned
+  without pressure.
+- Numbers by option: clients on the home screen, collected on «Facturas»,
+  revenue on the accounting dashboard, active/signed/charged on «Negocio».
+- `/equipo/planes`: every plan belongs to one option; each option has its
+  own default.
+- `/equipo/invitar`: «La opción que quiere», with «Todavía no decide» by
+  default and both options side by side as the client sees them.
+
 ## Credalti Control: Overview, Today, Leads, phone alerts
 
 The owner's control center is in `docs/CONTROL.md`. In short:

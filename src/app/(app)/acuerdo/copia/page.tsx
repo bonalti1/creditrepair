@@ -4,11 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AgreementDocumentCard, { Blocks, DraftBanner } from "@/components/agreement/AgreementDocument";
 import Icon from "@/components/Icon";
-import { AGREEMENT_VERSION, agreementDocuments } from "@/lib/agreement/documents";
+import { agreementDocuments, agreementVersionOf } from "@/lib/agreement/documents";
 import { deadlineMoment, recordMoment } from "@/lib/agreement/format";
 import { deadlineOf } from "@/lib/agreement/gate";
 import { agreementReadiness } from "@/lib/agreement/readiness";
-import { resolveTerms } from "@/lib/agreement/terms";
+import { resolveTerms, withOption } from "@/lib/agreement/terms";
 import { useLocale } from "@/lib/i18n";
 import { useAgreement } from "@/lib/ux/agreementStore";
 
@@ -23,7 +23,7 @@ import { useAgreement } from "@/lib/ux/agreementStore";
 
 export default function AcuerdoCopiaPage() {
   const { locale: appLocale } = useLocale();
-  const { agreement, hydrated, mode } = useAgreement();
+  const { agreement, hydrated, mode, option } = useAgreement();
   const readiness = useMemo(() => agreementReadiness(), []);
   const [printedAt, setPrintedAt] = useState<Date | null>(null);
   useEffect(() => setPrintedAt(new Date()), []);
@@ -33,7 +33,9 @@ export default function AcuerdoCopiaPage() {
   const signed = Boolean(agreement?.signedAt);
   const locale = signed && agreement?.locale ? agreement.locale : appLocale;
   const es = locale === "es";
-  const terms = (signed && agreement?.terms) || resolveTerms();
+  // A signed copy is the option it was signed for; before signing, the option chosen.
+  const terms = (signed && agreement?.terms) || withOption(resolveTerms(), option);
+  const AGREEMENT_VERSION = agreementVersionOf(terms);
   const deadline = agreement ? deadlineOf(agreement) : null;
   const documents = agreementDocuments(locale, terms, { deadline });
   const notice = documents.find((d) => d.key === "cancellation_notice")!;

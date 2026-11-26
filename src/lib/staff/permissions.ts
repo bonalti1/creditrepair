@@ -100,6 +100,10 @@ export const CAPABILITIES = [
   "webinars.manage",
   // The campaign scorecard (src/lib/webinars/scorecard.ts): spend, CAC and client value. Money: administrators.
   "campaigns.view",
+  // Service options (migration 0042, docs/SERVICE-OPTIONS.md): mail the letters a Credalti DIY client paid us to mail
+  // ("Mail them for me"), and the gentle follow-up when a DIY client's letters wait 14 days unmailed.
+  "diy.mail_requests",
+  "options.followup",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -165,6 +169,8 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "webinars.view": "Ver los webinars, la consola en vivo y los guiones",
   "webinars.manage": "Crear y cambiar webinars e importar la asistencia",
   "campaigns.view": "Ver las campañas: gasto, costo por cliente y valor del cliente",
+  "diy.mail_requests": "Enviar las cartas que un cliente DIY nos pidió enviar",
+  "options.followup": "Dar seguimiento a clientes DIY con cartas sin enviar",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -212,6 +218,8 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "webinars.view": "See the webinars, the live console and the scripts",
   "webinars.manage": "Create and change webinars and import attendance",
   "campaigns.view": "See the campaigns: spend, cost per client and client value",
+  "diy.mail_requests": "Mail the letters a DIY client asked us to mail",
+  "options.followup": "Follow up with DIY clients whose letters wait unmailed",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -285,6 +293,9 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "webinars.view": true,
       "webinars.manage": false,
       "campaigns.view": false,
+      // Specialists mail rounds, so they mail what a DIY client asked us to mail; the upgrade follow-up is sales'.
+      "diy.mail_requests": true,
+      "options.followup": false,
     },
   },
   sales: {
@@ -343,6 +354,9 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "webinars.view": true,
       "webinars.manage": false,
       "campaigns.view": false,
+      // Sales follows up a DIY client whose letters wait (no pressure); mailing is fulfillment's.
+      "diy.mail_requests": false,
+      "options.followup": true,
     },
   },
 };
@@ -430,10 +444,12 @@ export function defaultsToMine(role: StaffRole | null | undefined): boolean {
  * the work starts (an unsigned agreement, missing documents); everything after
  * that is fulfillment's, and money is not theirs to discuss.
  */
-const SALES_EXCEPTIONS: readonly ExceptionKind[] = ["agreement_unsigned", "documents_missing"];
+const SALES_EXCEPTIONS: readonly ExceptionKind[] = ["agreement_unsigned", "documents_missing", "diy_followup"];
 
 export function exceptionVisibleTo(role: StaffRole | null | undefined, kind: ExceptionKind): boolean {
   if (!isStaffRole(role)) return false;
+  // The DIY follow-up goes to whoever may do it (options.followup: sales and the owner).
+  if (kind === "diy_followup") return can(role, "options.followup");
   if (role === "sales") return SALES_EXCEPTIONS.includes(kind);
   return true;
 }

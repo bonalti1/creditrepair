@@ -1,4 +1,4 @@
-import { SERVICE_MODE, type ServiceMode } from "../service/mode";
+import { DEFAULT_SERVICE_MODE as SERVICE_MODE, type ServiceMode } from "../service/mode";
 
 // Armor #3 (spec §3): claim guardrails, enforced in the content pipeline (ES
 // and EN). Used to lint anything a client or a prospect reads: landing pages,
@@ -133,11 +133,11 @@ const RULES: Rule[] = [
 
   // Self-serve only: there the client sends their own letters, so saying that
   // we dispute is false. Under full service it describes the work and is allowed.
-  { pattern: /\bwe\s+dispute\b/i, rule: "self-serve-positioning", modes: ["self_serve"] },
+  { pattern: /\bwe\s+dispute\b/i, rule: "self-serve-positioning", modes: ["diy"] },
   {
     pattern: re(String.raw`${NOT_ES}\b(nosotros\s+)?disputamos\b`),
     rule: "self-serve-positioning",
-    modes: ["self_serve"],
+    modes: ["diy"],
   },
 
   // Never: real-estate / rent-to-own bait (the Lexington Law pattern)

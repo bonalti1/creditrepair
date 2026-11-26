@@ -6,7 +6,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { BILLING_STATE_LABELS, BILLING_STATES, clientRows, clientsCsv, filterRows } from "@/lib/staff/clientList";
 import { count, formatPhone, relativeDay, stateName } from "@/lib/staff/format";
 import { defaultsToMine, deniedReason, scopeOf } from "@/lib/staff/permissions";
-import { EXCEPTION_KINDS, EXCEPTION_LABELS, RESPONSE_WINDOW_DAYS, sendableRound, STAGE_ORDER, STAGE_TEXT, type Stage } from "@/lib/staff/stage";
+import { clientOption, EXCEPTION_KINDS, EXCEPTION_LABELS, RESPONSE_WINDOW_DAYS, sendableRound, STAGE_ORDER, STAGE_TEXT, type Stage } from "@/lib/staff/stage";
+import { OPTION_NAME, SERVICE_OPTIONS, type ServiceOption } from "@/lib/service/options";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
 import { staffMessage } from "@/lib/staff/i18n/messages";
 import { assignableMembers, memberName } from "@/lib/staff/team";
@@ -16,6 +17,7 @@ import { sourceLine } from "@/lib/leads/source";
 import { useStaff } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
 import AddClient from "@/components/staff/AddClient";
+import OptionBadge from "@/components/staff/OptionBadge";
 import { ActorTag, DeniedNote, EmptyState, SeverityDot, StageChip } from "@/components/staff/ui";
 
 // Every client this member may see, findable in a few keystrokes. Filters live
@@ -72,7 +74,10 @@ function ClientList() {
     billing: can("billing.view") ? (params.get("cobros") ?? "") : "",
     state: params.get("estado") ?? "",
   };
-  const filtered = Boolean(query || stage || noticeFilter || filters.assigned || filters.seller || filters.billing || filters.state);
+  // The service option (docs/SERVICE-OPTIONS.md): "?opcion=complete" or "?opcion=diy".
+  const optionParam = params.get("opcion") ?? "";
+  const optionFilter: ServiceOption | "" = optionParam === "diy" ? "diy" : optionParam === "complete" ? "full_service" : "";
+  const filtered = Boolean(query || stage || noticeFilter || filters.assigned || filters.seller || filters.billing || filters.state || optionFilter);
 
   const setParam = (name: string, value: string) => {
     const next = new URLSearchParams(params.toString());
@@ -94,7 +99,7 @@ function ClientList() {
 
   if (!ready || !viewer) return null;
 
-  const shown = filterRows(rows, filters, viewer);
+  const shown = filterRows(rows, filters, viewer).filter((r) => !optionFilter || clientOption(r.client) === optionFilter);
   const base = filterRows(rows, { mine: filters.mine }, viewer);
   const chosen = shown.filter((r) => selected.has(r.client.id));
   const canAssign = can("clients.assign");
@@ -246,6 +251,12 @@ function ClientList() {
           <option value="">{t("Todas las etapas", "All stages")}</option>
           {STAGE_ORDER.map((s) => (
             <option key={s} value={s}>{STAGES[s].label}</option>
+          ))}
+        </select>
+        <select aria-label={t("Opción de servicio", "Service option")} className={control} value={optionParam === "diy" || optionParam === "complete" ? optionParam : ""} onChange={(e) => setParam("opcion", e.target.value)} data-testid="option-filter">
+          <option value="">{t("Las dos opciones", "Both options")}</option>
+          {SERVICE_OPTIONS.map((o) => (
+            <option key={o} value={o === "diy" ? "diy" : "complete"}>{OPTION_NAME[o][locale]}</option>
           ))}
         </select>
         <select aria-label={t("Avisos", "Notices")} className={control} value={noticeParam} onChange={(e) => setParam("aviso", e.target.value)}>
@@ -413,7 +424,10 @@ function ClientList() {
                   <span className="flex min-w-0 gap-2.5">
                     {exceptions[0] ? <SeverityDot severity={exceptions[0].severity} /> : <span className="mt-[7px] h-2.5 w-2.5 shrink-0" />}
                     <span className="min-w-0">
-                      <span className="block break-words text-[16px] font-medium leading-snug text-slate-900">{fullName(client)}</span>
+                      <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="break-words text-[16px] font-medium leading-snug text-slate-900">{fullName(client)}</span>
+                        <OptionBadge option={clientOption(client)} />
+                      </span>
                       <span className="block text-[13px] text-slate-500 lg:truncate">
                         {formatPhone(client.phone)} · {t("ventas", "sales")}: {memberName(members, client.salesperson, locale).split(" ")[0]}
                       </span>

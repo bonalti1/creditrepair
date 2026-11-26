@@ -63,6 +63,9 @@ import ActivityList from "@/components/staff/ActivityList";
 import AssignmentCard from "@/components/staff/AssignmentCard";
 import LeadSourceCard from "@/components/staff/LeadSourceCard";
 import BillingCard from "@/components/staff/BillingCard";
+import OptionBadge from "@/components/staff/OptionBadge";
+import { clientOption, isDiy, openMailRequest } from "@/lib/staff/stage";
+import { OPTION_NAME } from "@/lib/service/options";
 import Conversation from "@/components/staff/Conversation";
 import { ClientPulse } from "@/components/staff/PulseCards";
 import ReportImport from "@/components/staff/ReportImport";
@@ -434,6 +437,7 @@ export default function ClientePage() {
       </Link>
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="page-title">{fullName(client)}</h1>
+        <OptionBadge option={clientOption(client)} />
         <StageChip stage={stage} />
         <ItinBadge client={client} />
       </div>
@@ -444,6 +448,20 @@ export default function ClientePage() {
         {client.assignedTo ? memberName(members, client.assignedTo, locale) : t("nadie todavía", "nobody yet")} · {t("última actividad", "last activity")}{" "}
         {relativeDay(client.lastActivityAt, now, locale)} · <ClientLanguageTag client={client} />
       </p>
+      {isDiy(client) && (
+        <p className="mt-1.5 text-[14px] leading-snug text-slate-600" data-testid="client-diy-note">
+          <span className="font-medium text-slate-900">{OPTION_NAME.diy[locale]}:</span>{" "}
+          {t(
+            "el cliente imprime y envía sus propias cartas, preparadas por Alti con los modelos aprobados. El equipo responde sus preguntas y solo envía las cartas que el cliente nos pague por enviar.",
+            "the client prints and mails their own letters, prepared by Alti from the approved templates. The team answers their questions and mails only the letters the client pays us to mail.",
+          )}
+          {openMailRequest(client) &&
+            t(
+              ` Pidió «Envíenlas por mí» para ${count(openMailRequest(client)!.letterCount, "carta", "cartas")}: están en «Listas para enviar».`,
+              ` Asked "Mail them for me" for ${count(openMailRequest(client)!.letterCount, "letter", "letters")}: they're under "Ready to send".`,
+            )}
+        </p>
+      )}
       {client.household && (
         <p className="mt-1.5 text-[14px] text-slate-600" data-testid="client-household">
           <span className="font-medium text-slate-900">{t("Hogar", "Household")}:</span>{" "}

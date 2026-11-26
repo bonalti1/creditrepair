@@ -1,7 +1,9 @@
 # Sales first, then the service
 
-Credalti is full service: the client tells us what is inaccurate on their
-report, and our team prepares and mails the dispute letters for them. Most
+The client tells us what is inaccurate on their report, and chooses how the
+letters go out: **Credalti Complete** (done for you: our team prepares and
+mails them) or **Credalti DIY** (do it yourself, guided by Alti: Alti prepares
+them, the client prints and mails them). `docs/SERVICE-OPTIONS.md`. Most
 clients do not sign up on their own. They see an ad, write on WhatsApp, talk
 with a salesperson, and only then open the app. The product is built around
 that order.
@@ -13,7 +15,7 @@ that order.
 | 1 | Lead | Sees an ad and taps the button, which opens WhatsApp | `/empezar` and the landing page (the button goes to WhatsApp when `NEXT_PUBLIC_WHATSAPP_NUMBER` is set) |
 | 2 | Alti (AI assistant) | Greets the lead once, in the language they wrote in (English unless Spanish), says it is AI, and says a person will write | `LEAD_GREETINGS` in `src/lib/integrations/whatsapp.ts`, sent by `src/app/api/webhooks/whatsapp/route.ts` |
 | 3 | Salesperson | Talks with the lead in WhatsApp: what they want, where they live, how the service works, the plan | WhatsApp, following the rules below |
-| 4 | Salesperson | Fills in a few fields, including **the client's language** (English unless they talked in Spanish), and sends the personal link with a message in that language | `/equipo/invitar` |
+| 4 | Salesperson | Fills in a few fields, including **the client's language** (English unless they talked in Spanish) and, only if the person already chose, **the option** (Credalti Complete or Credalti DIY; by default "they choose in the app"), and sends the personal link with a message in that language | `/equipo/invitar` (the link carries `o=complete` or `o=diy`) |
 | 5 | Client | Opens the link: a welcome screen in their language, with their name, goal and state already filled in | `/onboarding?n=…&g=…&s=…&r=…&lang=…` |
 | 6 | Client | Signs the service agreement, uploads ID and proof of address, activates monitoring, signs in with their phone | `/acuerdo`, `/onboarding` → `/login` |
 | 7 | Client | Reviews each item on their report with Alti and says which ones are inaccurate and why | `/asistente`, `/items` |
@@ -137,14 +139,19 @@ what we do may be described; what the bureaus will do may not be promised.
 
 **What you may say**
 
-1. How we work: the client reviews their report and says what is inaccurate;
-   our team prepares and mails the letters, in rounds of about 40 days.
+1. How we work: the client reviews their report and says what is inaccurate.
+   There are two options and they choose: with Credalti Complete our team
+   prepares and mails the letters, in rounds of about 40 days; with Credalti
+   DIY, Alti prepares them and the client prints and mails them. They can
+   change to Complete anytime.
 2. What the client has to do: sign the agreement, upload ID and proof of
    address, connect monitoring, and review their report.
 3. Monitoring is a separate subscription: the client pays it to the monitoring
    service, not to us.
 4. The plan is explained before signing, as it is written in the agreement.
-   Nothing is charged before the service it pays for has been performed.
+   With Complete, nothing is charged before the service it pays for has been
+   performed. With DIY it is a monthly subscription from the start, after the
+   3 business days.
 5. After signing, the client has 3 business days to cancel at no cost.
 
 **What you may not say or do**
@@ -155,7 +162,9 @@ what we do may be described; what the bureaus will do may not be promised.
    client, and do not say we dispute everything negative.
 3. Prices or discounts that are not in the plan.
 4. Pressure: no "today only", no "last spots". The client decides in their
-   own time.
+   own time, between Complete and DIY too: explain the difference if they ask,
+   never push either. Complete is usually faster for someone buying a home
+   soon; you may say so once.
 5. Payment by phone. Everything in writing on WhatsApp: do not close a sale or
    take a payment on a call.
 
@@ -164,16 +173,18 @@ conversation, the invitation message, every WhatsApp template and Alti's
 replies are checked against the claim rules in
 `src/lib/compliance/guardrails.ts` before they are sent.
 
-## Service mode
+## Service options
 
-`NEXT_PUBLIC_SERVICE_MODE` (`src/lib/service/mode.ts`) says how the service is
-delivered. Leave it unset for full service, which is the business today.
-`self_serve` brings back the earlier version, where the client approves and
-sends their own letters; it is kept for later. The mode changes the client
-app's wording, whether the approve button exists, the WhatsApp templates,
-Alti's instructions and one claim rule: saying "we dispute" is allowed under
-full service and banned under self-serve. Promising an outcome is banned in
-both.
+How the service is delivered is chosen **per client**: Credalti Complete or
+Credalti DIY (`docs/SERVICE-OPTIONS.md`). The old switch
+`NEXT_PUBLIC_SERVICE_MODE` is retired. The client's option changes the app's
+wording, the letters page (print, "I mailed them", "Mail them for me" for
+DIY), the WhatsApp templates, Alti's instructions and one claim rule: saying
+"we dispute" is allowed for Complete and banned for DIY. Promising an outcome
+is banned in both. A DIY client whose letters wait 14 days unmailed creates a
+gentle follow-up for their salesperson ("DIY follow-up" in the console): one
+WhatsApp asking whether they need help printing or mailing, and Complete
+mentioned without pressure.
 
 ## Open questions for the attorney
 

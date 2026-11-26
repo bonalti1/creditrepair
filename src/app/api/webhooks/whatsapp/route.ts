@@ -6,6 +6,7 @@ import { BRAND } from "@/lib/brand";
 import { replyLanguage } from "@/lib/coach/language";
 import { coachSystemPrompt, replyLanguageLine } from "@/lib/coach/systemPrompt";
 import { checkClaimGuardrails } from "@/lib/compliance/guardrails";
+import { clientOption } from "@/lib/service/server";
 import { loadWhatsAppThread, storeMessage, toE164, toModelMessages } from "@/lib/chat/history";
 import { CLIENT_FALLBACK_REPLIES, LEAD_GREETINGS, sendWhatsAppText } from "@/lib/integrations/whatsapp";
 import { reportError } from "@/lib/observability/errors";
@@ -290,7 +291,7 @@ export async function POST(req: Request) {
           model: "claude-sonnet-5",
           max_tokens: 600,
           system:
-            coachSystemPrompt(undefined, savedLocale === "es" ? "es" : "en") +
+            coachSystemPrompt(db && userId ? await clientOption(db, userId) : undefined, savedLocale === "es" ? "es" : "en") +
             `\n\n${replyLanguageLine(language)}` +
             "\n\nContexto: estás respondiendo por WhatsApp. Sé breve (máximo ~4 oraciones) y cálido." +
             (isLead

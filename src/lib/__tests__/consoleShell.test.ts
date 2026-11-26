@@ -83,7 +83,9 @@ describe("Ask Alti", () => {
     // The live funnel's report reader (reviews.video): administrators and specialists, never sales.
     expect(altiJobs("leads", as("specialist")).map((j) => j.id)).toEqual(["live_review"]);
     expect(altiJobs("leads", as("sales")).map((j) => j.id)).toEqual(["lead_suggest", "lead_autopilot"]);
-    expect(altiJobs("clients", as("sales"))).toEqual([]);
+    // Sales sees the Credalti DIY guide: the gentle 14-day follow-up is theirs (options.followup).
+    expect(altiJobs("clients", as("sales")).map((j) => j.id)).toEqual(["diy_guide"]);
+    expect(altiJobs("clients", as("admin")).map((j) => j.id)).toContain("diy_guide");
     // The AI's first look at IDs and proofs of address hands off to a person's review (documents.review: not sales).
     expect(altiJobs("clients", as("specialist")).map((j) => j.id)).toEqual(["client_draft", "saved_answers", "document_check"]);
     expect(altiJobs("content", as("sales"))).toEqual([]);

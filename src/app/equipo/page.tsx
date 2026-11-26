@@ -19,6 +19,8 @@ import {
   RESPONSE_WINDOW_DAYS,
   roundItemCount,
   sendableRound,
+  isDiy,
+  clientOption,
   PIPELINE_STAGES,
   STAGE_ORDER,
   STAGE_TEXT,
@@ -37,6 +39,8 @@ import { clientLanguage } from "@/lib/staff/i18n/locale";
 import { useSavedAnswers } from "@/lib/staff/useSavedAnswers";
 import Icon from "@/components/Icon";
 import NewLeadsCard from "@/components/staff/NewLeadsCard";
+import OptionBadge from "@/components/staff/OptionBadge";
+import { SERVICE_OPTIONS, type ServiceOption } from "@/lib/service/options";
 import { HomeCalls } from "@/components/staff/CallsQueue";
 import {
   PRIMARY_BUTTON,
@@ -104,11 +108,13 @@ export default function EquipoHome() {
     const sendable: Array<{ client: StaffClient; round: StaffRound }> = [];
     const quiet: StaffClient[] = [];
     const byStage = Object.fromEntries(STAGE_ORDER.map((s) => [s, 0])) as Record<Stage, number>;
+    const byOption: Record<ServiceOption, number> = { full_service: 0, diy: 0 };
     const withItems = new Set(queue.map((item) => item.client.id));
 
     for (const client of clients) {
       const stage = clientStage(client, now);
       byStage[stage] += 1;
+      if (stage !== "cancelled" && stage !== "lead") byOption[clientOption(client)] += 1;
       const round = sends ? sendableRound(client, now, { furnishers }) : null;
       if (round) sendable.push({ client, round });
       // A client who cancelled is not moving along on their own: they are out.
@@ -123,7 +129,7 @@ export default function EquipoHome() {
     const sentToday = sentBetween(clients, new Date(now.getTime() - 24 * 60 * 60 * 1000), now);
     // "Resuelto solo": what the system settled by itself in the last 7 days (autopilot/resolutions.ts).
     const resolved = resolvedBetween(clients, new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), now);
-    return { queue, sendable, quiet, byStage, working, sentToday, resolved };
+    return { queue, sendable, quiet, byStage, byOption, working, sentToday, resolved };
   }, [clients, now, viewer, sends, furnishers, gaps, env, locale]);
 
   useEffect(() => {
@@ -365,13 +371,21 @@ export default function EquipoHome() {
                           />
                         </label>
                         <label htmlFor={`send-${client.id}`} className="min-w-0 flex-1 cursor-pointer">
-                          <span className="block truncate text-[15px] font-medium text-slate-900">{fullName(client)}</span>
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className="block truncate text-[15px] font-medium text-slate-900">{fullName(client)}</span>
+                            {isDiy(client) && <OptionBadge option="diy" />}
+                          </span>
                           <span className="block text-[13px] text-slate-500">
                             {t(
                               `Ronda ${round.number} · ${count(round.letters.length, "carta", "cartas")} · ${count(roundItemCount(round), "punto", "puntos")}`,
                               `Round ${round.number} · ${count(round.letters.length, "letter", "letters")} · ${count(roundItemCount(round), "item", "items")}`,
                             )}
                           </span>
+                          {round.mailRequest && (
+                            <span className="block text-[13px] text-slate-500" data-testid="diy-mail-request-note">
+                              {t("Pidió «Envíenlas por mí»: solo por el servicio de correo", "Asked \"Mail them for me\": by the mail service only")}
+                            </span>
+                          )}
                           {/* Not a reason to hold the letters: the charge comes after, and the client is asked then. */}
                           {!client.billing.paymentMethod && (
                             <span className="block text-[13px] text-slate-500" data-testid="no-method-note">
@@ -451,6 +465,7 @@ export default function EquipoHome() {
                         </Link>
                       )}
                       {/* The other way to get them out: print here, mail by hand. */}
+                      {/* A DIY client's "Mail them for me" letters go only by the mail service: the print view leaves them out, and says why. */}
                       {chosen.length > 0 && (
                         <Link
                           href={roundRefsHref(chosen.map((s) => ({ clientId: s.client.id, roundNumber: s.round.number })))}
@@ -610,7 +625,16 @@ export default function EquipoHome() {
         >
           <span id="etapas">{t("Clientes por etapa", "Clients by stage")}</span>
         </SectionTitle>
-        <div className="card grid grid-cols-2 overflow-hidden sm:grid-cols-4 lg:grid-cols-11">
+        {/* The two service options (docs/SERVICE-OPTIONS.md): how many clients are on each. */}
+        <p className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-[13px] text-slate-600" data-testid="clients-by-option">
+          {SERVICE_OPTIONS.map((option) => (
+            <Link key={option} href={`/equipo/clientes?opcion=${option === "diy" ? "diy" : "complete"}`} className="inline-flex min-h-11 items-center gap-1.5 underline-offset-2 hover:underline md:min-h-0">
+              <OptionBadge option={option} />
+              <span className="tabular-nums">{t(count(view.byOption[option], "cliente", "clientes"), count(view.byOption[option], "client", "clients"))}</span>
+            </Link>
+          ))}
+        </p>
+        <div className="card grid grid-cols-2 overflow-hidden sm:grid-cols-4 lg:grid-cols-12">
           {PIPELINE_STAGES.map((stage) => {
             const n = view.byStage[stage];
             return (

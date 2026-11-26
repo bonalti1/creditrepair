@@ -89,6 +89,7 @@ describe("signup chat: the five steps and the saved progress", () => {
     next({ signedIn: true });
     next({ identity: "later" });
     next({ reportSeen: true });
+    next({ option: "full_service" });
     next({ planSeen: true });
     next({ stage: "done" });
     return steps;
@@ -104,9 +105,10 @@ describe("signup chat: the five steps and the saved progress", () => {
 
   it("ask one thing at a time, in order, and the bar follows", () => {
     const questions = walk().map(currentQuestion);
-    expect(questions).toEqual(["choose", "firstName", "goal", "state", "lastName", "idType", "email", "phone", "identity", "report", "plan", "agreement", "done"]);
+    // The option (Credalti Complete or Credalti DIY) is chosen after the report and before the plan.
+    expect(questions).toEqual(["choose", "firstName", "goal", "state", "lastName", "idType", "email", "phone", "identity", "report", "option", "plan", "agreement", "done"]);
     const stages = questions.map(stageOf);
-    expect(stages).toEqual(["start", "start", "start", "start", "info", "info", "info", "info", "identity", "report", "signup", "signup", "done"]);
+    expect(stages).toEqual(["start", "start", "start", "start", "info", "info", "info", "info", "identity", "report", "signup", "signup", "signup", "done"]);
     // Never backwards.
     for (let i = 1; i < stages.length; i += 1) expect(stageRank(stages[i]!)).toBeGreaterThanOrEqual(stageRank(stages[i - 1]!));
   });

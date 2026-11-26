@@ -83,6 +83,9 @@ const BODY_ES: Record<ExceptionKind, Body> = {
   // The client's own address, which the post office could not confirm: they confirm or correct it in the app.
   client_address_unconfirmed: () =>
     "Antes de enviar tus cartas revisamos tu dirección con los datos del correo y no la pudimos confirmar. ¿Me ayudas a revisarla? En la app, en «Confirmar dirección», la confirmas o la corriges con un toque.",
+  // Credalti DIY: a gentle question, never pressure. Complete is mentioned only as something that exists.
+  diy_followup: () =>
+    `Vimos que tus cartas están listas desde hace unos días. ¿Necesitas ayuda para imprimirlas o enviarlas? Si prefieres que nuestro equipo se encargue, existe Credalti Complete; solo si tú quieres.`,
 };
 
 const BODY_EN: Record<ExceptionKind, Body> = {
@@ -129,6 +132,8 @@ const BODY_EN: Record<ExceptionKind, Body> = {
     "Thanks for uploading the bureau's letter. We're reviewing it: they're asking for something more, and we'll write to you so we can see together what's needed.",
   client_address_unconfirmed: () =>
     'Before mailing your letters we check your address against the post office\'s records, and we couldn\'t confirm it. Could you help me check it? In the app, under "Confirm address", you can confirm or correct it with one tap.',
+  diy_followup: () =>
+    "We saw your letters have been ready for a few days. Do you need help printing or mailing them? If you'd rather our team handled it, there's Credalti Complete; only if you want to.",
 };
 
 function roundOf(client: StaffClient, exception: StaffException) {

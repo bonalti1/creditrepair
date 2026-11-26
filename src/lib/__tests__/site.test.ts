@@ -102,7 +102,9 @@ describe("website copy: claim rules, in English and Spanish", () => {
         expect(line, line).not.toMatch(/money.back|refund guarantee|devoluci[oó]n de (tu|su) dinero|reembolso garantizado/i);
         // The visitor never approves or sends letters: the team mails them.
         expect(line, line).not.toMatch(/you approve|you send|t[uú] apruebas|t[uú] env[ií]as/i);
-        expect(line, line).not.toMatch(/\bDIY\b|do.it.yourself|hazlo t[uú] mismo|Spanish-first|español primero/i);
+        // The second option is named ${BRAND.name} DIY ("Do it yourself, guided by Alti", docs/SERVICE-OPTIONS.md),
+        // so "DIY" may appear; the old "hazlo tú mismo" wording and "Spanish-first" never do.
+        expect(line, line).not.toMatch(/hazlo t[uú] mismo|Spanish-first|español primero/i);
       }
       // No amount anywhere in the copy, except the example item's invented balance.
       for (const line of siteStrings(locale, { withSample: false })) {
@@ -252,11 +254,13 @@ describe("pricing: only attorney-approved, offered plans", () => {
     for (const locale of LOCALES) {
       const shown = publicPlansFrom(plans, locale);
       expect(shown.map((p) => p.id)).not.toContain("demo-plan-per-delete");
-      expect(shown.length).toBe(3);
+      // Three Credalti Complete plans and the Credalti DIY one.
+      expect(shown.length).toBe(4);
+      expect(shown.filter((p) => p.option === "diy").map((p) => p.id)).toEqual(["demo-plan-diy"]);
       for (const p of shown) {
-        expect(p.most).toMatch(locale === "en" ? /^Most you'll pay: \$/ : /^Lo máximo que pagará: \$/);
+        expect(p.most).toMatch(locale === "en" ? /^Most you'll pay( for the subscription)?: \$/ : /^Lo máximo que pagará( por la suscripción)?: \$/);
         expect(p.terms.length).toBeGreaterThan(0);
-        for (const line of p.terms) expect(checkClaimGuardrails(line, "full_service"), line).toEqual([]);
+        for (const line of p.terms) expect(checkClaimGuardrails(line, p.option), line).toEqual([]);
       }
     }
   });

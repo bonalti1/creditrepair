@@ -14,6 +14,8 @@ import { readJsonBody } from "@/lib/security/body";
 import { rateLimit } from "@/lib/security/rateLimit";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/supabase/server";
+import { clientOption } from "@/lib/service/server";
+import { parseServiceOption, type ServiceOption } from "@/lib/service/options";
 
 // AI Credit Coach (spec §4.3). Answers in the language the client writes in,
 // else in the app's language (`locale`, English by default; coach/language.ts).
@@ -37,6 +39,8 @@ const bodySchema = z.object({
     .max(40),
   /** The language the client is using the app in (the fallback when a message does not say). */
   locale: z.enum(["es", "en"]).optional(),
+  /** The demo only (no account): the option this device chose. A signed-in client's option is read on the server. */
+  option: z.enum(["full_service", "diy"]).optional(),
 });
 
 
@@ -79,6 +83,10 @@ export async function POST(req: Request) {
   if (!apiKey) return NextResponse.json({ reply: null, configured: false });
 
   const user = await getSessionUser().catch(() => null);
+  // The client's own option decides how Alti describes the service (Credalti Complete or Credalti DIY).
+  // Signed in: read on the server. The demo: what this device chose.
+  const admin = user ? getAdminClient() : null;
+  const mode: ServiceOption = admin && user ? await clientOption(admin, user.id) : (parseServiceOption(parsed.data.option) ?? "full_service");
 
   let reply: string;
   try {
@@ -86,7 +94,7 @@ export async function POST(req: Request) {
     const response = await client.messages.create({
       model: "claude-sonnet-5",
       max_tokens: 1024,
-      system: `${coachSystemPrompt(undefined, parsed.data.locale ?? "en")}\n\n${replyLanguageLine(language)}`,
+      system: `${coachSystemPrompt(mode, parsed.data.locale ?? "en")}\n\n${replyLanguageLine(language)}`,
       messages,
     });
     reply = response.content
@@ -99,7 +107,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Coach temporarily unavailable" }, { status: 502 });
   }
 
-  const violations = checkClaimGuardrails(reply);
+  const violations = checkClaimGuardrails(reply, mode);
   // Never a full Social Security number or ITIN in a reply (src/lib/aftercare/itin.ts).
   if (violations.length > 0 || !reply || containsTaxpayerNumber(reply)) {
     console.warn("Coach guardrail violation, replacing reply:", violations.map((v) => v.rule));

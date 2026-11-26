@@ -49,6 +49,21 @@ export function billingContextFor(client: StaffClient, agreement: AgreementRecor
     rounds: billableRounds(client),
     account: client.billing,
     ...(client.agreementPlan ? { plan: client.agreementPlan } : {}),
+    // Credalti DIY: the mailings the client asked for (migration 0042); charged after we mail them.
+    ...(client.agreementPlan?.terms.type === "diy_subscription"
+      ? {
+          mailings: (client.mailRequests ?? []).map((m) => ({
+            id: m.id,
+            roundNumber: m.roundNumber,
+            letterCount: m.letterCount,
+            feeCents: m.letterCount > 0 ? Math.round(m.totalCents / m.letterCount) : 0,
+            totalCents: m.totalCents,
+            status: m.status,
+            requestedAt: m.acceptedAt,
+            mailedAt: m.mailedAt,
+          })),
+        }
+      : {}),
   };
 }
 

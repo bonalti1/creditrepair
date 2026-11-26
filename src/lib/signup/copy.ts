@@ -4,6 +4,7 @@ import { GOALS } from "../sales/invite";
 import { stateLaw } from "../compliance/states";
 import { reportSummaryLines } from "./reportSummary";
 import { STEP_LABELS, type SignupProgress } from "./steps";
+import { OPTION_NAME } from "../service/options";
 
 // Every word of the chat signup with Alti (/registro), English first, with
 // Spanish (docs/SIGNUP-CHAT.md). Alti is the AI assistant: his first message
@@ -86,6 +87,11 @@ export const SIGNUP_COPY = {
       reportAfterSigning: "You turn it on right after you sign. That way you read your rights and the contract before you buy anything.",
       reportSoftPull: "I can get your report now with a soft inquiry. A soft inquiry does not affect your credit.",
       signupIntro: "Last step. Here's how the plan works.",
+      optionIntro: "There are two ways to work with us, and you choose. Both start with your review: you decide what is inaccurate. Here they are side by side.",
+      optionNoRush: "Take your time. I can explain the difference; the choice is yours, and you can change later.",
+      optionChosen: (name: string) => `You chose ${name}. You can change it before you sign, or later.`,
+      optionAsk: "What is the difference between Credalti Complete and Credalti DIY?",
+      optionAskButton: "Ask Alti about the difference",
       planRule: "Nothing is charged before the work it pays for. Your plan is written in the agreement, so you read it before you sign.",
       disclosuresIntro: "Before the contract, the law asks that you read your rights, as their own document. Take your time.",
       questionPrompt: "Of course. What would you like to ask? I'll answer here, then we go back to the same spot.",
@@ -202,6 +208,11 @@ export const SIGNUP_COPY = {
       reportAfterSigning: "Lo activas justo después de firmar. Así lees tus derechos y el contrato antes de comprar nada.",
       reportSoftPull: "Puedo obtener tu reporte ahora con una consulta suave. Una consulta suave no afecta tu crédito.",
       signupIntro: "Último paso. Así funciona el plan.",
+      optionIntro: "Hay dos formas de trabajar con nosotros, y tú eliges. Las dos empiezan con tu revisión: tú decides qué es inexacto. Aquí las ves lado a lado.",
+      optionNoRush: "Tómate tu tiempo. Te explico la diferencia; la decisión es tuya, y puedes cambiar después.",
+      optionChosen: (name: string) => `Elegiste ${name}. Puedes cambiarla antes de firmar, o después.`,
+      optionAsk: "¿Qué diferencia hay entre Credalti Complete y Credalti DIY?",
+      optionAskButton: "Preguntarle a Alti la diferencia",
       planRule: "Nada se cobra antes del trabajo que paga. Tu plan está escrito en el acuerdo, así lo lees antes de firmar.",
       disclosuresIntro: "Antes del contrato, la ley pide que leas tus derechos, como un documento aparte. Tómate tu tiempo.",
       questionPrompt: "Claro. ¿Qué quieres preguntar? Te respondo aquí y luego volvemos al mismo lugar.",
@@ -317,6 +328,11 @@ export function transcript(p: SignupProgress, locale: L, extra: { demo: boolean;
   alti("identity-after", p.identity === "done" ? c.alti.identityDone : c.alti.identityLater);
   if (!p.reportSeen) return out;
   out.push(...reportLines(p, locale, extra.monitoring));
+  alti("option", c.alti.optionIntro);
+  alti("option-calm", c.alti.optionNoRush);
+  if (!p.option) return out;
+  you("a-option", OPTION_NAME[p.option][locale]);
+  alti("option-chosen", c.alti.optionChosen(OPTION_NAME[p.option][locale]));
   alti("signup", c.alti.signupIntro);
   if (!p.planSeen) return out;
   alti("disclosures", c.alti.disclosuresIntro);

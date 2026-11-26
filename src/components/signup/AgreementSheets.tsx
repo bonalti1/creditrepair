@@ -10,7 +10,7 @@ import { deadlineMoment, longDate } from "@/lib/agreement/format";
 import { agreementPhase, deadlineOf } from "@/lib/agreement/gate";
 import { agreementReadiness } from "@/lib/agreement/readiness";
 import { isFullName, signerNameMatches } from "@/lib/agreement/signature";
-import { resolveTerms, withPlan } from "@/lib/agreement/terms";
+import { resolveTerms, withOption, withPlan } from "@/lib/agreement/terms";
 import { mostYoullPay, planSummary } from "@/lib/billing/plans";
 import { stateLaw } from "@/lib/compliance/states";
 import { SIGNUP_COPY } from "@/lib/signup/copy";
@@ -169,8 +169,9 @@ export default function AgreementFlow({
 }) {
   const c = SIGNUP_COPY[locale];
   const es = locale === "es";
-  const { agreement, hydrated, signedIn, profileName, mode, plan, stateDocuments, acknowledge, sign } = useAgreement();
-  const terms = useMemo(() => withPlan(resolveTerms(), plan), [plan]);
+  const { agreement, hydrated, signedIn, profileName, mode, plan, stateDocuments, acknowledge, sign, option } = useAgreement();
+  // The agreement of the option the person chose in the chat (Credalti Complete or Credalti DIY).
+  const terms = useMemo(() => withOption(withPlan(resolveTerms(), plan), option), [plan, option]);
   const readiness = useMemo(() => agreementReadiness({ terms, state: stateDocuments.state }), [terms, stateDocuments.state]);
   const positions = useRef<Record<string, number>>({});
   const [consent, setConsent] = useState(false);

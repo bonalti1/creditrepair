@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { sha256Hex } from "../agreement/sha256";
 import { discounted, formatCents } from "./money";
+import type { ServiceOption } from "../service/options";
 import type { Bilingual, L } from "./types";
 
 // The plan catalogue: what a client can be charged, in Credit Repair Cloud's
@@ -19,6 +20,24 @@ import type { Bilingual, L } from "./types";
 //   Pay per delete          a fee for each item the client disputed through us
 //                           that a LATER report no longer shows. Off until an
 //                           administrator records the attorney's approval.
+//
+// Those four are the "Done for you" (full service) plans. The fifth type is
+// the other service option (docs/SERVICE-OPTIONS.md, migration 0042):
+//
+//   DIY subscription        "Do it yourself, guided": a monthly subscription
+//                           to the software, charged at the start of each
+//                           30-day period from the end of the 3-business-day
+//                           cancellation window (the owner reports the
+//                           attorney approved this, 2026-11-25: the client
+//                           performs the disputes with the software), plus an
+//                           optional fee per letter Credalti mails for them,
+//                           shown before they confirm and charged after it is
+//                           mailed. planOption() says which option a plan is for.
+//
+// A monthly subscription (full service) charges a period either right after
+// the round mailed in it ("on_mailing", the default for new plans: the
+// owner's decision of 2026-11-25) or when the period ends ("period_end", how
+// every plan made before that decision reads).
 //
 // "First work fee", as CRC calls it, is allowed with its timing redefined:
 // charged once, only after the client's FIRST round is mailed. Never at
@@ -47,8 +66,46 @@ import type { Bilingual, L } from "./types";
 /** Any change to the wording generated below needs a new version. */
 export const PLAN_TEXT_VERSION = "2026-11-22-draft.1";
 
-export const PLAN_TYPES = ["subscription", "per_round", "flat_fee", "pay_per_delete"] as const;
+export const PLAN_TYPES = ["subscription", "per_round", "flat_fee", "pay_per_delete", "diy_subscription"] as const;
 export type PlanType = (typeof PLAN_TYPES)[number];
+
+/** The plan types of each service option. */
+export const PLAN_TYPES_FOR: Record<ServiceOption, readonly PlanType[]> = {
+  full_service: ["subscription", "per_round", "flat_fee", "pay_per_delete"],
+  diy: ["diy_subscription"],
+};
+
+/** Which service option a plan is for (billing_plans.service_option in the database). */
+export function planOption(terms: Pick<PlanTerms, "type">): ServiceOption {
+  return terms.type === "diy_subscription" ? "diy" : "full_service";
+}
+
+/** When a full-service monthly subscription charges a period (the owner's decision, 2026-11-25). */
+export type PeriodTiming = "on_mailing" | "period_end";
+
+/** A subscription plan without the field reads as it was written: charged when the period ends. */
+export function periodTiming(t: Pick<PlanTerms, "type" | "periodTiming">): PeriodTiming {
+  return t.type === "subscription" && t.periodTiming === "on_mailing" ? "on_mailing" : "period_end";
+}
+
+export const PERIOD_TIMING_OPTIONS: Array<{ key: PeriodTiming; label: Bilingual; help: Bilingual }> = [
+  {
+    key: "on_mailing",
+    label: { en: "Charge when the period's round is mailed", es: "Cobrar cuando se envía la ronda del periodo" },
+    help: {
+      en: "The month is charged right after that month's letters are mailed. No round in a period, no charge.",
+      es: "El mes se cobra justo después de enviar las cartas de ese mes. Sin ronda en un periodo, no hay cobro.",
+    },
+  },
+  {
+    key: "period_end",
+    label: { en: "Charge when the period ends", es: "Cobrar al cerrar el periodo" },
+    help: {
+      en: "The month is charged when the 30-day period with a round mailed in it ends.",
+      es: "El mes se cobra cuando termina el periodo de 30 días en que se envió una ronda.",
+    },
+  },
+];
 
 /** CRC's names, in both languages. */
 export const PLAN_TYPE_LABEL: Record<PlanType, Bilingual> = {
@@ -56,13 +113,14 @@ export const PLAN_TYPE_LABEL: Record<PlanType, Bilingual> = {
   per_round: { en: "Per round", es: "Por ronda" },
   flat_fee: { en: "Flat fee", es: "Tarifa fija" },
   pay_per_delete: { en: "Pay per delete", es: "Pago por eliminación" },
+  diy_subscription: { en: "DIY subscription (monthly)", es: "Suscripción hazlo tú (mensual)" },
 };
 
 /** What each type charges for, in one line, for the plan editor. */
 export const PLAN_TYPE_HELP: Record<PlanType, Bilingual> = {
   subscription: {
-    en: "A monthly fee for each 30-day period in which a round was mailed, charged when the period ends. No work that month, no charge.",
-    es: "Una cuota mensual por cada periodo de 30 días en que se envió una ronda, cobrada al cerrar el periodo. Sin trabajo ese mes, no hay cobro.",
+    en: "A monthly fee for each 30-day period in which a round was mailed, charged right after that round is mailed (or when the period ends). No work that month, no charge.",
+    es: "Una cuota mensual por cada periodo de 30 días en que se envió una ronda, cobrada justo después de enviar esa ronda (o al cerrar el periodo). Sin trabajo ese mes, no hay cobro.",
   },
   per_round: {
     en: "A fee for each round of letters, charged after the round is mailed.",
@@ -76,9 +134,14 @@ export const PLAN_TYPE_HELP: Record<PlanType, Bilingual> = {
     en: "A fee for each item the client disputed through us that a later report no longer shows. Needs the attorney's approval first.",
     es: "Una cuota por cada punto que el cliente disputó con nosotros y que un reporte posterior ya no muestra. Necesita primero la aprobación del abogado.",
   },
+  diy_subscription: {
+    en: "Do it yourself, guided: a monthly subscription to the software, charged at the start of each 30-day period after the 3-business-day cancellation window, plus an optional fee per letter we mail for the client.",
+    es: "Hazlo tú, con guía: una suscripción mensual al software, cobrada al inicio de cada periodo de 30 días después de los 3 días hábiles para cancelar, más una cuota opcional por cada carta que enviamos por el cliente.",
+  },
 };
 
-export type DueRule = { kind: "after_first_round" } | { kind: "days_after_first_round"; days: number };
+/** Full service: after the first round (or N days after it). A DIY subscription only: after the cancellation window. */
+export type DueRule = { kind: "after_first_round" } | { kind: "days_after_first_round"; days: number } | { kind: "after_cancellation_window" };
 
 export type DueRuleKey = "after_first_round" | "days_after_first_round" | "days_after_plan_saved" | "when_letters_saved";
 
@@ -138,6 +201,10 @@ export interface PlanTerms {
   householdDiscountPercent: number;
   /** Pay per delete only: also charge for an item a later report shows as updated. Off by default. */
   countsUpdated: boolean;
+  /** Subscription only: when a period is charged. Absent: "period_end" (plans made before 2026-11-25). */
+  periodTiming?: PeriodTiming;
+  /** DIY subscription only: the fee per letter Credalti mails when the client asks. 0 or absent: mailing is not offered. */
+  mailFeeCents?: number;
 }
 
 export const LIMITS = {
@@ -148,6 +215,7 @@ export const LIMITS = {
   maxDueDays: 30,
   maxMonths: 36,
   maxRounds: 24,
+  maxMailFeeCents: 2500,
 } as const;
 
 /** Words that name a fee before the work. The field is refused, with the reason, not ignored. */
@@ -181,6 +249,7 @@ export const planTermsSchema = z
     dueRule: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("after_first_round") }).strict(),
       z.object({ kind: z.literal("days_after_first_round"), days: z.number().int().min(1).max(LIMITS.maxDueDays) }).strict(),
+      z.object({ kind: z.literal("after_cancellation_window") }).strict(),
     ]),
     duration: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("indefinite") }).strict(),
@@ -190,6 +259,8 @@ export const planTermsSchema = z
     maxTotalCents: z.number().int().min(1).max(LIMITS.maxTotalCents).nullable(),
     householdDiscountPercent: z.number().int().min(0).max(LIMITS.maxHouseholdDiscountPercent),
     countsUpdated: z.boolean(),
+    periodTiming: z.enum(["on_mailing", "period_end"]).optional(),
+    mailFeeCents: cents(LIMITS.maxMailFeeCents).optional(),
   })
   .strict();
 
@@ -204,7 +275,10 @@ export type PlanProblemCode =
   | "duration_not_allowed"
   | "cap_required"
   | "first_work_not_allowed"
-  | "updated_only_pay_per_delete";
+  | "updated_only_pay_per_delete"
+  | "due_rule_not_for_type"
+  | "timing_only_subscription"
+  | "mail_fee_only_diy";
 
 export interface PlanProblem {
   code: PlanProblemCode;
@@ -220,6 +294,7 @@ export const DURATIONS_FOR: Record<PlanType, Array<Duration["kind"]>> = {
   per_round: ["indefinite", "rounds"],
   flat_fee: ["rounds"],
   pay_per_delete: ["indefinite"],
+  diy_subscription: ["indefinite", "months"],
 };
 
 /**
@@ -277,6 +352,38 @@ export function validatePlanTerms(raw: unknown): PlanProblem[] {
       ),
     );
   }
+  if (t.type === "diy_subscription") {
+    if (t.dueRule.kind !== "after_cancellation_window") {
+      problems.push(problem("due_rule_not_for_type", "dueRule", "A DIY subscription is due after the cancellation window.", "Una suscripción hazlo tú se cobra después del periodo de cancelación."));
+    }
+    if (t.firstWorkFeeCents > 0) {
+      problems.push(problem("first_work_not_allowed", "firstWorkFeeCents", "A DIY subscription has no first work fee.", "Una suscripción hazlo tú no tiene cuota de primer trabajo."));
+    }
+  } else {
+    if (t.dueRule.kind === "after_cancellation_window") {
+      problems.push(
+        problem(
+          "due_rule_not_for_type",
+          "dueRule",
+          "Only a DIY subscription is charged from the start. A full-service plan is charged after the first round is mailed.",
+          "Solo una suscripción hazlo tú se cobra desde el inicio. Un plan de servicio completo se cobra después de enviar la primera ronda.",
+        ),
+      );
+    }
+    if (t.mailFeeCents !== undefined) {
+      problems.push(
+        problem(
+          "mail_fee_only_diy",
+          "mailFeeCents",
+          "Only a DIY plan has a mailing fee: full service mails every letter as part of the work.",
+          "Solo un plan hazlo tú tiene cuota de envío: el servicio completo envía cada carta como parte del trabajo.",
+        ),
+      );
+    }
+  }
+  if (t.periodTiming !== undefined && t.type !== "subscription") {
+    problems.push(problem("timing_only_subscription", "periodTiming", "Only a monthly subscription has a period timing.", "Solo una suscripción mensual tiene momento de cobro del periodo."));
+  }
   if (t.countsUpdated && t.type !== "pay_per_delete") {
     problems.push(problem("updated_only_pay_per_delete", "countsUpdated", "Only pay per delete counts updated items.", "Solo el pago por eliminación cuenta puntos actualizados."));
   }
@@ -301,7 +408,7 @@ export function parsePlanTerms(raw: unknown): PlanTerms | null {
 /** What the plan itself implies the client could pay at most, before an explicit cap. Null when unbounded. */
 export function impliedMaxCents(t: PlanTerms): number | null {
   if (t.type === "flat_fee" && t.flat) return t.firstWorkFeeCents + t.flat.totalCents;
-  if (t.type === "subscription" && t.duration.kind === "months") return t.firstWorkFeeCents + t.duration.count * t.recurringCents;
+  if ((t.type === "subscription" || t.type === "diy_subscription") && t.duration.kind === "months") return t.firstWorkFeeCents + t.duration.count * t.recurringCents;
   if (t.type === "per_round" && t.duration.kind === "rounds") return t.firstWorkFeeCents + t.duration.count * t.recurringCents;
   return null;
 }
@@ -382,6 +489,8 @@ export interface EffectiveAmounts {
   recurringCents: number;
   flatTotalCents: number;
   maxTotalCents: number;
+  /** DIY only: the fee per letter mailed for the client (no household discount). Absent on full-service plans. */
+  mailFeeCents?: number;
 }
 
 export function effectiveAmounts(terms: PlanTerms, householdDiscountPercent: number): EffectiveAmounts {
@@ -391,6 +500,7 @@ export function effectiveAmounts(terms: PlanTerms, householdDiscountPercent: num
     recurringCents: discounted(terms.recurringCents, pct),
     flatTotalCents: discounted(terms.flat?.totalCents ?? 0, pct),
     maxTotalCents: discounted(planMaxTotalCents(terms) ?? 0, pct),
+    ...(terms.type === "diy_subscription" ? { mailFeeCents: terms.mailFeeCents ?? 0 } : {}),
   };
 }
 
@@ -403,6 +513,8 @@ export interface PlanSnapshot {
   textVersion: string;
   termsHash: string;
   terms: PlanTerms;
+  /** The service option the plan is for (migration 0042). Absent on snapshots taken before: full service. */
+  option?: ServiceOption;
   /** True when an attorney's approval of this version was on record when the snapshot was taken. */
   attorneyApproved: boolean;
   /** The household discount that applies to this client (0 when they are not linked or the plan has none). */
@@ -421,6 +533,7 @@ export function snapshotPlan(plan: PlanVersion, options: { household?: boolean }
     termsHash: plan.termsHash,
     // A copy: the snapshot is a record, never a view of the catalogue.
     terms: JSON.parse(JSON.stringify(plan.terms)) as PlanTerms,
+    option: planOption(plan.terms),
     attorneyApproved: plan.attorney !== null,
     householdDiscountPercent: pct,
     effective: effectiveAmounts(plan.terms, pct),
@@ -443,6 +556,11 @@ export function readPlanSnapshot(raw: unknown): PlanSnapshot | null {
 const money = (n: number) => formatCents(n);
 
 function dueLine(t: PlanTerms, locale: L): string {
+  if (t.dueRule.kind === "after_cancellation_window") {
+    return locale === "es"
+      ? "El primer cobro se hace cuando termina su periodo de cancelación de 3 días hábiles, nunca antes."
+      : "The first charge is made when your 3-business-day cancellation period ends, never before.";
+  }
   if (t.dueRule.kind === "days_after_first_round") {
     const d = t.dueRule.days;
     return locale === "es"
@@ -473,10 +591,15 @@ export function paymentTermsLines(t: PlanTerms, e: EffectiveAmounts, locale: L):
   switch (t.type) {
     case "subscription": {
       const months = t.duration.kind === "months" ? t.duration.count : null;
+      const onMailing = periodTiming(t) === "on_mailing";
       lines.push(
-        es
-          ? `Suscripción mensual: ${money(e.recurringCents)} por cada periodo de 30 días en que enviamos al menos una ronda de sus cartas. Se cobra al terminar ese periodo. Si en un periodo no enviamos ninguna carta, no se cobra nada por ese periodo.`
-          : `Monthly subscription: ${money(e.recurringCents)} for each 30-day period in which we mail at least one round of your letters. It is charged when that period ends. If we mail no letters in a period, nothing is charged for that period.`,
+        onMailing
+          ? es
+            ? `Suscripción mensual: ${money(e.recurringCents)} por cada periodo de 30 días en que enviamos al menos una ronda de sus cartas. Se cobra cada mes justo después de que enviamos las cartas de ese mes. Si en un periodo no enviamos ninguna carta, no se cobra nada por ese periodo.`
+            : `Monthly subscription: ${money(e.recurringCents)} for each 30-day period in which we mail at least one round of your letters. It is charged each month right after that month's letters are mailed. If we mail no letters in a period, nothing is charged for that period.`
+          : es
+            ? `Suscripción mensual: ${money(e.recurringCents)} por cada periodo de 30 días en que enviamos al menos una ronda de sus cartas. Se cobra al terminar ese periodo. Si en un periodo no enviamos ninguna carta, no se cobra nada por ese periodo.`
+            : `Monthly subscription: ${money(e.recurringCents)} for each 30-day period in which we mail at least one round of your letters. It is charged when that period ends. If we mail no letters in a period, nothing is charged for that period.`,
       );
       if (months) lines.push(es ? `Duración: hasta ${months} periodos de 30 días.` : `Length: up to ${months} periods of 30 days.`);
       break;
@@ -518,6 +641,8 @@ export function paymentTermsLines(t: PlanTerms, e: EffectiveAmounts, locale: L):
           : `If an item you disputed through us no longer appears on a later report, you pay ${money(e.recurringCents)} for it. If nothing changes, you pay nothing.${t.countsUpdated ? " An item a later report shows as corrected also counts." : ""} Items are charged together, at most once every 30 days, after the report that shows it is imported.`,
       );
       break;
+    case "diy_subscription":
+      return diyPaymentTermsLines(t, e, locale);
   }
   lines.push(dueLine(t, locale));
   lines.push(
@@ -528,10 +653,40 @@ export function paymentTermsLines(t: PlanTerms, e: EffectiveAmounts, locale: L):
   return lines;
 }
 
+/** The cost lines of a DIY subscription: the subscription from the start, the optional mailing, the cap. */
+function diyPaymentTermsLines(t: PlanTerms, e: EffectiveAmounts, locale: L): string[] {
+  const es = locale === "es";
+  const months = t.duration.kind === "months" ? t.duration.count : null;
+  const mail = e.mailFeeCents ?? 0;
+  return [
+    es
+      ? `Suscripción mensual al software: ${money(e.recurringCents)} por cada periodo de 30 días. Usted prepara y envía sus propias disputas con el software, así que cada periodo se cobra al empezar.`
+      : `Monthly subscription to the software: ${money(e.recurringCents)} for each 30-day period. You prepare and send your own disputes with the software, so each period is charged when it begins.`,
+    ...(months ? [es ? `Duración: hasta ${months} periodos de 30 días.` : `Length: up to ${months} periods of 30 days.`] : []),
+    dueLine(t, locale),
+    mail > 0
+      ? es
+        ? `Envío por usted (opcional): si nos pide enviar una carta por usted, cuesta ${money(mail)} por carta. Le mostramos el total antes de que confirme, y lo cobramos después de enviar las cartas.`
+        : `Mailing for you (optional): if you ask us to mail a letter for you, it costs ${money(mail)} per letter. We show you the total before you confirm, and charge it after we mail the letters.`
+      : es
+        ? "Con este plan usted imprime y envía sus cartas; nosotros no las enviamos."
+        : "Under this plan you print and mail your letters; we do not mail them.",
+    es
+      ? `Lo máximo que pagará por la suscripción: ${money(e.maxTotalCents)} en total, pase lo que pase. Nunca cobramos la suscripción más de una vez por periodo de 30 días.`
+      : `Most you'll pay for the subscription: ${money(e.maxTotalCents)} in total, whatever happens. We never charge the subscription more than once per 30-day period.`,
+  ];
+}
+
 /** One short line for "Mis pagos" and the staff card: "Per round · $89.00 per round mailed". */
 export function planSummary(s: Pick<PlanSnapshot, "terms" | "effective" | "name">, locale: L): string {
   const e = s.effective;
   const es = locale === "es";
+  if (s.terms.type === "diy_subscription") {
+    const mail = e.mailFeeCents ?? 0;
+    const perMonth = es ? `${money(e.recurringCents)} al mes` : `${money(e.recurringCents)} per month`;
+    const mailing = mail > 0 ? (es ? ` · envío opcional ${money(mail)} por carta` : ` · optional mailing ${money(mail)} per letter`) : "";
+    return `${s.name[locale]} · ${perMonth}${mailing}`;
+  }
   const amount =
     s.terms.type === "subscription"
       ? es ? `${money(e.recurringCents)} por cada mes con trabajo` : `${money(e.recurringCents)} per month with work`
@@ -545,15 +700,28 @@ export function planSummary(s: Pick<PlanSnapshot, "terms" | "effective" | "name"
 }
 
 /** "Most you'll pay: $534.00". */
-export function mostYoullPay(s: Pick<PlanSnapshot, "effective">, locale: L): string {
+export function mostYoullPay(s: Pick<PlanSnapshot, "effective"> & { terms?: Pick<PlanTerms, "type"> }, locale: L): string {
+  if (s.terms?.type === "diy_subscription") {
+    return locale === "es"
+      ? `Lo máximo que pagará por la suscripción: ${money(s.effective.maxTotalCents)}`
+      : `Most you'll pay for the subscription: ${money(s.effective.maxTotalCents)}`;
+  }
   return locale === "es" ? `Lo máximo que pagará: ${money(s.effective.maxTotalCents)}` : `Most you'll pay: ${money(s.effective.maxTotalCents)}`;
 }
 
 /** The sentence that closes the contract's cost section: when each charge is made. */
 export function neverInAdvance(t: PlanTerms, locale: L): string {
   const es = locale === "es";
+  if (t.type === "diy_subscription") {
+    // Not "never in advance": the owner reports the attorney approved a subscription charged from the start for DIY (2026-11-25).
+    return es
+      ? "Usted realiza sus disputas con el software: Alti prepara las cartas con nuestros modelos aprobados y usted las imprime, las firma y las envía. Por eso la suscripción se cobra al inicio de cada periodo de 30 días, nunca durante su periodo de cancelación de 3 días hábiles. Un envío que usted nos pida se cobra solo después de que lo hacemos."
+      : "You perform your disputes with the software: Alti prepares the letters from our approved templates and you print, sign and mail them. That is why the subscription is charged at the start of each 30-day period, never during your 3-business-day cancellation period. A mailing you ask us for is charged only after we do it.";
+  }
   const what =
-    t.type === "subscription"
+    t.type === "subscription" && periodTiming(t) === "on_mailing"
+      ? es ? "la ronda de cartas de ese periodo de 30 días, ya enviada por correo" : "the round of letters of that 30-day period, already mailed"
+      : t.type === "subscription"
       ? es ? "el periodo de 30 días en que enviamos sus cartas" : "the 30-day period in which we mailed your letters"
       : t.type === "pay_per_delete"
         ? es ? "el reporte posterior que ya no muestra el punto disputado" : "the later report that no longer shows the disputed item"

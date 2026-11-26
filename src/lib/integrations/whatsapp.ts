@@ -1,6 +1,6 @@
 import { BRAND } from "../brand";
 import { assertClaimGuardrails } from "../compliance/guardrails";
-import { SERVICE_MODE, type ServiceMode } from "../service/mode";
+import { DEFAULT_SERVICE_MODE as SERVICE_MODE, type ServiceMode } from "../service/mode";
 
 // WhatsApp Cloud API layer (spec §4.3): status updates (report imported, round
 // of letters in preparation, letters mailed, item no longer on the report) and
@@ -8,15 +8,16 @@ import { SERVICE_MODE, type ServiceMode } from "../service/mode";
 // unless they chose Spanish; profiles.locale) and runs through the claim
 // guardrails before sending. No-ops when credentials are not configured.
 //
-// The wording follows the service mode (service/mode.ts). Full service: the
-// team prepares and mails, and no message asks the client to approve or send.
-// Self-serve: the client approves and sends. No message, in either mode, says
-// what a letter will achieve.
+// The wording follows the CLIENT'S option (service/options.ts, migration 0042).
+// Credalti Complete (full service): the team prepares and mails, and no
+// message asks the client to approve or send. Credalti DIY: Alti prepares the
+// letters and the client prints and mails them (or asks us to mail them). No
+// message, under either option, says what a letter will achieve.
 
 export type WhatsAppEvent =
   | { kind: "report_imported" }
   | { kind: "attack_ready"; roundNumber: number }
-  | { kind: "letters_mailed"; roundNumber: number; letterCount: number }
+  | { kind: "letters_mailed"; roundNumber: number; letterCount: number; by?: "client" | "credalti" }
   | { kind: "items_deleted"; deletedCount: number; remainingCount: number }
   | { kind: "day40_reengage"; deletedCount: number; remainingCount: number };
 
@@ -39,12 +40,14 @@ function renderMessageEn(event: WhatsAppEvent, mode: ServiceMode): string {
     case "attack_ready":
       return team
         ? `📝 Your team is preparing your round #${event.roundNumber} of letters, based on what you confirmed in your review. You can read each letter in the app. You don't have to approve or send anything.${appLink("/attack")}`
-        : `📝 Your round #${event.roundNumber} of letters is ready for YOUR approval. Review your letters and press send when you're ready. You decide, you send.${appLink("/attack")}`;
+        : `📝 Your round #${event.roundNumber} of letters is ready. Alti prepared them from what you confirmed. Print them from the app and mail them, or ask us to mail them for you. You decide, you send.${appLink("/attack")}`;
     case "letters_mailed": {
       const one = event.letterCount === 1;
       return team
         ? `📬 Your team mailed ${one ? "the letter" : `the ${event.letterCount} letters`} for your round #${event.roundNumber}. The bureaus have about 30 days to answer. In the app you can see each letter and how it's going.${appLink("/rounds")}`
-        : `📬 Done! ${one ? "Your letter" : `Your ${event.letterCount} letters`} for round #${event.roundNumber} ${one ? "was" : "were"} printed and mailed. The bureaus usually answer within about 30 days.${appLink("/rounds")}`;
+        : event.by === "credalti"
+          ? `📬 We mailed ${one ? "the letter" : `the ${event.letterCount} letters`} you asked us to mail for round #${event.roundNumber}. The bureaus usually answer within about 30 days.${appLink("/rounds")}`
+          : `📬 Noted: you mailed ${one ? "your letter" : `your ${event.letterCount} letters`} for round #${event.roundNumber}. The bureaus usually answer within about 30 days, and Alti will tell you when the next round is due.${appLink("/rounds")}`;
     }
     case "items_deleted":
       return `🎉 Good news! ${event.deletedCount === 1 ? "1 item no longer appears" : `${event.deletedCount} items no longer appear`} on your report. ${event.remainingCount} left. Results vary case by case.${appLink("/rounds")}`;
@@ -60,7 +63,7 @@ function renderMessageEn(event: WhatsAppEvent, mode: ServiceMode): string {
           : `${gone} and ${left}`;
       return team
         ? `📊 We checked your report again: ${change}. Your team is preparing the next round of letters from what you confirmed. Open the app to see how it's going.${appLink("/rounds")}`
-        : `📊 We updated your report: ${event.deletedCount === 1 ? "1 item removed" : `${event.deletedCount} items removed`}, ${event.remainingCount === 1 ? "1 pending" : `${event.remainingCount} pending`}. Open the app to put together your next round of letters.${appLink("/attack")}`;
+        : `📊 We checked your report again: ${change}. Your next round is due: Alti can prepare it from what you confirmed. Open the app when you're ready.${appLink("/attack")}`;
     }
   }
 }
@@ -73,12 +76,14 @@ function renderMessageEs(event: WhatsAppEvent, mode: ServiceMode): string {
     case "attack_ready":
       return team
         ? `📝 Tu equipo está preparando tu ronda de cartas #${event.roundNumber}, con lo que tú confirmaste en tu revisión. En la app puedes leer cada carta. No tienes que aprobar ni enviar nada.${appLink("/attack")}`
-        : `📝 Tu ronda de cartas #${event.roundNumber} está lista para TU aprobación. Revisa tus cartas y presiona enviar cuando estés listo. Tú decides, tú envías.${appLink("/attack")}`;
+        : `📝 Tu ronda de cartas #${event.roundNumber} está lista. Alti las preparó con lo que tú confirmaste. Imprímelas desde la app y envíalas, o pídenos que las enviemos por ti. Tú decides, tú envías.${appLink("/attack")}`;
     case "letters_mailed": {
       const one = event.letterCount === 1;
       return team
         ? `📬 Tu equipo envió por correo ${one ? "la carta" : `las ${event.letterCount} cartas`} de tu ronda #${event.roundNumber}. Los burós tienen ~30 días para responder. En la app ves cada carta y cómo va.${appLink("/rounds")}`
-        : `📬 ¡Listo! ${one ? "Tu carta" : `Tus ${event.letterCount} cartas`} de tu ronda #${event.roundNumber} ${one ? "fue impresa y enviada" : "fueron impresas y enviadas"} por correo. Los burós suelen responder en un plazo de ~30 días.${appLink("/rounds")}`;
+        : event.by === "credalti"
+          ? `📬 Enviamos por correo ${one ? "la carta" : `las ${event.letterCount} cartas`} que nos pediste enviar de tu ronda #${event.roundNumber}. Los burós suelen responder en unos 30 días.${appLink("/rounds")}`
+          : `📬 Anotado: enviaste ${one ? "tu carta" : `tus ${event.letterCount} cartas`} de tu ronda #${event.roundNumber}. Los burós suelen responder en unos 30 días, y Alti te avisa cuándo toca la siguiente ronda.${appLink("/rounds")}`;
     }
     case "items_deleted":
       return `🎉 ¡Buenas noticias! ${event.deletedCount === 1 ? "1 elemento ya no aparece" : `${event.deletedCount} elementos ya no aparecen`} en tu reporte. Quedan ${event.remainingCount}. Los resultados varían según cada caso.${appLink("/rounds")}`;
@@ -94,7 +99,7 @@ function renderMessageEs(event: WhatsAppEvent, mode: ServiceMode): string {
           : `${gone} y ${left}`;
       return team
         ? `📊 Revisamos tu reporte de nuevo: ${change}. Tu equipo prepara la siguiente ronda de cartas con lo que tú confirmaste. Entra a la app para ver cómo va.${appLink("/rounds")}`
-        : `📊 Actualizamos tu reporte: ${event.deletedCount === 1 ? "1 elemento eliminado" : `${event.deletedCount} elementos eliminados`}, ${event.remainingCount === 1 ? "1 pendiente" : `${event.remainingCount} pendientes`}. Entra a la app para armar tu próxima ronda de cartas.${appLink("/attack")}`;
+        : `📊 Revisamos tu reporte de nuevo: ${change}. Toca tu siguiente ronda: Alti puede prepararla con lo que tú confirmaste. Entra a la app cuando quieras.${appLink("/attack")}`;
     }
   }
 }
@@ -122,9 +127,15 @@ export const LEAD_GREETINGS: Record<"es" | "en", string> = {
   es: LEAD_GREETING,
 };
 
-export async function sendWhatsApp(toPhoneE164: string, event: WhatsAppEvent, locale: "es" | "en" = "en"): Promise<{ sent: boolean }> {
-  const message = renderMessage(event, SERVICE_MODE, locale);
-  return sendWhatsAppText(toPhoneE164, message, `whatsapp:${event.kind}`);
+/** A status message in the client's language and in the words of the client's option (full service when not given). */
+export async function sendWhatsApp(
+  toPhoneE164: string,
+  event: WhatsAppEvent,
+  locale: "es" | "en" = "en",
+  mode: ServiceMode = SERVICE_MODE,
+): Promise<{ sent: boolean }> {
+  const message = renderMessage(event, mode, locale);
+  return sendWhatsAppText(toPhoneE164, message, `whatsapp:${event.kind}`, mode);
 }
 
 /** Free-text sender (coach replies, assisted-plan conversations). Guardrail-linted. */
@@ -132,8 +143,10 @@ export async function sendWhatsAppText(
   toPhoneE164: string,
   message: string,
   context = "whatsapp:text",
+  mode: ServiceMode = SERVICE_MODE,
 ): Promise<{ sent: boolean }> {
-  assertClaimGuardrails(message, context);
+  // The claim rules of the client's option: under DIY "we dispute" is not true and is refused.
+  assertClaimGuardrails(message, context, mode);
 
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;

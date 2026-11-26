@@ -14,7 +14,9 @@ import {
   type InvoiceStatus,
 } from "@/lib/billing/invoices";
 import { formatCents } from "@/lib/billing/money";
-import { PLAN_TYPE_LABEL, PLAN_TYPES } from "@/lib/billing/plans";
+import { PLAN_TYPE_LABEL, PLAN_TYPES, planOption } from "@/lib/billing/plans";
+import { SERVICE_OPTIONS } from "@/lib/service/options";
+import OptionBadge from "@/components/staff/OptionBadge";
 import { deniedReason } from "@/lib/staff/permissions";
 import { shortDay } from "@/lib/staff/format";
 import { useStaff } from "@/lib/staff/useStaff";
@@ -84,7 +86,10 @@ function Invoices() {
         <div>
           <h1 className="page-title">{t("Facturas", "Invoices")}</h1>
           <p className="mt-0.5 text-[14px] text-slate-500">
-            {t("Cada cobro es una factura, por trabajo ya hecho. Las comisiones del procesador son un estimado.", "Every charge is an invoice, for work already done. Processor fees are an estimate.")}
+            {t(
+              "Cada cobro es una factura. Credalti Complete: por trabajo ya hecho. Credalti DIY: la suscripción mensual y las cartas que enviamos por el cliente. Las comisiones del procesador son un estimado.",
+              "Every charge is an invoice. Credalti Complete: for work already done. Credalti DIY: the monthly subscription and the letters we mailed for the client. Processor fees are an estimate.",
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -111,6 +116,20 @@ function Invoices() {
             <p className="mt-0.5 font-display text-[22px] font-semibold tabular-nums text-slate-900">{value}</p>
           </div>
         ))}
+      </div>
+      {/* By service option (docs/SERVICE-OPTIONS.md), over what the filter shows. */}
+      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 px-1 text-[13px] text-slate-600" data-testid="collected-by-option">
+        {SERVICE_OPTIONS.map((option) => {
+          const mine = shown.filter((r) => (r.planType ? planOption({ type: r.planType }) : "full_service") === option);
+          return (
+            <span key={option} className="inline-flex items-center gap-1.5">
+              <OptionBadge option={option} />
+              <span className="tabular-nums">
+                {t(`${formatCents(mine.reduce((n, r) => n + r.collectedCents, 0))} cobrado · ${mine.length} facturas`, `${formatCents(mine.reduce((n, r) => n + r.collectedCents, 0))} collected · ${mine.length} invoices`)}
+              </span>
+            </span>
+          );
+        })}
       </div>
       {rate.rate !== null && rate.rate >= 0.0075 && (
         <p role="alert" className="mt-2 rounded-2xl bg-amber-100 px-4 py-2.5 text-[13px] leading-snug text-blue-900">

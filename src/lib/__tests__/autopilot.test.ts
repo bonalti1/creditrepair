@@ -462,16 +462,17 @@ describe("autopilot: the one-person work queue", () => {
   const env: AutopilotEnv = { settings: DEMO_SETTINGS, channels: DEMO_CHANNELS };
   const queue = workQueue(demo, later, { furnishers: seededBook(), autopilot: env });
 
-  it("shrinks the demo's list to what only a person can decide (17 notices → 9)", () => {
+  it("shrinks the demo's list to what only a person can decide (19 notices → 11)", () => {
     const raw = demo.flatMap((c) => clientExceptions(c, later, { furnishers: seededBook() }).map((e) => ({ ...e, id: `${c.id}:${e.key}` })));
     // 12 from the console's own rules, 2 from the AI intake demo (a document the
     // AI could not accept, a bureau letter that asks for something), 2 more
     // clients waiting on Midland's address, and an address the post office could
-    // not confirm (autopilot/selfHealingDemo.ts).
-    expect(raw).toHaveLength(17);
-    expect(queue).toHaveLength(9);
+    // not confirm (autopilot/selfHealingDemo.ts). And a Credalti DIY client (c71) with a question and letters
+    // prepared 16 days ago and not marked as mailed: a gentle follow-up for sales (docs/SERVICE-OPTIONS.md).
+    expect(raw).toHaveLength(19);
+    expect(queue).toHaveLength(11);
     expect(queue.map((i) => i.exception.kind).sort()).toEqual(
-      ["agreement_unsigned", "bureau_letter_needs_person", "furnisher_address_missing", "identity_theft_report_missing", "letter_returned", "payment_past_due", "question_waiting", "response_overdue", "service_end_requested"].sort(),
+      ["agreement_unsigned", "bureau_letter_needs_person", "diy_followup", "furnisher_address_missing", "identity_theft_report_missing", "letter_returned", "payment_past_due", "question_waiting", "question_waiting", "response_overdue", "service_end_requested"].sort(),
     );
     // Left to the system: documents, a review, monitoring, a payment method; the document the AI could not
     // accept (a re-upload request with the reason), the address to confirm (a one-tap request to the client).
@@ -500,12 +501,13 @@ describe("autopilot: the one-person work queue", () => {
     expect(heriberto.triedSummary).toMatch(/BAJA/);
     const dolores = queue.find((i) => i.client.id === "c16")!;
     expect(dolores.tried.length).toBeGreaterThan(0);
-    expect(workSummary(queue)).toEqual({ count: 9, minutes: queue.reduce((n, i) => n + i.minutes, 0), overdue: queue.filter((i) => i.overdue).length });
+    expect(workSummary(queue)).toEqual({ count: 11, minutes: queue.reduce((n, i) => n + i.minutes, 0), overdue: queue.filter((i) => i.overdue).length });
   });
 
   it("a role sees only its own kinds of notice", () => {
     const sales = workQueue(demo, later, { furnishers: seededBook(), autopilot: env }, "sales");
-    expect(sales.every((i) => ["agreement_unsigned", "documents_missing"].includes(i.exception.kind))).toBe(true);
+    expect(sales.every((i) => ["agreement_unsigned", "documents_missing", "diy_followup"].includes(i.exception.kind))).toBe(true);
+    expect(sales.some((i) => i.exception.kind === "diy_followup")).toBe(true);
   });
 
   it("the demo shows the system's work: messages, a hold, an opt-out, a round it mailed itself", () => {

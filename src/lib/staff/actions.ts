@@ -13,7 +13,7 @@ import { checkStaffReply, type ReplyProblem } from "./conversation";
 import { plannedLetterKey } from "./fromRows";
 import { exceptionKindOfKey } from "./guard";
 import { loadStaffClients } from "./load";
-import { exceptionVisibleTo } from "./permissions";
+import { can, exceptionVisibleTo } from "./permissions";
 import { EXCEPTION_KINDS, sendableRound, sendBlockReason } from "./stage";
 import type { StaffChatMessage, StaffClient } from "./types";
 
@@ -308,6 +308,16 @@ export async function sendStaffRounds(
       held((client && sendBlockReason(client, now, { furnishers })) || "La ronda no se puede enviar ahora.", "not_sendable");
       continue;
     }
+    // Credalti DIY "Mail them for me": only the letters the client asked for, and only through the mail service.
+    const request = round.mailRequest ?? null;
+    if (request && input.via !== "mail") {
+      held("Un cliente DIY pidió que enviemos sus cartas por el servicio de correo: no se imprimen en la oficina.", "diy_mail_only");
+      continue;
+    }
+    if (request && !can(member.role, "diy.mail_requests")) {
+      held(NOT_YOURS, "not_allowed");
+      continue;
+    }
     const plan = roundMailPlan(client, round, furnishers, now, input.mailClasses);
     if (plan.blockers.length > 0) {
       held(plan.blockers.join(" "), "blocked");
@@ -326,6 +336,7 @@ export async function sendStaffRounds(
       requireAgreement: true,
       via: input.via,
       mailClasses: classes,
+      ...(request ? { onlyLetterIds: request.letterRowIds ?? request.letterIds, mailRequestId: request.id } : {}),
       now,
       // "Letters mailed" goes through the autopilot's outbound log (opt-out, quiet hours, the daily cap).
       deps: { ...options.deps, sendWhatsApp: options.deps?.sendWhatsApp ?? queueingWhatsApp(db, ref.clientId) },

@@ -2,7 +2,7 @@ import type { LetterTarget } from "../domain/types";
 import type { RoundRef } from "./data";
 import { letterEnclosures, staffLetterText } from "./letters";
 import { letterDestination } from "../mail/sendPlan";
-import { sendableRound, sendBlockReason, type StaffContext } from "./stage";
+import { isDiy, sendableRound, sendBlockReason, type StaffContext } from "./stage";
 import { fullName, type DocumentKind, type StaffClient, type StaffLetter, type StaffRound } from "./types";
 import { staffLocaleFallback } from "./i18n/locale";
 
@@ -243,6 +243,12 @@ export function buildPrintBatch(clients: StaffClient[], refs: RoundRef[], now: D
       continue;
     }
     const alreadySent = round.status === "mailed" || round.status === "responded";
+    if (!alreadySent && (round.mailRequest || isDiy(client))) {
+      // Credalti DIY (docs/SERVICE-OPTIONS.md): the client prints their own letters; the ones they asked us to
+      // mail ("Mail them for me") go only through the mail service, from the send queue, never the office printer.
+      skip(es ? "Cliente DIY: sus cartas no se imprimen en la oficina; las que pidió enviar van por el servicio de correo." : "DIY client: their letters aren't printed at the office; the ones they asked us to mail go by the mail service.");
+      continue;
+    }
     if (!alreadySent) {
       if (round.status === "draft") {
         skip(es ? "La ronda todavía está en preparación." : "The round is still being prepared.");

@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { cancellationDeadline } from "@/lib/agreement/businessDays";
-import { AGREEMENT_VERSION, disclosureHash, documentHash } from "@/lib/agreement/documents";
+import { agreementVersionFor, disclosureHash, documentHash } from "@/lib/agreement/documents";
 import { agreementReadiness } from "@/lib/agreement/readiness";
 import { agreementFromRow } from "@/lib/agreement/record";
-import { AGREEMENT_TABLE, loadAgreementRow, loadSigningState } from "@/lib/agreement/server";
+import { AGREEMENT_TABLE, loadAgreementRow, loadGoverningAgreementRow, loadSigningState } from "@/lib/agreement/server";
 import { isFullName, signerNameMatches } from "@/lib/agreement/signature";
-import { resolveTerms, withPlan } from "@/lib/agreement/terms";
+import { resolveTerms, withOption, withPlan } from "@/lib/agreement/terms";
+import { optionOfTerms } from "@/lib/service/options";
+import { loadClientOption, recordOptionChoice } from "@/lib/service/server";
 import { offeredSnapshot } from "@/lib/billing/planStore";
 import { reportError } from "@/lib/observability/errors";
 import { readJsonBody } from "@/lib/security/body";
@@ -58,7 +60,11 @@ export async function POST(req: Request) {
 
   // The plan offered to this client, as the snapshot the signature keeps (terms.plan). The database
   // checks it is exactly an active, attorney-approved plan version (migration 0026).
-  const terms = withPlan(resolveTerms(), await offeredSnapshot(db, user.id).catch(() => null));
+  // The option the client chose decides which agreement they sign (migration 0042).
+  const choice = await loadClientOption(db, user.id);
+  const option = choice.chosen ?? choice.option;
+  const AGREEMENT_VERSION = agreementVersionFor(option);
+  const terms = withOption(withPlan(resolveTerms(), await offeredSnapshot(db, user.id, option).catch(() => null)), option);
   // The client's state: opened by Credalti (migration 0030), and with its own agreement documents (stateDocuments.ts).
   const signing = await loadSigningState(db, user.id);
   if (!signing.open) {
@@ -115,6 +121,11 @@ export async function POST(req: Request) {
       );
     }
 
+    // The agreement in force before this signature: when it is for the other option, this signature is a switch
+    // and supersedes it (trigger service_agreements_supersede).
+    const previous = await loadGoverningAgreementRow(db, user.id);
+    const switchedFrom = previous?.signed_at && !previous.cancelled_at && previous.id !== current.id ? optionOfTerms(previous.terms) : null;
+
     const now = new Date();
     const deadline = cancellationDeadline(now);
     const { data: row, error } = await db
@@ -154,9 +165,28 @@ export async function POST(req: Request) {
         version: AGREEMENT_VERSION,
         locale,
         cancellationDeadline: deadline.toISOString(),
+        option,
         ...(terms.plan ? { plan: { key: terms.plan.key, version: terms.plan.version, termsHash: terms.plan.termsHash } } : {}),
       },
     });
+    // The client's option is now the one they signed.
+    if (choice.chosen !== option) await recordOptionChoice(db, user.id, option, "app", now);
+    if (switchedFrom && switchedFrom !== option) {
+      // Counted by the campaign scorecard (countUpgrades, docs/SERVICE-OPTIONS.md).
+      await db.from("events").insert({
+        user_id: user.id,
+        kind: option === "full_service" ? "service_option_upgraded" : "service_option_downgraded",
+        payload: { from: switchedFrom, to: option, fromAgreementId: previous?.id ?? null, toAgreementId: current.id },
+      });
+      // Credalti Complete mails every letter from now on: open "Mail them for me" requests end, never charged.
+      if (option === "full_service") {
+        await db
+          .from("mail_requests")
+          .update({ status: "cancelled", cancelled_at: now.toISOString(), cancel_reason: "Switched to Credalti Complete: the team mails every letter." })
+          .eq("user_id", user.id)
+          .eq("status", "requested");
+      }
+    }
     return NextResponse.json({ ok: true, agreement: agreementFromRow(row as Record<string, unknown>) });
   } catch (error) {
     await reportError(error, { where: "api/agreement/sign", userId: user.id });

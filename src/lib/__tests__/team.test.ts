@@ -221,10 +221,12 @@ describe("team: who sees which client", () => {
 
   it("sales is shown only the notices about getting a person started", () => {
     const shown = EXCEPTION_KINDS.filter((k) => exceptionVisibleTo("sales", k));
-    expect(shown.sort()).toEqual(["agreement_unsigned", "documents_missing"]);
+    // And the gentle follow-up for a Credalti DIY client whose letters wait unmailed (docs/SERVICE-OPTIONS.md).
+    expect(shown.sort()).toEqual(["agreement_unsigned", "diy_followup", "documents_missing"]);
     for (const k of EXCEPTION_KINDS) {
       expect(exceptionVisibleTo("admin", k)).toBe(true);
-      expect(exceptionVisibleTo("specialist", k)).toBe(true);
+      // The DIY follow-up is a sales conversation (the "options.followup" capability): admin and sales.
+      expect(exceptionVisibleTo("specialist", k)).toBe(k !== "diy_followup");
       expect(exceptionVisibleTo(null, k)).toBe(false);
     }
   });
@@ -1029,7 +1031,8 @@ describe("team: the clients list", () => {
     expect(page).not.toMatch(/sent\[|mailedAt:/);
     // And the guarded data is what useStaff hands every page.
     expect(readFileSync("src/lib/staff/useStaff.ts", "utf8")).toMatch(/guardStaffData\(raw, viewer/);
-    expect(clients.filter((c) => sendableRound(c, later)).map((c) => c.id)).toEqual(["c07", "c08", "c14"]);
+    // c72: the letters a Credalti DIY client asked us to mail.
+    expect(clients.filter((c) => sendableRound(c, later)).map((c) => c.id)).toEqual(["c07", "c08", "c14", "c72"]);
   });
 });
 

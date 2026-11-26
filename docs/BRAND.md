@@ -411,9 +411,9 @@ Three things hold in every line of copy, in both languages:
 
 `src/lib/compliance/guardrails.ts` enforces the first two, and the tests run
 every marketing line through it in English and Spanish. How the service is
-delivered is a switch, `NEXT_PUBLIC_SERVICE_MODE` (`src/lib/service/mode.ts`):
-unset means full service; `self_serve` brings back the earlier
-do-it-yourself wording and its approve button, kept for later.
+delivered is each client's choice: Credalti Complete ("Done for you") or
+Credalti DIY ("Do it yourself, guided by Alti"), always in that order, never
+one pushed (`docs/SERVICE-OPTIONS.md`).
 
 ## Where the brand lives
 

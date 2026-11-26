@@ -41,6 +41,9 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { markMilestone } from "@/lib/ux/firstWeek";
 import { useClientReport } from "@/lib/ux/reportStore";
 import type { PublicPlan } from "@/lib/site/plans";
+import OptionComparison, { type ComparisonPrice } from "@/components/service/OptionComparison";
+import { parseServiceOption, type ServiceOption } from "@/lib/service/options";
+import { useServiceOption } from "@/lib/service/useServiceOption";
 import AgreementFlow, { type SheetKind } from "./AgreementSheets";
 import { AltiRun, Transcript, TypingDots, YouBubble } from "./Bubbles";
 import LivePerson, { livePersonOpen, rememberLivePerson } from "./LivePerson";
@@ -100,6 +103,10 @@ function read(key: string): string | null {
 
 export interface SignupChatProps {
   plans: Record<"en" | "es", PublicPlan[]>;
+  /** Each option's offered plan price for the comparison (null: "Price set by the team"). */
+  optionPrices: Record<"en" | "es", Record<ServiceOption, ComparisonPrice | null>>;
+  /** The monitoring note beside the prices. */
+  monitoringNote: Record<"en" | "es", string>;
   rules: Record<"en" | "es", Array<{ title: string; body: string }>>;
   callsEnabled: boolean;
   softPullProvider: string;
@@ -235,8 +242,9 @@ function ReportStep({ locale, softPullProvider, onDone }: { locale: "en" | "es";
   );
 }
 
-export default function SignupChat({ plans, rules, callsEnabled, softPullProvider }: SignupChatProps) {
+export default function SignupChat({ plans, rules, callsEnabled, softPullProvider, optionPrices, monitoringNote }: SignupChatProps) {
   const { locale } = useLocale();
+  const serviceOption = useServiceOption();
   const c = SIGNUP_COPY[locale];
   const live = isSupabaseConfigured();
   const openStates = useOpenStates();
@@ -280,6 +288,9 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
       .then((body) => {
         if (cancelled) return;
         const fresh = newProgress(body?.caseRef ?? newCaseRef(), body?.token ?? null);
+        // Started from the website's comparison ("Start with Credalti DIY"): that is their choice; they can still change it.
+        const linkOption = parseServiceOption(new URLSearchParams(window.location.search).get("o") === "complete" ? "full_service" : new URLSearchParams(window.location.search).get("o"));
+        if (linkOption) fresh.option = linkOption;
         if (invite) {
           const first = invite.name?.split(" ")[0] ?? null;
           fresh.answers = { ...fresh.answers, firstName: first, goal: invite.goal, state: null };
@@ -361,6 +372,8 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
         })
         .catch(() => undefined);
     }
+    // An option chosen on the website before signing in ("Start with Credalti DIY"): now on the account too.
+    if (progress.option) await serviceOption.choose(progress.option, "signup_chat");
     markMilestone("details_done");
     update({ signedIn: true });
   };
@@ -378,7 +391,8 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
     ]);
   };
 
-  const planList = plans[locale];
+  // Only the chosen option's plans (Credalti Complete or Credalti DIY).
+  const planList = plans[locale].filter((p) => !progress.option || p.option === progress.option);
   const stateStatus = openStates.status(stateChoice);
 
   /** The answer widget under Alti's latest question. */
@@ -508,6 +522,25 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
             </div>
           </div>
           </ReferredShareOffer>
+        );
+      case "option":
+        return (
+          <div className="space-y-3" data-testid="option-step">
+            <OptionComparison
+              locale={locale}
+              prices={optionPrices[locale]}
+              monitoring={monitoringNote[locale]}
+              headingLevel={3}
+              onChoose={async (option) => {
+                // Recorded on the account (signed in by now) before the agreement is shown: it is that option's agreement.
+                await serviceOption.choose(option, "signup_chat");
+                update({ option });
+              }}
+            />
+            <button type="button" className={SECONDARY} data-testid="option-ask" onClick={() => void ask(c.alti.optionAsk)}>
+              {c.alti.optionAskButton}
+            </button>
+          </div>
         );
       case "plan":
         return (

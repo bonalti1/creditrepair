@@ -47,7 +47,7 @@ function journeyStrings(locale: "es" | "en"): string[] {
     { ...base, roundApproved: true, mailedAt: new Date(NOW.getTime() - 50 * 86_400_000).toISOString() },
   ];
   return states.flatMap((s) =>
-    (["full_service", "self_serve"] as const).flatMap((mode) => {
+    (["full_service", "diy"] as const).flatMap((mode) => {
       const step = nextAction(s, locale, { mode, now: NOW });
       return [step.title, step.description, step.cta];
     }),

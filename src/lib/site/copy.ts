@@ -471,13 +471,13 @@ const en: SiteCopy = {
   },
   pricing: {
     eyebrow: "Pricing",
-    title: "Nothing is charged until the work is done",
-    lead: "Federal law says a credit repair company can't charge before the work is done. Our billing is built so it can't.",
+    title: "Two options, honest prices",
+    lead: `${BRAND.name} Complete is charged only after the work is done. Federal law says a credit repair company can't charge before, and our billing is built so it can't. ${BRAND.name} DIY is a monthly subscription from the start, after your 3 business days to cancel.`,
     plansTitle: "Plans",
     noPlans: "Plans and prices are explained before you sign.",
     noPlansSub: "A person on our team goes over the plan with you. It is written in your agreement, with the most you'll pay. Nothing is charged until work is done.",
     planMost: "Most you'll pay",
-    rulesTitle: "How every charge works",
+    rulesTitle: `How every ${BRAND.name} Complete charge works`,
     rules: [
       { title: "After the work, always", body: "A charge pays for a round of letters already mailed. Never at sign-up, and never for letters that are only prepared." },
       { title: "No sign-up fee", body: "There is no setup, enrollment or activation fee. If a plan has a first work fee, it waits until your first round is mailed." },
@@ -494,7 +494,7 @@ const en: SiteCopy = {
     cancel: [
       "You have 3 business days after signing to cancel at no cost.",
       "After that, you can end the service any time, from the app or in writing. Ending it costs nothing.",
-      "You pay only for work fully done before we receive your request.",
+      `With ${BRAND.name} Complete you pay only for work fully done before we receive your request. With ${BRAND.name} DIY no new month is charged after it.`,
     ],
   },
   how: {
@@ -973,13 +973,13 @@ const es: SiteCopy = {
   },
   pricing: {
     eyebrow: "Precios",
-    title: "No se cobra nada hasta que el trabajo está hecho",
-    lead: "La ley federal dice que una empresa de reparación de crédito no puede cobrar antes de hacer el trabajo. Nuestro sistema de cobros está hecho para que no pueda.",
+    title: "Dos opciones, precios claros",
+    lead: `${BRAND.name} Complete se cobra solo después de hacer el trabajo. La ley federal dice que una empresa de reparación de crédito no puede cobrar antes, y nuestros cobros están hechos para que no pueda. ${BRAND.name} DIY es una suscripción mensual desde el inicio, después de tus 3 días hábiles para cancelar.`,
     plansTitle: "Planes",
     noPlans: "Los planes y los precios se explican antes de que firmes.",
     noPlansSub: "Una persona del equipo repasa el plan contigo. Queda escrito en tu acuerdo, con lo máximo que pagarás. No se cobra nada hasta que el trabajo está hecho.",
     planMost: "Lo máximo que pagarás",
-    rulesTitle: "Cómo funciona cada cobro",
+    rulesTitle: `Cómo funciona cada cobro de ${BRAND.name} Complete`,
     rules: [
       { title: "Después del trabajo, siempre", body: "Un cobro paga una ronda de cartas ya enviada. Nunca al firmar, y nunca por cartas que solo están preparadas." },
       { title: "Sin cuota de inscripción", body: "No hay cuota de apertura, inscripción ni activación. Si un plan tiene cuota de primer trabajo, espera a que salga tu primera ronda." },
@@ -996,7 +996,7 @@ const es: SiteCopy = {
     cancel: [
       "Tienes 3 días hábiles después de firmar para cancelar sin costo.",
       "Después, puedes terminar el servicio cuando quieras, desde la app o por escrito. Terminar no cuesta nada.",
-      "Pagas solo por el trabajo ya hecho por completo antes de que recibamos tu solicitud.",
+      `Con ${BRAND.name} Complete pagas solo por el trabajo ya hecho por completo antes de que recibamos tu solicitud. Con ${BRAND.name} DIY no se cobra ningún mes nuevo después.`,
     ],
   },
   how: {

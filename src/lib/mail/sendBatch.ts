@@ -61,8 +61,10 @@ export function buildSendBatch(
       held.push({ ref, clientName: fullName(client), reason, plan: null, alreadySent: Boolean(round && round.status !== "draft") });
       continue;
     }
-    const plan = roundMailPlan(client, round, furnishers, now, choices);
-    if (sendableRound(client, now, { furnishers })?.number !== round.number || plan.blockers.length > 0) {
+    // A Credalti DIY "Mail them for me" round: only the letters the client asked us to mail (stage.ts sendableRound).
+    const sendable = sendableRound(client, now, { furnishers });
+    const plan = roundMailPlan(client, sendable?.number === round.number ? sendable : round, furnishers, now, choices);
+    if (sendable?.number !== round.number || plan.blockers.length > 0) {
       const notYet = L("La ronda todavía no se puede enviar.", "The round can't be sent yet.");
       const reason = sendBlockReason(client, now, { furnishers, locale }) ?? plan.blockers.join(" ") ?? notYet;
       held.push({ ref, clientName: fullName(client), reason: reason || notYet, plan });
