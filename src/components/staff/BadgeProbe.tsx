@@ -15,6 +15,8 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { useStaff } from "@/lib/staff/useStaff";
 import { useVideoBadge } from "@/lib/video/badge";
 import { useLiveBadge } from "@/lib/live/badge";
+import { useLiveChats } from "@/lib/signup/liveChatData";
+import { DEMO_CHATS_EVENT } from "@/lib/signup/liveChatDemo";
 
 // The red circles' numbers that the shell can work out on any page
 // (src/lib/staff/navBadges.ts): the Overview's own «Needs you» counts, from the
@@ -115,7 +117,49 @@ export default function BadgeProbe() {
     });
   }, [ready, clients, now, furnishers, gaps, env, locale, viewer, leads, worksLeads, can]);
 
-  return <SeoBadge />;
+  return (
+    <>
+      <SeoBadge />
+      <ChatsBadge />
+    </>
+  );
+}
+
+// Signup chats where a person asked for a human and nobody joined yet
+// (docs/SIGNUP-CHAT.md), added to Lead Manager's circle, for leads.work. Polled
+// every 30 seconds while the page is visible (the app uses no realtime); in the
+// demo, this browser's store, again whenever it changes.
+const CHATS_REFRESH_MS = 30_000;
+
+function ChatsBadge() {
+  const { viewer, can, locale } = useStaff();
+  const mayWork = can("leads.work");
+  const chats = useLiveChats(viewer, locale);
+  useEffect(() => {
+    if (!viewer || !mayWork) {
+      publishBadges("chats", {});
+      return;
+    }
+    let live = true;
+    const run = async () => {
+      if (document.hidden) return;
+      const n = await chats.waiting();
+      if (live) publishBadges("chats", { leads: n });
+    };
+    void run();
+    const timer = window.setInterval(run, CHATS_REFRESH_MS);
+    window.addEventListener(DEMO_CHATS_EVENT, run);
+    window.addEventListener("storage", run);
+    document.addEventListener("visibilitychange", run);
+    return () => {
+      live = false;
+      window.clearInterval(timer);
+      window.removeEventListener(DEMO_CHATS_EVENT, run);
+      window.removeEventListener("storage", run);
+      document.removeEventListener("visibilitychange", run);
+    };
+  }, [viewer, mayWork, chats]);
+  return null;
 }
 
 // SEO's own count (src/lib/seo/needs.ts), added to the Content group: guides

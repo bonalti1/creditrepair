@@ -35,6 +35,11 @@ export const MORE_NAV: NavItem[] = [
   { href: "/equipo/video", label: "video", icon: "video", needs: "content.view" },
   // The Ads Manager (src/lib/ads, docs/ADS.md): the numbers for ads.view (administrators); Alti's ad copy for the content team (ads.draft).
   { href: "/equipo/anuncios", label: "ads", icon: "megaphone", needs: "ads.draft" },
+  // Webinars (src/lib/webinars, docs/WEBINARS.md): the live classes, the live console, the scripts, and the
+  // campaign scorecard inside it (campaigns.view). Administrators, specialists and sales see it (webinars.view).
+  { href: "/equipo/webinars", label: "webinars", icon: "video", needs: "webinars.view" },
+  // A person in Alti's signup chat (docs/SIGNUP-CHAT.md, «A person joins the chat»): the open chats, for leads.work.
+  { href: "/equipo/chats", label: "chats", icon: "chat", needs: "leads.work" },
   // SEO (src/lib/seo): site health, guides, Search Console, keywords and local; for seo.view (administrators and specialists).
   { href: "/equipo/seo", label: "seo", icon: "search", needs: "seo.view" },
   // The live funnel (src/lib/live, docs/LIVE-FUNNEL.md): a lead's report review and their personal video (administrators and specialists).
@@ -93,9 +98,10 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   { key: "overview", number: "0", icon: "dashboard", hrefs: ["/equipo/control"] },
   { key: "day", number: "1", icon: "home", hrefs: ["/equipo", "/equipo/actividad"] },
-  // Marketing: Content, Video Studio, Ads, SEO, Reviews.
-  { key: "content", number: "2", icon: "speaker", hrefs: ["/equipo/contenido", "/equipo/video", "/equipo/anuncios", "/equipo/seo", "/equipo/resenas"] },
-  { key: "leads", number: "3", icon: "inbox", hrefs: ["/equipo/leads", "/equipo/revisiones", "/equipo/invitar"] },
+  // Marketing: Content, Video Studio, Ads, Webinars, SEO, Reviews.
+  { key: "content", number: "2", icon: "speaker", hrefs: ["/equipo/contenido", "/equipo/video", "/equipo/anuncios", "/equipo/webinars", "/equipo/seo", "/equipo/resenas"] },
+  // Lead Manager: every lead conversation, report reviews (the live funnel), the open signup chats a person can join, invitations.
+  { key: "leads", number: "3", icon: "inbox", hrefs: ["/equipo/leads", "/equipo/revisiones", "/equipo/chats", "/equipo/invitar"] },
   { key: "clients", number: "4", icon: "person", hrefs: ["/equipo/clientes", "/equipo/respuestas", "/equipo/piloto", "/equipo/llamadas", "/equipo/importar"], also: ["/equipo/enviar", "/equipo/imprimir"] },
   { key: "money", number: "5", icon: "calc", hrefs: ["/equipo/contabilidad", "/equipo/cobros", "/equipo/planes", "/equipo/monitoreo"] },
   { key: "library", number: "6", icon: "book", hrefs: ["/equipo/cartas", "/equipo/acreedores", "/equipo/estados"] },

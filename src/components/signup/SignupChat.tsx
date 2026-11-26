@@ -22,6 +22,7 @@ import { AFFILIATE_DISCLOSURE, MONITORING_OFFER } from "@/lib/monitoring/offer";
 import { GOALS, parseInvite } from "@/lib/sales/invite";
 import { newCaseRef } from "@/lib/signup/caseRef";
 import { reportLines, SIGNUP_COPY, stateName, transcript, type ChatLine } from "@/lib/signup/copy";
+import { LIVE_CHAT_COPY } from "@/lib/signup/liveChat";
 import { reportCounts } from "@/lib/signup/reportSummary";
 import {
   currentQuestion,
@@ -42,6 +43,7 @@ import { useClientReport } from "@/lib/ux/reportStore";
 import type { PublicPlan } from "@/lib/site/plans";
 import AgreementFlow, { type SheetKind } from "./AgreementSheets";
 import { AltiRun, Transcript, TypingDots, YouBubble } from "./Bubbles";
+import LivePerson, { livePersonOpen, rememberLivePerson } from "./LivePerson";
 import PhoneSignIn from "./PhoneSignIn";
 import ReferredShareOffer from "@/components/partners/ReferredShareOffer";
 import SignupProgressBar from "./SignupProgressBar";
@@ -248,6 +250,11 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
   const [stateChoice, setStateChoice] = useState("TX");
   const [waitlistEmail, setWaitlistEmail] = useState("");
   const [waitlisted, setWaitlisted] = useState(false);
+  // A person in this chat (LivePerson.tsx): "new" asks for one now; "open" is a thread asked for before (this device).
+  const [person, setPerson] = useState<"off" | "new" | "open">("off");
+  // While a teammate is in the chat, Alti is paused: he answers no question of his own.
+  const [personStatus, setPersonStatus] = useState<string | null>(null);
+  const paused = personStatus === "joined";
   const talkButton = useRef<HTMLButtonElement>(null);
   const end = useRef<HTMLDivElement>(null);
 
@@ -257,6 +264,7 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
     const saved = parseProgress(read(SIGNUP_STORAGE_KEY));
     if (saved) {
       setProgress(saved);
+      if (livePersonOpen(saved.caseRef)) setPerson("open");
       setResumed(saved.path === "chat" && Boolean(saved.answers.firstName) && saved.stage !== "done");
       if (saved.answers.state) setStateChoice(saved.answers.state);
       return;
@@ -676,7 +684,13 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
                     {thinking && <TypingDots label={locale === "es" ? "Alti está escribiendo" : "Alti is typing"} />}
                     <AltiRun lines={qa.length > 0 ? [c.alti.backToSheet] : []} locale={locale}>
                       <div className="space-y-2" data-testid="question-box">
-                        <TextAnswer key={`ask-${qa.length}`} label={c.input.question} autoComplete="off" send={c.input.ask} onSubmit={(v) => void ask(v)} />
+                        {paused ? (
+                          <p className="rounded-2xl bg-slate-100 px-4 py-3 text-[14px] text-slate-700" data-testid="question-paused">
+                            {LIVE_CHAT_COPY[locale].altiPaused}
+                          </p>
+                        ) : (
+                          <TextAnswer key={`ask-${qa.length}`} label={c.input.question} autoComplete="off" send={c.input.ask} onSubmit={(v) => void ask(v)} />
+                        )}
                         <button type="button" onClick={() => setSheet("rights")} className={SECONDARY} data-testid="back-to-rights">
                           {locale === "es" ? "Volver a mis derechos" : "Back to my rights"}
                         </button>
@@ -709,6 +723,9 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
                 )}
               </>
             )}
+            {person !== "off" && (
+              <LivePerson caseRef={progress.caseRef} token={progress.token} locale={locale} step={progress.stage} state={a.state ?? null} requested={person === "new"} onStatus={setPersonStatus} />
+            )}
             {talk && (
               <TalkToPerson
                 locale={locale}
@@ -719,6 +736,15 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
                   talkButton.current?.focus();
                 }}
                 onChosen={() => update({}, { wantsPerson: true })}
+                onChatHere={
+                  person === "off"
+                    ? () => {
+                        rememberLivePerson(progress.caseRef);
+                        setPerson("new");
+                        setTalk(false);
+                      }
+                    : undefined
+                }
               />
             )}
             <div ref={end} className="h-px scroll-mb-28" />

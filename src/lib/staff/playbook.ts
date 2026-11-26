@@ -499,6 +499,29 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     playbooks: [],
   },
   "/equipo/seo": { title: "SEO", what: "Cómo encuentran el sitio: salud del sitio, guías, números de Search Console, frases seguidas y la lista local. Sin puntaje: cada revisión pasa o dice qué arreglar.", steps: ["Corre la revisión del sitio y arregla lo que liste, lo más importante primero.", "Escribe una guía (en blanco o con el borrador de Alti), da a cada dato legal una fuente oficial, marca la lista y mándala a aprobación; solo un administrador publica.", "Sigue las frases que importan (solo Texas), convierte los huecos de contenido en encargos, y avanza con el dueño la lista local."], playbooks: [] },
+  // Webinars y campañas (docs/WEBINARS.md).
+  "/equipo/webinars": {
+    title: "Webinars",
+    what: "Las clases en vivo: el registro público, los recordatorios automáticos (WhatsApp o correo, nunca SMS), la asistencia, la consola en vivo del moderador, el guion y, para el dueño, las campañas con su costo por cliente y el valor de cada cliente.",
+    steps: [
+      "Crea el webinar (título en inglés y español, quién lo da, fecha en hora de Texas, plataformas, palabra clave) y publícalo; comparte el enlace de registro.",
+      "El día del webinar, abre «Consola en vivo» en la laptop junto a la transmisión: copia los mensajes del chat, sigue el reloj y los tres momentos de invitación, y mira los mensajes que llegan.",
+      "Después, pon el enlace de la repetición e importa el CSV de asistentes de Zoom (o marca a mano quién asistió).",
+      "En «Campañas», junta anuncios, webinars, palabras clave y fuentes orgánicas, y agrega los costos que no son de Meta: ahí ves el costo por cliente de dos formas y cuánto vale cada cliente.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/chats": {
+    title: "Chats en vivo",
+    what: "Las personas que, en el chat de registro con Alti, pidieron hablar con alguien. Entras al mismo chat, respondes con tu nombre, y Alti se pausa hasta que se lo devuelves.",
+    steps: [
+      "Abre el chat que espera (el número de caso va arriba) y toca «Entrar al chat»: la persona ve que entraste, con tu nombre.",
+      "Responde en el idioma de la persona. Cada respuesta pasa las mismas reglas que cualquier respuesta del equipo: sin promesas, sin precio, la persona decide qué está mal.",
+      "Nunca pidas el número de Seguro Social, una tarjeta ni documentos por el chat: la persona los sube en el registro.",
+      "Cuando termines, toca «Devolver a Alti»: Alti sigue con el registro.",
+    ],
+    playbooks: [],
+  },
   "/equipo/video": { title: "Estudio de video", what: "Videos cortos y anuncios, editados en este navegador: plan, edición, revisión, aprobación y paso a Contenido.", steps: ["Crea el video (o ábrelo desde un brief de Anuncios) y planea el guion y las tomas; Alti puede hacer un borrador.", "En el editor: sube los clips, recorta, pon textos, subtítulos, logo y música de la biblioteca; exporta el MP4.", "En «Revisión y aprobación»: corrige lo que marque, marca la lista y mándalo; solo un administrador aprueba.", "Ya aprobado, pásalo a Contenido: la pieza lo publica."], playbooks: [] },
   "/equipo/planes": {
     title: "Planes de cobro",
@@ -751,6 +774,29 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
     playbooks: [],
   },
   "/equipo/seo": { title: "SEO", what: "How the website is found: site health, guides, Search Console numbers, tracked phrases and the local checklist. No score: each check passes or says what to fix.", steps: ["Run the site check and fix what it lists, most important first.", "Write a guide (blank or drafted by Alti), give every legal fact an official source, tick the checklist and send it for approval; only an administrator publishes.", "Track the phrases that matter (Texas only), turn content gaps into briefs, and work through the local to-dos with the owner."], playbooks: [] },
+  // Webinars and campaigns (docs/WEBINARS.md).
+  "/equipo/webinars": {
+    title: "Webinars",
+    what: "The live classes: the public registration page, the automatic reminders (WhatsApp or email, never SMS), attendance, the moderator's live console, the script and, for the owner, the campaigns with their cost per client and each client's value.",
+    steps: [
+      "Create the webinar (title in English and Spanish, the host, the date on Texas time, the platforms, the keyword) and publish it; share the registration link.",
+      "On the day, open “Live console” on the laptop beside the stream: copy the chat messages, follow the timer and the three call-to-action moments, and watch the messages coming in.",
+      "Afterwards, add the replay link and import Zoom's attendee CSV (or mark by hand who attended).",
+      "In “Campaigns”, group ads, webinars, keywords and organic sources, and add the costs that are not Meta's: there you see the cost per client two ways and what each client is worth.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/chats": {
+    title: "Live chats",
+    what: "People who asked, in the signup chat with Alti, to talk with someone. You join the same chat, answer under your own name, and Alti pauses until you hand it back.",
+    steps: [
+      "Open the chat that is waiting (the case number is on top) and tap “Join the chat”: the person sees that you joined, with your name.",
+      "Answer in the person's language. Every reply passes the same rules as any team reply: no promises, no price, the person decides what is wrong.",
+      "Never ask for a Social Security number, a card or documents in the chat: the person uploads them in the signup.",
+      "When you are done, tap “Hand back to Alti”: Alti carries on with the signup.",
+    ],
+    playbooks: [],
+  },
   "/equipo/video": { title: "Video Studio", what: "Short videos and ads, edited in this browser: plan, edit, check, approval and hand-off to Content.", steps: ["Create the video (or open it from an Ads brief) and plan the script and shots; Alti can draft them.", "In the editor: upload the clips, trim, add words, captions, the logo and music from the library; export the MP4.", "In «Check & approve»: fix what it marks, tick the checklist and send it; only an administrator approves.", "Once approved, hand it to Content: the piece posts it."], playbooks: [] },
   "/equipo/planes": {
     title: "Billing plans",

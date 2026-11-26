@@ -713,7 +713,11 @@ describe("team: what the staff routes accept", () => {
     // The live funnel (migration 0043): report reviews and the personal video (reviews.video), the import (reports.import).
     expect(read("src/app/api/staff/live/route.ts")).toMatch(/requireCapability\("reviews\.video"\)/);
     expect(read("src/app/api/staff/live/route.ts")).toMatch(/requireCapability\(input\.action === "import" \? "reports\.import" : "reviews\.video"\)/);
-    expect(staffRoutes.length).toBe(52);
+    // Webinars and the campaign scorecard, and a person in the signup chat (migration 0044).
+    expect(read("src/app/api/staff/webinars/route.ts")).toMatch(/requireCapability\(campaigns \? "campaigns\.view" : "webinars\.view"\)/);
+    expect(read("src/app/api/staff/webinars/route.ts")).toMatch(/requireCapability\(CAPABILITY\[input\.action\]\)/);
+    expect(read("src/app/api/staff/signup-chats/route.ts")).toMatch(/requireCapability\("leads\.work"\)/);
+    expect(staffRoutes.length).toBe(54);
   });
 });
 

@@ -112,6 +112,18 @@ The app exposes everything n8n needs; n8n only provides the clock.
   the "live" heartbeat. Safe to run twice. See `docs/LIVE-FUNNEL.md`,
   «Retention».
 
+## Workflow 14: webinar reminders (every 10 minutes)
+
+- `POST {APP_URL}/api/cron/webinars`, same header. Sends the reminders that
+  are due to registrants who ticked the box: 1 week, 1 day and 1 hour before,
+  "we're live now", the replay (once its link is set), and the follow-ups on
+  day 2 and day 5, then it stops. WhatsApp (an approved template outside the
+  24-hour window) or email, never SMS; never 9 p.m.–8 a.m. Texas time; never
+  to a number that said STOP / BAJA or used the email's link; each reminder
+  once (claimed under `webinar:<registration>:<kind>`). Every 10 minutes keeps
+  "1 hour before" and "we're live now" on time. Nothing to do until a webinar
+  is published. See `docs/WEBINARS.md`.
+
 ## Heartbeats: is each workflow running?
 
 Every `/api/cron/*` route records one heartbeat per run in `cron_heartbeats`

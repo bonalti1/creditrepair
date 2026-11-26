@@ -137,5 +137,7 @@ export const config = {
     // The live funnel (docs/LIVE-FUNNEL.md): public, for ?lang= and noindex only.
     "/live",
     "/v/:path*",
+    // A webinar's public registration page and its reminders' unsubscribe (src/lib/webinars, docs/WEBINARS.md): ?lang= as on every page.
+    "/webinar/:path*",
   ],
 };

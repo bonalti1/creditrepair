@@ -26,6 +26,7 @@ Also built: **"Schedule a call with a person"**, switched **off** by default.
 | The disclosures and contract sheets | `src/components/signup/AgreementSheets.tsx` |
 | Sign in by phone, in the chat | `src/components/signup/PhoneSignIn.tsx` |
 | "Rather talk to someone?" | `src/components/signup/TalkToPerson.tsx` |
+| A person joins the chat | `src/components/signup/LivePerson.tsx`, `src/lib/signup/liveChat*.ts`, `src/app/api/signup/chat`, `src/app/api/staff/signup-chats`, `src/app/equipo/chats` |
 | Words (EN/ES), the transcript | `src/lib/signup/copy.ts` |
 | Steps, saved progress | `src/lib/signup/steps.ts` |
 | Case reference | `src/lib/signup/caseRef.ts` |
@@ -99,6 +100,60 @@ character; the robot never appears (brand test). Every line passes
 25 words (`signupChat.test.ts`). Inputs are labelled, everything works by
 keyboard (Escape closes sheets and the panel), the thread is a polite live
 region, and motion stops under reduced motion.
+
+## A person joins the chat
+
+At any step, "Rather talk to someone?" now offers first **"Chat with a person
+here"** (then WhatsApp, and a call when calls are on). Tapping it:
+
+1. **The person** (`src/components/signup/LivePerson.tsx`): a "Chat with a
+   person" box opens under the signup, with "Please don't write your Social
+   Security number, account numbers or card numbers here" and a message
+   field. The signup carries on above it: they can keep signing up while
+   they wait. `POST /api/signup/chat` `request` opens the thread (and marks
+   the case `wants_person`); `send` stores their message (numbers that look
+   like an SSN, an ITIN or an account are replaced with "•••" first, and
+   they are told); `read` is polled every 3 seconds. Every call carries the
+   case reference and its resume token (or comes from the account the case
+   is linked to), as `/api/signup` does.
+2. **The team** (`/equipo/chats`, «Live chats», Lead Manager, `leads.work`:
+   administrators and sales): the open chats with the case reference, the
+   step, the state and the language, newest first; a red circle on Lead
+   Manager for each one waiting. **«Join the chat»**: the person sees a line
+   "Ana from the Credalti team joined the chat. Alti is paused while a person
+   is here."; the teammate's messages are labelled **"Ana · Credalti team"**
+   (`teamByline`, with a person icon, never a character); Alti's stay
+   **"Alti · AI assistant"** (`aiByline`, with his face). **«Hand back to
+   Alti»** ends it ("The team handed the chat back to Alti").
+3. **Alti** answers while nobody is in (from the website's own library, the
+   same answers as "Ask Alti", already checked; with no match, "I passed
+   your message to the team. A person will answer here."). **No model
+   writes in this thread.** While a teammate is in, Alti is **paused**: he
+   writes nothing in the thread (the database refuses it too), and the
+   agreement's "I have a question first" box says Alti is paused instead of
+   answering. He resumes when the chat is handed back.
+4. **A teammate's reply** passes `checkStaffReply` (the claim rules and plain
+   promises, the same check as every staff reply) on the screen as it is
+   sent and again on the server (422 with the reasons). The database refuses
+   a teammate's line before they joined.
+
+**Realtime**: the app uses no Supabase realtime anywhere, so both sides poll
+(`POLL_MS`: the person and an open thread every 3 seconds, the staff list
+every 5 seconds, the menu's red circle every 30 seconds).
+
+**Demo**: the threads live in this browser's storage, so `/registro` and
+`/equipo/chats` in two tabs of the same browser see each other; two sample
+chats always wait on the console; and a chat started at `/registro` that no
+teammate joins within 8 seconds is joined by a sample teammate ("Rolando")
+who says hello, so the person's side can be tried alone.
+
+Database (migration 0044): `signup_chat_threads` (requested → joined →
+handed_back, who joined), `signup_chat_messages` (append-only; author
+person, staff with their first name, alti, or system). Staff read them by the
+same scope as the signup cases (administrators and sales, or whoever may see
+the client once the case is linked); anon reads nothing; the server writes.
+Tests: `webinars.test.ts` («a person joins Alti's signup chat») and
+`db/webinars.test.ts`.
 
 ## The case reference
 

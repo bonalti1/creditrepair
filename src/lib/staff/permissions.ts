@@ -94,6 +94,12 @@ export const CAPABILITIES = [
   "monitoring.commissions",
   // The live funnel (src/lib/live, migration 0043): a lead's report review before signup and their personal video.
   "reviews.video",
+  // Webinars (src/lib/webinars, migration 0044): the webinars, their registrants, the live console and the
+  // scripts; creating and changing webinars and importing attendance.
+  "webinars.view",
+  "webinars.manage",
+  // The campaign scorecard (src/lib/webinars/scorecard.ts): spend, CAC and client value. Money: administrators.
+  "campaigns.view",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -156,6 +162,9 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "clients.import": "Importar clientes desde Credit Repair Cloud",
   "monitoring.commissions": "Registrar y conciliar las comisiones del monitoreo",
   "reviews.video": "Revisar el reporte de un prospecto y grabarle su video personal",
+  "webinars.view": "Ver los webinars, la consola en vivo y los guiones",
+  "webinars.manage": "Crear y cambiar webinars e importar la asistencia",
+  "campaigns.view": "Ver las campañas: gasto, costo por cliente y valor del cliente",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -200,6 +209,9 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "clients.import": "Import clients from Credit Repair Cloud",
   "monitoring.commissions": "Record and reconcile the monitoring commissions",
   "reviews.video": "Review a lead's report and record their personal video",
+  "webinars.view": "See the webinars, the live console and the scripts",
+  "webinars.manage": "Create and change webinars and import attendance",
+  "campaigns.view": "See the campaigns: spend, cost per client and client value",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -268,6 +280,11 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "monitoring.commissions": false,
       // Reading reports is their work: a specialist reviews a lead's report and records the video.
       "reviews.video": true,
+      // Webinars (migration 0044): a specialist can moderate (the live console, the scripts); creating
+      // webinars and the campaign money are the owner's.
+      "webinars.view": true,
+      "webinars.manage": false,
+      "campaigns.view": false,
     },
   },
   sales: {
@@ -322,6 +339,10 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "monitoring.commissions": false,
       // Sales never sees credit data: the funnel's stage shows in the Lead Manager, the report and the video do not.
       "reviews.video": false,
+      // Sales answers the messages a webinar brings in: the live console and the registrants. No money.
+      "webinars.view": true,
+      "webinars.manage": false,
+      "campaigns.view": false,
     },
   },
 };

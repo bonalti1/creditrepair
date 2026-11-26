@@ -39,10 +39,12 @@ export type BadgeCounts = Partial<Record<NavGroupKey, number>>;
  * Overview replace each other's number for a group; a department's number is
  * ADDED to its group (the Overview does not count it), so the circle covers it.
  */
-type Source = "probe" | "overview" | "seo" | "ads" | "video" | "live";
-const ADDITIVE: readonly Source[] = ["seo", "ads", "video", "live"];
+type Source = "probe" | "overview" | "seo" | "ads" | "video" | "live" | "chats";
+// "chats": people in Alti's signup chat who asked for a person and nobody has
+// joined yet (src/lib/signup/liveChat.ts), ADDED to Lead Manager's circle.
+const ADDITIVE: readonly Source[] = ["seo", "ads", "video", "live", "chats"];
 
-const sources: Record<Source, BadgeCounts> = { probe: {}, overview: {}, seo: {}, ads: {}, video: {}, live: {} };
+const sources: Record<Source, BadgeCounts> = { probe: {}, overview: {}, seo: {}, ads: {}, video: {}, live: {}, chats: {} };
 let merged: BadgeCounts = {};
 const listeners = new Set<() => void>();
 

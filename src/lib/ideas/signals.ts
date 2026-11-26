@@ -23,7 +23,7 @@ import type { BasedOn } from "./types";
 // other file changes. A source whose data is missing returns its metrics with
 // value null ("No data yet"), never a 0.
 
-export type SignalUnit = "count" | "percent" | "cents" | "minutes" | "days";
+export type SignalUnit = "count" | "percent" | "cents" | "minutes" | "days" | "ratio";
 export type SignalWindow = "30d" | "7d" | "now";
 export type Better = "up" | "down";
 
@@ -322,8 +322,81 @@ const SEO: SignalSource = {
   },
 };
 
+/**
+ * Webinars and the campaign scorecard (src/lib/webinars, docs/WEBINARS.md):
+ * the last 30 days of classes (registered, attendance, the keyword leads and
+ * who signed) and the newest campaign's CAC and client value. The server
+ * fills `input.extra.webinars` (webinars/server.ts loadWebinarsSignal); a
+ * CAC below the scorecard's threshold ("Not enough data yet") is no data.
+ */
+export const WEBINARS_SIGNAL_ID = "webinars";
+export interface WebinarsSignalInput {
+  registered30d: number;
+  /** Registrants of the classes that ENDED in the last 30 days, and how many of them attended. */
+  endedRegistered30d: number;
+  endedAttended30d: number;
+  keywordLeads30d: number;
+  signed30d: number;
+  /** The newest campaign with a scorecard, or null when there is none. */
+  campaign: { cacBlendedCents: number | null; cacAdsCents: number | null; valuePerClientCents: number | null; valueOverCac: number | null; upgrades: number } | null;
+}
+
+const WEBINARS: SignalSource = {
+  id: WEBINARS_SIGNAL_ID,
+  metrics: {
+    webinar_registered_30d: { unit: "count", window: "30d", better: "up" },
+    webinar_attendance_rate: { unit: "percent", window: "30d", better: "up" },
+    webinar_keyword_leads_30d: { unit: "count", window: "30d", better: "up" },
+    webinar_signed_30d: { unit: "count", window: "30d", better: "up" },
+    campaign_cac_blended: { unit: "cents", window: "now", better: "down" },
+    campaign_cac_ads: { unit: "cents", window: "now", better: "down" },
+    campaign_value_per_client: { unit: "cents", window: "now", better: "up" },
+    campaign_value_over_cac: { unit: "ratio", window: "now", better: "up" },
+    campaign_diy_upgrades: { unit: "count", window: "now", better: "up" },
+  },
+  labels: {
+    en: {
+      webinar_registered_30d: "Webinar registrations, 30 days",
+      webinar_attendance_rate: "Registrants who attended (classes that ended)",
+      webinar_keyword_leads_30d: "Keyword leads from webinars, 30 days",
+      webinar_signed_30d: "Clients who signed from webinars, 30 days",
+      campaign_cac_blended: "Cost per client, blended (newest campaign)",
+      campaign_cac_ads: "Cost per client, ads only (newest campaign)",
+      campaign_value_per_client: "Value per client so far (newest campaign)",
+      campaign_value_over_cac: "Client value ÷ cost per client (newest campaign)",
+      campaign_diy_upgrades: "DIY → Complete upgrades (newest campaign)",
+    },
+    es: {
+      webinar_registered_30d: "Registros a webinars, 30 días",
+      webinar_attendance_rate: "Registrados que asistieron (clases ya terminadas)",
+      webinar_keyword_leads_30d: "Prospectos con la palabra clave de webinars, 30 días",
+      webinar_signed_30d: "Clientes de webinars que firmaron, 30 días",
+      campaign_cac_blended: "Costo por cliente, combinado (campaña más nueva)",
+      campaign_cac_ads: "Costo por cliente, solo anuncios (campaña más nueva)",
+      campaign_value_per_client: "Valor por cliente hasta hoy (campaña más nueva)",
+      campaign_value_over_cac: "Valor del cliente ÷ costo por cliente (campaña más nueva)",
+      campaign_diy_upgrades: "Cambios de DIY a Complete (campaña más nueva)",
+    },
+  },
+  collect({ extra }) {
+    const w = extra?.[WEBINARS_SIGNAL_ID] as WebinarsSignalInput | null | undefined;
+    if (!w) return {};
+    return {
+      webinar_registered_30d: w.registered30d,
+      webinar_attendance_rate: w.endedRegistered30d > 0 ? w.endedAttended30d / w.endedRegistered30d : null,
+      webinar_keyword_leads_30d: w.keywordLeads30d,
+      webinar_signed_30d: w.signed30d,
+      campaign_cac_blended: w.campaign?.cacBlendedCents ?? null,
+      campaign_cac_ads: w.campaign?.cacAdsCents ?? null,
+      campaign_value_per_client: w.campaign?.valuePerClientCents ?? null,
+      campaign_value_over_cac: w.campaign?.valueOverCac ?? null,
+      campaign_diy_upgrades: w.campaign ? w.campaign.upgrades : null,
+    };
+  },
+};
+
 /** Every source of numbers, in the order the screen lists them. Later departments add theirs here. */
-export const SIGNAL_SOURCES: readonly SignalSource[] = [BUSINESS, LEADS, CONTENT, ADS, SEO];
+export const SIGNAL_SOURCES: readonly SignalSource[] = [BUSINESS, LEADS, CONTENT, ADS, SEO, WEBINARS];
 
 /** "Other": an idea about something the console does not count yet. */
 export const OTHER_METRIC = "other";
@@ -359,6 +432,8 @@ export function formatSignal(value: number | null, unit: SignalUnit, locale: Sta
       return `${Math.round(value)} min`;
     case "days":
       return locale === "es" ? `${value.toFixed(1)} días` : `${value.toFixed(1)} days`;
+    case "ratio":
+      return `${value.toFixed(1)}×`;
     default:
       return String(Math.round(value));
   }

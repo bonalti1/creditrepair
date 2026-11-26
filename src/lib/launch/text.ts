@@ -445,6 +445,11 @@ export const LAUNCH_TEXT = defineText({
         "Reports people upload on /live are deleted after 30 days if they don't sign up, as the form promises.",
         "In n8n, call /api/cron/live every hour (Workflow 13).",
       ),
+      job_webinars: item(
+        "Webinar reminders",
+        "Registrants who asked for reminders get them (1 week, 1 day, 1 hour, live, replay, two follow-ups), never in quiet hours.",
+        "In n8n, call /api/cron/webinars every 10 minutes (Workflow 14).",
+      ),
       whatsapp_templates_meta: item(
         "WhatsApp templates approved in Meta",
         "Outside the 24-hour window an automatic message goes only as an approved template.",
@@ -942,6 +947,11 @@ export const LAUNCH_TEXT = defineText({
         "La retención del embudo en vivo",
         "Los reportes que la gente sube en /live se borran a los 30 días si no se registra, como promete el formulario.",
         "En n8n, llama a /api/cron/live cada hora (flujo 13).",
+      ),
+      job_webinars: item(
+        "Recordatorios de los webinars",
+        "Quien pidió recordatorios los recibe (1 semana, 1 día, 1 hora, en vivo, repetición, dos seguimientos), nunca en horas de silencio.",
+        "En n8n, llama a /api/cron/webinars cada 10 minutos (flujo 14).",
       ),
       whatsapp_templates_meta: item(
         "Plantillas de WhatsApp aprobadas en Meta",
