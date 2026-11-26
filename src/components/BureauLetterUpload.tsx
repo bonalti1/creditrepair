@@ -76,7 +76,7 @@ export default function BureauLetterUpload() {
         type="button"
         onClick={() => input.current?.click()}
         disabled={busy}
-        className="pressable mt-2 inline-flex h-10 items-center gap-2 rounded-full bg-slate-100 px-4 text-[14px] font-medium text-slate-800 hover:bg-slate-200 disabled:text-slate-400"
+        className="pressable mt-2 inline-flex h-11 items-center gap-2 rounded-full bg-slate-100 px-4 text-[14px] font-medium text-slate-800 hover:bg-slate-200 disabled:text-slate-400"
       >
         <Icon name="mail" size={16} />
         {busy ? (es ? "Leyendo la carta…" : "Reading the letter…") : es ? "Subir foto de la carta" : "Upload a photo of the letter"}

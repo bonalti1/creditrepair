@@ -85,6 +85,13 @@ export function billingOutlook(
   const unpaid = account.charges.find(isUnpaid);
   if (unpaid) {
     const n = unpaid.roundNumber;
+    // What the unpaid charge is for, in the client's words: a Credalti DIY subscription or mailing is not "a round".
+    const forWhat =
+      unpaid.unit === "diy_period"
+        ? { es: "por tu suscripción de Credalti DIY", en: "for your Credalti DIY subscription" }
+        : unpaid.unit === "mailing"
+          ? { es: "por las cartas que enviamos por ti", en: "for the letters we mailed for you" }
+          : { es: `por tu ronda ${n}`, en: `for your round ${n}` };
     if (stopped) {
       return make(
         "needs_person",
@@ -126,8 +133,8 @@ export function billingOutlook(
             `No payment method: the round ${n} charge didn't go through and there's no method on file to try it again.`,
           ],
           {
-            es: `El cobro${ofAmount.es} por tu ronda ${n} no pasó y ya no hay un método de pago en tu cuenta. Agrega uno para resolverlo.`,
-            en: `The charge${ofAmount.en} for your round ${n} did not go through and there is no payment method on your account. Add one to settle it.`,
+            es: `El cobro${ofAmount.es} ${forWhat.es} no pasó y ya no hay un método de pago en tu cuenta. Agrega uno para resolverlo.`,
+            en: `The charge${ofAmount.en} ${forWhat.en} did not go through and there is no payment method on your account. Add one to settle it.`,
           },
           null,
           n,
@@ -140,8 +147,8 @@ export function billingOutlook(
           `The round ${n} charge didn't go through. The system tries again ${when(at, now, "en")} (try ${unpaid.attempts + 1} of ${Math.max(MAX_AUTOMATIC_ATTEMPTS, unpaid.attempts + 1)}).`,
         ],
         {
-          es: `El cobro${ofAmount.es} por tu ronda ${n} no pasó. Lo intentamos de nuevo ${when(at, now, "es")}. No tienes que hacer nada, y no hay ningún cargo extra.`,
-          en: `The charge${ofAmount.en} for your round ${n} did not go through. We will try again ${when(at, now, "en")}. There is nothing you need to do, and no extra charge.`,
+          es: `El cobro${ofAmount.es} ${forWhat.es} no pasó. Lo intentamos de nuevo ${when(at, now, "es")}. No tienes que hacer nada, y no hay ningún cargo extra.`,
+          en: `The charge${ofAmount.en} ${forWhat.en} did not go through. We will try again ${when(at, now, "en")}. There is nothing you need to do, and no extra charge.`,
         },
         unpaid.nextAttemptAt,
         n,
@@ -155,8 +162,8 @@ export function billingOutlook(
           `The round ${n} charge failed after ${unpaid.attempts} ${unpaid.attempts === 1 ? "try" : "tries"} and the system has stopped trying. The case is paused; once the client updates their payment method, it's charged and moves on by itself.`,
         ],
         {
-          es: `El cobro${ofAmount.es} por tu ronda ${n} no pasó y ya no lo intentamos por nuestra cuenta. Tu caso está en pausa. En cuanto actualices tu método de pago, se resuelve y tu caso sigue solo. No hay cargos extra.`,
-          en: `The charge${ofAmount.en} for your round ${n} did not go through and we are no longer trying on our own. Your case is paused. As soon as you update your payment method, it is settled and your case continues by itself. There are no extra charges.`,
+          es: `El cobro${ofAmount.es} ${forWhat.es} no pasó y ya no lo intentamos por nuestra cuenta. Tu caso está en pausa. En cuanto actualices tu método de pago, se resuelve y tu caso sigue solo. No hay cargos extra.`,
+          en: `The charge${ofAmount.en} ${forWhat.en} did not go through and we are no longer trying on our own. Your case is paused. As soon as you update your payment method, it is settled and your case continues by itself. There are no extra charges.`,
         },
         null,
         n,
@@ -166,8 +173,8 @@ export function billingOutlook(
       "processing",
       [`El cobro de la ronda ${n} está en proceso con el procesador de pagos.`, `The round ${n} charge is processing with the payment processor.`],
       {
-        es: `El cobro${ofAmount.es} por tu ronda ${n} está en proceso.`,
-        en: `The charge${ofAmount.en} for your round ${n} is being processed.`,
+        es: `El cobro${ofAmount.es} ${forWhat.es} está en proceso.`,
+        en: `The charge${ofAmount.en} ${forWhat.en} is being processed.`,
       },
       null,
       n,
@@ -185,10 +192,16 @@ export function billingOutlook(
         `El sistema cobra ${formatCents(next.amountCents)} ${when(at, now, "es")}: ${next.work.es}.${noMethod ? " Todavía no hay método de pago en archivo." : ""}`,
         `The system charges ${formatCents(next.amountCents)} ${when(at, now, "en")}: ${next.work.en}.${noMethod ? " There's no payment method on file yet." : ""}`,
       ],
-      {
-        es: `El cobro${ofAmount.es} se hace ${when(at, now, "es")}, por trabajo ya hecho: ${next.work.es}.`,
-        en: `The charge${ofAmount.en} is made ${when(at, now, "en")}, for work already done: ${next.work.en}.`,
-      },
+      context.plan.terms.type === "diy_subscription"
+        ? {
+            // Credalti DIY: a simple monthly subscription, not a charge for work our team did.
+            es: `El cobro${ofAmount.es} se hace ${when(at, now, "es")}: ${next.work.es}.`,
+            en: `The charge${ofAmount.en} is made ${when(at, now, "en")}: ${next.work.en}.`,
+          }
+        : {
+            es: `El cobro${ofAmount.es} se hace ${when(at, now, "es")}, por trabajo ya hecho: ${next.work.es}.`,
+            en: `The charge${ofAmount.en} is made ${when(at, now, "en")}, for work already done: ${next.work.en}.`,
+          },
       next.at,
       eligibility.eligible ? eligibility.roundNumber : (eligibility.roundNumber ?? null),
     );

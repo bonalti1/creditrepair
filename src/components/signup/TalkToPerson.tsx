@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import Icon from "@/components/Icon";
 import { QUESTIONS_ONLY } from "@/lib/calls/config";
 import { SIGNUP_COPY } from "@/lib/signup/copy";
+import { LIVE_CHAT_COPY } from "@/lib/signup/liveChat";
 
 // "Rather talk to someone?": a real person on WhatsApp, and "Schedule a call"
 // only when calls are turned on (NEXT_PUBLIC_CALLS_ENABLED, off by default).
@@ -33,6 +34,7 @@ export default function TalkToPerson({
   callsEnabled,
   onClose,
   onChosen,
+  onChatHere,
 }: {
   locale: "en" | "es";
   caseRef: string;
@@ -40,8 +42,11 @@ export default function TalkToPerson({
   onClose: () => void;
   /** Told when they open WhatsApp or the call page (recorded as "wants a person"). */
   onChosen: () => void;
+  /** "Chat with a person here": a teammate joins this same chat (LivePerson.tsx). */
+  onChatHere?: () => void;
 }) {
   const c = SIGNUP_COPY[locale].talk;
+  const here = LIVE_CHAT_COPY[locale];
   const href = whatsappLink(c.whatsappText(caseRef));
   const panel = useRef<HTMLDivElement>(null);
 
@@ -64,6 +69,15 @@ export default function TalkToPerson({
       </div>
       <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{c.lead}</p>
       <div className="mt-4 grid gap-2.5">
+        {onChatHere && (
+          <>
+            <button type="button" onClick={onChatHere} className="pressable flex h-12 items-center justify-center gap-2 rounded-full bg-blue-700 px-5 text-[16px] font-semibold text-white hover:bg-blue-800" data-testid="talk-here">
+              <Icon name="person" size={18} />
+              {here.ask}
+            </button>
+            <p className="px-1 text-[13px] leading-snug text-slate-500">{here.askSub}</p>
+          </>
+        )}
         {href ? (
           <a
             href={href}

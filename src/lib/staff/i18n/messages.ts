@@ -69,6 +69,12 @@ export const MESSAGE_EN: Record<string, string> = {
   // Marking rounds as mailed, sending, partners
   "No se pudo marcar como enviadas. Intenta de nuevo.": "Couldn't mark them as mailed. Try again.",
   "No se pudo enviar. Intenta de nuevo.": "Couldn't send. Try again.",
+  "No se pudo enviar.": "Couldn't send.",
+  "La ronda no se puede enviar ahora.": "The round can't be sent right now.",
+  // The server's mailing gate (rounds/send.ts)
+  "Un cobro de este cliente no pasó y su caso está en pausa. No se envía una ronda nueva hasta que el pago quede resuelto.":
+    "A charge for this client didn't go through and their case is paused. No new round goes out until the payment is sorted out.",
+  "La dirección del cliente no se puede leer. Pídele que la escriba en su app.": "The client's address can't be read. Ask them to enter it in their app.",
   // Partners (partners/data.ts, partners/rules.ts)
   "No encontramos a ese socio.": "We couldn't find that partner.",
   "Escribe un monto válido.": "Enter a valid amount.",
@@ -147,8 +153,39 @@ const PATTERNS_EN: ReadonlyArray<[RegExp, (...groups: string[]) => string]> = [
   [/^Promete o insinúa un resultado: «(.+)»\. Una carta pide; no promete ni asegura nada\.$/, (match) => `It promises or hints at a result: “${match}”. A letter asks; it doesn't promise or guarantee anything.`],
   [/^La carta es del cliente y va en su nombre: no menciona a (.+), a (.+) ni dice «on behalf of»\.$/, (brand, assistant) => `The letter is the client's and goes out in their name: it doesn't mention ${brand} or ${assistant}, or say “on behalf of”.`],
   [/^Se quitó una cita legal de la versión incluida: (.+)\.$/, (list) => `A legal citation from the built-in version was removed: ${list}.`],
+  // The server's document hold (fulfillment/documents.ts documentHoldMessageEs)
+  [
+    /^No se envía: (?:un documento requerido no fue aceptado|dos documentos requeridos no fueron aceptados) en la revisión \((.+)\)\. La ronda sale cuando el cliente suba uno nuevo y el equipo lo acepte\.$/,
+    (names) =>
+      `Not sent: ${names.includes(" y ") ? "two required documents weren't" : "a required document wasn't"} accepted in review (${names
+        .split(" y ")
+        .map((n) => DOCUMENT_EN[n] ?? n)
+        .join(" and ")}). The round goes out once the client uploads a new one and the team accepts it.`,
+  ],
+  // The send's summary when the server held some rounds (staff/data.ts markRoundsSent): each reason in English too.
+  [
+    /^(?:Se (?:envió (1) ronda|enviaron (\d+) rondas)\. )?(?:Una ronda no salió|(\d+) rondas no salieron): (.+)$/s,
+    (one, many, heldCount, list) => {
+      const sent = one ? "1 round sent. " : many ? `${many} rounds sent. ` : "";
+      const held = heldCount ? `${heldCount} rounds didn't go out` : "One round didn't go out";
+      const items = list
+        .split(" · ")
+        .map((part) => {
+          const m = part.match(/^ronda (\d+) — (.+)$/s);
+          return m ? `round ${m[1]} — ${staffMessage(m[2]!, "en")}` : staffMessage(part, "en");
+        })
+        .join(" · ");
+      return `${sent}${held}: ${items}`;
+    },
+  ],
   [/^Esta ronda usa cartas que el abogado todavía no aprobó \((.+)\)\. Un administrador las aprueba en Cartas \(\/equipo\/cartas\) y después se envía la ronda\.$/, (list) => `This round uses letters the attorney hasn't approved yet (${list}). An administrator approves them in Letters (/equipo/cartas), then the round can be sent.`],
 ];
+
+/** The required documents' names (fulfillment/documents.ts DOCUMENT_KIND_LABEL), Spanish → English. */
+const DOCUMENT_EN: Record<string, string> = {
+  "Identificación con foto": "Photo ID",
+  "Comprobante de domicilio": "Proof of address",
+};
 
 /** A letter chip's English label from its Spanish one: the labels of letters/versions/source.ts (CHIPS, CHIP_TEXT_EN). */
 const CHIP_LABEL_EN: Record<string, string> = {

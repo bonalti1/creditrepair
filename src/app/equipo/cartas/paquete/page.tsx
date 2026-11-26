@@ -11,7 +11,7 @@ import { useStaff } from "@/lib/staff/useStaff";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import Icon from "@/components/Icon";
 import { DiffView, LetterPaper } from "@/components/staff/letters/LetterParts";
-import { NoAccess, PRIMARY_BUTTON } from "@/components/staff/ui";
+import { DemoNote, NoAccess, PRIMARY_BUTTON, BACK_LINK } from "@/components/staff/ui";
 
 // The attorney's packet: the letter versions waiting on the attorney, each
 // with its details, its changes against the text in use, and the full letter
@@ -39,12 +39,12 @@ function Packet() {
   return (
     <main className="animate-rise print:animate-none">
       <div className="print:hidden">
-        <Link href="/equipo/cartas" className="inline-flex items-center gap-1 text-[14px] font-medium text-blue-700">
+        <Link href="/equipo/cartas" className={BACK_LINK}>
           <Icon name="chevron" size={14} className="rotate-180" /> {t("Cartas", "Letters")}
         </Link>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Paquete para el abogado", "Attorney's packet")}</h1>
+            <h1 className="page-title">{t("Paquete para el abogado", "Attorney's packet")}</h1>
             <p className="mt-1 max-w-2xl text-[15px] leading-relaxed text-slate-500">
               {entries.length === 0
                 ? t("No hay versiones esperando al abogado.", "No versions are waiting on the attorney.")
@@ -61,13 +61,12 @@ function Packet() {
           )}
         </div>
         {demo && (
-          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900">
-            <strong>Demo:</strong>{" "}
+          <DemoNote className="mt-4">
             {t(
-              "este paquete se arma con lo guardado en este navegador. No se envió nada a ningún abogado.",
-              "this packet is built from what's saved in this browser. Nothing was sent to any attorney.",
+              "Este paquete se arma con lo guardado en este navegador. No se envió nada a ningún abogado.",
+              "This packet is built from what's saved in this browser. Nothing was sent to any attorney.",
             )}
-          </p>
+          </DemoNote>
         )}
       </div>
 

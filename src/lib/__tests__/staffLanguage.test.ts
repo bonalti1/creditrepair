@@ -6,6 +6,8 @@ import { BLOCK_TEXT, BLOCK_TEXT_EN, FOLLOWUP_TEXT_EN } from "../autopilot/follow
 import { workQueue, STATUS_LABELS } from "../autopilot/queue";
 import { RESOLUTION_LABEL_EN } from "../autopilot/resolutions";
 import type { AutopilotEnv } from "../autopilot/types";
+import { ADS_TEXT } from "../ads/text";
+import { WEBINARS_TEXT } from "../webinars/text";
 import { checkClaimGuardrails } from "../compliance/guardrails";
 import { CHANNEL_LABEL_EN } from "../leads/source";
 import { CHIP_TEXT_EN, chipText } from "../letters/versions/source";
@@ -36,6 +38,14 @@ import {
 } from "../staff/i18n/locale";
 import { MESSAGE_EN, staffMessage } from "../staff/i18n/messages";
 import { SHELL_TEXT } from "../staff/i18n/ui/shell";
+import { ALTI_HELP_TEXT } from "../staff/altiHelp";
+import { SEO_TEXT } from "../seo/text";
+import { LAUNCH_TEXT } from "../launch/text";
+import { IDEAS_TEXT } from "../ideas/text";
+import { IDEA_METRIC_LABELS } from "../ideas/signals";
+import { VIDEO_TEXT } from "../video/labels";
+import { LIVE_TEXT } from "../live/text";
+import { FUNNEL_STAGE_LABELS, FUNNEL_TAG_LABELS } from "../live/stages";
 import { DIMENSION_LABELS, OUTCOME_DEFINITION_TEXT } from "../staff/learning";
 import { exceptionMessage, MESSAGE_BODIES, STAFF_MESSAGE_RULE_TEXT } from "../staff/messages";
 import { METRIC_INFOS, PERIOD_LABELS } from "../staff/metrics";
@@ -107,6 +117,12 @@ function shape(value: unknown): unknown {
 // The tables that hold both languages, keyed by locale.
 const BILINGUAL_TABLES: Record<string, Record<StaffLocale, unknown>> = {
   SHELL_TEXT,
+  ALTI_HELP_TEXT,
+  SEO_TEXT,
+  // Launch readiness and Ideas (migration 0040).
+  LAUNCH_TEXT,
+  IDEAS_TEXT,
+  IDEA_METRIC_LABELS,
   STAGE_TEXT,
   EXCEPTION_LABELS,
   ACTOR_LABELS,
@@ -135,6 +151,15 @@ const BILINGUAL_TABLES: Record<string, Record<StaffLocale, unknown>> = {
   STAFF_MESSAGE_RULE_TEXT,
   DIGEST_TEMPLATE_BODIES,
   DRAFT_MESSAGES,
+  // The Ads Manager (docs/ADS.md).
+  ADS_TEXT,
+  VIDEO_TEXT,
+  // The live funnel (migration 0043): the review overview and the script, the funnel stages and sources.
+  LIVE_TEXT,
+  FUNNEL_STAGE_LABELS,
+  FUNNEL_TAG_LABELS,
+  // Webinars and the campaign scorecard (docs/WEBINARS.md).
+  WEBINARS_TEXT,
 };
 
 // English-only twins of Spanish tables that live where their rule lives.

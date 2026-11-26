@@ -151,8 +151,8 @@ export function waitingListNote(locale: Locale): string {
 }
 
 /**
- * The assistant's message once the customer approves: which letters went out, what each
- * covers, and which confirmed items wait for the next round.
+ * Credalti DIY: Alti's message once the client gives the OK: which letters are ready to
+ * print, what each covers, and which confirmed items wait for the next round.
  */
 export function approvedMessage(
   session: Pick<SessionPlan, "plan" | "waiting">,
@@ -165,8 +165,8 @@ export function approvedMessage(
   const rows = plan.letters.map((l) => `• ${l.target.name} — ${letterCoverage(l, items, locale).join("; ")}`);
   const parts = [
     es
-      ? `¡Hecho! 📬 ${one ? "Esta carta se imprime y va por correo:" : `Estas ${plan.letters.length} cartas se imprimen y van por correo:`}`
-      : `Done! 📬 ${one ? "This letter is being printed and mailed:" : `These ${plan.letters.length} letters are being printed and mailed:`}`,
+      ? `¡Listo! 📝 ${one ? "Esta carta queda lista para que la imprimas y la envíes:" : `Estas ${plan.letters.length} cartas quedan listas para que las imprimas y las envíes:`}`
+      : `Done! 📝 ${one ? "This letter is ready for you to print and mail:" : `These ${plan.letters.length} letters are ready for you to print and mail:`}`,
     rows.join("\n"),
   ];
   if (waiting.length > 0) {
@@ -179,8 +179,8 @@ export function approvedMessage(
   }
   parts.push(
     es
-      ? "\nLos burós tienen ~30 días para responder; yo vigilo el calendario y te aviso aquí. No tienes que hacer nada más."
-      : "\nBureaus have ~30 days to respond; I watch the calendar and message you here. Nothing else to do.",
+      ? "\nCuando las envíes, toca «Ya las envié» en Mis cartas: los burós tienen ~30 días para responder y yo te aviso cuándo toca la siguiente ronda."
+      : "\nWhen you mail them, tap \"I mailed them\" in My letters: bureaus have ~30 days to respond and I tell you when the next round is due.",
   );
   return parts.join("\n");
 }

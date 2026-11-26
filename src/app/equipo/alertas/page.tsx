@@ -8,7 +8,7 @@ import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import { useViewer } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
 import SafeBoundary from "@/components/staff/control/SafeBoundary";
-import { PRIMARY_BUTTON_COMPACT, QUIET_BUTTON, SECONDARY_BUTTON_COMPACT } from "@/components/staff/ui";
+import { PRIMARY_BUTTON_COMPACT, QUIET_BUTTON, SECONDARY_BUTTON_COMPACT, Switch } from "@/components/staff/ui";
 
 // Phone alerts (docs/CONTROL.md): each member chooses, per topic, what pings
 // their phone. Everything starts OFF. Only the topics about the member's own
@@ -67,7 +67,7 @@ export default function AlertsPage() {
 
   return (
     <main className="animate-rise max-w-3xl">
-      <h1 className="font-display text-[28px] font-semibold tracking-tight text-slate-900">{t("Alertas al teléfono", "Phone alerts")}</h1>
+      <h1 className="page-title">{t("Alertas al teléfono", "Phone alerts")}</h1>
       <p className="mt-1 text-[15px] leading-relaxed text-slate-500">
         {t("Tú eliges qué te avisa. Todo empieza apagado. Las alertas llevan lo mínimo: un nombre y una inicial, nunca datos de crédito.", "You choose what pings you. Everything starts off. Alerts carry the least: a first name and an initial, never credit details.")}
       </p>
@@ -141,16 +141,7 @@ export default function AlertsPage() {
                         <p className="text-[15px] font-semibold text-slate-900">{words[topic].label}</p>
                         <p className="mt-0.5 text-[13.5px] leading-snug text-slate-600">{words[topic].help}</p>
                       </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={pref.enabled}
-                        aria-label={words[topic].label}
-                        onClick={() => void toggle(topic, !pref.enabled, pref.waitingMinutes)}
-                        className={`relative mt-1 h-8 w-14 shrink-0 rounded-full transition-colors ${pref.enabled ? "bg-blue-700" : "bg-slate-300"}`}
-                      >
-                        <span className={`absolute left-0 top-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${pref.enabled ? "translate-x-7" : "translate-x-1"}`} />
-                      </button>
+                      <Switch on={pref.enabled} label={words[topic].label} onChange={(next) => void toggle(topic, next, pref.waitingMinutes)} />
                     </div>
                     {topic === "lead_waiting" && (
                       <label className="mt-2 flex items-center gap-2 text-[13.5px] text-slate-700">

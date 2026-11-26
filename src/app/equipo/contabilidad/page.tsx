@@ -7,7 +7,7 @@ import { isClosed } from "@/lib/accounting/expenses";
 import { isMonthKey, monthLabel, monthOf, monthsEnding } from "@/lib/accounting/periods";
 import { deniedReason } from "@/lib/staff/permissions";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
-import { Chip, NoAccess, QUIET_BUTTON } from "@/components/staff/ui";
+import { Chip, DemoNote, NoAccess, pillTab, QUIET_BUTTON } from "@/components/staff/ui";
 import BankImport from "@/components/staff/accounting/BankImport";
 import Collections from "@/components/staff/accounting/Collections";
 import Commissions from "@/components/staff/accounting/Commissions";
@@ -19,6 +19,7 @@ import Reconcile from "@/components/staff/accounting/Reconcile";
 import Reports from "@/components/staff/accounting/Reports";
 import Taxes from "@/components/staff/accounting/Taxes";
 import { CONTROL_INLINE } from "@/components/staff/accounting/bits";
+import { AdSpendCheck } from "@/components/staff/ads/SpendBooks";
 
 // The accounting department: the business in numbers, from the billing
 // records and what the team enters. Owner and administrators only (the
@@ -68,7 +69,7 @@ function Accounting() {
     <main className="animate-rise min-w-0" data-testid="accounting">
       <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
         <div className="min-w-0">
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Contabilidad", "Accounting")}</h1>
+          <h1 className="page-title">{t("Contabilidad", "Accounting")}</h1>
           <p className="mt-0.5 text-[14px] text-slate-500">
             {t("Números reales de los cobros y de lo que registras. Base de caja, hora de Texas.", "Real numbers from billing and what you enter. Cash basis, Texas time.")}
           </p>
@@ -87,16 +88,18 @@ function Accounting() {
         </div>
       </div>
       {acc.demo && (
-        <p className="mt-2 flex flex-wrap items-center gap-2 text-[12.5px] text-slate-500 print:hidden">
-          {t("Demo: clientes, gastos y montos inventados, guardados en este navegador.", "Demo: invented clients, expenses and amounts, kept in this browser.")}
-          <button type="button" className={`${QUIET_BUTTON} h-8 px-2 text-[12.5px]`} onClick={() => { resetDemoBooks(); void acc.reload(); }}>
-            {t("Volver al ejemplo", "Reset the example")}
-          </button>
-        </p>
+        <DemoNote
+          onReset={() => {
+            resetDemoBooks();
+            void acc.reload();
+          }}
+        >
+          {t("Demo: clientes, gastos y montos inventados, guardados en este navegador.", "Demo: made-up clients, expenses and amounts, kept in this browser.")}
+        </DemoNote>
       )}
 
       <nav className="-mx-4 mt-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 print:hidden" aria-label={t("Secciones", "Sections")}>
-        <div className="flex w-max gap-1 rounded-full bg-slate-100 p-1" role="tablist">
+        <div className="flex w-max gap-1.5" role="tablist">
           {TABS.map((k) => (
             <button
               key={k}
@@ -104,7 +107,7 @@ function Accounting() {
               role="tab"
               aria-selected={tab === k}
               onClick={() => go({ tab: k })}
-              className={`h-10 whitespace-nowrap rounded-full px-3.5 text-[14px] font-medium ${tab === k ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+              className={pillTab(tab === k)}
               data-testid={`tab-${k}`}
             >
               {TAB_LABEL[k][locale]}
@@ -116,7 +119,13 @@ function Accounting() {
       <div className="mt-5 min-w-0">
         {tab === "dashboard" && <Dashboard acc={acc} month={month} />}
         {tab === "income" && <Ledger acc={acc} month={month} reveal={reveal} setReveal={setReveal} />}
-        {tab === "expenses" && <Expenses acc={acc} month={month} />}
+        {tab === "expenses" && (
+          <>
+            {/* Meta's ad spend beside "Advertising: Meta": a reconciliation suggestion, never an entry (docs/ADS.md). */}
+            <AdSpendCheck month={month} expenses={acc.book.expenses} />
+            <Expenses acc={acc} month={month} />
+          </>
+        )}
         {tab === "import" && <BankImport acc={acc} />}
         {tab === "reconcile" && <Reconcile acc={acc} reveal={reveal} />}
         {tab === "collections" && <Collections acc={acc} reveal={reveal} />}

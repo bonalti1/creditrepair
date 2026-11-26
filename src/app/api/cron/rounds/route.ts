@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { safeBeat } from "@/lib/control/heartbeat";
 import { getMonitoringAdapter } from "@/lib/monitoring";
 import { importReportForUser } from "@/lib/domain/importReport";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { hasSharedSecret } from "@/lib/security/signatures";
 import { workMayStart } from "@/lib/agreement/gate";
 import { loadAgreement } from "@/lib/agreement/server";
-import { isFullService } from "@/lib/service/mode";
+
 import { nextRoundDueFromRows } from "@/lib/rounds/timing";
 
 // The round loop (spec §4.4), as one idempotent endpoint that n8n (or any
@@ -34,7 +35,10 @@ export async function POST(req: Request) {
     .eq("status", "mailed")
     .lte("next_round_due_at", new Date().toISOString())
     .limit(50);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    await safeBeat(db, "rounds", new Date(), { ok: false, error: error.message });
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   const adapter = getMonitoringAdapter();
   const processed: Array<{ userId: string; round: number; ok: boolean; error?: string }> = [];
@@ -52,10 +56,10 @@ export async function POST(req: Request) {
         processed.push({ userId: round.user_id, round: round.round_number, ok: false, error: "not_due_yet" });
         continue;
       }
-      // Full service: a client who cancelled, or asked to end the service, gets
+      // Either option: a client who cancelled, or asked to end the service, gets
       // no more work done, and that includes pulling their report again. The
       // round stays as it is for a person to close.
-      if (isFullService) {
+      {
         const gate = workMayStart(await loadAgreement(db, round.user_id), new Date());
         if (!gate.allowed) {
           processed.push({ userId: round.user_id, round: round.round_number, ok: false, error: `agreement_${gate.code}` });
@@ -94,5 +98,7 @@ export async function POST(req: Request) {
     }
   }
 
+  // The heartbeat for Launch readiness and Tech health (src/lib/control/heartbeat.ts).
+  await safeBeat(db, "rounds", new Date(), { ok: true, detail: { due: dueRounds?.length ?? 0, done: processed.filter((p) => p.ok).length } });
   return NextResponse.json({ due: dueRounds?.length ?? 0, processed });
 }

@@ -20,8 +20,11 @@ import type { DocumentKind, StaffClient } from "../staff/types";
 import { responseWindowStart } from "../mail/tracking";
 import { DOCUMENT_NAME, failuresSinceAccepted, reuploadRequest } from "../intake/reupload";
 import { RESPONSE_WINDOW_DAYS } from "../ux/journey";
+import { channelsFor, settingsOf } from "../fulfillment/notifications";
+import { dueText, earlyMonitoringReminder } from "../fulfillment/monitoring";
+import { latestRejectionAt } from "../fulfillment/documents";
 import { chooseChannel, type ChannelChoice } from "./channels";
-import { appLink, FOLLOWUP_TEMPLATES, renderTemplate, type MessageTemplate } from "./templates";
+import { appLink, EXTRA_FOLLOWUP_TEMPLATES, FOLLOWUP_TEMPLATES, MONITORING_BEFORE_DUE_TEMPLATE, renderTemplate, type MessageTemplate } from "./templates";
 import { FOLLOWUP_KINDS, type AutopilotEnv, type FollowupKind, type MessageLocale, type OutboundMessage } from "./types";
 
 // Automatic follow-ups: the reminders a person used to send by hand.
@@ -92,7 +95,8 @@ export const FOLLOWUP_SCHEDULES: Record<FollowupKind, FollowupSchedule> = {
     stepDays: [0, 2, 5],
     personAfterDays: 7,
     personFromStart: false,
-    path: "/acuerdo#documentos",
+    // The documents screen: what is missing, what our team did not accept and why, and the upload buttons.
+    path: "/documentos",
     covers: ["documents_missing"],
   },
   review_unfinished: {
@@ -216,6 +220,13 @@ export interface Situation {
    * the kinds the schedule covers.
    */
   exceptionKey?: string;
+  /**
+   * Monitoring only: when the next report is due, for a series the team's
+   * check started early (fulfillment/monitoring.ts). Before that day its
+   * message says when the report is due.
+   */
+  dueAt?: string;
+  dueText?: Record<MessageLocale, string>;
 }
 
 const DOCUMENT_EN: Record<DocumentKind, string> = {
@@ -250,7 +261,10 @@ export function openSituations(client: StaffClient, now: Date): Situation[] {
   const missing = missingDocuments(client);
   if (client.agreementSignedAt && missing.length > 0 && !workStartsAt(client, now)) {
     const deadline = deadlineOf(clientAgreement(client));
-    const start = deadline ? firstWorkingDay(deadline).toISOString() : client.agreementSignedAt;
+    const windowEnd = deadline ? firstWorkingDay(deadline).toISOString() : client.agreementSignedAt;
+    // A document a person did not accept starts a new series from that review (fulfillment/documents.ts).
+    const rejectedAt = latestRejectionAt(client, missing);
+    const start = rejectedAt && rejectedAt > windowEnd ? rejectedAt : windowEnd;
     add("documents_missing", start, day(start), {
       es: [documentNames(missing)],
       en: [missing.map((k) => DOCUMENT_EN[k]).join(" and ")],
@@ -275,13 +289,24 @@ export function openSituations(client: StaffClient, now: Date): Situation[] {
 
     const reportAge = (now.getTime() - new Date(client.report.pulledAt).getTime()) / (24 * HOUR_MS);
     const overdue = overdueResponseRound(client, now);
+    // The team found the monitoring cancelled and a report is due soon (fulfillment/monitoring.ts):
+    // the same series, under the same key, starts early and says when the report is due.
+    const early = earlyMonitoringReminder(client, now);
+    const addMonitoring = (start: string, key: string) => {
+      const sooner = early && early.key === key && early.startAt < start ? early : null;
+      add("monitoring_inactive", sooner ? sooner.startAt : start, key);
+      if (sooner) Object.assign(found[found.length - 1]!, { dueAt: sooner.dueAt, dueText: dueText(sooner.dueAt) });
+    };
     if (overdue?.mailedAt) {
       // From the system's own re-pull date (rounds/timing.ts): before it, no new report is expected.
       const start = (roundRepullAt(overdue) ?? addDays(responseWindowStart(overdue) ?? overdue.mailedAt, RESPONSE_WINDOW_DAYS)).toISOString();
-      add("monitoring_inactive", start, `r${overdue.number}`);
+      addMonitoring(start, `r${overdue.number}`);
     } else if (Math.floor(reportAge) > FRESH_REPORT_DAYS && latestRound(client)?.status !== "mailed") {
       const start = addDays(client.report.pulledAt, FRESH_REPORT_DAYS).toISOString();
-      add("monitoring_inactive", start, day(client.report.pulledAt));
+      addMonitoring(start, day(client.report.pulledAt));
+    } else if (early) {
+      add("monitoring_inactive", early.startAt, early.key);
+      Object.assign(found[found.length - 1]!, { dueAt: early.dueAt, dueText: dueText(early.dueAt) });
     }
   }
 
@@ -325,11 +350,12 @@ export function openSituations(client: StaffClient, now: Date): Situation[] {
 
 // ── Where each situation stands ─────────────────────────────────────────
 
-export type FollowupBlock = "disabled" | "opted_out" | "held" | "no_channel" | "template_not_approved";
+export type FollowupBlock = "disabled" | "opted_out" | "reminders_off" | "held" | "no_channel" | "template_not_approved";
 
 export const BLOCK_TEXT: Record<FollowupBlock, string> = {
   disabled: "Los recordatorios automáticos de esto están apagados.",
   opted_out: "Pidió no recibir mensajes automáticos.",
+  reminders_off: "Apagó los recordatorios en sus avisos: una persona le escribe o le llama.",
   held: "El piloto automático está detenido para este cliente.",
   no_channel: "No hay un canal para escribirle solo (WhatsApp o correo).",
   template_not_approved: "Falta aprobar en Meta la plantilla de WhatsApp de este mensaje, y no tiene correo.",
@@ -339,6 +365,7 @@ export const BLOCK_TEXT: Record<FollowupBlock, string> = {
 export const BLOCK_TEXT_EN: Record<FollowupBlock, string> = {
   disabled: "Automatic reminders for this are turned off.",
   opted_out: "Asked not to get automatic messages.",
+  reminders_off: "Turned reminders off in their notification settings: a person writes or calls instead.",
   held: "The autopilot is on hold for this client.",
   no_channel: "There's no channel to message them automatically (WhatsApp or email).",
   template_not_approved: "This message's WhatsApp template still needs Meta's approval, and they have no email.",
@@ -372,8 +399,27 @@ export function followupTemplate(kind: FollowupKind, step: number): MessageTempl
   return FOLLOWUP_TEMPLATES[kind][Math.min(Math.max(step, 1), 3) - 1]!;
 }
 
+/** The template for this step of this occurrence: the early monitoring message before its report is due, else the usual one. */
+export function followupTemplateFor(situation: Situation, step: number, now: Date): MessageTemplate {
+  if (situation.kind === "monitoring_inactive" && situation.dueAt && step < 3 && now.getTime() < new Date(situation.dueAt).getTime()) {
+    return EXTRA_FOLLOWUP_TEMPLATES.find((t) => t.name === MONITORING_BEFORE_DUE_TEMPLATE)!;
+  }
+  return followupTemplate(situation.kind, step);
+}
+
+export { MONITORING_BEFORE_DUE_TEMPLATE };
+
 function contactOf(client: StaffClient) {
   return { phone: client.phone, email: client.email ?? null, lastInboundAt: client.lastInboundAt ?? null };
+}
+
+/**
+ * The channel for one of this client's automatic messages: the team's
+ * channels narrowed to the ones the client kept in their notification
+ * settings (fulfillment/notifications.ts).
+ */
+export function clientChannel(client: StaffClient, template: string, env: AutopilotEnv, now: Date): ChannelChoice {
+  return chooseChannel(contactOf(client), template, channelsFor(settingsOf(client), env.channels), now);
 }
 
 export function followupStates(client: StaffClient, now: Date, env: AutopilotEnv): FollowupState[] {
@@ -401,9 +447,10 @@ export function followupStates(client: StaffClient, now: Date, env: AutopilotEnv
     let block: FollowupBlock | null = null;
     if (!env.settings.followupsEnabled || !env.settings.followups[situation.kind]) block = "disabled";
     else if (client.optOut) block = "opted_out";
+    else if (!settingsOf(client).reminders) block = "reminders_off";
     else if (openHold(client)) block = "held";
     else if (next) {
-      const choice = chooseChannel(contactOf(client), followupTemplate(situation.kind, next.step).name, env.channels, now);
+      const choice = clientChannel(client, followupTemplateFor(situation, next.step, now).name, env, now);
       if (choice.channel === null) block = choice.reason;
     }
 
@@ -439,9 +486,11 @@ export function dueFollowups(client: StaffClient, now: Date, env: AutopilotEnv, 
   const locale = clientLocale(client);
   return followupStates(client, now, env).flatMap((state) => {
     if (state.block || !state.next || new Date(state.next.dueAt).getTime() > now.getTime()) return [];
-    const template = followupTemplate(state.situation.kind, state.next.step);
+    const template = followupTemplateFor(state.situation, state.next.step, now);
     const link = appLink(state.schedule.path, base);
-    const params = [client.firstName, ...state.situation.values[locale], link];
+    // The early monitoring message carries the report's date; the others the situation's values.
+    const values = template.name === MONITORING_BEFORE_DUE_TEMPLATE ? [state.situation.dueText?.[locale] ?? ""] : state.situation.values[locale];
+    const params = [client.firstName, ...values, link];
     return [
       {
         dedupeKey: dedupeKeyFor(client.id, state.situation.key, state.next.step),
@@ -454,7 +503,7 @@ export function dueFollowups(client: StaffClient, now: Date, env: AutopilotEnv, 
         body: renderTemplate(template, locale, params),
         link,
         outboundId: null,
-        choice: chooseChannel(contactOf(client), template.name, env.channels, now),
+        choice: clientChannel(client, template.name, env, now),
       },
     ];
   });

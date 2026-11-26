@@ -479,10 +479,17 @@ describe("the console's database data layer (browser side)", () => {
 });
 
 describe("the client approval route under full service", () => {
-  it("refuses before reading anything: letters leave only from the staff send", async () => {
+  it("refuses a stranger, and refuses a Credalti Complete client before anything is prepared: letters leave only from the staff send", async () => {
     const route = await import("@/app/api/attacks/approve/route");
     const res = await route.POST(new Request("https://app.test/api/attacks/approve", { method: "POST", body: JSON.stringify({ roundNumber: 1 }), headers: { "x-forwarded-for": "10.9.9.9" } }));
-    expect(res.status).toBe(409);
-    expect(await res.json()).toMatchObject({ code: "full_service_team_sends" });
+    expect(res.status).toBe(401);
+    // The option is the client's own (docs/SERVICE-OPTIONS.md): read first, and full service stops there.
+    const source = readFileSync("src/app/api/attacks/approve/route.ts", "utf8");
+    const refusal = source.indexOf('code: "full_service_team_sends"');
+    expect(source.indexOf('(await clientOption(db, userId)) === "full_service"')).toBeGreaterThan(0);
+    expect(refusal).toBeGreaterThan(source.indexOf('(await clientOption(db, userId)) === "full_service"'));
+    expect(source.indexOf("await sendRound(")).toBeGreaterThan(refusal);
+    // And what it does for Credalti DIY only prepares: nothing is mailed here.
+    expect(source).toMatch(/via: "prepare"/);
   });
 });

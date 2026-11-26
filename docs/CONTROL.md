@@ -8,7 +8,7 @@ on its cards and in its Today list (see «The home of the business» below).
 
 | What | Where | Who |
 | --- | --- | --- |
-| **Overview** and **Today** | `/equipo/control` (tab «Overview») | everyone on the team; each card by role |
+| **Overview** and **Today** | `/equipo/control` (section 0 «Overview» of the side menu) | everyone on the team; each card by role |
 | **Leads**: the lead inbox, pipeline, numbers, autopilot switch | `/equipo/leads` (tab «Leads») | administrators and sales (`leads.work`) |
 | **Lead autopilot** (OFF) | `/equipo/leads?vista=autopilot` | read by whoever works leads; switched only by an administrator (`autopilot.manage`) |
 | **Phone alerts** (OFF for everyone) | `/equipo/alertas` (under «More») | each member, for themselves |
@@ -47,6 +47,7 @@ that opens the screen where the work is done:
 | Clients in progress | signed (in the 3-day window), waiting on documents, report and review, rounds ready, mailed and waiting on the bureaus, new report in, paused, after-care | the work queue minus unsigned agreements → `/equipo` | everyone (their own clients, by the same scopes) |
 | Money | collected this month, charges that failed, scheduled in the next 30 days (the dashboard's own rule); for the owner also this month's **net revenue, expenses and net profit from the books**, and «Open Accounting» | payment notices → `/equipo/clientes?aviso=payment_past_due` | `billing.view`: **never sales**; the books' lines need `accounting` |
 | Content | waiting for review, scheduled to post this week (and approved but not scheduled), posted this week, failed posts, automatic publishing on or off; «Open Content» | approvers: in review + failed → board on «Ready for review»; editors: changes requested of them (theirs and unowned) + failed → board on «Changes requested»; only failures → the failed pieces | `content.view` (administrators and specialists) |
+| Ads | ad spend in the last 7 days (Meta), leads from ads and cost per lead (Credalti, verified), ads to turn off that still spend; «Open Ads». Sample numbers in the demo, "No data yet" until Meta is connected | ads marked "Turn off" still spending → `/equipo/anuncios?vista=resultados&filtro=turn_off` | `ads.view` (administrators: spend is money) |
 | Support | client questions waiting, lead conversations waiting, possible complaints (7 days), review requests sent (30 days) | questions → `/equipo/clientes?aviso=question_waiting` | everyone; reviews with `case.view` |
 | Partners | new referrals (7 days), partner notes the team has not answered | → `/equipo/socios` | `partners.view` |
 | Tech health | when each thing last happened: WhatsApp received, HighLevel lead, Lob mail update, automatic message, the leads job, morning summary | jobs later than expected | `business.view` (the owner) |
@@ -65,13 +66,48 @@ value shows "This part couldn't be shown" in that box only.
 The **departments strip** on top of the Overview (and of Today) has a tile
 for each department the member may open: Leads (`leads.work`), Clients
 (everyone), Content (`content.share`; sales, who has no board, lands on the
-partner kit), Accounting (`accounting`), Partners (`partners.view`) and
-Reviews (everyone), with the card's «Needs you» on the tile when there is
-one. Three to a row on a phone, one row from 768 px.
+partner kit), Ads (`ads.view`), Accounting (`accounting`), Partners
+(`partners.view`) and Reviews (everyone), with the card's «Needs you» on the
+tile when there is one. Three to a row on a phone, one row from 768 px.
 
-Tech health is a phase-1 stub of what is checkable now (last times, a
-heartbeat for the leads job: `cron_heartbeats`). Outage alerts and a full
-check-up are phase 3.
+Tech health shows what is checkable at a glance (last times, the leads
+job's heartbeat in `cron_heartbeats`). The full check-up is in Launch
+readiness → System health (`/equipo/lanzamiento?vista=salud`,
+`docs/LAUNCH.md`): every service, every scheduled job's heartbeat (every
+`/api/cron` route now records one) and «Check now»; the card links there for
+an administrator. Outage alerts are still phase 3.
+
+**Launch readiness on the Overview.** While the business is not live (any
+required item not ready), an administrator sees a compact card under the
+departments strip: "9 · Launch readiness: N of M ready", the next item, and a
+link to `/equipo/lanzamiento`. It goes away by itself once every required item
+is ready, and comes back if one stops being ready.
+
+**Next webinar on the Overview** (`components/staff/webinars/NextWebinarCard.tsx`,
+`docs/WEBINARS.md`). For every member who may see the webinars
+(`webinars.view`), a compact card under the departments strip: "Next
+webinar" (or "Webinar live now"), its title, the day and time on Texas
+time, how many registered, and «Live console». Nothing shows when no
+webinar is upcoming or live. The webinars' numbers and the campaign
+scorecard live in Webinars (section 2), not on the Overview; Lead Manager's
+red circle also counts the signup chats waiting for a person («Live chats»).
+
+### Video Studio, SEO and Ideas on the Overview (final pass)
+
+`src/lib/control/marketing.ts`. The **Content & video** card adds the Video
+Studio's line ("Videos waiting for approval", with the videos sent back and
+the approved ones still to hand to Content), and its «Needs you» adds the
+Video Studio's own rule (`videoNeeds`); the Today list carries the same
+videos the way it carries Content's pieces (approve, changes, hand over),
+each with its steps. Two compact cards: **2 · SEO** (site checks to fix,
+guides waiting for approval, sent back, on the website; "No data yet" until a
+site check has run) and **8 · Ideas & tests** (new ideas to approve, tests
+running, tests over to keep or drop, decided in the last 30 days; «Needs you»
+only for an administrator). The departments strip lists every department in
+the menu's order (Video Studio, SEO and Ideas included): two rows of five on
+a laptop, one row that slides sideways on a phone. The menu's red circle for
+Marketing is unchanged (the board's count, plus the Video Studio's and SEO's
+own sources).
 
 ## Today
 
@@ -136,8 +172,17 @@ anything itself:
   travel, gift and car expenses), not tax advice; the close
   checklist still asks for every receipt. **Failed charges are not added**:
   they already come from billing through the work queue's payment notices.
-- **Navigation**: the top bar is unchanged (five tabs); under «More»,
-  Content and Accounting now come first, on the desk and on the phone.
+- **Navigation**: since the console took ALTO Control's layout (docs/STAFF.md,
+  «Navigation and the phone»), Content is section 2 and Accounting section 5
+  of the side menu, each with its red circle; on a phone both are in «More».
+- **Ads** (`src/lib/ads`, `docs/ADS.md`): the Ads card and tile read the Ads
+  Manager's last 7 days (`adsSummary`), on the server through the member's
+  own connection (`loadControlExtras` → `loadAdsSummary`; its tables are
+  administrators' only, migration 0037), in the demo from the sample ad
+  account. Section 2 is now «Marketing» (Content, Ads, Reviews; Video Studio
+  and SEO join it). Ad spend never enters the books by itself: Accounting →
+  Expenses shows Meta's spend beside "Advertising: Meta" as a reconciliation
+  suggestion (THE MONEY RULE is cash basis).
 
 ## Leads
 
@@ -152,6 +197,21 @@ had to change:
 | Partner referral | the portal or the HighLevel code creates the prospect | Partner · name |
 | Chat signup (`/registro`) | the signup case is linked to an account with a phone | Chat signup · CR-… |
 | By hand / household | sales adds the prospect | Added by hand / Household |
+| The live funnel (`docs/LIVE-FUNNEL.md`) | a WhatsApp keyword ("CREDIT"), the `/live` form, or a comment handed over by HighLevel / ManyChat (`/api/webhooks/live`) | WhatsApp or Live funnel, plus a "Live · <stage>" tag |
+
+**The live funnel's stages.** A lead from a webinar or an ad carries a line
+beside its pipeline stage, set by facts only: New → Reviewing report → Video
+sent → Watched → Started signup → Signed (`src/lib/live/stages.ts`, from
+`live_leads`, migration 0043, which sales reads for its own leads; no credit
+data). The conversation shows where they came from (webinar, platform,
+keyword, campaign) and the steps. The keyword's automatic reply (one per
+person and keyword in 7 days, labelled "Alti · AI assistant", STOP and quiet
+hours as the greeting) replaces the greeting for that message. The report
+review and the personal video live in **3 · Lead Manager → Report reviews**
+(`/equipo/revisiones`, `reviews.video`: administrators and specialists, never
+sales), whose waiting reviews are added to the Lead Manager's red circle.
+WhatsApp only for leads; the funnel's SMS channel is a separate, narrow
+exception, off by default (`docs/LIVE-FUNNEL.md`, «SMS»).
 
 First touch wins (never overwritten). Each row shows the source and first
 touch, the language (saved, else the one they wrote in), the stage, who works
@@ -205,7 +265,9 @@ HighLevel, when that is on, labelled as such. Around it:
   server); after that, only the approved template
   `credalti_prospecto_seguimiento`, outside quiet hours, and only once it is
   approved in Meta and listed in `WHATSAPP_APPROVED_TEMPLATES`. A number that
-  said STOP gets nothing until START. **Never SMS.**
+  said STOP gets nothing until START. **Never SMS** (the live funnel's
+  keyword reply and video link are the one exception, off by default and
+  only for a person who texted us or consented: `docs/LIVE-FUNNEL.md`).
 
 ### Lead quality numbers
 
@@ -295,10 +357,12 @@ English first, Spanish with the member's switch (inline pairs and `{en, es}`
 tables; a test walks them). What goes to a lead is in the lead's language.
 Brand navy and gold, Poppins and Inter, the console's own components. Every
 screen was checked at 390 px (no sideways scroll, 44 px controls) and at 1440.
-The top bar now carries five tabs (Home, Overview, Leads, Clients, Answers):
-from 1280 px with their names, below that as icons with the name on hover and
-for screen readers; search and "What do I do here?" are icons (Ctrl/Cmd+K
-still opens search). The phone's bottom bar has the same five plus More.
+The console now has ALTO Control's own layout too: a navy side menu with
+numbered sections and red circles, a top bar with «Ask Alti» (Alti's panel:
+the screen's help, his existing features there, the team's playbook) and
+search (Ctrl/Cmd+K), sub-tabs per section, and on a phone a navy bottom bar
+with four sections and a «More» sheet; see docs/STAFF.md, «Navigation and the
+phone» and «The console's design system».
 
 ## What ALTO taught, and what is different here
 
@@ -316,8 +380,9 @@ automatic message is labelled as AI. No SMS anywhere (carriers reject credit
 repair texts; ALTO used SMS). No selling by phone: the Today procedures and
 the reply box say so (Telemarketing Sales Rule). Quiet hours and STOP apply
 to leads. Money is a separate card that sales never sees. Leads become
-"Signed" from the agreement record, not from a payment, and nothing is
-charged before the work (billing is untouched).
+"Signed" from the agreement record, not from a payment; Credalti Complete is
+never charged before the work and Credalti DIY's subscription waits for the
+cancellation window (billing is untouched).
 
 ## For the owner
 

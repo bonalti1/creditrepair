@@ -26,6 +26,9 @@ const PATHS = {
   download: "M12 4v11M7 10l5 5 5-5M5 20h14",
   link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1",
   info: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5.5M12 7.5v.01",
+  // A light bulb (Ideas) and a rocket (Launch readiness).
+  bulb: "M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2v.5h5V16c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z",
+  rocket: "M12 15l-3-3c1.2-4.4 4.2-7.6 9.5-8.5-.9 5.3-4.1 8.3-8.5 9.5zM9 12l-3.5-.5L8 8.5l3.2.3M12 15l.5 3.5 3-2.5-.3-3.2M6.5 17.5c-1 .4-1.8 1.4-2 3 1.6-.2 2.6-1 3-2",
   book: "M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM13 4h5.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H13zM7 8h1.5M7 11h1.5M15.5 8H17M15.5 11H17",
   textSize: "M3 19l5-13 5 13M4.8 14.5h6.4M14 19l3.5-9 3.5 9M15.2 16h4.6",
   close: "M6 6l12 12M18 6L6 18",
@@ -34,6 +37,12 @@ const PATHS = {
   dashboard: "M4 4h7v9H4zM13 4h7v5h-7zM13 11h7v9h-7zM4 15h7v5H4z",
   inbox: "M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM3 13h5l1.5 3h5l1.5-3h5",
   bell: "M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0",
+  // The Ads Manager (src/lib/ads).
+  megaphone: "M4 10.5v3a1 1 0 0 0 1 1h2l8 4.5V5L7 9.5H5a1 1 0 0 0-1 1zM18.5 9.5a3 3 0 0 1 0 5M7.5 14.5 9 19.5h2.5",
+  play: "M8 5.5v13l10.5-6.5z",
+  // The Video Studio: a camera for its menu entry, play and cut in the editor.
+  video: "M4 6.5h10a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 16V8A1.5 1.5 0 0 1 4 6.5zM15.5 10.5l6-3.5v10l-6-3.5",
+  cut: "M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM6.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM8.6 7.9 20 18M8.6 16.1 20 6",
 } as const;
 
 export type IconName = keyof typeof PATHS;

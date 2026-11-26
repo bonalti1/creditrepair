@@ -221,10 +221,12 @@ describe("team: who sees which client", () => {
 
   it("sales is shown only the notices about getting a person started", () => {
     const shown = EXCEPTION_KINDS.filter((k) => exceptionVisibleTo("sales", k));
-    expect(shown.sort()).toEqual(["agreement_unsigned", "documents_missing"]);
+    // And the gentle follow-up for a Credalti DIY client whose letters wait unmailed (docs/SERVICE-OPTIONS.md).
+    expect(shown.sort()).toEqual(["agreement_unsigned", "diy_followup", "documents_missing"]);
     for (const k of EXCEPTION_KINDS) {
       expect(exceptionVisibleTo("admin", k)).toBe(true);
-      expect(exceptionVisibleTo("specialist", k)).toBe(true);
+      // The DIY follow-up is a sales conversation (the "options.followup" capability): admin and sales.
+      expect(exceptionVisibleTo("specialist", k)).toBe(k !== "diy_followup");
       expect(exceptionVisibleTo(null, k)).toBe(false);
     }
   });
@@ -687,7 +689,37 @@ describe("team: what the staff routes accept", () => {
     // The accounting department (migration 0036): the accounting capability.
     expect(read("src/app/api/staff/accounting/route.ts")).toMatch(/requireCapability\("accounting"\)/);
     expect(read("src/app/api/staff/accounting/receipt/route.ts")).toMatch(/requireCapability\("accounting"\)/);
-    expect(staffRoutes.length).toBe(38);
+    // The Ads Manager (migration 0037): the numbers for ads.view, Alti's ad copy and the briefs for ads.draft, by action.
+    expect(read("src/app/api/staff/ads/route.ts")).toMatch(/requireCapability\(briefsOnly \? "ads\.draft" : "ads\.view"\)/);
+    expect(read("src/app/api/staff/ads/route.ts")).toMatch(/requireCapability\(CAPABILITY\[input\.action\]\)/);
+    // SEO (migration 0039): the department (seo.view, each action its own capability), site health (seo.view), Alti's drafts (seo.edit).
+    expect(read("src/app/api/staff/seo/route.ts")).toMatch(/requireCapability\("seo\.view"\)/);
+    expect(read("src/app/api/staff/seo/route.ts")).toMatch(/requireCapability\(capability\)/);
+    expect(read("src/app/api/staff/seo/health/route.ts")).toMatch(/requireCapability\("seo\.view"\)/);
+    expect(read("src/app/api/staff/seo/draft/route.ts")).toMatch(/requireCapability\("seo\.edit"\)/);
+    // Launch readiness (administrators) and Ideas (everyone adds; ideas.approve decides), migration 0040.
+    expect(read("src/app/api/staff/launch/route.ts")).toMatch(/requireCapability\("launch"\)/);
+    expect(read("src/app/api/staff/ideas/route.ts")).toMatch(/requireCapability\(capabilityFor\(input\.action\)\)/);
+    expect(read("src/app/api/staff/ideas/route.ts")).toMatch(/requireCapability\("ideas\.add"\)/);
+    // The Video Studio (migration 0038): the board and actions, files, Alti's draft, automatic captions.
+    expect(read("src/app/api/staff/video/route.ts")).toMatch(/requireCapability\(VIDEO_ACTION_CAPABILITY\[input\.action\]\)/);
+    expect(read("src/app/api/staff/video/route.ts")).toMatch(/requireCapability\("content\.view"\)/);
+    expect(read("src/app/api/staff/video/files/route.ts")).toMatch(/requireCapability\(input\.action === "sign" \? "content\.view" : "content\.edit"\)/);
+    expect(read("src/app/api/staff/video/assist/route.ts")).toMatch(/requireCapability\("content\.edit"\)/);
+    expect(read("src/app/api/staff/video/transcribe/route.ts")).toMatch(/requireCapability\("content\.edit"\)/);
+    // Fulfillment (migration 0041): document review, monitoring checks and commissions, the CRC import.
+    expect(read("src/app/api/staff/documents/route.ts")).toMatch(/requireCapability\("documents\.review"\)/);
+    expect(read("src/app/api/staff/monitoring/route.ts")).toMatch(/requireCapability\("clients\.followup"\)/);
+    expect(read("src/app/api/staff/monitoring/route.ts")).toMatch(/requireCapability\("monitoring\.commissions"\)/);
+    expect(read("src/app/api/staff/import/route.ts")).toMatch(/requireCapability\("clients\.import"\)/);
+    // The live funnel (migration 0043): report reviews and the personal video (reviews.video), the import (reports.import).
+    expect(read("src/app/api/staff/live/route.ts")).toMatch(/requireCapability\("reviews\.video"\)/);
+    expect(read("src/app/api/staff/live/route.ts")).toMatch(/requireCapability\(input\.action === "import" \? "reports\.import" : "reviews\.video"\)/);
+    // Webinars and the campaign scorecard, and a person in the signup chat (migration 0044).
+    expect(read("src/app/api/staff/webinars/route.ts")).toMatch(/requireCapability\(campaigns \? "campaigns\.view" : "webinars\.view"\)/);
+    expect(read("src/app/api/staff/webinars/route.ts")).toMatch(/requireCapability\(CAPABILITY\[input\.action\]\)/);
+    expect(read("src/app/api/staff/signup-chats/route.ts")).toMatch(/requireCapability\("leads\.work"\)/);
+    expect(staffRoutes.length).toBe(54);
   });
 });
 
@@ -999,7 +1031,8 @@ describe("team: the clients list", () => {
     expect(page).not.toMatch(/sent\[|mailedAt:/);
     // And the guarded data is what useStaff hands every page.
     expect(readFileSync("src/lib/staff/useStaff.ts", "utf8")).toMatch(/guardStaffData\(raw, viewer/);
-    expect(clients.filter((c) => sendableRound(c, later)).map((c) => c.id)).toEqual(["c07", "c08", "c14"]);
+    // c72: the letters a Credalti DIY client asked us to mail.
+    expect(clients.filter((c) => sendableRound(c, later)).map((c) => c.id)).toEqual(["c07", "c08", "c14", "c72"]);
   });
 });
 

@@ -9,6 +9,7 @@ import { formatCents } from "../accounting/money";
 import { monthLabel } from "../accounting/periods";
 import type { BooksDue } from "./books";
 import { myChanges, type ContentSummary, type ContentViewer } from "./content";
+import { videoNeedsOf, type VideoSummary } from "./marketing";
 
 // The Today list (docs/CONTROL.md): ALTO Control's "one list a single
 // assistant works top to bottom", for credit repair. It is the console's own
@@ -36,6 +37,9 @@ export type TodayKind =
   | "content_review"
   | "content_changes"
   | "content_failed"
+  | "video_review"
+  | "video_changes"
+  | "video_handoff"
   | "books_close"
   | "books_receipts";
 
@@ -59,7 +63,7 @@ export interface TodayItem {
 
 const MIN = 60_000;
 
-type ProcedureKey = "waiting" | "handoff" | "money" | "signup" | "new" | "partner" | "escalation" | "contentReview" | "contentChanges" | "contentFailed" | "booksClose" | "booksReceipts";
+type ProcedureKey = "waiting" | "handoff" | "money" | "signup" | "new" | "partner" | "escalation" | "contentReview" | "contentChanges" | "contentFailed" | "videoReview" | "videoChanges" | "videoHandOff" | "booksClose" | "booksReceipts";
 
 const LEAD_STEPS: Record<StaffLocale, Record<ProcedureKey, { steps: string[]; doneWhen: string }>> = {
   en: {
@@ -86,7 +90,7 @@ const LEAD_STEPS: Record<StaffLocale, Record<ProcedureKey, { steps: string[]; do
       steps: [
         "Open the conversation.",
         "Don't quote a price: the plan is explained in writing, in the agreement, before signing.",
-        "Tell them how the service works and that nothing is charged before the work.",
+        "Tell them how the service works: with Credalti Complete they're charged each month right after their letters are mailed; Credalti DIY is a simple monthly subscription.",
         "If they ask for a discount, a refund or a special deal, tap “Escalate to the owner”.",
       ],
       doneWhen: "A person answered them.",
@@ -141,6 +145,22 @@ const LEAD_STEPS: Record<StaffLocale, Record<ProcedureKey, { steps: string[]; do
       ],
       doneWhen: "It is scheduled again or posted.",
     },
+    videoReview: {
+      steps: [
+        "Open the video in the Video Studio and watch the exported file from start to end, with the sound on.",
+        "Read the captions and the on-screen words in its language: no promises, no results, no pressure.",
+        "Approve it, or tap “Ask for changes” and say what to change.",
+      ],
+      doneWhen: "It is approved or sent back with a note.",
+    },
+    videoChanges: {
+      steps: ["Open the video and read the note from the approver.", "Make the changes in the editor and export the MP4 again.", "Tap “Send for approval” again."],
+      doneWhen: "It is back waiting for approval.",
+    },
+    videoHandOff: {
+      steps: ["Open the approved video in the Video Studio.", "Tap “Hand to Content”: it becomes a piece on the Content board with the approved file.", "Schedule or post it from Content."],
+      doneWhen: "It is on the Content board.",
+    },
     booksClose: {
       steps: [
         "Open Accounting, Reports, on that month.",
@@ -178,7 +198,7 @@ const LEAD_STEPS: Record<StaffLocale, Record<ProcedureKey, { steps: string[]; do
       steps: [
         "Abre la conversación.",
         "No des un precio: el plan se explica por escrito, en el acuerdo, antes de firmar.",
-        "Explícale cómo funciona el servicio y que nada se cobra antes del trabajo.",
+        "Explícale cómo funciona el servicio: con Credalti Complete se cobra cada mes justo después de enviar sus cartas; Credalti DIY es una suscripción mensual sencilla.",
         "Si pide descuento, reembolso o un trato especial, toca «Pasar al dueño».",
       ],
       doneWhen: "Una persona le respondió.",
@@ -233,6 +253,22 @@ const LEAD_STEPS: Record<StaffLocale, Record<ProcedureKey, { steps: string[]; do
       ],
       doneWhen: "Está programada otra vez o publicada.",
     },
+    videoReview: {
+      steps: [
+        "Abre el video en el Estudio de video y mira el archivo exportado de principio a fin, con sonido.",
+        "Lee los subtítulos y las palabras en pantalla en su idioma: sin promesas, sin resultados, sin presión.",
+        "Apruébalo, o toca «Pedir cambios» y di qué cambiar.",
+      ],
+      doneWhen: "Está aprobado o devuelto con una nota.",
+    },
+    videoChanges: {
+      steps: ["Abre el video y lee la nota de quien lo revisó.", "Haz los cambios en el editor y exporta el MP4 otra vez.", "Toca «Mandar a aprobación» otra vez."],
+      doneWhen: "Está otra vez esperando aprobación.",
+    },
+    videoHandOff: {
+      steps: ["Abre el video aprobado en el Estudio de video.", "Toca «Pasar a Contenido»: queda como pieza en el tablero de Contenido con el archivo aprobado.", "Prográmalo o publícalo desde Contenido."],
+      doneWhen: "Está en el tablero de Contenido.",
+    },
     booksClose: {
       steps: [
         "Abre Contabilidad, Informes, en ese mes.",
@@ -263,6 +299,11 @@ const WORDS = {
     changes: (title: string) => `Changes requested: ${title}`,
     failed: (title: string, channel: string | null) => `A post failed: ${title}${channel ? ` (${channel})` : ""}`,
     failedWhy: "The reason was not recorded: open the piece's history.",
+    videoReview: (title: string) => `Approve this video: ${title}`,
+    videoReviewDetail: "Exported and waiting for approval in the Video Studio.",
+    videoChanges: (title: string) => `Changes requested on a video: ${title}`,
+    videoHandOff: (title: string) => `Hand this approved video to Content: ${title}`,
+    videoHandOffDetail: "Approved; it goes out once it is a piece on the Content board.",
     close: (month: string) => `Close the books for ${month}`,
     closeDetail: "The month is over and the 5th has passed. Closing keeps its figures as they are.",
     receipts: (n: number) => `${n} ${n === 1 ? "expense" : "expenses"} of $75 or more without a receipt`,
@@ -280,6 +321,11 @@ const WORDS = {
     changes: (title: string) => `Pidieron cambios: ${title}`,
     failed: (title: string, channel: string | null) => `Falló una publicación: ${title}${channel ? ` (${channel})` : ""}`,
     failedWhy: "No quedó la razón: abre la historia de la pieza.",
+    videoReview: (title: string) => `Aprueba este video: ${title}`,
+    videoReviewDetail: "Exportado y esperando aprobación en el Estudio de video.",
+    videoChanges: (title: string) => `Pidieron cambios a un video: ${title}`,
+    videoHandOff: (title: string) => `Pasa este video aprobado a Contenido: ${title}`,
+    videoHandOffDetail: "Aprobado; sale cuando sea una pieza en el tablero de Contenido.",
     close: (month: string) => `Cierra los libros de ${month}`,
     closeDetail: "El mes terminó y ya pasó el día 5. Cerrarlo guarda sus cifras como están.",
     receipts: (n: number) => `${n} ${n === 1 ? "gasto" : "gastos"} de $75 o más sin recibo`,
@@ -296,6 +342,8 @@ export interface TodayInput {
   escalations?: ReadonlyArray<{ id: string; key: string; title: string; note: string | null; by: string; at: string }>;
   /** The content board (control/content.ts) and who is looking; omit for a member without content.view. */
   content?: { summary: ContentSummary; viewer: ContentViewer } | null;
+  /** The Video Studio's board (control/marketing.ts), for the same viewer; omit without content.view. */
+  video?: { summary: VideoSummary; viewer: ContentViewer } | null;
   /** What the books ask of the owner (control/books.ts); omit for a member without `accounting`. */
   books?: BooksDue | null;
   now: Date;
@@ -385,6 +433,25 @@ export function todayList(input: TodayInput): TodayItem[] {
       for (const c of myChanges(summary, viewer.handle)) {
         items.push({ key: `content-changes:${c.id}`, kind: "content_changes", priority: 47, title: w.changes(c.title), detail: c.note ?? "", since: c.since, href: piece(c.id), ...steps.contentChanges, overdue: false, minutes: 15 });
       }
+    }
+  }
+
+  // The Video Studio, the same way as Content's pieces and the same rule as its own red circle
+  // (video/rules.ts videoNeeds): approvers the videos waiting; editors the changes asked of them
+  // and the approved videos still to hand to Content.
+  const video = input.video;
+  if (video) {
+    const open = (id: string) => `/equipo/video/${id}`;
+    const needs = videoNeedsOf(video.summary, video.viewer);
+    for (const r of needs.ready) {
+      const waited = now.getTime() - Date.parse(r.since) >= 2 * 24 * 60 * MIN;
+      items.push({ key: `video-review:${r.id}`, kind: "video_review", priority: waited ? 55 : 45, title: w.videoReview(r.title), detail: w.videoReviewDetail, since: r.since, href: open(r.id), ...steps.videoReview, overdue: false, minutes: 10 });
+    }
+    for (const c of needs.changes) {
+      items.push({ key: `video-changes:${c.id}`, kind: "video_changes", priority: 47, title: w.videoChanges(c.title), detail: c.note ?? "", since: c.since, href: open(c.id), ...steps.videoChanges, overdue: false, minutes: 20 });
+    }
+    for (const a of needs.approved) {
+      items.push({ key: `video-handoff:${a.id}`, kind: "video_handoff", priority: 44, title: w.videoHandOff(a.title), detail: w.videoHandOffDetail, since: a.since, href: open(a.id), ...steps.videoHandOff, overdue: false, minutes: 5 });
     }
   }
 

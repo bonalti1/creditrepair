@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safeBeat } from "@/lib/control/heartbeat";
 import { reportError } from "@/lib/observability/errors";
 import { runPartnerDigests, runShareRequestMessages } from "@/lib/partners/portalServer";
 import { runPartnerNotices } from "@/lib/partners/sharingServer";
@@ -28,9 +29,11 @@ export async function POST(req: Request) {
     const notices = await runPartnerNotices(db, now);
     const shareRequests = await runShareRequestMessages(db, now);
     const digests = await runPartnerDigests(db, now);
+    await safeBeat(db, "partners", now, { ok: true });
     return NextResponse.json({ ...notices, shareRequests, digests });
   } catch (error) {
     await reportError(error, { where: "api/cron/partners" });
+    await safeBeat(db, "partners", new Date(), { ok: false, error: error instanceof Error ? error.message : "error" });
     return NextResponse.json({ error: "The run stopped. What it already sent is recorded; the next run continues." }, { status: 500 });
   }
 }

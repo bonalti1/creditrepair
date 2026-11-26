@@ -1,5 +1,6 @@
 "use client";
 
+import { plainWhenCharged, plainWhoDoes } from "@/lib/agreement/plainWords";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import AgreementDocumentCard, { Blocks, DraftBanner } from "@/components/agreement/AgreementDocument";
@@ -10,7 +11,7 @@ import { deadlineMoment, longDate } from "@/lib/agreement/format";
 import { agreementPhase, deadlineOf } from "@/lib/agreement/gate";
 import { agreementReadiness } from "@/lib/agreement/readiness";
 import { isFullName, signerNameMatches } from "@/lib/agreement/signature";
-import { resolveTerms, withPlan } from "@/lib/agreement/terms";
+import { resolveTerms, withOption, withPlan } from "@/lib/agreement/terms";
 import { mostYoullPay, planSummary } from "@/lib/billing/plans";
 import { stateLaw } from "@/lib/compliance/states";
 import { SIGNUP_COPY } from "@/lib/signup/copy";
@@ -35,8 +36,8 @@ import { AltiRun } from "./Bubbles";
 //                 cancellation, the statements by the signature, the typed
 //                 legal name and the three consents, then "Sign".
 //
-// Nothing is charged when signing (billing triggers refuse any charge before
-// the work, docs/BILLING.md). The per-item attestation is not involved here:
+// Nothing is charged when signing (billing triggers refuse any Complete charge
+// before its work, and a DIY subscription before the window ends, docs/BILLING.md). The per-item attestation is not involved here:
 // the client makes it later, item by item, in the review.
 
 export type SheetKind = "rights" | "contract";
@@ -169,8 +170,9 @@ export default function AgreementFlow({
 }) {
   const c = SIGNUP_COPY[locale];
   const es = locale === "es";
-  const { agreement, hydrated, signedIn, profileName, mode, plan, stateDocuments, acknowledge, sign } = useAgreement();
-  const terms = useMemo(() => withPlan(resolveTerms(), plan), [plan]);
+  const { agreement, hydrated, signedIn, profileName, mode, plan, stateDocuments, acknowledge, sign, option } = useAgreement();
+  // The agreement of the option the person chose in the chat (Credalti Complete or Credalti DIY).
+  const terms = useMemo(() => withOption(withPlan(resolveTerms(), plan), option), [plan, option]);
   const readiness = useMemo(() => agreementReadiness({ terms, state: stateDocuments.state }), [terms, stateDocuments.state]);
   const positions = useRef<Record<string, number>>({});
   const [consent, setConsent] = useState(false);
@@ -330,10 +332,8 @@ export default function AgreementFlow({
             </h3>
             <ul className="mt-3 space-y-3 text-[15px] leading-snug text-blue-100">
               <li>
-                <strong className="text-white">{es ? "Lo que hace tu equipo. " : "What your team does. "}</strong>
-                {es
-                  ? "Prepara las cartas sobre lo que tú digas que es inexacto y las envía por correo, en rondas."
-                  : "Prepares the letters about what you say is inaccurate and mails them, in rounds."}
+                <strong className="text-white">{plainWhoDoes(terms, locale).title}. </strong>
+                {plainWhoDoes(terms, locale).body}
               </li>
               <li>
                 <strong className="text-white">{es ? "Lo que haces tú. " : "What you do. "}</strong>
@@ -342,7 +342,7 @@ export default function AgreementFlow({
               <li data-testid="sheet-plan">
                 <strong className="text-white">{es ? "Lo que cuesta. " : "What it costs. "}</strong>
                 {terms.plan ? `${planSummary(terms.plan, locale)}. ${mostYoullPay(terms.plan, locale)}. ` : ""}
-                {es ? "Cada cobro se hace solo después del trabajo que paga." : "Each charge is made only after the work it pays for."}
+                {plainWhenCharged(terms, locale)}
               </li>
               <li>
                 <strong className="text-white">{es ? "Sin garantías. " : "No guarantees. "}</strong>

@@ -158,6 +158,10 @@ export default function IdentityDocs() {
               ? "Una revisión automática con IA comprueba que el documento se lea y coincida con tu cuenta. No guardamos los números de tu identificación."
               : "An automatic AI check confirms the document is readable and matches your account. We do not store your ID numbers."}
           </p>
+          {/* What our team said about each document, and the other documents a client may send (docs/FULFILLMENT.md). */}
+          <a href="/documentos" className="inline-flex min-h-11 items-center text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
+            {es ? "Ver lo que dijo nuestro equipo y enviar otros documentos →" : "See what our team said and send other documents →"}
+          </a>
         </div>
       )}
     </div>

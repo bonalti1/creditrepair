@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { sanitizeAttribution } from "@/lib/ads/capture";
 import { NO_SOFT_PULL, SOFT_PULL_CONSENT, softPullProvider } from "@/lib/credit/softPull";
 import { reportError } from "@/lib/observability/errors";
 import { readJsonBody } from "@/lib/security/body";
@@ -31,7 +32,8 @@ import { getServerSupabase, getSessionUser } from "@/lib/supabase/server";
 const stages = [...SIGNUP_STEPS, "done"] as [string, ...string[]];
 
 const bodySchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("start"), locale: z.enum(["es", "en"]).optional() }).strict(),
+  // `attribution`: an ad link's marketing tags (src/lib/ads/capture.ts), checked again by sanitizeAttribution.
+  z.object({ action: z.literal("start"), locale: z.enum(["es", "en"]).optional(), attribution: z.unknown().optional() }).strict(),
   z
     .object({
       action: z.literal("progress"),
@@ -41,6 +43,8 @@ const bodySchema = z.discriminatedUnion("action", [
       state: z.string().regex(/^[A-Z]{2}$/).nullable().optional(),
       locale: z.enum(["es", "en"]).optional(),
       wantsPerson: z.boolean().optional(),
+      // The first name they typed, sent once they are signed in: it names their lead for the team (signup/server.ts).
+      firstName: z.string().max(60).nullable().optional(),
     })
     .strict(),
   z.object({ action: z.literal("soft_pull"), consentVersion: z.string().max(40), locale: z.enum(["es", "en"]).optional() }).strict(),
@@ -74,7 +78,7 @@ export async function POST(req: Request) {
     if (again) return again;
     if (!db) return NextResponse.json({ caseRef: newCaseRef(), token: null, live: false });
     try {
-      const started = await startSignupCase(db, { locale: input.locale ?? "en" });
+      const started = await startSignupCase(db, { locale: input.locale ?? "en", attribution: sanitizeAttribution(input.attribution) });
       return NextResponse.json({ ...started, live: true });
     } catch (error) {
       await reportError(error, { where: "api/signup start" });
@@ -110,7 +114,7 @@ export async function POST(req: Request) {
   try {
     const result = await updateSignupCase(
       db,
-      { caseRef: input.caseRef, token: input.token ?? null, step: input.step as never, state: input.state, locale: input.locale, wantsPerson: input.wantsPerson },
+      { caseRef: input.caseRef, token: input.token ?? null, step: input.step as never, state: input.state, locale: input.locale, wantsPerson: input.wantsPerson, firstName: input.firstName },
       user?.id ?? null,
     );
     if (!result.ok) return NextResponse.json({ error: "That signup was not found.", code: result.code }, { status: result.code === "not_found" ? 404 : 409 });

@@ -1,7 +1,8 @@
 import { attachDemoAutopilot } from "../autopilot/demo";
+import { attachDemoFulfillment } from "../fulfillment/demo";
 import { BRAND } from "../brand";
 import { cancellationDeadline } from "../agreement/businessDays";
-import { AGREEMENT_VERSION } from "../agreement/documents";
+import { AGREEMENT_VERSION, DIY_AGREEMENT_VERSION } from "../agreement/documents";
 import { resolveTerms } from "../agreement/terms";
 import { nextRetryAt } from "../billing/dunning";
 import { feeToCents } from "../billing/rules";
@@ -410,7 +411,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   const brenda = make({
     id: "c08", first: "Brenda", last: "Olivares", phone: "+12145550108", city: "Dallas", zip: "75204",
     salesperson: "luis", createdDaysAgo: 11, signedUpDaysAgo: 10, agreementDaysAgo: 9,
-    documents: [...both, "ssn_card"],
+    documents: both,
     report: { pulledDaysAgo: 6, shape: "medical" }, answeredDaysAgo: 0, lastActivityDaysAgo: 0,
   });
   brenda.rounds = [round(brenda, 1, "ready")];
@@ -480,7 +481,7 @@ export function buildDemoClients(now: Date): StaffClient[] {
   const samuel = make({
     id: "c14", first: "Samuel", last: "Tejeda", phone: "+15125550114", city: "Austin", zip: "78745",
     salesperson: "luis", createdDaysAgo: 55, signedUpDaysAgo: 54, agreementDaysAgo: 53,
-    documents: [...both, "ssn_card"],
+    documents: both,
     report: { pulledDaysAgo: 12, shape: "medical", withoutOldAddress: true }, answeredDaysAgo: 46, lastActivityDaysAgo: 5, paymentMethodDaysAgo: 47,
   });
   {
@@ -786,16 +787,70 @@ export function buildDemoClients(now: Date): StaffClient[] {
     });
     withHistory(fabian, [{ shape: "medical" }], [{ mailed: 24 }]);
 
-    return [rosa, gerardo, patricia, hector, silvia, tomas, adriana, julio, marisol, diego, lorena, norma, fabian];
+    // 37. Three rounds answered; she finished her program 5 days ago (graduation, docs/AFTERCARE.md):
+    // billing stopped, nothing more goes out, after-care goes on. Nothing for the team to do.
+    const imelda = make({
+      id: "c37", first: "Imelda", last: "Ruvalcaba", phone: "+18065550137", city: "Amarillo", zip: "79101",
+      salesperson: "carmen", createdDaysAgo: 150, signedUpDaysAgo: 149, agreementDaysAgo: 148, documents: both,
+      lastActivityDaysAgo: 5, paymentMethodDaysAgo: 147,
+    });
+    withHistory(imelda, [{ shape: "medical" }, later, later, later], [{ mailed: 138, responded: 100 }, { mailed: 95, responded: 57 }, { mailed: 52, responded: 12 }]);
+    imelda.graduation = { completedAt: ago(5), reason: "disputes_done", keepTips: true };
+    imelda.serviceEndRequestedAt = ago(5);
+
+    return [rosa, gerardo, patricia, hector, silvia, tomas, adriana, julio, marisol, diego, lorena, norma, fabian, imelda];
   }
 
   const history = buildHistoryClients();
+
+  // ── Credalti DIY (docs/SERVICE-OPTIONS.md, migration 0042) ─────────────
+  // Three clients who chose "Do it yourself, guided": they print and mail their
+  // own letters, the team answers their questions and mails only what they ask
+  // us to (paid per letter). Billed by the DIY subscription from the end of
+  // their window (below, with the plans).
+  const diy = (client: StaffClient): StaffClient => {
+    client.serviceOption = "diy";
+    client.agreementVersion = client.agreementSignedAt ? DIY_AGREEMENT_VERSION : null;
+    client.agreementMonthlyFee = null;
+    return client;
+  };
+  // 70. Mailed her round 1 herself 18 days ago: waiting on the bureaus. Nothing for the team.
+  const valeria = diy(make({
+    id: "c70", first: "Valeria", last: "Treviño", phone: "+17135550140", city: "Houston", zip: "77005",
+    salesperson: "ana", createdDaysAgo: 34, signedUpDaysAgo: 33, agreementDaysAgo: 32, documents: both,
+    report: { pulledDaysAgo: 26, shape: "base" }, answeredDaysAgo: 24, lastActivityDaysAgo: 18, paymentMethodDaysAgo: 32,
+  }));
+  valeria.rounds = [{ ...round(valeria, 1, "mailed", { mailedDaysAgo: 18 }), diyPreparedAt: ago(20) }];
+  // Her own mail: no tracking from us.
+  valeria.rounds[0]!.letters = valeria.rounds[0]!.letters.map((l) => ({ ...l, mailStatus: "in_transit" as const }));
+  // 71. Letters prepared 16 days ago, not marked as mailed; she asked a question yesterday.
+  const arturo = diy(make({
+    id: "c71", first: "Arturo", last: "Peña", phone: "+12105550141", city: "San Antonio", zip: "78210",
+    salesperson: "luis", createdDaysAgo: 30, signedUpDaysAgo: 29, agreementDaysAgo: 28, documents: both,
+    report: { pulledDaysAgo: 22, shape: "medical" }, answeredDaysAgo: 18, lastActivityDaysAgo: 1, paymentMethodDaysAgo: 28,
+  }));
+  arturo.rounds = [{ ...round(arturo, 1, "ready"), diyPreparedAt: ago(16) }];
+  arturo.questions = [{ id: "c71-q1", askedAt: ago(1), text: "Do I have to send my letters certified, or is regular mail OK?", answeredAt: null }];
+  // 72. Asked us to mail part of her round 1 ("Mail them for me"): only those letters are in the team's send queue.
+  const celia = diy(make({
+    id: "c72", first: "Celia", last: "Mendoza", phone: "+19155550142", city: "El Paso", zip: "79907",
+    salesperson: "ana", createdDaysAgo: 20, signedUpDaysAgo: 19, agreementDaysAgo: 18, documents: both,
+    report: { pulledDaysAgo: 12, shape: "base" }, answeredDaysAgo: 9, lastActivityDaysAgo: 1, paymentMethodDaysAgo: 18,
+  }));
+  {
+    const r = round(celia, 1, "ready");
+    const asked = r.letters.slice(0, Math.max(1, r.letters.length - 1)).map((l) => l.id);
+    const request = { id: "c72-mr1", roundNumber: 1, letterIds: asked, letterCount: asked.length, totalCents: asked.length * 400, status: "requested" as const, acceptedAt: ago(1), mailedAt: null };
+    celia.rounds = [{ ...r, diyPreparedAt: ago(3), mailRequest: request }];
+    celia.mailRequests = [request];
+  }
 
   const clients = [
     mariana, yolanda, rigoberto, itzel, fidel, lourdes, anselmo, brenda,
     ramiro, ernesto, graciela, heriberto, paulina, samuel, noemi, dolores,
     estela, octavio, rebeca, leticia, joaquin, ximena, baltazar,
     ...history,
+    valeria, arturo, celia,
   ];
 
   // ── Billing ───────────────────────────────────────────────────────────
@@ -892,6 +947,8 @@ export function buildDemoClients(now: Date): StaffClient[] {
       }));
       client.billing = { paymentMethod, charges, pause: null };
     };
+    // The DIY clients: the DIY subscription from the end of each one's window.
+    for (const id of ["c70", "c71", "c72"]) onPlan(byId(id), "diy-monthly");
     onPlan(byId("c24"), "monthly");
     onPlan(byId("c25"), "flat-3-rounds");
     onPlan(byId("c26"), "per-round", { last4: "6789", brand: "checking", kind: "ach" });
@@ -995,6 +1052,9 @@ export function buildDemoClients(now: Date): StaffClient[] {
   // letter sent again, a document uploaded again, corrected addresses, a payment fixed. Before the
   // autopilot's history below, so its reminders follow from it.
   attachDemoSelfHealing(clients, ago);
+
+  // Notification settings, monitoring checks, document reviews and other documents (fulfillment/demo.ts).
+  attachDemoFulfillment(clients, now);
 
   // What the autopilot did for them: messages sent, a hold, an opt-out, a
   // round mailed by itself, when each prepared round was first seen

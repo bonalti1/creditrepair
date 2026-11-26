@@ -1,5 +1,6 @@
 import type { PlanSnapshot } from "../billing/plans";
 import { MONITORING_OFFER } from "../monitoring/offer";
+import type { ServiceOption } from "../service/options";
 
 // The business facts the documents are filled in with: who the company is,
 // what the service costs, and the Texas registration and bond. None of them is
@@ -46,6 +47,18 @@ export interface ResolvedTerms {
    * Absent: no plan catalogue yet, and the monthly fee is the price per round.
    */
   plan?: PlanSnapshot | null;
+  /**
+   * The service option the agreement is for (migration 0042). "diy": Credalti
+   * DIY, its own text and version (documents.ts). Absent: Credalti Complete,
+   * exactly as every agreement before options existed (so their hash is unchanged).
+   */
+  serviceOption?: "diy";
+}
+
+/** The terms for an option: Credalti DIY carries serviceOption "diy"; Complete carries nothing (as before). */
+export function withOption(terms: ResolvedTerms, option: ServiceOption): ResolvedTerms {
+  const { serviceOption: _drop, ...rest } = terms;
+  return option === "diy" ? { ...rest, serviceOption: "diy" } : rest;
 }
 
 /** The terms with a plan: what the documents print and what the signature keeps. */

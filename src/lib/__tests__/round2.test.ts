@@ -294,7 +294,9 @@ describe("B. what this round mails and what waits", () => {
   it("has the assistant say which letters went out and which confirmed items wait", () => {
     const session = sessionPlan(items, four);
     const es = approvedMessage(session, items, "es");
-    expect(es).toContain("Estas 2 cartas se imprimen y van por correo:");
+    // The client's own round (Credalti DIY): ready for the client to print and mail.
+    expect(es).toContain("Estas 2 cartas quedan listas para que las imprimas y las envíes:");
+    expect(es).toContain("«Ya las envié»");
     expect(es).toContain("• Equifax Information Services LLC — Nombre: R. MARTINEZ JR");
     expect(es).toContain("• Experian — Empleador: ACME LLC");
     expect(es).toContain(
@@ -308,7 +310,7 @@ describe("B. what this round mails and what waits", () => {
     expect(all).toContain("Midland Credit Management");
     expect(all).not.toMatch(/esperan a tu siguiente ronda/);
     const single = approvedMessage(sessionPlan(items, attested(personal("name"))), items, "en");
-    expect(single).toContain("This letter is being printed and mailed:");
+    expect(single).toContain("This letter is ready for you to print and mail:");
   });
 
   it("keeps the round copy inside the claim rules and free of promises", () => {

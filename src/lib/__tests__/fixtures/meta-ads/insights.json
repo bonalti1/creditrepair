@@ -1,0 +1,61 @@
+{
+  "data": [
+    {
+      "ad_id": "120200000000000101",
+      "adset_id": "120200000000000011",
+      "campaign_id": "120200000000000001",
+      "spend": "40.25",
+      "impressions": "2310",
+      "inline_link_clicks": "41",
+      "actions": [
+        { "action_type": "onsite_conversion.messaging_conversation_started_7d", "value": "5" },
+        { "action_type": "link_click", "value": "41" },
+        { "action_type": "post_engagement", "value": "120" }
+      ],
+      "date_start": "2026-11-23",
+      "date_stop": "2026-11-23"
+    },
+    {
+      "ad_id": "120200000000000101",
+      "adset_id": "120200000000000011",
+      "campaign_id": "120200000000000001",
+      "spend": "38.10",
+      "impressions": "2201",
+      "inline_link_clicks": "37",
+      "date_start": "2026-11-24",
+      "date_stop": "2026-11-24"
+    },
+    {
+      "ad_id": "120200000000000102",
+      "adset_id": "120200000000000012",
+      "campaign_id": "120200000000000002",
+      "spend": "7.99",
+      "impressions": "900",
+      "inline_link_clicks": "12",
+      "actions": [{ "action_type": "link_click", "value": "12" }],
+      "date_start": "2026-11-23",
+      "date_stop": "2026-11-23"
+    },
+    {
+      "ad_id": "120200000000000103",
+      "adset_id": "120200000000000013",
+      "campaign_id": "120200000000000001",
+      "spend": "21.00",
+      "impressions": "1500",
+      "clicks": "30",
+      "actions": [{ "action_type": "offsite_conversion.fb_pixel_lead", "value": "2" }],
+      "date_start": "2026-11-24",
+      "date_stop": "2026-11-24"
+    },
+    {
+      "ad_id": "120200000000000999",
+      "adset_id": "120200000000000099",
+      "campaign_id": "120200000000000001",
+      "spend": "1.00",
+      "impressions": "10",
+      "actions": [{ "action_type": "lead", "value": "1" }],
+      "date_start": "2026-11-24"
+    },
+    { "ad_id": "x", "spend": "9", "date_start": "2026-11-24" }
+  ]
+}

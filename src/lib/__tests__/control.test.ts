@@ -328,10 +328,12 @@ describe("the Overview: real numbers, by role", () => {
   });
 
   it("a salesperson never sees Money; a specialist sees no leads", () => {
-    expect(overviewCards(base("sales")).map((c) => c.key)).toEqual(["leads", "clients", "support", "partners"]);
-    // Content (docs/CONTROL.md «Content») is the content team's: administrators and specialists.
-    expect(overviewCards(base("specialist")).map((c) => c.key)).toEqual(["clients", "money", "content", "support"]);
-    expect(overviewCards(base("admin")).map((c) => c.key)).toEqual(["leads", "clients", "money", "content", "support", "partners", "health"]);
+    // Ideas & tests (docs/IDEAS.md): everyone sees the board.
+    expect(overviewCards(base("sales")).map((c) => c.key)).toEqual(["leads", "clients", "support", "partners", "ideas"]);
+    // Content and video (docs/CONTROL.md «Content») is the content team's: administrators and specialists; SEO too (seo.view).
+    expect(overviewCards(base("specialist")).map((c) => c.key)).toEqual(["clients", "money", "content", "seo", "support", "ideas"]);
+    // Ads (docs/ADS.md) are the owner's: spend is money (ads.view).
+    expect(overviewCards(base("admin")).map((c) => c.key)).toEqual(["leads", "clients", "money", "content", "ads", "seo", "support", "partners", "ideas", "health"]);
   });
 
   it("what could not be read says 'No data yet' and why, never 0", () => {

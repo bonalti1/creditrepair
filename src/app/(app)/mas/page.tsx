@@ -6,9 +6,11 @@ import { BILLING_COPY } from "@/lib/ux/billingCopy";
 import { CLIENT_SHARING_COPY } from "@/lib/partners/sharingCopy";
 import { HUMAN_HELP, humanHelpHref } from "@/lib/ux/humanHelp";
 import Icon, { type IconName } from "@/components/Icon";
-import { isFullService } from "@/lib/service/mode";
+import { OPTION_NAME, OPTION_SUBTITLE } from "@/lib/service/options";
+import { useServiceOption } from "@/lib/service/useServiceOption";
 import MailingAddress from "@/components/MailingAddress";
 import { useTextSize } from "@/lib/ux/textSize";
+import { NOTIFICATION_COPY } from "@/lib/fulfillment/notifications";
 
 // "Más": everything beyond Home and the conversation, as grouped rows that say
 // what each thing is for. Familiar from every phone's Settings screen.
@@ -62,6 +64,8 @@ function Row({
 export default function Mas() {
   const { locale, setLocale, d } = useLocale();
   const es = locale === "es";
+  // Credalti Complete or Credalti DIY: both have an agreement, payments and documents.
+  const { option } = useServiceOption();
   // A WhatsApp chat with the team, or null in the demo, where nobody is online.
   const humanHref = humanHelpHref(locale);
   const humanTitle = es ? "Hablar con una persona" : "Talk to a person";
@@ -136,7 +140,7 @@ export default function Mas() {
         </div>
       </section>
 
-      {isFullService && (
+      {(
         <section>
           <h2 className="px-1 pb-2 text-[13px] font-semibold uppercase tracking-wide text-slate-500">
             {es ? "Tu servicio" : "Your service"}
@@ -144,6 +148,17 @@ export default function Mas() {
           <div className="card overflow-hidden">
             <Row
               first
+              href="/mas/opcion"
+              icon="team"
+              tint="bg-amber-500"
+              title={es ? `Mi opción: ${OPTION_NAME[option].es}` : `My option: ${OPTION_NAME[option].en}`}
+              desc={
+                es
+                  ? `${OPTION_SUBTITLE[option].es}. Compara las dos y cambia cuando quieras.`
+                  : `${OPTION_SUBTITLE[option].en}. Compare the two and change anytime.`
+              }
+            />
+            <Row
               href="/acuerdo"
               icon="clipboard"
               tint="bg-blue-900"
@@ -160,6 +175,13 @@ export default function Mas() {
               tint="bg-green-600"
               title={BILLING_COPY[locale].navTitle}
               desc={BILLING_COPY[locale].navDesc}
+            />
+            <Row
+              href="/documentos"
+              icon="doc"
+              tint="bg-blue-700"
+              title={es ? "Mis documentos" : "My documents"}
+              desc={es ? "Tu identificación, tu comprobante y lo que nos has enviado." : "Your ID, your proof of address, and what you sent us."}
             />
             <Row
               href="/mas/compartir"
@@ -204,6 +226,13 @@ export default function Mas() {
               </span>
             </div>
           )}
+          <Row
+            href="/mas/avisos"
+            icon="bell"
+            tint="bg-amber-500"
+            title={NOTIFICATION_COPY[locale].navTitle}
+            desc={NOTIFICATION_COPY[locale].navDesc}
+          />
           <button
             type="button"
             role="switch"

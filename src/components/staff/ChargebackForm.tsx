@@ -6,7 +6,7 @@ import { useTx } from "@/lib/staff/i18n/StaffLocale";
 import { staffMessage } from "@/lib/staff/i18n/messages";
 import { ROW_BUTTON } from "@/components/staff/ui";
 
-const CONTROL = "h-10 min-w-0 rounded-xl bg-white px-3 text-[14px] text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.1)] outline-none focus:ring-2 focus:ring-blue-300";
+const CONTROL = "h-11 md:h-10 min-w-0 rounded-xl bg-white px-3 text-[14px] text-slate-900 shadow-[0_0_0_1px_rgba(0,0,0,0.1)] outline-none focus:ring-2 focus:ring-blue-300";
 
 /** Record a chargeback the processor's portal shows (when it sends no webhook). Only for money that was taken. */
 export default function ChargebackForm({ row, onDone }: { row: { clientId: string; chargeId: string }; onDone: () => Promise<void> }) {

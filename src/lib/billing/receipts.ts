@@ -45,6 +45,22 @@ export function workLineWithoutLetters(roundNumber: number, workDate: string): B
   };
 }
 
+/** Credalti DIY's subscription, by the period it pays for. */
+export function diySubscriptionLine(periodStart: string): Bilingual {
+  return {
+    es: `Credalti DIY: tu suscripción mensual, el periodo que empieza el ${billingDay(periodStart, "es")}`,
+    en: `Credalti DIY: your monthly subscription, the period starting ${billingDay(periodStart, "en")}`,
+  };
+}
+
+/** Credalti DIY's "Mail them for me": the letters we mailed for them. */
+export function diyMailingLine(mailedAt: string): Bilingual {
+  return {
+    es: `Credalti DIY: las cartas que enviamos por ti el ${billingDay(mailedAt, "es")}`,
+    en: `Credalti DIY: the letters we mailed for you on ${billingDay(mailedAt, "en")}`,
+  };
+}
+
 export interface Receipt {
   /** Short and stable, from the charge's id: what a client quotes to the team. */
   number: string;
@@ -57,8 +73,15 @@ export interface Receipt {
   amount: string;
   /** "21 de noviembre de 2026" / "November 21, 2026" */
   date: Bilingual;
-  /** Exactly which work it paid for. */
+  /** Exactly which work it paid for (Credalti DIY: the subscription period, or the letters we mailed). */
   work: Bilingual;
+  /**
+   * What the charge paid for, in the receipt's sentence: "work already done:
+   * Round 2: …" under Credalti Complete; under Credalti DIY the subscription
+   * period or the letters we mailed for them (a DIY subscription is not
+   * charged for work our team did, so it never says "work already done").
+   */
+  paidFor: Bilingual;
   /** Set when the charge was later returned in full. */
   refundedAt: string | null;
 }
@@ -74,6 +97,14 @@ export function receiptNumber(chargeId: string): string {
  */
 export function receiptFor(charge: BillingCharge, round: BillableRound | null | undefined): Receipt | null {
   if ((charge.status !== "succeeded" && charge.status !== "refunded") || !charge.chargedAt) return null;
+  const work =
+    charge.unit === "diy_period"
+      ? diySubscriptionLine(charge.workDate)
+      : charge.unit === "mailing"
+        ? diyMailingLine(charge.workDate)
+        : round
+          ? workLine(round, charge.workDate)
+          : workLineWithoutLetters(charge.roundNumber, charge.workDate);
   return {
     number: receiptNumber(charge.id),
     chargeId: charge.id,
@@ -82,7 +113,11 @@ export function receiptFor(charge: BillingCharge, round: BillableRound | null | 
     amountCents: charge.amountCents,
     amount: formatCents(charge.amountCents),
     date: { es: billingDate(charge.chargedAt, "es"), en: billingDate(charge.chargedAt, "en") },
-    work: round ? workLine(round, charge.workDate) : workLineWithoutLetters(charge.roundNumber, charge.workDate),
+    work,
+    paidFor:
+      charge.unit === "diy_period" || charge.unit === "mailing"
+        ? work
+        : { es: `trabajo ya hecho: ${work.es}`, en: `work already done: ${work.en}` },
     refundedAt: charge.refund?.completedAt ?? (charge.status === "refunded" ? (charge.refund?.at ?? null) : null),
   };
 }
@@ -98,7 +133,7 @@ export function receiptsFor(charges: BillingCharge[], rounds: BillableRound[]): 
 /** The receipt as a short message, for WhatsApp or the in-app thread. */
 export function receiptMessage(receipt: Receipt): Bilingual {
   return {
-    es: `Recibo ${receipt.number}. Cobramos ${receipt.amount} el ${receipt.date.es} por trabajo ya hecho: ${receipt.work.es}. Lo ves cuando quieras en la app, en «Mis pagos».`,
-    en: `Receipt ${receipt.number}. We charged ${receipt.amount} on ${receipt.date.en} for work already done: ${receipt.work.en}. You can see it anytime in the app, under "My payments".`,
+    es: `Recibo ${receipt.number}. Cobramos ${receipt.amount} el ${receipt.date.es} por ${receipt.paidFor.es}. Lo ves cuando quieras en la app, en «Mis pagos».`,
+    en: `Receipt ${receipt.number}. We charged ${receipt.amount} on ${receipt.date.en} for ${receipt.paidFor.en}. You can see it anytime in the app, under "My payments".`,
   };
 }

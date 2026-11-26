@@ -301,6 +301,161 @@ html[data-text-size="large"] .client-scale {
   display: none;
 }
 
+/* ── The staff console's design system (docs/STAFF.md) ──────────────────────
+ * ALTO Control's layout and feel in Credalti's brand: one light world (white
+ * cards on the light #F5F6F8) with a navy side menu; gold only for the primary
+ * action, the active menu bar and accents on navy; red only for "needs you"
+ * circles and errors; green for "done". Cards: 14px corners, a 1px line and a
+ * soft two-step shadow. Section labels: Poppins, uppercase, spaced. Numbers:
+ * tabular. Every rule below is scoped to .console (StaffShell), so the
+ * client app and the website keep their own look. */
+
+/* The page title of a console screen (one per page). */
+@utility page-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--color-blue-900);
+  @media (width < 48rem) {
+    font-size: 22px;
+  }
+}
+
+/* A small uppercase label: card titles, table heads, group names (ALTO's card h2). */
+@utility console-label {
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-slate-600);
+}
+
+/* "Control" beside the logo: Poppins, spaced capitals (never a way to set the logo). */
+.console-word {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+/* The section's name on the top bar, with ALTO's gold bar before it from 768 px. */
+.console-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-blue-900);
+}
+@media (min-width: 48rem) {
+  .console-title {
+    font-size: 20px;
+  }
+  .console-title::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 18px;
+    margin-right: 12px;
+    vertical-align: -2px;
+    border-radius: 2px;
+    background: var(--color-amber-400);
+  }
+}
+
+/* Cards in the console: ALTO's (14px corners, a line, a soft shadow). */
+.console .card {
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-blue-900) 8%, transparent),
+    0 1px 2px color-mix(in srgb, var(--color-blue-900) 5%, transparent),
+    0 6px 20px color-mix(in srgb, var(--color-blue-900) 5%, transparent);
+}
+
+/* Tables: ALTO's heads (small, uppercase, on a pale band). A page's own classes still win. */
+@layer base {
+  .console th {
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-slate-600);
+  }
+  .console thead {
+    background: #f7f8fa;
+  }
+}
+
+/* The red "needs you" circle pings once a while on the side menu: a ring that grows and fades (transform and opacity only; not for reduced motion). */
+@keyframes console-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  70%,
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+.console-nav .console-badge {
+  isolation: isolate;
+}
+.console-nav .console-badge:not(.absolute) {
+  position: relative;
+}
+.console-nav .console-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--color-red-600);
+  z-index: -1;
+  animation: console-ping 2.4s ease-out infinite;
+}
+
+/* The phone's «More» sheet and Alti's panel slide in; the shade fades in. */
+@keyframes console-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0.6;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes console-in-right {
+  from {
+    transform: translateX(28px);
+    opacity: 0.6;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes console-fade {
+  from {
+    opacity: 0;
+  }
+}
+.console-fade {
+  animation: console-fade 0.18s ease-out;
+}
+.console-sheet,
+.console-drawer {
+  animation: console-up 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (min-width: 48rem) {
+  .console-drawer {
+    animation-name: console-in-right;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .char-idle,
   .char-wave,
@@ -311,7 +466,11 @@ html[data-text-size="large"] .client-scale {
   .into-case,
   .stop-pop,
   .delivered-in,
-  .row-swap {
+  .row-swap,
+  .console-nav .console-badge::after,
+  .console-fade,
+  .console-sheet,
+  .console-drawer {
     animation: none !important;
   }
   .mail-traveller,

@@ -126,8 +126,8 @@ export const TRADELINE_OPTIONS: TradelineOption[] = [
       es: ["Algunos reportan solo a un buró.", "Algunos también reportan pagos tarde.", "No todos los modelos de puntaje lo cuentan."],
     },
     cost: {
-      en: "From free to a setup fee plus a monthly fee. Check before you sign up.",
-      es: "Desde gratis hasta una cuota de inicio más una cuota mensual. Revísalo antes de inscribirte.",
+      en: "From no fee to a setup fee plus a monthly fee. Check before you sign up.",
+      es: "Desde sin cuota hasta una cuota de inicio más una cuota mensual. Revísalo antes de inscribirte.",
     },
     itin: {
       en: "Ask the service which numbers it accepts.",
@@ -158,8 +158,8 @@ export const TRADELINE_OPTIONS: TradelineOption[] = [
       ],
     },
     cost: {
-      en: "Usually free. Agree on the rules first: who spends and who pays.",
-      es: "Casi siempre gratis. Pónganse de acuerdo antes: quién gasta y quién paga.",
+      en: "Usually at no cost. Agree on the rules first: who spends and who pays.",
+      es: "Casi siempre sin costo. Pónganse de acuerdo antes: quién gasta y quién paga.",
     },
     itin: {
       en: "The card issuer decides which details it needs to add you.",
@@ -288,12 +288,12 @@ export const PLAN_ITEMS: PlanItem[] = [
     },
     steps: {
       en: [
-        "Free weekly reports are at AnnualCreditReport.com, the only official site.",
+        "Weekly reports at no cost are at AnnualCreditReport.com, the only official site.",
         "With an ITIN, you ask each bureau by mail. See the ITIN guide.",
         "Look for accounts you do not know and inquiries you did not ask for.",
       ],
       es: [
-        "Los reportes semanales gratis están en AnnualCreditReport.com, el único sitio oficial.",
+        "Los reportes semanales sin costo están en AnnualCreditReport.com, el único sitio oficial.",
         "Con ITIN, los pides a cada buró por correo. Mira la guía para ITIN.",
         "Busca cuentas que no conoces y consultas que no pediste.",
       ],

@@ -33,7 +33,7 @@ export default async function EquipoLayout({ children }: { children: React.React
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-12" lang={browser}>
         <Logo size={28} />
-        <h1 className="mt-8 text-[28px] font-semibold tracking-tight text-slate-900">{t.deniedTitle}</h1>
+        <h1 className="mt-8 page-title">{t.deniedTitle}</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-slate-500">{t.deniedBody(BRAND.name)}</p>
         <Link href="/" className="mt-6 text-[15px] font-medium text-blue-700">
           {t.deniedBack}

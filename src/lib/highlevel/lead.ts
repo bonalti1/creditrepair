@@ -107,6 +107,10 @@ const leadSchema = z.object({
   utmCampaign: text(120),
   utmContent: text(120),
   utmTerm: text(120),
+  // The Meta ad a form lead came from ({{ad.id}} in the ad's URL parameters), and whether a Facebook click id was there (never its value).
+  adId: text(40),
+  ad_id: text(40),
+  fbclid: text(500),
   assignedTo: text(200),
   assigned_to: text(200),
   partnerCode: text(40),
@@ -127,6 +131,8 @@ export interface HighLevelLead {
   consentAt: string | null;
   campaign: string | null;
   utm: LeadUtm | null;
+  /** The Meta ad, when the form passed its id (migration 0037: the lead's first touch). */
+  ad: { adId?: string; fbclid?: true; via: "form" } | null;
   /** What HighLevel says about the assigned user: a handle, an email or a name. Matched to the team later. */
   assignedTo: string | null;
   partnerCode: string | null;
@@ -238,6 +244,9 @@ export function parseHighLevelLead(input: unknown, now: Date = new Date()): Lead
   put("content", u.content || b.utmContent);
   put("term", u.term || b.utmTerm);
 
+  const adId = (b.adId || b.ad_id || "").trim();
+  const ad = /^\d{3,25}$/.test(adId) || (b.fbclid ?? "").trim() ? { ...(/^\d{3,25}$/.test(adId) ? { adId } : {}), ...((b.fbclid ?? "").trim() ? { fbclid: true as const } : {}), via: "form" as const } : null;
+
   const code = toRefSlug(b.partnerCode || b.partner_code || b.socio);
   return {
     ok: true,
@@ -255,6 +264,7 @@ export function parseHighLevelLead(input: unknown, now: Date = new Date()): Lead
       consentAt: readDate(b.consentAt || b.consent_at, now) ?? now.toISOString(),
       campaign: tidy(b.campaign, 120),
       utm: Object.keys(utm).length > 0 ? utm : null,
+      ad,
       assignedTo: tidy(b.assignedTo || b.assigned_to, 200),
       partnerCode: code && code.length >= 3 ? code : null,
     },

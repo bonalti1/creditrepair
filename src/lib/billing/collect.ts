@@ -44,6 +44,8 @@ export interface CreateChargeInput {
   periodEnd?: string;
   installmentNumber?: number;
   resultItemIds?: string[];
+  /** DIY mailing: the request it pays for. */
+  mailRequestId?: string;
   /** The run's clock, for a store that keeps time itself (memory). The database uses its own. */
   now?: string;
 }
@@ -194,7 +196,13 @@ export function createMemoryChargeStore(
       const kind = unit.unit ?? "round";
       const same = (row: BillingCharge) =>
         (row.unit ?? "round") === kind &&
-        (kind === "results" ? row.resultItemIds?.some((id) => unit.resultItemIds?.includes(id)) : kind === "period" ? row.periodStart === unit.periodStart : row.roundNumber === roundNumber);
+        (kind === "results"
+          ? row.resultItemIds?.some((id) => unit.resultItemIds?.includes(id))
+          : kind === "period" || kind === "diy_period"
+            ? row.periodStart === unit.periodStart
+            : kind === "mailing"
+              ? row.mailRequestId === unit.mailRequestId
+              : row.roundNumber === roundNumber);
       if (rows.some(same)) return { created: false, reason: kind === "round" ? "a charge for this round already exists" : "a charge for this work already exists" };
       if (!Number.isInteger(amountCents) || amountCents <= 0) return { created: false, reason: "the amount must be positive" };
       const charge: BillingCharge = {
@@ -219,6 +227,7 @@ export function createMemoryChargeStore(
               periodEnd: unit.periodEnd ?? null,
               installmentNumber: unit.installmentNumber ?? null,
               resultItemIds: unit.resultItemIds ?? [],
+              ...(unit.mailRequestId ? { mailRequestId: unit.mailRequestId } : {}),
             }
           : {}),
       };

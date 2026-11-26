@@ -9,7 +9,7 @@ import { primaryCta } from "@/lib/site/cta";
 import { SITE_COPY } from "@/lib/site/copy";
 import { CLIENT_FALLBACK_REPLIES, CLIENT_FALLBACK_REPLY, LEAD_GREETING, LEAD_GREETINGS, renderMessage, type WhatsAppEvent } from "@/lib/integrations/whatsapp";
 import { inviteMessageEs, SALES_MAY_NOT_SAY, SALES_MAY_SAY } from "@/lib/sales/invite";
-import { isFullService, SERVICE_MODE, type ServiceMode } from "@/lib/service/mode";
+import { DEFAULT_SERVICE_MODE, type ServiceMode } from "@/lib/service/mode";
 import { HUMAN_HELP } from "@/lib/ux/humanHelp";
 import { LETTERS_OUT_LINE, reviewCompleteLine, reviewFinishedLine, reviewIntroLine } from "@/lib/ux/reviewChatCopy";
 import { roundMailedDate, teamRoundStatus } from "@/lib/ux/teamRound";
@@ -23,34 +23,20 @@ setStaffLocaleFallback("es");
 // together: what may be said about it (the claim rules, per service mode) and
 // what the client app and the sales material actually say.
 
-const MODES: ServiceMode[] = ["full_service", "self_serve"];
+const MODES: ServiceMode[] = ["full_service", "diy"];
 const rulesIn = (mode: ServiceMode) => (text: string) => checkClaimGuardrails(text, mode).map((v) => v.rule);
 const adRulesIn = (mode: ServiceMode) => (text: string) => checkMarketingCopy(text, mode).map((v) => v.rule);
 
 describe("service mode", () => {
-  it("is full service unless the environment says self-serve", () => {
-    expect(process.env.NEXT_PUBLIC_SERVICE_MODE).toBeUndefined();
-    expect(SERVICE_MODE).toBe("full_service");
-    expect(isFullService).toBe(true);
+  it("is chosen per client; with no choice (and with no client) it is Credalti Complete, full service", () => {
+    expect(DEFAULT_SERVICE_MODE).toBe("full_service");
   });
 
-  it("is read from one small file that two branches create identically", () => {
-    // The file is created with the same content on a parallel branch; any edit
-    // here would turn that into a merge conflict.
-    expect(readFileSync("src/lib/service/mode.ts", "utf8")).toBe(
-      [
-        "// How the service is delivered. Full service is the business today: the client",
-        "// says what is inaccurate, and the team prepares and mails the letters.",
-        "// Self-serve (the client sends their own letters) is kept for later.",
-        'export type ServiceMode = "full_service" | "self_serve";',
-        "",
-        "export const SERVICE_MODE: ServiceMode =",
-        '  process.env.NEXT_PUBLIC_SERVICE_MODE === "self_serve" ? "self_serve" : "full_service";',
-        "",
-        'export const isFullService = SERVICE_MODE === "full_service";',
-        "",
-      ].join("\n"),
-    );
+  it("has no global switch any more: the environment does not decide it", () => {
+    // The old NEXT_PUBLIC_SERVICE_MODE is retired (docs/SERVICE-OPTIONS.md): the option is the client's.
+    const source = readFileSync("src/lib/service/mode.ts", "utf8");
+    expect(source).not.toMatch(/process\.env/);
+    expect(source).toMatch(/export type ServiceMode = "full_service" \| "diy";/);
   });
 });
 
@@ -103,15 +89,15 @@ describe("claim rules: the process may be described, per mode", () => {
   it.each(ALLOWED_IN_FULL_SERVICE_ONLY)("full service allows, self-serve blocks: %s", (text) => {
     expect(rulesIn("full_service")(text)).toEqual([]);
     expect(adRulesIn("full_service")(text)).toEqual([]);
-    expect(rulesIn("self_serve")(text)).toEqual(["self-serve-positioning"]);
+    expect(rulesIn("diy")(text)).toEqual(["self-serve-positioning"]);
   });
 
-  it("uses the app's own mode when none is given", () => {
-    expect(SERVICE_MODE).toBe("full_service");
+  it("uses full service when no option is given", () => {
+    expect(DEFAULT_SERVICE_MODE).toBe("full_service");
     expect(checkClaimGuardrails("Nosotros disputamos por ti")).toEqual([]);
     expect(checkMarketingCopy("We dispute the items you tell us are inaccurate.")).toEqual([]);
     expect(() => assertClaimGuardrails("Disputamos por ti los puntos que tú nos indicas.", "test")).not.toThrow();
-    expect(() => assertClaimGuardrails("Nosotros disputamos por ti", "test", "self_serve")).toThrow(
+    expect(() => assertClaimGuardrails("Nosotros disputamos por ti", "test", "diy")).toThrow(
       /self-serve-positioning/,
     );
   });
@@ -124,7 +110,7 @@ describe("claim rules: the process may be described, per mode", () => {
       "No disputamos por ti.",
       "We do not dispute for you.",
     ]) {
-      expect(rulesIn("self_serve")(text), text).toEqual([]);
+      expect(rulesIn("diy")(text), text).toEqual([]);
     }
   });
 });
@@ -283,7 +269,8 @@ describe("what a prospect reads, under full service", () => {
     // How billing works is described, without an amount, in one FAQ answer.
     const cost = MARKETING.es.empezar.faq.find(([question]) => question === "¿Cuánto cuesta?")![1];
     expect(cost).toMatch(/Nuestro equipo te explica el plan antes de que firmes/);
-    expect(cost).toMatch(/Cada cobro es por trabajo que ya se hizo/);
+    // This page presents Credalti Complete, and says so (owner, 2026-11-25: charged each month right after the letters are mailed).
+    expect(cost).toMatch(/Complete es el servicio en el que nuestro equipo prepara y envía tus cartas\. Tiene una cuota mensual: se cobra cada mes justo después de enviar tus cartas, nunca por adelantado/);
     expect(cost).toMatch(/que le pagas directo al servicio de monitoreo/);
   });
 
@@ -358,17 +345,19 @@ describe("what a client reads in the app, under full service", () => {
     expect(DICTS.es.team.waitDays(1)).toMatch(/~1 día más/);
   });
 
-  it("has no approve step on the letters page or in the chat", () => {
+  it("has no approve step on the letters page or in the chat for a Complete client", () => {
     const chat = readFileSync("src/app/(app)/asistente/page.tsx", "utf8");
-    // The approve action refuses to run, and its button is not rendered.
+    // The option is the client's own (useServiceOption); the approve action refuses to run under full service,
+    // and its button is not rendered.
+    expect(chat).toMatch(/useServiceOption\(\)/);
     expect(chat).toMatch(/const approve = \(\) => \{\s+if \(isFullService\) return;/);
     expect(chat).toMatch(/\{!isFullService && \(\s+<button\s+onClick=\{approve\}/);
     const letters = readFileSync("src/app/(app)/attack/page.tsx", "utf8");
-    // The approve button sits in the branch that full service never renders.
+    // The DIY actions sit in the branch that full service never renders.
     const readOnly = letters.indexOf("{isFullService ? (");
     expect(readOnly).toBeGreaterThan(0);
-    expect(letters.indexOf("setRoundApproved(true)")).toBeGreaterThan(readOnly);
-    expect(letters.slice(readOnly, letters.indexOf(") : (", readOnly))).not.toMatch(/setRoundApproved|approveButton/);
+    expect(letters.indexOf("<DiyLetterActions")).toBeGreaterThan(readOnly);
+    expect(letters.slice(readOnly, letters.indexOf(") : (", readOnly))).not.toMatch(/setRoundApproved|approveButton|DiyLetterActions/);
   });
 
   it("has the assistant say in the chat who prepares and mails the letters", () => {
@@ -386,7 +375,7 @@ describe("what a client reads in the app, under full service", () => {
     }
     expect(reviewFinishedLine("full_service").es).toMatch(/No tienes que aprobar nada\.$/);
     // Self-serve keeps its own wording for later.
-    expect(reviewFinishedLine("self_serve").es).toMatch(/dame el OK/);
+    expect(reviewFinishedLine("diy").es).toMatch(/dame el OK/);
     expect(reviewIntroLine("full_service", 1).es).toMatch(/Queda 1\.$/);
   });
 
@@ -485,8 +474,8 @@ describe("WhatsApp messages", () => {
       /We checked your report again: the item is still on your report\./,
     );
     // Self-serve keeps its wording.
-    expect(renderMessage({ kind: "attack_ready", roundNumber: 2 }, "self_serve", "es")).toMatch(/Tú decides, tú envías\./);
-    expect(renderMessage({ kind: "attack_ready", roundNumber: 2 }, "self_serve", "en")).toMatch(/You decide, you send\./);
+    expect(renderMessage({ kind: "attack_ready", roundNumber: 2 }, "diy", "es")).toMatch(/Tú decides, tú envías\./);
+    expect(renderMessage({ kind: "attack_ready", roundNumber: 2 }, "diy", "en")).toMatch(/You decide, you send\./);
   });
 
   it("introduce the assistant as AI and hand a lead to a person", () => {
@@ -512,14 +501,25 @@ describe("WhatsApp messages", () => {
 
 describe("the assistant's instructions", () => {
   const full = coachSystemPrompt("full_service");
-  const self = coachSystemPrompt("self_serve");
+  const self = coachSystemPrompt("diy");
 
-  it("describe full service in the app's mode", () => {
+  it("describe full service for a client with no other option", () => {
     expect(COACH_SYSTEM_PROMPT).toBe(full);
     expect(full).toMatch(/servicio completo/);
     expect(full).toMatch(/prepara las cartas de disputa y las envía por correo a nombre del cliente/);
     expect(full).toMatch(/El cliente no aprueba ni envía cartas/);
-    expect(full).not.toMatch(/DIY|hazlo tú mismo|tú envías/);
+    // The client's own role never says they send: DIY appears only in the two-options section.
+    const role = full.slice(0, full.indexOf("Las dos opciones"));
+    expect(role).not.toMatch(/DIY|hazlo tú mismo|tú envías/);
+  });
+
+  it("explain the two options without pushing one", () => {
+    for (const prompt of [full, self]) {
+      expect(prompt).toMatch(/Credalti Complete/);
+      expect(prompt).toMatch(/Credalti DIY/);
+      expect(prompt).toMatch(/NUNCA empujes una/);
+      expect(prompt).toMatch(/Nunca digas que una opción es "mejor"/);
+    }
   });
 
   it("never promise a result, never pick the items, never quote a price, and hand over to the team", () => {
@@ -536,9 +536,11 @@ describe("the assistant's instructions", () => {
     expect(full).toMatch(/pásalo al equipo/);
   });
 
-  it("keep the self-serve wording for later", () => {
-    expect(self).toMatch(/El USUARIO es quien disputa/);
+  it("describe Credalti DIY to a DIY client: the client disputes and sends", () => {
+    expect(self).toMatch(/El CLIENTE es quien disputa/);
     expect(self).toMatch(/tú envías/);
+    expect(self).toMatch(/Imprimir mis cartas/);
+    expect(self).toMatch(/Ya las envié/);
     expect(self).not.toMatch(/servicio completo/);
   });
 });

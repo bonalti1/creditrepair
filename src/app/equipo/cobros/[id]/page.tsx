@@ -10,7 +10,7 @@ import { useStaff } from "@/lib/staff/useStaff";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
 import Icon from "@/components/Icon";
 import ChargebackForm from "@/components/staff/ChargebackForm";
-import { NoAccess, PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/staff/ui";
+import { NoAccess, PRIMARY_BUTTON, SECONDARY_BUTTON, BACK_LINK } from "@/components/staff/ui";
 
 // The chargeback evidence pack for one charge, generated from the records in
 // one click: the signed agreement (version, hash, time, IP), the plan
@@ -55,7 +55,7 @@ export default function EvidencePage({ params }: { params: Promise<{ id: string 
     <main className="animate-rise" data-testid="evidence-pack">
       <style>{`@media print { header, nav, .no-print, [data-testid="tour-bar"] { display: none !important; } body { background: #fff !important; } }`}</style>
       <div className="no-print flex flex-wrap items-center justify-between gap-3">
-        <Link href="/equipo/cobros" className="inline-flex h-11 items-center gap-1 text-[14px] font-medium text-blue-700">
+        <Link href="/equipo/cobros" className={BACK_LINK}>
           <Icon name="chevron" size={16} className="rotate-180" />
           {t("Facturas", "Invoices")}
         </Link>

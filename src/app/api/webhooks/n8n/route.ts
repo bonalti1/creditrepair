@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { sendWhatsApp } from "@/lib/integrations/whatsapp";
+import { clientOption } from "@/lib/service/server";
 import { hasSharedSecret } from "@/lib/security/signatures";
 
 // n8n webhook (spec §6): pull scheduling, WhatsApp flows, round triggers.
@@ -39,6 +40,8 @@ export async function POST(req: Request) {
       : { kind: "attack_ready", roundNumber },
     // The client's language: English unless they chose Spanish.
     profile.locale === "es" ? "es" : "en",
+    // In the words of the client's option (Credalti Complete or Credalti DIY).
+    await clientOption(db, userId),
   );
 
   await db.from("events").insert({ user_id: userId, kind: `n8n_${action}`, payload: parsed.data });

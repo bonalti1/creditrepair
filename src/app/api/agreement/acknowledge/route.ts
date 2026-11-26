@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { AGREEMENT_VERSION, disclosureHash } from "@/lib/agreement/documents";
+import { agreementVersionFor, disclosureHash } from "@/lib/agreement/documents";
 import { agreementReadiness } from "@/lib/agreement/readiness";
 import { agreementFromRow } from "@/lib/agreement/record";
 import { AGREEMENT_TABLE, loadAgreementRow, loadSigningState } from "@/lib/agreement/server";
-import { resolveTerms, withPlan } from "@/lib/agreement/terms";
+import { resolveTerms, withOption, withPlan } from "@/lib/agreement/terms";
+import { optionOfTerms } from "@/lib/service/options";
+import { loadClientOption } from "@/lib/service/server";
 import { offeredSnapshot } from "@/lib/billing/planStore";
 import { reportError } from "@/lib/observability/errors";
 import { readJsonBody } from "@/lib/security/body";
@@ -47,7 +49,11 @@ export async function POST(req: Request) {
 
   // Unreviewed text is never put in front of a real client for acknowledgement or signature.
   // The plan the client is offered is part of the text (the Texas statement prints its costs).
-  const terms = withPlan(resolveTerms(), await offeredSnapshot(db, user.id).catch(() => null));
+  // The option they chose decides which agreement (Credalti Complete or Credalti DIY, migration 0042).
+  const choice = await loadClientOption(db, user.id);
+  const option = choice.chosen ?? choice.option;
+  const AGREEMENT_VERSION = agreementVersionFor(option);
+  const terms = withOption(withPlan(resolveTerms(), await offeredSnapshot(db, user.id, option).catch(() => null)), option);
   // The client's state: opened by Credalti (migration 0030), and with its own agreement documents (stateDocuments.ts).
   const signing = await loadSigningState(db, user.id);
   if (!signing.open) {
@@ -70,7 +76,9 @@ export async function POST(req: Request) {
 
   try {
     const current = await loadAgreementRow(db, user.id);
-    if (current && !current.cancelled_at) {
+    // A signed agreement for the OTHER option is a switch: the new option's disclosures are acknowledged as a new row.
+    const switching = Boolean(current?.signed_at && !current.cancelled_at && optionOfTerms(current.terms) !== option);
+    if (current && !current.cancelled_at && !switching) {
       if (current.signed_at) {
         return NextResponse.json(
           { error: "The agreement is already signed.", code: "already_signed", agreement: agreementFromRow(current) },
@@ -99,7 +107,7 @@ export async function POST(req: Request) {
     await db.from("events").insert({
       user_id: user.id,
       kind: "agreement_disclosure_acknowledged",
-      payload: { version: AGREEMENT_VERSION, locale },
+      payload: { version: AGREEMENT_VERSION, locale, option, ...(switching ? { switching: true } : {}) },
     });
     return NextResponse.json({ ok: true, agreement: agreementFromRow(row as Record<string, unknown>) });
   } catch (error) {

@@ -222,6 +222,11 @@ const en: LiveCopy = {
     whatsappText: `Hi! I have a question for the ${brand} team.`,
     library: [
       {
+        q: "What is the difference between Credalti Complete and Credalti DIY?",
+        a: "Both start with your review: you decide what is inaccurate. With Credalti Complete our team prepares and mails your letters, and every charge waits for the work. With Credalti DIY, Alti prepares your letters and you print and mail them, for a monthly subscription after your 3 business days to cancel. You can start with Credalti DIY, upgrade to Credalti Complete anytime and keep everything you've done.",
+        keys: "difference options option complete diy do it yourself done for you which plan choose mail myself print upgrade",
+      },
+      {
         q: "What is a collection?",
         a: "A collection means a debt collector says you owe a debt, often an old bill handed or sold to them. If it isn't yours, or the amount is wrong, you can dispute it.",
         keys: "collection collector debt collections agency owe cobranza",
@@ -277,7 +282,7 @@ const en: LiveCopy = {
     tabExample: "Try the example",
     tabAsk: `Ask ${alti}`,
     tabsLabel: "What to show in the phone",
-    facts: ["Every letter, with its dates", "Nothing charged until work is done", "3 business days to cancel at no cost", "English or Spanish"],
+    facts: ["Every letter, with its dates", "Complete: charged after letters are mailed", "DIY: a simple monthly subscription", "3 business days to cancel at no cost", "English or Spanish"],
   },
   stats: { of: (n) => `1 of ${n}` },
   quiz: {
@@ -375,12 +380,12 @@ const en: LiveCopy = {
     hint: "Tap to switch between the two.",
   },
   timeline: {
-    title: "When would I pay?",
-    lead: "Slide through your first months. See when letters go out and when a charge can happen.",
+    title: "When would I pay with Credalti Complete?",
+    lead: "Slide through your first months. See when letters go out and when a charge can happen. (Credalti DIY is a simple monthly subscription instead.)",
     slider: "Months since you sign",
     month: (n) => (n === 1 ? "1 month" : `${n} months`),
     planLabel: "Plan",
-    ruleOnly: "How every plan works",
+    ruleOnly: "How every Complete plan works",
     signed: "You sign",
     cancelEnds: "Your 3 business days to cancel at no cost end",
     mailed: (round) => `Round ${round} letters mailed`,
@@ -389,7 +394,7 @@ const en: LiveCopy = {
     day: (n) => `Day ${n}`,
     summary: (rounds, charges, months) =>
       `In ${months === 1 ? "1 month" : `${months} months`}: ${rounds === 1 ? "1 round" : `${rounds} rounds`} mailed, and at most ${charges === 1 ? "1 charge" : `${charges} charges`}.`,
-    rules: ["Nothing is charged before your first round is mailed.", "Never more than one charge in 30 days.", "The most you'll pay is written in your agreement before you sign."],
+    rules: ["With Credalti Complete, nothing is charged before your first round is mailed.", "Never more than one charge in 30 days.", "The most you'll pay is written in your agreement before you sign."],
     note: `Example timing. Rounds go out about every ${CASE_NEXT_ROUND_DAYS} days; your real dates depend on your case.`,
     legendMailed: "Letters mailed",
     legendCharge: "A charge can happen",
@@ -488,6 +493,11 @@ const es: LiveCopy = {
     whatsappText: `¡Hola! Tengo una pregunta para el equipo de ${brand}.`,
     library: [
       {
+        q: "¿Qué diferencia hay entre Credalti Complete y Credalti DIY?",
+        a: "Las dos empiezan con tu revisión: tú decides qué es inexacto. Con Credalti Complete nuestro equipo prepara y envía tus cartas, y cada cobro espera al trabajo. Con Credalti DIY, Alti prepara tus cartas y tú las imprimes y las envías. Es una suscripción mensual que empieza después de tus 3 días hábiles para cancelar. Puedes empezar con Credalti DIY, cambiar a Credalti Complete cuando quieras y conservar todo lo que ya hiciste.",
+        keys: "diferencia opciones opcion complete diy hazlo tu lo hacemos por ti cual elegir enviar yo imprimir cambiar",
+      },
+      {
         q: "¿Qué es una cobranza?",
         a: "Una cobranza quiere decir que un cobrador dice que debes una deuda, muchas veces una cuenta vieja que le pasaron o vendieron. Si no es tuya, o el monto está mal, puedes disputarla.",
         keys: "cobranza cobrador deuda cobranzas agencia debo collection",
@@ -543,7 +553,7 @@ const es: LiveCopy = {
     tabExample: "Prueba el ejemplo",
     tabAsk: `Pregúntale a ${alti}`,
     tabsLabel: "Qué mostrar en el teléfono",
-    facts: ["Cada carta, con sus fechas", "No se cobra hasta que el trabajo está hecho", "3 días hábiles para cancelar sin costo", "En inglés o en español"],
+    facts: ["Cada carta, con sus fechas", "Complete: se cobra después de enviar las cartas", "DIY: una suscripción mensual sencilla", "3 días hábiles para cancelar sin costo", "En inglés o en español"],
   },
   stats: { of: (n) => `1 de ${n}` },
   quiz: {
@@ -641,12 +651,12 @@ const es: LiveCopy = {
     hint: "Toca para cambiar entre las dos.",
   },
   timeline: {
-    title: "¿Cuándo pagaría?",
-    lead: "Recorre tus primeros meses. Mira cuándo salen las cartas y cuándo puede haber un cobro.",
+    title: "¿Cuándo pagaría con Credalti Complete?",
+    lead: "Recorre tus primeros meses. Mira cuándo salen las cartas y cuándo puede haber un cobro. (Credalti DIY es, en cambio, una suscripción mensual sencilla).",
     slider: "Meses desde que firmas",
     month: (n) => (n === 1 ? "1 mes" : `${n} meses`),
     planLabel: "Plan",
-    ruleOnly: "Cómo funciona cualquier plan",
+    ruleOnly: "Cómo funciona cualquier plan Complete",
     signed: "Firmas",
     cancelEnds: "Terminan tus 3 días hábiles para cancelar sin costo",
     mailed: (round) => `Se envían las cartas de la ronda ${round}`,
@@ -655,7 +665,7 @@ const es: LiveCopy = {
     day: (n) => `Día ${n}`,
     summary: (rounds, charges, months) =>
       `En ${months === 1 ? "1 mes" : `${months} meses`}: ${rounds === 1 ? "1 ronda enviada" : `${rounds} rondas enviadas`}, y como máximo ${charges === 1 ? "1 cobro" : `${charges} cobros`}.`,
-    rules: ["No se cobra nada antes de enviar tu primera ronda.", "Nunca más de un cobro en 30 días.", "Lo máximo que pagarás está escrito en tu acuerdo antes de firmar."],
+    rules: ["Con Credalti Complete, no se cobra nada antes de enviar tu primera ronda.", "Nunca más de un cobro en 30 días.", "Lo máximo que pagarás está escrito en tu acuerdo antes de firmar."],
     note: `Fechas de ejemplo. Las rondas salen más o menos cada ${CASE_NEXT_ROUND_DAYS} días; tus fechas reales dependen de tu caso.`,
     legendMailed: "Cartas enviadas",
     legendCharge: "Puede haber un cobro",

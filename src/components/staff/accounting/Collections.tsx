@@ -28,8 +28,8 @@ export default function Collections({ acc, reveal }: { acc: Acc; reveal: boolean
     <div className="space-y-5" data-testid="collections">
       <Note>
         {t(
-          "Solo cobros por trabajo ya hecho (después del periodo de cancelación); el sistema ya reintentó y avisó al cliente con el enlace «Actualizar mi tarjeta». Recordatorios solo por WhatsApp o correo, que envías tú; nunca SMS. Sin recargos ni amenazas. Cualquier siguiente paso lo decide una persona.",
-          "Only charges for work already done (after the cancellation window); the system already retried and sent the client the “Update my card” link. Reminders only by WhatsApp or email, sent by you; never SMS. No late fees, no threats. A person decides any next step.",
+          "Solo cobros ya ganados (después del periodo de cancelación): en Complete, por trabajo ya hecho; en DIY, la suscripción del periodo o las cartas que enviamos; el sistema ya reintentó y avisó al cliente con el enlace «Actualizar mi tarjeta». Recordatorios solo por WhatsApp o correo, que envías tú; nunca SMS. Sin recargos ni amenazas. Cualquier siguiente paso lo decide una persona.",
+          "Only charges already earned (after the cancellation window): under Complete, for work already done; under DIY, the period's subscription or the letters we mailed; the system already retried and sent the client the “Update my card” link. Reminders only by WhatsApp or email, sent by you; never SMS. No late fees, no threats. A person decides any next step.",
         )}
       </Note>
       <TileGrid>

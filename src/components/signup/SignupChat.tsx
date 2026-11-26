@@ -12,15 +12,17 @@ import { ID_TYPE_QUESTION } from "@/lib/aftercare/itin";
 import { ID_TYPE_KEY } from "@/lib/aftercare/useAftercare";
 import { isFullName } from "@/lib/agreement/signature";
 import { deadlineMoment } from "@/lib/agreement/format";
+import { attributionFromSearch, readAttribution, sanitizeAttribution } from "@/lib/ads/capture";
 import { aiByline, BRAND } from "@/lib/brand";
 import { ALL_STATES, NOT_OPEN_COPY, stateLaw } from "@/lib/compliance/states";
 import { useOpenStates } from "@/lib/compliance/useOpenStates";
 import { NO_SOFT_PULL, reportStepMode, SOFT_PULL_CONSENT } from "@/lib/credit/softPull";
 import { useLocale } from "@/lib/i18n";
 import { AFFILIATE_DISCLOSURE, MONITORING_OFFER } from "@/lib/monitoring/offer";
-import { GOALS, parseInvite } from "@/lib/sales/invite";
+import { GOALS, linkOption, parseInvite } from "@/lib/sales/invite";
 import { newCaseRef } from "@/lib/signup/caseRef";
 import { reportLines, SIGNUP_COPY, stateName, transcript, type ChatLine } from "@/lib/signup/copy";
+import { LIVE_CHAT_COPY } from "@/lib/signup/liveChat";
 import { reportCounts } from "@/lib/signup/reportSummary";
 import {
   currentQuestion,
@@ -39,8 +41,12 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { markMilestone } from "@/lib/ux/firstWeek";
 import { useClientReport } from "@/lib/ux/reportStore";
 import type { PublicPlan } from "@/lib/site/plans";
+import OptionComparison, { type ComparisonPrice } from "@/components/service/OptionComparison";
+import type { ServiceOption } from "@/lib/service/options";
+import { useServiceOption } from "@/lib/service/useServiceOption";
 import AgreementFlow, { type SheetKind } from "./AgreementSheets";
 import { AltiRun, Transcript, TypingDots, YouBubble } from "./Bubbles";
+import LivePerson, { livePersonOpen, rememberLivePerson } from "./LivePerson";
 import PhoneSignIn from "./PhoneSignIn";
 import ReferredShareOffer from "@/components/partners/ReferredShareOffer";
 import SignupProgressBar from "./SignupProgressBar";
@@ -97,6 +103,10 @@ function read(key: string): string | null {
 
 export interface SignupChatProps {
   plans: Record<"en" | "es", PublicPlan[]>;
+  /** Each option's offered plan price for the comparison (null: "Price set by the team"). */
+  optionPrices: Record<"en" | "es", Record<ServiceOption, ComparisonPrice | null>>;
+  /** The monitoring note beside the prices. */
+  monitoringNote: Record<"en" | "es", string>;
   rules: Record<"en" | "es", Array<{ title: string; body: string }>>;
   callsEnabled: boolean;
   softPullProvider: string;
@@ -232,8 +242,9 @@ function ReportStep({ locale, softPullProvider, onDone }: { locale: "en" | "es";
   );
 }
 
-export default function SignupChat({ plans, rules, callsEnabled, softPullProvider }: SignupChatProps) {
+export default function SignupChat({ plans, rules, callsEnabled, softPullProvider, optionPrices, monitoringNote }: SignupChatProps) {
   const { locale } = useLocale();
+  const serviceOption = useServiceOption();
   const c = SIGNUP_COPY[locale];
   const live = isSupabaseConfigured();
   const openStates = useOpenStates();
@@ -247,15 +258,27 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
   const [stateChoice, setStateChoice] = useState("TX");
   const [waitlistEmail, setWaitlistEmail] = useState("");
   const [waitlisted, setWaitlisted] = useState(false);
+  // A person in this chat (LivePerson.tsx): "new" asks for one now; "open" is a thread asked for before (this device).
+  const [person, setPerson] = useState<"off" | "new" | "open">("off");
+  // While a teammate is in the chat, Alti is paused: he answers no question of his own.
+  const [personStatus, setPersonStatus] = useState<string | null>(null);
+  const paused = personStatus === "joined";
   const talkButton = useRef<HTMLButtonElement>(null);
   const end = useRef<HTMLDivElement>(null);
 
   // The device's signup, or a new one with a reference from the server.
   useEffect(() => {
     let cancelled = false;
+    // A link's option (option=complete|diy from the video page, o= from the website or an invitation): preselected, never chosen for them.
+    const preset = linkOption(new URLSearchParams(window.location.search));
     const saved = parseProgress(read(SIGNUP_STORAGE_KEY));
     if (saved) {
+      if (preset && !saved.option && saved.presetOption !== preset) {
+        saved.presetOption = preset;
+        save(SIGNUP_STORAGE_KEY, JSON.stringify(saved));
+      }
       setProgress(saved);
+      if (livePersonOpen(saved.caseRef)) setPerson("open");
       setResumed(saved.path === "chat" && Boolean(saved.answers.firstName) && saved.stage !== "done");
       if (saved.answers.state) setStateChoice(saved.answers.state);
       return;
@@ -263,12 +286,16 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
     const invite = parseInvite(new URLSearchParams(window.location.search));
     if (invite?.ref) save("bonalti.ref", invite.ref);
     if (invite?.partner) save("bonalti.partner", invite.partner);
-    fetch("/api/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", locale }) })
+    // The ad that brought them, if a tagged link did (src/lib/ads/capture.ts): marketing tags only.
+    const attribution = readAttribution() ?? sanitizeAttribution(attributionFromSearch(window.location.search));
+    fetch("/api/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", locale, ...(attribution ? { attribution } : {}) }) })
       .then((r) => (r.ok ? (r.json() as Promise<{ caseRef?: string; token?: string | null }>) : null))
       .catch(() => null)
       .then((body) => {
         if (cancelled) return;
         const fresh = newProgress(body?.caseRef ?? newCaseRef(), body?.token ?? null);
+        // Started from the video page or the website's comparison ("Start with Credalti DIY"): marked in the comparison; they tap it or the other one.
+        if (preset) fresh.presetOption = preset;
         if (invite) {
           const first = invite.name?.split(" ")[0] ?? null;
           fresh.answers = { ...fresh.answers, firstName: first, goal: invite.goal, state: null };
@@ -297,7 +324,17 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
         void fetch("/api/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "progress", caseRef: withStage.caseRef, token: withStage.token, step: withStage.stage, state: withStage.answers.state, locale, ...(extra.wantsPerson ? { wantsPerson: true } : {}) }),
+          body: JSON.stringify({
+            action: "progress",
+            caseRef: withStage.caseRef,
+            token: withStage.token,
+            step: withStage.stage,
+            state: withStage.answers.state,
+            locale,
+            ...(extra.wantsPerson ? { wantsPerson: true } : {}),
+            // Once signed in, the first name names their lead for the team (it never leaves the device before).
+            ...(withStage.signedIn && withStage.answers.firstName ? { firstName: withStage.answers.firstName } : {}),
+          }),
         }).catch(() => undefined);
         return withStage;
       });
@@ -340,6 +377,8 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
         })
         .catch(() => undefined);
     }
+    // An option chosen on the website before signing in ("Start with Credalti DIY"): now on the account too.
+    if (progress.option) await serviceOption.choose(progress.option, "signup_chat");
     markMilestone("details_done");
     update({ signedIn: true });
   };
@@ -357,7 +396,8 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
     ]);
   };
 
-  const planList = plans[locale];
+  // Only the chosen option's plans (Credalti Complete or Credalti DIY).
+  const planList = plans[locale].filter((p) => !progress.option || p.option === progress.option);
   const stateStatus = openStates.status(stateChoice);
 
   /** The answer widget under Alti's latest question. */
@@ -487,6 +527,26 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
             </div>
           </div>
           </ReferredShareOffer>
+        );
+      case "option":
+        return (
+          <div className="space-y-3" data-testid="option-step">
+            <OptionComparison
+              locale={locale}
+              prices={optionPrices[locale]}
+              monitoring={monitoringNote[locale]}
+              headingLevel={3}
+              chosen={progress.presetOption ?? null}
+              onChoose={async (option) => {
+                // Recorded on the account (signed in by now) before the agreement is shown: it is that option's agreement.
+                await serviceOption.choose(option, "signup_chat");
+                update({ option });
+              }}
+            />
+            <button type="button" className={SECONDARY} data-testid="option-ask" onClick={() => void ask(c.alti.optionAsk)}>
+              {c.alti.optionAskButton}
+            </button>
+          </div>
         );
       case "plan":
         return (
@@ -663,7 +723,13 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
                     {thinking && <TypingDots label={locale === "es" ? "Alti está escribiendo" : "Alti is typing"} />}
                     <AltiRun lines={qa.length > 0 ? [c.alti.backToSheet] : []} locale={locale}>
                       <div className="space-y-2" data-testid="question-box">
-                        <TextAnswer key={`ask-${qa.length}`} label={c.input.question} autoComplete="off" send={c.input.ask} onSubmit={(v) => void ask(v)} />
+                        {paused ? (
+                          <p className="rounded-2xl bg-slate-100 px-4 py-3 text-[14px] text-slate-700" data-testid="question-paused">
+                            {LIVE_CHAT_COPY[locale].altiPaused}
+                          </p>
+                        ) : (
+                          <TextAnswer key={`ask-${qa.length}`} label={c.input.question} autoComplete="off" send={c.input.ask} onSubmit={(v) => void ask(v)} />
+                        )}
                         <button type="button" onClick={() => setSheet("rights")} className={SECONDARY} data-testid="back-to-rights">
                           {locale === "es" ? "Volver a mis derechos" : "Back to my rights"}
                         </button>
@@ -696,6 +762,9 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
                 )}
               </>
             )}
+            {person !== "off" && (
+              <LivePerson caseRef={progress.caseRef} token={progress.token} locale={locale} step={progress.stage} state={a.state ?? null} requested={person === "new"} onStatus={setPersonStatus} />
+            )}
             {talk && (
               <TalkToPerson
                 locale={locale}
@@ -706,6 +775,15 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
                   talkButton.current?.focus();
                 }}
                 onChosen={() => update({}, { wantsPerson: true })}
+                onChatHere={
+                  person === "off"
+                    ? () => {
+                        rememberLivePerson(progress.caseRef);
+                        setPerson("new");
+                        setTalk(false);
+                      }
+                    : undefined
+                }
               />
             )}
             <div ref={end} className="h-px scroll-mb-28" />

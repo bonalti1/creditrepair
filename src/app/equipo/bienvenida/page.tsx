@@ -55,7 +55,7 @@ export default function Bienvenida() {
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">
+      <h1 className="page-title">
         {t(`Bienvenida, ${viewer.name.split(" ")[0]}`, `Welcome, ${viewer.name.split(" ")[0]}`)}
       </h1>
       <p className="mt-1 max-w-3xl text-[15px] leading-relaxed text-slate-500">
@@ -124,7 +124,7 @@ export default function Bienvenida() {
           ))}
         </ul>
         <p className="mt-2 px-1 text-[13px] text-slate-500">
-          {t("En cualquier pantalla, «¿Qué hago aquí?» arriba a la derecha explica esa pantalla.", "On any screen, “What do I do here?” at the top right explains that screen.")}
+          {t("En cualquier pantalla, «Pregúntale a Alti» arriba a la derecha explica esa pantalla («¿Qué hago aquí?»), lo que Alti ya hace ahí y busca en la guía del equipo.", "On any screen, “Ask Alti” at the top right explains that screen (“What do I do here?”), what Alti already does there, and searches the team’s playbook.")}
         </p>
       </section>
 

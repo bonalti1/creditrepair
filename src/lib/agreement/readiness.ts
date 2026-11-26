@@ -1,5 +1,5 @@
 import { isDemoMode } from "../supabase/config";
-import { AGREEMENT_VERSION } from "./documents";
+import { agreementVersionOf } from "./documents";
 import { STATUTE_TEXTS } from "./statutes";
 import { agreementDocumentsFor, type StateDocumentsStatus } from "./stateDocuments";
 import { missingTerms, resolveTerms, TERM_ENV, type ResolvedTerms, type TermKey, type TermsSource } from "./terms";
@@ -76,24 +76,30 @@ export function unverifiedStatuteCitations(): string[] {
     .map((text) => text.citation);
 }
 
-// Static reads, so the browser bundle carries them.
+// Static reads, so the browser bundle carries them. Each option's text is
+// approved on its own: Credalti Complete by NEXT_PUBLIC_AGREEMENT_APPROVED_VERSION,
+// Credalti DIY by NEXT_PUBLIC_DIY_AGREEMENT_APPROVED_VERSION (migration 0042).
 const APPROVED_VERSION = process.env.NEXT_PUBLIC_AGREEMENT_APPROVED_VERSION;
+const DIY_APPROVED_VERSION = process.env.NEXT_PUBLIC_DIY_AGREEMENT_APPROVED_VERSION;
 
 /** The same demo test the rest of the app uses: no Supabase settings, no database (supabase/config.ts). */
 export { isDemoMode };
 
 export function agreementReadiness(input: ReadinessInput = {}): AgreementReadiness {
   const terms = input.terms ?? resolveTerms();
-  const approvedVersion = (input.approvedVersion === undefined ? APPROVED_VERSION : input.approvedVersion)?.trim() || null;
+  const diy = terms.serviceOption === "diy";
+  const version = agreementVersionOf(terms);
+  const approvedVersion = (input.approvedVersion === undefined ? (diy ? DIY_APPROVED_VERSION : APPROVED_VERSION) : input.approvedVersion)?.trim() || null;
   const demo = input.demo ?? isDemoMode();
 
   const missing = missingTerms(terms).map((key) => ({ key, env: TERM_ENV[key] }));
   const termsComplete = missing.length === 0;
-  const approved = approvedVersion === AGREEMENT_VERSION;
+  const approved = approvedVersion === version;
   const unverifiedStatutes = input.unverifiedStatutes ?? unverifiedStatuteCitations();
   // A plan's payment terms are part of the contract: its version needs the attorney's approval too.
   const plan = terms.plan ?? null;
-  const planApproved = plan === null || plan.attorneyApproved;
+  // Credalti DIY is charged only under a signed DIY plan: it needs an approved one; Complete may sign without (the monthly fee).
+  const planApproved = plan === null ? !diy : plan.attorneyApproved && (plan.terms.type === "diy_subscription") === diy;
   const stateDocuments = agreementDocumentsFor(input.state);
   const stateBuilt = stateDocuments.status === "built";
   const ready = termsComplete && approved && unverifiedStatutes.length === 0 && planApproved && stateBuilt;
@@ -104,7 +110,7 @@ export function agreementReadiness(input: ReadinessInput = {}): AgreementReadine
     ready,
     mode,
     demo,
-    version: AGREEMENT_VERSION,
+    version,
     termsComplete,
     missing,
     unverifiedStatutes,

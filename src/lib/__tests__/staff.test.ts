@@ -168,7 +168,11 @@ describe("staff: clientStage", () => {
     ["waiting_on_bureaus", client({ rounds: [round(1, "mailed", 10)] })],
     ["results_in", client({ rounds: [round(1, "responded", 32)] })],
     ["next_round_ready", client({ rounds: [round(1, "responded", 41), round(2, "ready")] })],
+    // Credalti DIY: the letters are ready and the client prints and mails them.
+    ["with_client", client({ serviceOption: "diy", rounds: [round(1, "ready")] })],
     ["paused", client(pastDue())],
+    // Finished the program (graduation records the end of the service): nothing to confirm with them.
+    ["graduated", client({ rounds: [round(1, "responded", 41)], serviceEndRequestedAt: ago(2), graduation: { completedAt: ago(2), reason: "disputes_done", keepTips: true } })],
     ["cancelled", client({ agreementCancelledAt: ago(16), cancelledWithinWindow: true, rounds: [round(1, "ready")] })],
   ];
 
@@ -488,8 +492,10 @@ describe("staff: demo clients", () => {
 
   it("are a few dozen invented people in Texas with fictional phone numbers", () => {
     expect(clients.length).toBeGreaterThanOrEqual(13);
-    // 23 until the business dashboard: 13 clients with months of history were added (c24–c36).
-    expect(clients.length).toBeLessThanOrEqual(36);
+    // 23 until the business dashboard: 13 clients with months of history were added (c24–c36); c37 finished the program;
+    // c70–c72 chose Credalti DIY (docs/SERVICE-OPTIONS.md).
+    expect(clients.length).toBeLessThanOrEqual(40);
+    expect(clients.filter((c) => c.serviceOption === "diy").map((c) => c.id)).toEqual(["c70", "c71", "c72"]);
     expect(new Set(clients.map((c) => c.id)).size).toBe(clients.length);
     for (const c of clients) {
       expect(c.state).toBe("TX");
@@ -516,10 +522,14 @@ describe("staff: demo clients", () => {
     const needPerson = clients.filter((c) => clientExceptions(c, later).length > 0);
     const ready = clients.filter((c) => sendableRound(c, later));
     const nothing = clients.filter((c) => clientExceptions(c, later).length === 0 && !sendableRound(c, later));
-    expect(needPerson.length).toBe(11);
-    expect(ready.length).toBe(3);
-    // 9 before the 13 history clients (c24–c36), none of whom needs a person or has a round to send.
-    expect(nothing.length).toBe(22);
+    // Credalti DIY: Arturo (c71) asked a question; Celia's (c72) "Mail them for me" letters are ready to send;
+    // Valeria (c70) mailed her own letters and needs nothing.
+    expect(needPerson.length).toBe(12);
+    expect(needPerson.map((c) => c.id)).toContain("c71");
+    expect(ready.length).toBe(4);
+    expect(ready.map((c) => c.id)).toContain("c72");
+    // 9 before the 13 history clients (c24–c36), none of whom needs a person or has a round to send; c37 graduated; c70.
+    expect(nothing.length).toBe(24);
     expect(clients.some((c) => nextAutomaticStep(c, later))).toBe(true);
   });
 

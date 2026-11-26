@@ -1,6 +1,6 @@
 import { formatCents, billingDate, billingDay } from "../billing/rules";
 import { DUNNING_RETRY_DAYS } from "../billing/dunning";
-import { receiptNumber, workLineWithoutLetters } from "../billing/receipts";
+import { receiptFor, receiptNumber, workLineWithoutLetters } from "../billing/receipts";
 import type { StaffClient } from "../staff/types";
 import { clientTimeZone, nextAllowedTime } from "./clock";
 import { clientLocale, followupStates, followupTemplate } from "./followups";
@@ -181,7 +181,8 @@ function statusHistory(client: StaffClient, until: Date): OutboundMessage[] {
         receiptNumber: receiptNumber(charge.id),
         amount: formatCents(charge.amountCents),
         date: { es: billingDate(charge.chargedAt, "es"), en: billingDate(charge.chargedAt, "en") },
-        work: workLineWithoutLetters(charge.roundNumber, charge.workDate),
+        // What the charge paid for, as the receipt says it (billing/receipts.ts: Complete's work, or DIY's subscription / mailing).
+        work: receiptFor(charge, null)?.paidFor ?? { es: `trabajo ya hecho: ${workLineWithoutLetters(charge.roundNumber, charge.workDate).es}`, en: `work already done: ${workLineWithoutLetters(charge.roundNumber, charge.workDate).en}` },
       },
     });
   }

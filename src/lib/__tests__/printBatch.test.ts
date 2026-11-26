@@ -28,9 +28,11 @@ setStaffLocaleFallback("es");
 const NOW = new Date("2026-12-05T18:00:00.000Z");
 const clients = buildDemoClients(NOW);
 const later = new Date(NOW.getTime() + 5 * 60 * 1000);
+// The rounds the office prints: ready to send, without a Credalti DIY "Mail them for me" request (those go
+// only through the mail service, docs/SERVICE-OPTIONS.md).
 const ready: RoundRef[] = clients.flatMap((c) => {
   const round = sendableRound(c, later);
-  return round ? [{ clientId: c.id, roundNumber: round.number }] : [];
+  return round && !round.mailRequest ? [{ clientId: c.id, roundNumber: round.number }] : [];
 });
 
 describe("print view: which rounds a link names", () => {
@@ -70,6 +72,20 @@ describe("print view: which rounds a link names", () => {
 
 describe("print view: the batch", () => {
   const batch = buildPrintBatch(clients, ready, later);
+
+  it("never prints a Credalti DIY client's round at the office: their mail-for-me letters go by the mail service", () => {
+    const celia = clients.find((c) => c.id === "c72")!;
+    // In the send queue with only the letters she asked us to mail...
+    const asked = celia.mailRequests![0]!.letterIds;
+    expect(sendableRound(celia, later)?.letters.map((l) => l.id)).toEqual(asked);
+    expect(asked.length).toBeLessThan(celia.rounds[0]!.letters.length);
+    // ...and refused by the print view.
+    const diy = buildPrintBatch(clients, [{ clientId: "c72", roundNumber: 1 }], later);
+    expect(diy.rounds).toEqual([]);
+    expect(diy.skipped.map((s) => s.reason)).toEqual([expect.stringMatching(/Cliente DIY/)]);
+    const arturo = buildPrintBatch(clients, [{ clientId: "c71", roundNumber: 1 }], later);
+    expect(arturo.rounds).toEqual([]);
+  });
 
   it("the three rounds that are ready to send are a batch of thirteen letters", () => {
     expect(ready).toHaveLength(3);
@@ -254,7 +270,8 @@ describe("print view: the page", () => {
     expect(page).toMatch(/\.pl-screen \{ display: none !important; \}/);
     expect(page).not.toMatch(/jspdf|pdfkit|pdf-lib|react-pdf|html2canvas|puppeteer/i);
     const pkg = JSON.parse(readFileSync("package.json", "utf8")) as { dependencies: Record<string, string> };
-    expect(Object.keys(pkg.dependencies).sort()).toEqual(["@anthropic-ai/sdk", "@supabase/ssr", "@supabase/supabase-js", "next", "react", "react-dom", "zod"]);
+    // @ffmpeg/core is the Video Studio's export engine (docs/VIDEO.md), served as static files to the editor only; nothing prints with it.
+    expect(Object.keys(pkg.dependencies).sort()).toEqual(["@anthropic-ai/sdk", "@ffmpeg/core", "@supabase/ssr", "@supabase/supabase-js", "next", "react", "react-dom", "zod"]);
   });
 
   it("hides the console's frame on paper", () => {

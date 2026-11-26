@@ -117,7 +117,7 @@ const es = {
     subtitle: (letters: number, items: number) =>
       `${letters === 1 ? "1 carta generada" : `${letters} cartas generadas`} con ${
         items === 1 ? "tu elemento confirmado" : `tus ${items} elementos confirmados`
-      }. ${letters === 1 ? "Léela completa" : "Lee cada una"} — nada se envía hasta que tú apruebes.`,
+      }. ${letters === 1 ? "Léela completa" : "Lee cada una"}: tú decides cuándo enviarlas.`,
     emptyTitle: "Aún no hay elementos en tu ronda de cartas",
     emptyBody:
       "Tu ronda de cartas se arma con los elementos que TÚ marcas y confirmas en la revisión guiada.",
@@ -136,11 +136,11 @@ const es = {
     itemCount: (n: number) => count(n, "elemento", "elementos"),
     fileRequest: "solicitud de expediente",
     approveNote:
-      "Al presionar el botón confirmas que leíste tus cartas y que tú decides enviarlas. Cada elemento incluido lleva tu confirmación registrada con fecha y hora.",
-    approveButton: (n: number) => `Aprobar y enviar ${n === 1 ? "mi carta" : `mis ${n} cartas`} 🚀`,
+      "Al preparar tus cartas confirmas que las leíste y que tú decides enviarlas. Cada elemento incluido lleva tu confirmación registrada con fecha y hora.",
+    approveButton: (n: number) => `Preparar ${n === 1 ? "mi carta" : `mis ${n} cartas`} para imprimir`,
     approvedTitle: "¡Tus cartas van en camino!",
     approvedBody:
-      "(Demo) En producción: tus cartas se imprimen y envían por correo certificado, y te avisamos por WhatsApp. Los burós tienen ~30 días para responder.",
+      "Anotaste que las enviaste. Los burós tienen ~30 días para responder, y Alti te avisa cuándo toca la siguiente ronda.",
     trackRound: "Seguir mi ronda →",
     resetDemo: "Reiniciar demo",
   },
@@ -201,6 +201,55 @@ const es = {
     roundsEmptyTitle: "Todavía no hay cartas enviadas",
     roundsEmptyBody:
       "Cuando tu equipo envíe tus cartas, aquí verás cuándo salieron, cuándo se espera la respuesta de los burós y cuándo toca la siguiente ronda.",
+  },
+  // Credalti DIY (docs/SERVICE-OPTIONS.md): the letters and rounds pages for a client who prints and mails
+  // their own letters. Alti prepares them from approved templates; the client prints, mails, and records the date.
+  diy: {
+    badge: "Credalti DIY",
+    lettersLead: "Tus cartas, listas para que las imprimas y las envíes.",
+    lettersSubtitle: (letters: number, items: number) =>
+      `${count(letters, "carta", "cartas")} con ${
+        items === 1 ? "el elemento que tú confirmaste" : `los ${items} elementos que tú confirmaste`
+      }, con modelos aprobados. Tú las imprimes, las firmas y las envías.`,
+    prepareTitle: "Prepara tus cartas",
+    prepareBody: "Alti arma tus cartas con lo que tú confirmaste y con nuestros modelos aprobados. Después las imprimes y las envías.",
+    prepareButton: (n: number) => (n === 1 ? "Preparar mi carta" : `Preparar mis ${n} cartas`),
+    preparing: "Preparando…",
+    printButton: "Imprimir mis cartas",
+    printHint: "Se abre una página lista para imprimir o guardar como PDF. Firma cada carta y envíala por correo; el correo certificado te da comprobante.",
+    mailedTitle: "¿Ya las enviaste?",
+    mailedBody: "Anota el día en que las llevaste al correo. Desde ahí cuentan los ~30 días de los burós y Alti te avisa cuándo toca la siguiente ronda.",
+    mailedDate: "Fecha en que las enviaste",
+    mailedButton: "Ya las envié",
+    mailedSaved: (date: string) => `Anotado: las enviaste el ${date}. Los burós tienen ~30 días para responder.`,
+    mailForMeTitle: "Envíenlas por mí",
+    mailForMeBody: "Si prefieres, nosotros las enviamos por correo por ti, con las copias de tu identificación y tu comprobante de domicilio.",
+    mailForMeCost: (line: string) => `Costo: ${line}. Se cobra después de que las enviamos.`,
+    mailForMeConfirm: (total: string) => `Sí, envíenlas por ${total}`,
+    mailForMeNotOffered: "Tu plan no incluye el envío por ti: tú las imprimes y las envías.",
+    mailForMeRequested: (n: number, total: string) => `Pediste que enviemos ${count(n, "carta", "cartas")} por ${total}. Te avisamos cuando salgan; el cobro se hace después.`,
+    mailForMeMailed: (date: string) => `Enviamos tus cartas el ${date}.`,
+    pick: "Elige qué cartas enviamos",
+    windowTitle: "Tus cartas se preparan pronto",
+    windowBody: (day: string) => `Tus 3 días hábiles para cancelar sin costo terminan antes. Alti prepara tus cartas a partir del ${day}.`,
+    statusPrepared: "Lista para imprimir",
+    statusMailedByYou: (date: string) => `Enviada por ti el ${date}`,
+    statusRequested: "La enviamos nosotros",
+    roundsSubtitle: (resp: number, next: number) =>
+      `Cada ronda: tú envías tus cartas y anotas la fecha. Los burós tienen unos ${resp} días para responder. Cerca del día ${next}, Alti te avisa y prepara la siguiente.`,
+    roundsEmptyTitle: "Todavía no anotas cartas enviadas",
+    roundsEmptyBody: "Cuando envíes tus cartas, toca «Ya las envié». Aquí verás la fecha, cuándo se espera la respuesta de los burós y cuándo toca la siguiente ronda.",
+    waitDays: (n: number) => `Los burós tienen ~${count(n, "día", "días")} más para responder. Alti te avisa cuándo toca la siguiente ronda.`,
+    changeNote: "Las cartas dicen lo que tú decidiste. Si algo no está bien, cambia tu respuesta en la revisión antes de enviarlas.",
+    upgradeTitle: "¿Quieres que nuestro equipo se encargue desde aquí?",
+    upgradeBody: "Con Credalti Complete nuestro equipo prepara y envía tus cartas. Conservas todo lo que ya hiciste. Solo si tú quieres.",
+    upgradeYes: "Ver Credalti Complete",
+    upgradeNo: "No, gracias",
+    errors: {
+      generic: "No se pudo guardar. No cambió nada; inténtalo de nuevo en un momento.",
+      quote_changed: "El costo cambió. Revísalo de nuevo antes de confirmar.",
+      in_cancellation_window: "Durante tus 3 días hábiles para cancelar no se envía nada.",
+    },
   },
 };
 
@@ -310,7 +359,7 @@ const en: Dict = {
     subtitle: (letters: number, items: number) =>
       `${count(letters, "letter", "letters")} generated from ${
         items === 1 ? "your confirmed item" : `your ${items} confirmed items`
-      }. ${letters === 1 ? "Read it in full" : "Read each one"} — nothing is sent until you approve.`,
+      }. ${letters === 1 ? "Read it in full" : "Read each one"}: you decide when to mail them.`,
     emptyTitle: "No items in your round of letters yet",
     emptyBody: "Your round of letters is built from the items YOU flag and confirm in the guided review.",
     emptyFlagged: (n: number) =>
@@ -328,11 +377,11 @@ const en: Dict = {
     itemCount: (n: number) => count(n, "item", "items"),
     fileRequest: "file disclosure request",
     approveNote:
-      "Pressing the button confirms you read your letters and that you decide to send them. Every included item carries your date-and-time-stamped confirmation.",
-    approveButton: (n: number) => `Approve and send ${n === 1 ? "my letter" : `my ${n} letters`} 🚀`,
+      "Preparing your letters confirms you read them and that you decide to send them. Every included item carries your date-and-time-stamped confirmation.",
+    approveButton: (n: number) => `Prepare ${n === 1 ? "my letter" : `my ${n} letters`} to print`,
     approvedTitle: "Your letters are on their way!",
     approvedBody:
-      "(Demo) In production: your letters are printed and mailed, and we notify you on WhatsApp. Bureaus have ~30 days to respond.",
+      "You recorded that you mailed them. Bureaus have ~30 days to respond, and Alti tells you when the next round is due.",
     trackRound: "Track my round →",
     resetDemo: "Reset demo",
   },
@@ -387,6 +436,53 @@ const en: Dict = {
     roundsEmptyTitle: "No letters have been mailed yet",
     roundsEmptyBody:
       "Once your team mails your letters, you will see here when they went out. You will also see when the bureaus should answer, and when the next round is due.",
+  },
+  diy: {
+    badge: "Credalti DIY",
+    lettersLead: "Your letters, ready for you to print and mail.",
+    lettersSubtitle: (letters: number, items: number) =>
+      `${count(letters, "letter", "letters")} with ${
+        items === 1 ? "the item you confirmed" : `the ${items} items you confirmed`
+      }, from approved templates. You print them, sign them and mail them.`,
+    prepareTitle: "Prepare your letters",
+    prepareBody: "Alti puts your letters together from what you confirmed and our approved templates. Then you print and mail them.",
+    prepareButton: (n: number) => (n === 1 ? "Prepare my letter" : `Prepare my ${n} letters`),
+    preparing: "Preparing…",
+    printButton: "Print my letters",
+    printHint: "A page opens ready to print or save as a PDF. Sign each letter and mail it; certified mail gives you a receipt.",
+    mailedTitle: "Mailed them already?",
+    mailedBody: "Record the day you took them to the post office. The bureaus' ~30 days count from then, and Alti tells you when the next round is due.",
+    mailedDate: "Date you mailed them",
+    mailedButton: "I mailed them",
+    mailedSaved: (date: string) => `Noted: you mailed them on ${date}. The bureaus have ~30 days to respond.`,
+    mailForMeTitle: "Mail them for me",
+    mailForMeBody: "If you prefer, we mail them for you, with the copies of your ID and proof of address.",
+    mailForMeCost: (line: string) => `Cost: ${line}. Charged after we mail them.`,
+    mailForMeConfirm: (total: string) => `Yes, mail them for ${total}`,
+    mailForMeNotOffered: "Your plan does not include mailing for you: you print and mail them.",
+    mailForMeRequested: (n: number, total: string) => `You asked us to mail ${count(n, "letter", "letters")} for ${total}. We'll let you know when they go out; the charge comes after.`,
+    mailForMeMailed: (date: string) => `We mailed your letters on ${date}.`,
+    pick: "Choose which letters we mail",
+    windowTitle: "Your letters are prepared soon",
+    windowBody: (day: string) => `Your 3 business days to cancel at no cost end first. Alti prepares your letters from ${day}.`,
+    statusPrepared: "Ready to print",
+    statusMailedByYou: (date: string) => `Mailed by you on ${date}`,
+    statusRequested: "We mail this one",
+    roundsSubtitle: (resp: number, next: number) =>
+      `Each round: you mail your letters and record the date. The bureaus have about ${resp} days to answer. Around day ${next}, Alti lets you know and prepares the next one.`,
+    roundsEmptyTitle: "No mailed letters recorded yet",
+    roundsEmptyBody: "Once you mail your letters, tap \"I mailed them\". You will see the date here, when the bureaus should answer, and when the next round is due.",
+    waitDays: (n: number) => `Bureaus have ~${n} more ${n === 1 ? "day" : "days"} to respond. Alti tells you when your next round is due.`,
+    changeNote: "The letters say what you decided. If something is not right, change your answer in the review before you mail them.",
+    upgradeTitle: "Want our team to handle it from here?",
+    upgradeBody: "With Credalti Complete our team prepares and mails your letters. You keep everything you've done. Only if you want to.",
+    upgradeYes: "See Credalti Complete",
+    upgradeNo: "No, thanks",
+    errors: {
+      generic: "It could not be saved. Nothing changed; please try again in a moment.",
+      quote_changed: "The cost changed. Look at it again before confirming.",
+      in_cancellation_window: "Nothing is mailed during your 3 business days to cancel.",
+    },
   },
 };
 

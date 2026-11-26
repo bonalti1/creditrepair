@@ -1,4 +1,5 @@
 import { currentOptOut } from "../autopilot/optout";
+import { fulfillmentFields } from "../fulfillment/rows";
 import { roundPlanKey } from "../autopilot/planKey";
 import { parseIdType } from "../aftercare/itin";
 import { marksFromRows } from "../aftercare/plan";
@@ -22,6 +23,7 @@ import { resolutionFromRow } from "../autopilot/resolutions";
 import { historyFromPullRows } from "../reports/history";
 import type { HouseholdLink } from "../household/household";
 import { readChangeRecords } from "../reports/reimport";
+import { optionOfTerms } from "../service/options";
 import type {
   ClientAssignment,
   DocumentKind,
@@ -34,6 +36,7 @@ import type {
   StaffChatMessage,
   StaffClient,
   StaffLetter,
+  StaffMailRequest,
   StaffNote,
   StaffRound,
 } from "./types";
@@ -131,6 +134,20 @@ export interface StaffRows {
   completions?: Row[];
   /** loan_officer_requests. */
   loanOfficerRequests?: Row[];
+  // Fulfillment (migration 0041). Absent or empty on a database without it.
+  /** notification_settings. */
+  notificationSettings?: Row[];
+  /** monitoring_checks. */
+  monitoringChecks?: Row[];
+  /** document_reviews. */
+  documentReviews?: Row[];
+  /** client_files (the record only; the file stays in its private bucket). */
+  clientFiles?: Row[];
+  // Service options (migration 0042). Absent or empty on a database without it.
+  /** client_service_options: the option each client chose. */
+  serviceOptions?: Row[];
+  /** mail_requests: DIY "Mail them for me". */
+  mailRequests?: Row[];
 }
 
 export const EMPTY_STAFF_ROWS: StaffRows = {
@@ -166,6 +183,23 @@ export const EMPTY_STAFF_ROWS: StaffRows = {
 };
 
 // ── Small readers ───────────────────────────────────────────────────────
+
+/** A mail_requests row (migration 0042). Its letters by the console's planned ids when known, and by row id. */
+function mailRequestFromRow(row: Row, roundNumber: number, plannedIdOfRow: Map<string, string>): StaffMailRequest {
+  const rowIds = Array.isArray(row.letter_ids) ? (row.letter_ids as unknown[]).map((v) => (typeof v === "string" ? v : String(v))) : [];
+  const status = row.status === "mailed" || row.status === "cancelled" ? row.status : "requested";
+  return {
+    id: typeof row.id === "string" ? row.id : String(row.id),
+    roundNumber,
+    letterIds: rowIds.map((rid) => plannedIdOfRow.get(rid) ?? rid),
+    letterRowIds: rowIds,
+    letterCount: Number(row.letter_count ?? rowIds.length),
+    totalCents: Number(row.total_cents ?? 0),
+    status,
+    acceptedAt: typeof row.accepted_at === "string" ? new Date(row.accepted_at).toISOString() : row.accepted_at instanceof Date ? row.accepted_at.toISOString() : "",
+    mailedAt: typeof row.mailed_at === "string" ? new Date(row.mailed_at).toISOString() : row.mailed_at instanceof Date ? row.mailed_at.toISOString() : null,
+  };
+}
 
 const text = (v: unknown): string => (typeof v === "string" ? v : v == null ? "" : String(v));
 const textOrNull = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v : null);
@@ -339,6 +373,8 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
   const optOutsBy = groupBy(rows.optOuts ?? [], "user_id");
   const holdsBy = groupBy(rows.holds ?? [], "user_id");
   const readyBy = groupBy(rows.readyRounds ?? [], "user_id");
+  const mailRequestsBy = groupBy(rows.mailRequests ?? [], "user_id");
+  const chosenOptionBy = new Map((rows.serviceOptions ?? []).map((r) => [text(r.user_id), r.service_option === "diy" ? ("diy" as const) : ("full_service" as const)]));
   const inboundBy = groupBy(rows.inbound ?? [], "user_id");
   const confirmationsBy = groupBy(rows.addressConfirmations ?? [], "user_id");
   const resolutionsBy = groupBy((rows.resolutions ?? []).filter((r) => r.user_id), "user_id");
@@ -409,7 +445,7 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
     return {
       ...(profile.locale === "es" ? { locale: "es" as const } : {}),
       ...(outbound.length > 0 ? { outbound } : {}),
-      ...(optOut ? { optOut: { at: optOut.at, keyword: text(optOut.row.keyword) || "BAJA", channel: (["whatsapp", "email", "staff"].includes(text(optOut.row.channel)) ? text(optOut.row.channel) : "staff") as OptOutRecord["channel"] } } : {}),
+      ...(optOut ? { optOut: { at: optOut.at, keyword: text(optOut.row.keyword) || "BAJA", channel: (["whatsapp", "email", "staff", "app"].includes(text(optOut.row.channel)) ? text(optOut.row.channel) : "staff") as OptOutRecord["channel"] } } : {}),
       ...(holds.length > 0 ? { holds } : {}),
       ...(lastInbound ? { lastInboundAt: lastInbound } : {}),
     };
@@ -421,8 +457,10 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
     const name = splitName(text(profile.full_name));
     const prospectName = prospect ? { firstName: text(prospect.first_name), lastName: text(prospect.last_name) } : null;
 
-    // The agreement: the newest row.
-    const agreement = [...(agreementsBy.get(id) ?? [])].sort(byTime("created_at")).at(-1) ?? null;
+    // The agreement that governs: the one in force (signed, not cancelled, not superseded), else the newest
+    // (public.governing_agreement, migration 0042). They differ only while a switch of option waits for its signature.
+    const agreementRows = [...(agreementsBy.get(id) ?? [])].sort(byTime("created_at"));
+    const agreement = [...agreementRows].reverse().find((a) => a.signed_at && !a.cancelled_at && !a.superseded_at) ?? agreementRows.at(-1) ?? null;
     const terms = (agreement?.terms as Row | null) ?? null;
 
     // The report: the newest pull, read again from its own JSON.
@@ -553,7 +591,14 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       // When the system first saw these letters ready (the autopilot's review window counts from here).
       const planKey = roundPlanKey(draft);
       const seen = (readyBy.get(id) ?? []).find((r) => Number(r.round_number) === draft.number && text(r.plan_key) === planKey);
-      rounds.push(seen ? { ...draft, readyAt: iso(seen.first_ready_at) } : draft);
+      // Credalti DIY: when Alti prepared these letters (the draft letter rows), and the open "Mail them for me"
+      // request, with its letters as the console names them (the planned ids) and as the database does (row ids).
+      const preparedAt = [...prior.values()].filter((l) => l.status === "draft").map((l) => iso(l.created_at)).filter((v): v is string => Boolean(v)).sort()[0] ?? null;
+      const plannedIdOfRow = new Map([...prior.entries()].map(([key, l]) => [text(l.id), plannedLetterId(id, next.roundNumber, key)]));
+      const openRequest = (mailRequestsBy.get(id) ?? []).find((m) => m.status === "requested" && next.roundId && text(m.round_id) === next.roundId) ?? null;
+      const mailRequest = openRequest ? mailRequestFromRow(openRequest, next.roundNumber, plannedIdOfRow) : null;
+      const withDiy = { ...draft, ...(preparedAt ? { diyPreparedAt: preparedAt } : {}), ...(mailRequest ? { mailRequest } : {}) };
+      rounds.push(seen ? { ...withDiy, readyAt: iso(seen.first_ready_at) } : withDiy);
     }
 
     // Billing.
@@ -684,6 +729,15 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       report,
       answers,
       rounds,
+      // The option: the signed agreement in force decides, else what they chose (migration 0042).
+      serviceOption: agreement?.signed_at && !agreement.cancelled_at ? optionOfTerms(terms) : (chosenOptionBy.get(id) ?? "full_service"),
+      ...((mailRequestsBy.get(id) ?? []).length > 0
+        ? {
+            mailRequests: (mailRequestsBy.get(id) ?? [])
+              .map((m) => mailRequestFromRow(m, Number(roundRows.find((r) => text(r.id) === text(m.round_id))?.round_number ?? 0), new Map()))
+              .sort((a, b) => a.acceptedAt.localeCompare(b.acceptedAt)),
+          }
+        : {}),
       agreementMonthlyFee: agreement?.signed_at && terms ? textOrNull(terms.monthlyFee) : null,
       agreementPlan: agreement?.signed_at && terms ? readPlanSnapshot((terms as Row).plan) : null,
       agreementRecord: agreement?.signed_at
@@ -728,6 +782,13 @@ export function clientsFromRows(rows: StaffRows): StaffClient[] {
       aftercareMarks: marksFromRows(aftercareMarksBy.get(id) ?? []),
       graduation: graduationFromRow(completionBy.get(id)),
       loanOfficerRequest: introOf(introBy.get(id), createdAt),
+      ...fulfillmentFields(id, {
+        notificationSettings: rows.notificationSettings,
+        monitoringChecks: rows.monitoringChecks,
+        documentReviews: rows.documentReviews,
+        clientFiles: rows.clientFiles,
+        documents: documentsBy.get(id),
+      }),
     };
     return client;
   });

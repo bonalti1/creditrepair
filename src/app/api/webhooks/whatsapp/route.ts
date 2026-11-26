@@ -6,12 +6,16 @@ import { BRAND } from "@/lib/brand";
 import { replyLanguage } from "@/lib/coach/language";
 import { coachSystemPrompt, replyLanguageLine } from "@/lib/coach/systemPrompt";
 import { checkClaimGuardrails } from "@/lib/compliance/guardrails";
+import { clientOption } from "@/lib/service/server";
 import { loadWhatsAppThread, storeMessage, toE164, toModelMessages } from "@/lib/chat/history";
 import { CLIENT_FALLBACK_REPLIES, LEAD_GREETINGS, sendWhatsAppText } from "@/lib/integrations/whatsapp";
 import { reportError } from "@/lib/observability/errors";
 import { checkRateLimit } from "@/lib/security/rateLimit";
 import { safeEqual, verifyMetaSignature } from "@/lib/security/signatures";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { liveLink } from "@/lib/live/keywords";
+import { decideKeywordReply } from "@/lib/live/replies";
+import { ensureFunnelLead, KEYWORD_SENDERS, keywordOf, replyToKeyword } from "@/lib/live/server";
 
 // Inbound WhatsApp (Cloud API webhook). Closes the loop on the WhatsApp layer:
 // users can reply to our notifications and reach the coach without opening the
@@ -87,6 +91,26 @@ interface InboundMessage {
   from: string;
   text?: { body: string };
   type: string;
+  /** When the person sent it (Unix seconds, as Meta sends it). */
+  timestamp?: string;
+  /** A click-to-WhatsApp ad's referral on the first message: source_id is the Meta ad's id. */
+  referral?: { source_type?: string; source_id?: string };
+}
+
+/**
+ * A new number that wrote from a click-to-WhatsApp ad: its lead starts with
+ * the ad in its first touch (docs/ADS.md), before the message's own trigger
+ * creates it. First touch wins: a lead that already exists is left as it is.
+ * Only the ad's id is kept, never the referral's other fields.
+ */
+async function leadFromAd(db: NonNullable<ReturnType<typeof getAdminClient>>, phone: string, msg: InboundMessage): Promise<void> {
+  const adId = msg.referral?.source_type === "ad" ? String(msg.referral.source_id ?? "").trim() : "";
+  if (!/^\d{3,25}$/.test(adId)) return;
+  const at = new Date().toISOString();
+  await db
+    .from("leads")
+    .upsert({ phone_e164: phone, source: "whatsapp", first_touch: { channel: "whatsapp", at, ad: { adId, via: "ctwa" } }, created_at: at }, { onConflict: "phone_e164", ignoreDuplicates: true })
+    .then(() => undefined, () => undefined);
 }
 
 export async function POST(req: Request) {
@@ -136,6 +160,18 @@ export async function POST(req: Request) {
       const { data: profile } = await db.from("profiles").select("id, locale").eq("phone_e164", phone).maybeSingle();
       userId = (profile?.id as string | undefined) ?? null;
       savedLocale = (profile?.locale as string | undefined) ?? null;
+      if (!userId) await leadFromAd(db, phone, msg);
+      // A keyword from the live funnel (docs/LIVE-FUNNEL.md): the lead starts with the funnel in its first touch.
+      const live = !userId ? keywordOf(question) : null;
+      if (live) {
+        await ensureFunnelLead(db, {
+          phone,
+          channel: "whatsapp",
+          origin: { tag: "webinar", platform: "whatsapp", keyword: live.keyword.word, campaign: live.campaign, src: "whatsapp" },
+          locale: live.keyword.locale,
+          now: new Date(),
+        }).catch((error) => reportError(error, { where: "api/webhooks/whatsapp:live-lead" }));
+      }
 
       const fresh = await storeMessage(db, {
         userId,
@@ -179,6 +215,38 @@ export async function POST(req: Request) {
     const language = replyLanguage(question, savedLocale === "es" ? "es" : "en");
 
     const isLead = userId === null;
+
+    // The live funnel's keyword ("CREDIT"): one automatic reply with the /live link instead of the
+    // greeting (live/server.ts: once per person and keyword in the window, STOP and quiet hours
+    // respected; a reply to a message they just sent, as the greeting is).
+    const keyword = isLead ? keywordOf(question) : null;
+    if (keyword) {
+      const now = new Date();
+      const inboundAt = msg.timestamp && /^\d{9,11}$/.test(msg.timestamp) ? new Date(Number(msg.timestamp) * 1000).toISOString() : now.toISOString();
+      try {
+        if (db) {
+          const outcome = await replyToKeyword(
+            db,
+            { channel: "whatsapp", phone, match: keyword, inboundRef: msg.id ?? `${phone}:${inboundAt}`, inboundAt, isClient: false, savedLocale: null, appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "", now },
+            KEYWORD_SENDERS.whatsapp,
+          );
+          if (outcome.sent) {
+            handled += 1;
+            await notifySales(phone);
+          }
+        } else if (checkRateLimit(`live-keyword:${phone}:${keyword.keyword.word}`, 1, 7 * 24 * 60 * 60_000).allowed) {
+          // No database: the same words, deduped in memory.
+          const locale = keyword.keyword.locale ?? "en";
+          const link = liveLink(process.env.NEXT_PUBLIC_APP_URL ?? "", { src: "whatsapp", keyword: keyword.keyword.word, campaign: keyword.campaign, locale });
+          const decision = decideKeywordReply({ channel: "whatsapp", isClient: false, optedOut: false, lastReplyAt: null, inboundAt, state: null, locale, link, now });
+          if (decision.action === "send" && (await KEYWORD_SENDERS.whatsapp.send(phone, decision.body)).sent) handled += 1;
+        }
+      } catch (error) {
+        await reportError(error, { where: "api/webhooks/whatsapp:live-keyword" });
+      }
+      continue;
+    }
+
     if (isLead && process.env.WHATSAPP_LEAD_REPLIES !== "ai") {
       // One greeting per lead per day; after that the thread belongs to sales.
       const firstToday = checkRateLimit(`whatsapp-lead:${phone}`, 1, LEAD_GREETING_WINDOW_MS).allowed;
@@ -223,7 +291,7 @@ export async function POST(req: Request) {
           model: "claude-sonnet-5",
           max_tokens: 600,
           system:
-            coachSystemPrompt(undefined, savedLocale === "es" ? "es" : "en") +
+            coachSystemPrompt(db && userId ? await clientOption(db, userId) : undefined, savedLocale === "es" ? "es" : "en") +
             `\n\n${replyLanguageLine(language)}` +
             "\n\nContexto: estás respondiendo por WhatsApp. Sé breve (máximo ~4 oraciones) y cálido." +
             (isLead

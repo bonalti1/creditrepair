@@ -10,7 +10,7 @@ import { CHANNEL_LABEL, LANGUAGE_TAG, STATUS_LABEL, STATUS_TONE, TYPE_LABEL } fr
 import { blockingIssues, checkPiece } from "@/lib/content/check";
 import type { Bilingual, ContentPiece, ContentStatus } from "@/lib/content/types";
 import Icon from "@/components/Icon";
-import { NoAccess } from "@/components/staff/ui";
+import { DemoNote as SharedDemoNote, NoAccess, pillTab } from "@/components/staff/ui";
 
 // The content hub's shared pieces: the tabs under the title, the status chip,
 // the piece card (board and calendar), the fields' look, and the access gate.
@@ -52,13 +52,13 @@ export function ContentHeader({ title, lead, aside }: { title: string; lead?: Re
   return (
     <header>
       <nav aria-label={t("Contenido", "Content")} className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <ul className="flex min-w-max gap-1 border-b hairline pb-px">
+        <ul className="flex min-w-max gap-1.5">
           {tabs.map((tab) => (
             <li key={tab.href}>
               <Link
                 href={tab.href}
                 aria-current={current(tab.href) ? "page" : undefined}
-                className={`inline-flex h-11 items-center gap-1.5 rounded-t-xl px-3 text-[14px] font-medium ${current(tab.href) ? "border-b-2 border-blue-700 text-blue-700" : "text-slate-600 hover:bg-slate-100"}`}
+                className={pillTab(current(tab.href))}
               >
                 <Icon name={tab.icon} size={16} />
                 {t(tab.label[0], tab.label[1])}
@@ -69,7 +69,7 @@ export function ContentHeader({ title, lead, aside }: { title: string; lead?: Re
       </nav>
       <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 [text-wrap:balance]">{title}</h1>
+          <h1 className="page-title">{title}</h1>
           {lead ? <p className="mt-1 max-w-3xl text-[15px] leading-relaxed text-slate-500">{lead}</p> : null}
         </div>
         {aside}
@@ -158,8 +158,6 @@ export function DemoNote({ live }: { live: boolean }) {
   const t = useTx();
   if (live) return null;
   return (
-    <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[13px] leading-snug text-blue-900">
-      {t("Demostración: piezas inventadas. Nada se publica ni se envía; los cambios se guardan solo en este navegador.", "Demo: made-up pieces. Nothing is posted or sent; changes are kept only in this browser.")}
-    </p>
+    <SharedDemoNote>{t("Demostración: piezas inventadas. Nada se publica ni se envía; los cambios se guardan solo en este navegador.", "Demo: made-up pieces. Nothing is posted or sent; changes are kept only in this browser.")}</SharedDemoNote>
   );
 }

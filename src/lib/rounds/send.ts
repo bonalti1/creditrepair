@@ -20,14 +20,22 @@ import { verifyRoundAddresses, type Verifier } from "../mail/verifyServer";
 import type { MailClass } from "../mail/types";
 import { loadMonitoringState, monitoringMessageEs } from "../monitoring/subscription";
 import { reportError } from "../observability/errors";
+import { documentHoldMessageEs, rejectedRequiredDocuments } from "../fulfillment/documents";
+import { documentReviewFromRow } from "../fulfillment/rows";
+import { REQUIRED_DOCUMENTS, type DocumentKind } from "../staff/types";
 import { attestedFlagsFromRows, historyFromRows, itemDetailsFromRows, itemFromRow, letterKey, nextRoundNumber } from "./plan";
 
-// Mailing one round of a client's letters. One code path for both ways a
-// round leaves:
+// Mailing one round of a client's letters. One code path for every way a
+// round's letters are made:
 //
-//   - the team's send (full service, POST /api/staff/rounds), from the send
-//     screen through the mail service, or printed in the office;
-//   - the client's own approval (self-serve only, POST /api/attacks/approve).
+//   - the team's send (Credalti Complete, POST /api/staff/rounds), from the
+//     send screen through the mail service, or printed in the office;
+//   - Credalti DIY's "Prepare my letters" (POST /api/attacks/approve, via
+//     "prepare"): the same letters from the same approved texts, saved for the
+//     client to print and mail; nothing is mailed;
+//   - Credalti DIY's "Mail them for me", sent by the team from the send screen
+//     (onlyLetterIds + mailRequestId): only the letters the client asked us
+//     to mail and paid the fee shown for (mail_requests, migration 0042).
 //
 // Everything is checked here, on the server, from the database, whatever the
 // screen showed, before anything is mailed:
@@ -35,6 +43,8 @@ import { attestedFlagsFromRows, historyFromRows, itemDetailsFromRows, itemFromRo
 //   1. the service agreement allows work to start (signed, not cancelled, the
 //      3-business-day window over; 15 U.S.C. §1679d(a)) and no charge is
 //      unpaid after every retry;
+//   1b. no required document (photo ID, proof of address) is one a person
+//      reviewed and did not accept (migration 0041, documentHold below);
 //   2. the round is the client's next one and has not already gone;
 //   3. the monitoring report is current;
 //   4. every item in every letter carries a logged accuracy attestation
@@ -74,8 +84,16 @@ export interface SendRoundOptions {
   sender: RoundSender;
   /** Apply the agreement and unpaid-charge gate (always for the team; full service for the client). */
   requireAgreement: boolean;
-  /** "print": printed in the office and mailed by hand. Otherwise through the mail service. */
-  via?: "mail" | "print";
+  /**
+   * "print": printed in the office and mailed by hand. "prepare": Credalti
+   * DIY, rendered and saved for the client to print, nothing mailed.
+   * Otherwise through the mail service.
+   */
+  via?: "mail" | "print" | "prepare";
+  /** Credalti DIY "Mail them for me": mail only these prepared letters (the request's). */
+  onlyLetterIds?: readonly string[];
+  /** The request those letters belong to: marked mailed once they all went out (migration 0042). */
+  mailRequestId?: string;
   /** A class per letter, by letterKey (plan.ts). Missing: the default for its kind. */
   mailClasses?: Readonly<Record<string, MailClass>>;
   now?: Date;
@@ -98,7 +116,7 @@ export interface SentLetter {
 }
 
 export type SendRoundResult =
-  | { ok: true; roundNumber: number; letters: SentLetter[]; nextRoundDueAt: string }
+  | { ok: true; roundNumber: number; letters: SentLetter[]; nextRoundDueAt: string; prepared?: boolean }
   | { ok: false; status: number; error: string; code?: string; reason?: string; mailed?: SentLetter[] };
 
 const refuse = (status: number, error: string, code?: string, extra: Partial<Extract<SendRoundResult, { ok: false }>> = {}): SendRoundResult => ({
@@ -151,9 +169,52 @@ export async function workGate(db: SupabaseClient, userId: string, now: Date): P
   return null;
 }
 
+/**
+ * The document hold: a required document (photo ID, proof of address) whose
+ * current upload a person reviewed and did not accept holds every round, the
+ * same rule as the console's (staff/stage.ts missingDocuments) and the
+ * autopilot's, here read from the database so no path mails around it. Null
+ * when nothing is held. A database without migration 0041 has no reviews, and
+ * nothing is held for one.
+ */
+export async function documentHold(db: SupabaseClient, userId: string): Promise<SendRoundResult | null> {
+  const [docs, reviews] = await Promise.all([
+    db.from("identity_documents").select("kind, uploaded_at").eq("user_id", userId),
+    db.from("document_reviews").select("*").eq("user_id", userId).is("file_id", null),
+  ]);
+  if (docs.error) {
+    await reportError(new Error(docs.error.message), { where: "rounds/send:documents", userId });
+    return refuse(500, "Could not check the client's documents. Nothing was sent.");
+  }
+  if (reviews.error) return null;
+  const docRows = (docs.data as Row[] | null) ?? [];
+  const documents = docRows.map((r) => String(r.kind) as DocumentKind);
+  const documentUploadedAt: Partial<Record<DocumentKind, string>> = {};
+  for (const r of docRows) {
+    const at = r.uploaded_at ? new Date(String(r.uploaded_at instanceof Date ? r.uploaded_at.toISOString() : r.uploaded_at)) : null;
+    if (at && !Number.isNaN(at.getTime())) documentUploadedAt[String(r.kind) as DocumentKind] = at.toISOString();
+  }
+  const documentReviews = ((reviews.data as Row[] | null) ?? []).map(documentReviewFromRow);
+  const rejected = rejectedRequiredDocuments({ documents, documentUploadedAt, documentReviews }, REQUIRED_DOCUMENTS);
+  if (rejected.length === 0) return null;
+  return refuse(409, documentHoldMessageEs(rejected.map((r) => r.kind)), "document_not_accepted", { reason: rejected.map((r) => r.kind).join(",") });
+}
+
 /** The approved versions of these letters, read with the service role. */
 async function approvedLetterVersions(db: SupabaseClient, templateKeys: string[]): Promise<LetterVersion[]> {
   return listLetterVersions(db, { templateKeys, approvedOnly: true });
+}
+
+/** Links a letter to the report items it covers (letter_items). Again after a re-prepare: replaced, never doubled. */
+async function linkItems(db: SupabaseClient, letterId: string, items: ReportItem[], itemRowByFp: Map<string, Row>, stage: string): Promise<void> {
+  const rowsToInsert = items.flatMap((i) => {
+    const row = itemRowByFp.get(i.fingerprint);
+    return row ? [{ letter_id: letterId, item_id: String(row.id), escalation_stage: stage }] : [];
+  });
+  if (rowsToInsert.length === 0) return;
+  await db.from("letter_items").delete().eq("letter_id", letterId);
+  const { error } = await db.from("letter_items").insert(rowsToInsert);
+  if (error) throw new Error(`letter_items: ${error.message}`);
 }
 
 /** Mails one round. `db` is the service-role client: the caller has already checked who may ask. */
@@ -171,10 +232,16 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
     if (blocked) return blocked;
   }
 
+  // 1b. A required document a person did not accept holds the round, whoever sends it.
+  const docHeld = await documentHold(db, userId);
+  if (docHeld) return docHeld;
+
   // 2. The round.
   const roundRows = await rows(db.from("attack_rounds").select("id, round_number, status").eq("user_id", userId), "attack_rounds");
   let round = roundRows.find((r) => Number(r.round_number) === roundNumber) ?? null;
   if (round && round.status !== "draft") return refuse(409, `Round already ${String(round.status)}`, "already_sent");
+  const only = options.onlyLetterIds ? new Set(options.onlyLetterIds) : null;
+  if (only && (via !== "mail" || !round)) return refuse(409, "Only prepared letters of a round can be mailed for a client.", "not_prepared");
 
   // 3. Letters go out on current information only: same rule as the builder.
   const monitoring = await loadMonitoringState(db, userId);
@@ -216,7 +283,7 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
   // The team asks for a round by number; it must be the one that comes next.
   // (The client's approval names the draft the builder made, as before.)
   if (!round) {
-    if (sender.kind !== "staff") return refuse(404, "Round not found", "round_not_found");
+    if (sender.kind !== "staff" && via !== "prepare") return refuse(404, "Round not found", "round_not_found");
     const hasPersonalInfo = items.some((i) => i.category === "personal_info" && attestedFps.has(i.fingerprint));
     if (nextRoundNumber(roundRows as Array<{ round_number: unknown; status: unknown }>, hasPersonalInfo) !== roundNumber) {
       return refuse(409, `Round ${roundNumber} is not this client's next round.`, "not_next_round");
@@ -345,7 +412,7 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
   // documents the team puts in the envelope.
   const docs = await rows(db.from("identity_documents").select("kind, storage_path").eq("user_id", userId), "identity_documents");
   const enclosurePages: EnclosurePage[] = [];
-  if (via === "mail") {
+  if (via === "mail" && !only) {
     for (const doc of docs) {
       // An ITIN client's number document is the IRS letter, never called a Social Security card (aftercare/itin.ts).
       const label = enclosureLabelFor(String(doc.kind), parseIdType(profileRow.id_type), ENCLOSURE_LABELS);
@@ -371,6 +438,8 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
   for (const planned of plan.letters) {
     const key = letterKey(planned.target.type, planned.target.key, planned.templateKey);
     const prior = priorByKey.get(key);
+    // "Mail them for me": only the letters the client asked for; the rest stay theirs to mail.
+    if (only && (!prior || !only.has(String(prior.id)))) continue;
     if (prior && prior.status !== "draft") {
       mailedLetters.push({ id: String(prior.id), target: planned.target.name, stage: planned.stage });
       continue;
@@ -397,6 +466,7 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
       itemDetails,
     });
     // A printed letter is printed exactly as the console shows it; the mail service gets the reworded one.
+    // A prepared (DIY) letter the client prints is the approved text as rendered.
     const body = via === "mail" ? await vary(baseBody) : baseBody;
 
     const letterFields = {
@@ -423,6 +493,14 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
     }
     const letterId = String((letterRow as Row).id);
     const font = pickFont(letterId);
+
+    // Credalti DIY: prepared, not mailed. The letter stays a draft the client prints; its items are linked now.
+    if (via === "prepare") {
+      await db.from("letters").update({ font_family: font.family }).eq("id", letterId);
+      await linkItems(db, letterId, letterItems, itemRowByFp, planned.stage);
+      mailedLetters.push({ id: letterId, target: planned.target.name, stage: planned.stage });
+      continue;
+    }
 
     let sent: { provider: "lob" | "simulated" | "print"; externalId: string | null; trackingNumber: string | null; status: "queued" | "mailed" };
     if (via === "print") {
@@ -474,16 +552,43 @@ export async function sendRound(db: SupabaseClient, options: SendRoundOptions): 
       .eq("id", letterId);
     if (updateError) throw new Error(`letters: ${updateError.message}`);
 
-    if (letterItems.length > 0) {
-      const { error: itemsError } = await db.from("letter_items").insert(
-        letterItems.flatMap((i) => {
-          const row = itemRowByFp.get(i.fingerprint);
-          return row ? [{ letter_id: letterId, item_id: String(row.id), escalation_stage: planned.stage }] : [];
-        }),
-      );
-      if (itemsError) throw new Error(`letter_items: ${itemsError.message}`);
-    }
+    await linkItems(db, letterId, letterItems, itemRowByFp, planned.stage);
     mailedLetters.push({ id: letterId, target: planned.target.name, stage: planned.stage });
+  }
+
+  if (via === "prepare") {
+    if (mailedLetters.length === 0) return refuse(422, "Nothing to prepare: no attested items for this round.", "nothing_to_send");
+    await db.from("events").insert({ user_id: userId, kind: "diy_letters_prepared", payload: { roundNumber, letterCount: mailedLetters.length } });
+    return { ok: true, roundNumber, letters: mailedLetters, nextRoundDueAt: "", prepared: true };
+  }
+
+  // "Mail them for me": the request is mailed once its letters went out. The round is mailed only when
+  // no letter of it is left for the client to mail; then it counts as the client's if any letter was theirs.
+  if (only) {
+    if (options.mailRequestId) {
+      const { error: requestError } = await db
+        .from("mail_requests")
+        .update({ status: "mailed", mailed_at: now.toISOString() })
+        .eq("id", options.mailRequestId)
+        .eq("status", "requested");
+      if (requestError) throw new Error(`mail_requests: ${requestError.message}`);
+    }
+    const left = await rows(db.from("letters").select("id, status, mail_provider").eq("user_id", userId).eq("round_id", roundId), "letters");
+    if (profileRow.phone_e164) {
+      await whatsapp(String(profileRow.phone_e164), { kind: "letters_mailed", roundNumber, letterCount: mailedLetters.length, by: "credalti" }, profileRow.locale === "es" ? "es" : "en", "diy").catch(() => undefined);
+    }
+    await db.from("events").insert({ user_id: userId, kind: "diy_mailing_sent", payload: { roundNumber, letterCount: mailedLetters.length, mailRequestId: options.mailRequestId ?? null } });
+    if (left.some((l) => l.status === "draft")) {
+      return { ok: true, roundNumber, letters: mailedLetters, nextRoundDueAt: "" };
+    }
+    const byClient = left.some((l) => l.mail_provider === "client");
+    const due = new Date(nextRoundDue({ mailedAt: now.toISOString() }, mailedLetters.map(() => ({ mailedAt: now.toISOString() })))!.dueAt);
+    const { error: doneError } = await db
+      .from("attack_rounds")
+      .update({ status: "mailed", approved_at: now.toISOString(), mailed_at: now.toISOString(), next_round_due_at: due.toISOString(), mail_via: byClient ? "client" : "mail", sent_by: sender.userId ?? null, sent_by_name: sender.name ?? null })
+      .eq("id", roundId);
+    if (doneError) throw new Error(`attack_rounds: ${doneError.message}`);
+    return { ok: true, roundNumber, letters: mailedLetters, nextRoundDueAt: due.toISOString() };
   }
 
   // No delivery is known yet: the estimate (mailing + transit + 30 days + the answer's buffer). The

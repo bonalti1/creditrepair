@@ -6,7 +6,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { BILLING_STATE_LABELS, BILLING_STATES, clientRows, clientsCsv, filterRows } from "@/lib/staff/clientList";
 import { count, formatPhone, relativeDay, stateName } from "@/lib/staff/format";
 import { defaultsToMine, deniedReason, scopeOf } from "@/lib/staff/permissions";
-import { EXCEPTION_KINDS, EXCEPTION_LABELS, RESPONSE_WINDOW_DAYS, sendableRound, STAGE_ORDER, STAGE_TEXT, type Stage } from "@/lib/staff/stage";
+import { clientOption, EXCEPTION_KINDS, EXCEPTION_LABELS, RESPONSE_WINDOW_DAYS, sendableRound, STAGE_ORDER, STAGE_TEXT, type Stage } from "@/lib/staff/stage";
+import { OPTION_NAME, SERVICE_OPTIONS, type ServiceOption } from "@/lib/service/options";
 import { useTx } from "@/lib/staff/i18n/StaffLocale";
 import { staffMessage } from "@/lib/staff/i18n/messages";
 import { assignableMembers, memberName } from "@/lib/staff/team";
@@ -16,7 +17,8 @@ import { sourceLine } from "@/lib/leads/source";
 import { useStaff } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
 import AddClient from "@/components/staff/AddClient";
-import { ActorTag, DeniedNote, SeverityDot, StageChip } from "@/components/staff/ui";
+import OptionBadge from "@/components/staff/OptionBadge";
+import { ActorTag, DeniedNote, EmptyState, SeverityDot, StageChip } from "@/components/staff/ui";
 
 // Every client this member may see, findable in a few keystrokes. Filters live
 // in the address, so a stage on the home screen links straight to its clients
@@ -72,7 +74,10 @@ function ClientList() {
     billing: can("billing.view") ? (params.get("cobros") ?? "") : "",
     state: params.get("estado") ?? "",
   };
-  const filtered = Boolean(query || stage || noticeFilter || filters.assigned || filters.seller || filters.billing || filters.state);
+  // The service option (docs/SERVICE-OPTIONS.md): "?opcion=complete" or "?opcion=diy".
+  const optionParam = params.get("opcion") ?? "";
+  const optionFilter: ServiceOption | "" = optionParam === "diy" ? "diy" : optionParam === "complete" ? "full_service" : "";
+  const filtered = Boolean(query || stage || noticeFilter || filters.assigned || filters.seller || filters.billing || filters.state || optionFilter);
 
   const setParam = (name: string, value: string) => {
     const next = new URLSearchParams(params.toString());
@@ -94,7 +99,7 @@ function ClientList() {
 
   if (!ready || !viewer) return null;
 
-  const shown = filterRows(rows, filters, viewer);
+  const shown = filterRows(rows, filters, viewer).filter((r) => !optionFilter || clientOption(r.client) === optionFilter);
   const base = filterRows(rows, { mine: filters.mine }, viewer);
   const chosen = shown.filter((r) => selected.has(r.client.id));
   const canAssign = can("clients.assign");
@@ -178,7 +183,7 @@ function ClientList() {
     <main className="animate-rise">
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{title}</h1>
+          <h1 className="page-title">{title}</h1>
           <p className="mt-0.5 text-[14px] tabular-nums text-slate-500" role="status">
             {scopeLine ? `${scopeLine} ` : ""}
             {filtered ? t(`${shown.length} de ${base.length}`, `${shown.length} of ${base.length}`) : t(`${base.length} en total`, `${base.length} total`)}
@@ -246,6 +251,12 @@ function ClientList() {
           <option value="">{t("Todas las etapas", "All stages")}</option>
           {STAGE_ORDER.map((s) => (
             <option key={s} value={s}>{STAGES[s].label}</option>
+          ))}
+        </select>
+        <select aria-label={t("Opción de servicio", "Service option")} className={control} value={optionParam === "diy" || optionParam === "complete" ? optionParam : ""} onChange={(e) => setParam("opcion", e.target.value)} data-testid="option-filter">
+          <option value="">{t("Las dos opciones", "Both options")}</option>
+          {SERVICE_OPTIONS.map((o) => (
+            <option key={o} value={o === "diy" ? "diy" : "complete"}>{OPTION_NAME[o][locale]}</option>
           ))}
         </select>
         <select aria-label={t("Avisos", "Notices")} className={control} value={noticeParam} onChange={(e) => setParam("aviso", e.target.value)}>
@@ -379,13 +390,16 @@ function ClientList() {
         </div>
 
         {shown.length === 0 ? (
-          <p className="px-5 py-8 text-center text-[15px] text-slate-500">
-            {base.length === 0
-              ? scope === "assigned"
-                ? t("Todavía no tienes clientes asignados.", "You don't have any assigned clients yet.")
-                : t("Todavía no hay clientes aquí.", "No clients here yet.")
-              : t("Ningún cliente coincide con estos filtros.", "No clients match these filters.")}
-          </p>
+          <EmptyState
+            pose={base.length === 0 ? "envelope" : "thinking"}
+            title={
+              base.length === 0
+                ? scope === "assigned"
+                  ? t("Todavía no tienes clientes asignados.", "You don't have any assigned clients yet.")
+                  : t("Todavía no hay clientes aquí.", "No clients here yet.")
+                : t("Ningún cliente coincide con estos filtros.", "No clients match these filters.")
+            }
+          />
         ) : (
           <ul>
             {shown.map(({ client, stage: s, exceptions, step }, index) => (
@@ -410,7 +424,10 @@ function ClientList() {
                   <span className="flex min-w-0 gap-2.5">
                     {exceptions[0] ? <SeverityDot severity={exceptions[0].severity} /> : <span className="mt-[7px] h-2.5 w-2.5 shrink-0" />}
                     <span className="min-w-0">
-                      <span className="block break-words text-[16px] font-medium leading-snug text-slate-900">{fullName(client)}</span>
+                      <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="break-words text-[16px] font-medium leading-snug text-slate-900">{fullName(client)}</span>
+                        <OptionBadge option={clientOption(client)} />
+                      </span>
                       <span className="block text-[13px] text-slate-500 lg:truncate">
                         {formatPhone(client.phone)} · {t("ventas", "sales")}: {memberName(members, client.salesperson, locale).split(" ")[0]}
                       </span>
@@ -437,6 +454,9 @@ function ClientList() {
                     <span className="lg:hidden">{t("Trabaja el caso: ", "Working the case: ")}</span>
                     {client.assignedTo ? (
                       memberName(members, client.assignedTo, locale)
+                    ) : client.agreementSignedAt && !client.agreementCancelledAt && !client.graduation ? (
+                      // Signed and nobody works the case: a slip waiting to happen, so it shows.
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-blue-900" data-testid="needs-owner">{t("Sin asignar: necesita a alguien", "Unassigned: needs someone")}</span>
                     ) : (
                       <span className="text-slate-400">{t("Sin asignar", "Unassigned")}</span>
                     )}

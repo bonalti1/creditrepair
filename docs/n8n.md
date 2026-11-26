@@ -54,6 +54,86 @@ The app exposes everything n8n needs; n8n only provides the clock.
   it starts off), retries temporary errors, and reads the numbers of recent
   posts. Running it twice posts nothing twice. See `docs/CONTENT.md`.
 
+## Workflow 8: the Ads Manager's read of Meta (every 3 hours)
+
+- `POST {APP_URL}/api/cron/ads`, same header. Reads the Meta ad account (READ
+  ONLY: the account, its campaigns, ad sets and ads, and the last 7 days of
+  numbers per ad; 90 on the first run) and caches them for `/equipo/anuncios`.
+  It never changes anything in Meta. Until `META_ADS_ACCESS_TOKEN` and
+  `META_AD_ACCOUNT_ID` are set it answers `{"skipped": "not_configured"}` and
+  calls nothing. Safe to run twice (the numbers are upserted per ad per day).
+  See `docs/ADS.md`.
+
+## Workflow 9: SEO, Search Console and site health (once a day)
+
+- **Trigger:** Cron, once a day (any hour; early morning Texas time is
+  fine).
+- **Node:** HTTP Request → `POST {APP_URL}/api/cron/seo`, header
+  `x-webhook-secret: {N8N_WEBHOOK_SECRET}`. Allow it up to 5 minutes.
+- Reads the last 10 days of final Search Console numbers (clicks,
+  impressions, position per day, page and query) into `seo_search_rows`,
+  read-only (nothing when Search Console is not connected; the variables are
+  in `docs/SEO.md`), then reads the public site from `NEXT_PUBLIC_SITE_URL`
+  and keeps the site-health result for `/equipo/seo` and the red count on the
+  menu. Running it twice stores nothing twice (rows are upserted by day, page
+  and query; the health result is replaced). See `docs/SEO.md`.
+
+## Workflow 10 (optional): Alti's weekly ideas (once a week)
+
+- `POST {APP_URL}/api/cron/ideas`, same header, once a week (Monday morning
+  is a good time). Alti, the AI assistant, reads the business's aggregate
+  numbers (the dashboard, the lead inbox, content) and leaves 3 to 5 proposed
+  experiments in `/equipo/ideas` → «Alti's proposals» for an administrator to
+  add to the board or dismiss. Nothing is acted on. It asks at most once in
+  six days (a person's «Ask Alti for ideas» counts), so calling it more often
+  costs nothing. Without `ANTHROPIC_API_KEY` it does nothing and says so. See
+  `docs/IDEAS.md`.
+
+## Workflow 11: partner notices and summaries (hourly)
+
+- `POST {APP_URL}/api/cron/partners`, same header, every hour. Milestone
+  notices to partners who opted in, the "ask to follow progress" messages that
+  waited for quiet hours, and the Monday summary. Running it twice sends
+  nothing twice. See `docs/PARTNERS.md`.
+
+## Workflow 12 (only with HighLevel): stage sync (every 15 to 60 minutes)
+
+- `POST {APP_URL}/api/cron/highlevel`, same header. Sends each person's stage
+  changes back to HighLevel. Leave it off unless HighLevel is used. See
+  `docs/HIGHLEVEL.md`.
+
+## Workflow 13: the live funnel's retention (hourly, required)
+
+- `POST {APP_URL}/api/cron/live`, same header. Deletes, files and overview, the
+  credit reports people uploaded on `/live` 30 days after the upload if they
+  did not sign up (and their personal video with them); keeps a signed lead's
+  until it is imported into the case (at most 60 more days); reads again any
+  report whose reading did not finish; clears expired upload tokens. Records
+  the "live" heartbeat. Safe to run twice. See `docs/LIVE-FUNNEL.md`,
+  «Retention».
+
+## Workflow 14: webinar reminders (every 10 minutes)
+
+- `POST {APP_URL}/api/cron/webinars`, same header. Sends the reminders that
+  are due to registrants who ticked the box: 1 week, 1 day and 1 hour before,
+  "we're live now", the replay (once its link is set), and the follow-ups on
+  day 2 and day 5, then it stops. WhatsApp (an approved template outside the
+  24-hour window) or email, never SMS; never 9 p.m.–8 a.m. Texas time; never
+  to a number that said STOP / BAJA or used the email's link; each reminder
+  once (claimed under `webinar:<registration>:<kind>`). Every 10 minutes keeps
+  "1 hour before" and "we're live now" on time. Nothing to do until a webinar
+  is published. See `docs/WEBINARS.md`.
+
+## Heartbeats: is each workflow running?
+
+Every `/api/cron/*` route records one heartbeat per run in `cron_heartbeats`
+(`src/lib/control/heartbeat.ts`): when it last ran, when it last ran without
+an error, and the error (at most 300 characters). `/equipo/lanzamiento` →
+«System health» lists every workflow above with its last good run, and
+Launch readiness marks a required one as missing (never ran), late (no good
+run in three of its intervals) or failing (the last run failed). The
+Overview's Tech health card keeps reading the leads job's own heartbeat.
+
 ## Workflow 2 (optional): notification relays
 
 For ad-hoc messages (e.g. manual "attack ready" nudges), call

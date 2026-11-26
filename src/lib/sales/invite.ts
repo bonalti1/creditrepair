@@ -48,6 +48,12 @@ export interface Invite {
   partner?: string | null;
   /** The client's language, as the salesperson chose it: the app opens in it (`lang`). */
   lang?: "es" | "en" | null;
+  /**
+   * The option the client said they want (`o`: "complete" or "diy";
+   * docs/SERVICE-OPTIONS.md). The client lands with it chosen and can still
+   * change it before signing; absent: they choose in the app.
+   */
+  option?: "full_service" | "diy" | null;
 }
 
 const cleanName = (value: string | null | undefined): string | null => {
@@ -75,6 +81,22 @@ export const toPartnerCode = (value: string | null | undefined): string | null =
   return /^[a-z0-9-]{3,30}$/.test(code) ? code : null;
 };
 
+/**
+ * The option a link asks to preselect: `option=complete|diy` (the live
+ * funnel's video page, src/lib/live/packages.ts OPTION_PARAM) or the older
+ * `o=complete|diy` (the website's comparison, a salesperson's invitation).
+ * Anything else: null (the person picks with nothing preselected). A
+ * preselection only: the person still sees both and can choose the other.
+ */
+export function linkOption(params: { get(name: string): string | null }): "full_service" | "diy" | null {
+  for (const raw of [params.get("option"), params.get("o")]) {
+    const value = raw?.trim().toLowerCase();
+    if (value === "diy") return "diy";
+    if (value === "complete" || value === "full_service") return "full_service";
+  }
+  return null;
+}
+
 export function parseInvite(params: { get(name: string): string | null }): Invite | null {
   const goal = params.get("g");
   const state = params.get("s")?.toUpperCase() ?? null;
@@ -89,6 +111,8 @@ export function parseInvite(params: { get(name: string): string | null }): Invit
   if (partner) invite.partner = partner;
   const lang = params.get("lang");
   if (lang === "es" || lang === "en") invite.lang = lang;
+  const option = linkOption(params);
+  if (option) invite.option = option;
   // A link with nothing usable in it is just the ordinary onboarding.
   return invite.name || invite.goal || invite.state || invite.ref ? invite : null;
 }
@@ -106,6 +130,8 @@ export function buildInvitePath(invite: Partial<Invite>): string {
   const partner = toPartnerCode(invite.partner);
   if (partner) query.set("p", partner);
   if (invite.lang === "es" || invite.lang === "en") query.set("lang", invite.lang);
+  if (invite.option === "diy") query.set("o", "diy");
+  else if (invite.option === "full_service") query.set("o", "complete");
   const qs = query.toString();
   return qs ? `/onboarding?${qs}` : "/onboarding";
 }
@@ -122,7 +148,9 @@ export function inviteMessageEn(invite: Partial<Invite>, url: string): string {
     `${greeting} Here is your link to ${BRAND.name}:`,
     url,
     "There you sign your service agreement, upload your ID and a proof of address, and connect your credit monitoring.",
-    `Then you review your report with ${BRAND.assistant}, the AI assistant. You decide what is inaccurate and why; our team prepares and mails the letters for you. I'm still here if you have questions.`,
+    invite.option === "diy"
+      ? `You chose Credalti DIY: you review your report with ${BRAND.assistant}, the AI assistant, and decide what is inaccurate and why; ${BRAND.assistant} prepares your letters and you print and mail them. You can change to Credalti Complete anytime. I'm still here if you have questions.`
+      : `Then you review your report with ${BRAND.assistant}, the AI assistant. You decide what is inaccurate and why; our team prepares and mails the letters for you. I'm still here if you have questions.`,
   ].join("\n\n");
 }
 
@@ -133,7 +161,9 @@ export function inviteMessageEs(invite: Partial<Invite>, url: string): string {
     `${greeting} Aquí está tu enlace para entrar a ${BRAND.name}:`,
     url,
     "Ahí firmas tu acuerdo de servicio, subes tu identificación y un comprobante de domicilio, y conectas tu monitoreo de crédito.",
-    `Después revisas tu reporte con ${BRAND.assistant}, el asistente con IA. Tú decides qué es inexacto y por qué; nuestro equipo prepara y envía las cartas por ti. Yo sigo aquí por si tienes dudas.`,
+    invite.option === "diy"
+      ? `Elegiste Credalti DIY: revisas tu reporte con ${BRAND.assistant}, el asistente con IA, y tú decides qué es inexacto y por qué; ${BRAND.assistant} prepara tus cartas y tú las imprimes y las envías. Puedes cambiar a Credalti Complete cuando quieras. Yo sigo aquí por si tienes dudas.`
+      : `Después revisas tu reporte con ${BRAND.assistant}, el asistente con IA. Tú decides qué es inexacto y por qué; nuestro equipo prepara y envía las cartas por ti. Yo sigo aquí por si tienes dudas.`,
   ].join("\n\n");
 }
 
@@ -144,10 +174,10 @@ export function inviteMessageEs(invite: Partial<Invite>, url: string): string {
 // a decision made for the customer, or pressure.
 
 export const SALES_MAY_SAY: readonly string[] = [
-  "Cómo trabajamos: el cliente revisa su reporte y dice qué es inexacto; nuestro equipo prepara y envía las cartas, en rondas de unos 40 días.",
+  "Cómo trabajamos: el cliente revisa su reporte y dice qué es inexacto. Hay dos opciones y él elige: con Credalti Complete nuestro equipo prepara y envía las cartas, en rondas de unos 40 días; con Credalti DIY, Alti las prepara y el cliente las imprime y las envía. Puede cambiar a Complete cuando quiera.",
   "Lo que le toca al cliente: firmar el acuerdo, subir su identificación y un comprobante de domicilio, conectar su monitoreo y revisar su reporte.",
   "El monitoreo es una suscripción aparte: el cliente se la paga al servicio de monitoreo, no a nosotros.",
-  "El plan se explica antes de firmar, tal como está en el acuerdo. No se cobra un servicio antes de haberlo hecho.",
+  "El plan se explica antes de firmar, tal como está en el acuerdo. Con Complete se cobra cada mes justo después de enviar sus cartas, nunca antes del trabajo. DIY es una suscripción mensual sencilla, después de los 3 días hábiles.",
   "Después de firmar, el cliente tiene 3 días hábiles para cancelar sin costo.",
 ];
 
@@ -155,16 +185,16 @@ export const SALES_MAY_NOT_SAY: readonly string[] = [
   "Resultados, puntos, fechas o aprobaciones. Nada de «eliminamos», «borramos» o «te subimos el puntaje»: los burós deciden y los resultados varían.",
   "Qué marcar. Las respuestas son del cliente: no las des por él, y no digas que disputamos todo lo negativo.",
   "Precios o descuentos que no estén en el plan.",
-  "Presión: nada de «solo hoy» ni «últimos lugares». El cliente decide con calma.",
+  "Presión: nada de «solo hoy» ni «últimos lugares». El cliente decide con calma, también entre Complete y DIY: no empujes ninguna.",
   "Cobros por teléfono. Todo por escrito en WhatsApp: no cierres ventas ni tomes pagos por llamada.",
 ];
 
 /** The same two lists for a salesperson whose console is in English (the staff console's language, not the client's). */
 export const SALES_MAY_SAY_EN: readonly string[] = [
-  "How we work: the client reviews their report and says what's inaccurate; our team prepares and mails the letters, in rounds of about 40 days.",
+  "How we work: the client reviews their report and says what's inaccurate. There are two options and they choose: with Credalti Complete our team prepares and mails the letters, in rounds of about 40 days; with Credalti DIY, Alti prepares them and the client prints and mails them. They can change to Complete anytime.",
   "What's on the client: signing the agreement, uploading their ID and a proof of address, connecting their monitoring and reviewing their report.",
   "Monitoring is a separate subscription: the client pays the monitoring service for it, not us.",
-  "The plan is explained before signing, exactly as it is in the agreement. No service is charged before it's done.",
+  "The plan is explained before signing, exactly as it is in the agreement. With Complete, they're charged each month right after their letters are mailed, never before the work. DIY is a simple monthly subscription, after the 3 business days.",
   "After signing, the client has 3 business days to cancel at no cost.",
 ];
 
@@ -172,6 +202,6 @@ export const SALES_MAY_NOT_SAY_EN: readonly string[] = [
   "Results, points, dates or approvals. No “we remove”, “we delete” or “we'll raise your score”: the bureaus decide and results vary.",
   "What to mark. The answers are the client's: don't give them for the client, and don't say we dispute everything negative.",
   "Prices or discounts that aren't in the plan.",
-  "Pressure: no “today only” or “last spots”. The client decides calmly.",
+  "Pressure: no “today only” or “last spots”. The client decides calmly, between Complete and DIY too: don't push either.",
   "Payments by phone. Everything in writing on WhatsApp: don't close sales or take payments on a call.",
 ];

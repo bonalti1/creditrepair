@@ -69,7 +69,7 @@ export default function NewHireChecklist({ viewer }: { viewer: Viewer | null }) 
             {t(`Bienvenida, ${viewer.name.split(" ")[0]}. Empieza por aquí.`, `Welcome, ${viewer.name.split(" ")[0]}. Start here.`)}
           </h2>
           <p className="mt-1 text-[14px] leading-snug text-slate-600">
-            {t("Unos 15 minutos. Cuando termines, ciérrala; la bienvenida sigue en «Más».", "About 15 minutes. When you're done, close it; the welcome page stays under “More”.")}
+            {t("Unos 15 minutos. Cuando termines, ciérrala; la bienvenida sigue en «Equipo y ajustes».", "About 15 minutes. When you're done, close it; the welcome page stays under “Team & Settings”.")}
           </p>
         </div>
         <button

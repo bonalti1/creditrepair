@@ -194,6 +194,13 @@ written at once, as before.
 3. Otherwise nothing goes and the notice is a person's ("No hay un canal…" or
    "Falta aprobar en Meta la plantilla…").
 
+**The client's own settings** (Más → Avisos, `notification_settings`,
+migration 0041; `docs/FULFILLMENT.md`, "Messages") narrow this: only the
+channels the client kept; progress updates and reminders may be turned off
+(a reminder turned off makes the situation a person's, like an opt-out);
+receipts, payment notices and letters mailed in their name always go. An
+opt-out still wins over everything.
+
 **Never SMS.** Carriers (Twilio, HighLevel) reject credit-repair SMS campaigns
 without resubmission. Text messages are only for login codes.
 
@@ -229,6 +236,7 @@ Every row below is one name with an **en_US** and an **es_MX** version.
 | `credalti_documentos_1`, `_2`, `_3` | nombre, documentos, enlace | Missing documents |
 | `credalti_revision_1`, `_2`, `_3` | nombre, pendientes, enlace | Unfinished review |
 | `credalti_monitoreo_1`, `_2`, `_3` | nombre, enlace | Monitoring not sending a report |
+| `credalti_monitoreo_previo` | nombre, fecha, enlace | The team found the monitoring cancelled and the next report is due within 7 days: sent before the report is missing (`docs/FULFILLMENT.md`) |
 | `credalti_pago_metodo_1`, `_2`, `_3` | nombre, ronda, enlace | Missing payment method |
 | `credalti_robo_identidad_1`, `_2`, `_3` | nombre, enlace | Identity theft report (FTC steps) |
 | `credalti_cartas_enviadas` | nombre, cartas, ronda, enlace | Letters mailed |
@@ -236,7 +244,7 @@ Every row below is one name with an **en_US** and an **es_MX** version.
 | `credalti_reporte_cambios` | nombre, cambio, enlace | New report, with disputed items no longer listed |
 | `credalti_reporte_nuevo` | nombre, enlace | New report, nothing gone |
 | `credalti_ronda_preparada` | nombre, ronda, enlace | Next round prepared |
-| `credalti_recibo` | nombre, recibo, monto, fecha, trabajo, enlace | Payment receipt |
+| `credalti_recibo` | nombre, recibo, monto, fecha, trabajo, enlace | Payment receipt. Body (2026-11-26): «…cobramos {{3}} el {{4}} por {{5}}…», where {{5}} is «trabajo ya hecho: Ronda 2: …» under Credalti Complete, or the Credalti DIY subscription period / the letters we mailed for them: a DIY charge never says "work already done". Submit this body (`src/lib/autopilot/templates.ts`) |
 | `credalti_direccion_1`, `_2`, `_3` | nombre, enlace | Address the post office could not confirm (link to «Confirmar dirección») |
 | `credalti_documento_nuevo_1`, `_2`, `_3` | nombre, documento, motivo, enlace | Document to upload again, with the plain reason |
 | `credalti_pago_rechazado` | nombre, monto, ronda, fecha, enlace | A charge declined; retried on the date; link to «Actualizar mi tarjeta» |
@@ -245,7 +253,7 @@ Every row below is one name with an **en_US** and an **es_MX** version.
 | `credalti_carta_reenviada` | nombre, destinatario, ronda, enlace | A returned letter went out again |
 | `credalti_resena` | nombre, enlace | The one review request per client (docs/REVIEWS.md). Likely category **Marketing** in Meta, not Utility |
 
-35 templates for clients, each in en_US and es_MX (70 versions). One for
+36 templates for clients, each in en_US and es_MX (72 versions). One for
 referral partners: `credalti_socio_avance` (nombre, avance), the milestone
 notice, in the partner's language (`partners.locale`, English unless they read
 their portal in Spanish): en_US "Hi, {{1}}. {{2}} More details in your Credalti

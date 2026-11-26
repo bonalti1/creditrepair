@@ -16,7 +16,9 @@ import { sessionPlan } from "@/lib/ux/sessionPlan";
 import { roundMailedDate, teamRoundStatus } from "@/lib/ux/teamRound";
 import { clientLetterMail, letterCameBack, letterMailLine } from "@/lib/mail/clientView";
 import { letterMailKey, useLetterMail } from "@/lib/ux/letterMail";
-import { isFullService } from "@/lib/service/mode";
+import { useServiceOption } from "@/lib/service/useServiceOption";
+import DiyLetterActions from "@/components/diy/DiyLetterActions";
+import UpgradeOffer from "@/components/service/UpgradeOffer";
 import { useLocale } from "@/lib/i18n";
 import IdentityDocs from "@/components/IdentityDocs";
 import MailingAddress from "@/components/MailingAddress";
@@ -28,12 +30,13 @@ import { WaitingNote } from "@/components/RoundNotes";
 // "in plain words" summary of what it does and which law it invokes. The
 // letters reflect the client's own confirmed review (shared flags store).
 //
-// Full service (the business today): the page is read-only. It is headed "this
+// Credalti Complete (full service): the page is read-only. It is headed "this
 // is what your team mails for you", each letter carries its status (being
 // prepared, or mailed on a date and waiting for a response), and there is no
 // approve button: the team prepares and mails.
-// Self-serve (kept for later, NEXT_PUBLIC_SERVICE_MODE=self_serve): the client
-// reads the letters and approves them, as before.
+// Credalti DIY (the client's option, service/options.ts): the client reads the
+// letters, asks Alti to prepare them, prints them, and records "I mailed them",
+// or asks us to mail them for a fee per letter shown first (DiyLetterActions).
 
 const DEMO_USER = {
   id: "demo",
@@ -44,6 +47,9 @@ const DEMO_USER = {
 
 export default function Attack() {
   const { flags, roundFlags, roundApproved, roundMailedAt, setRoundApproved, hydrated } = useFlags();
+  // The client's option decides what this page offers (Credalti Complete or Credalti DIY).
+  const { option, hydrated: optionHydrated } = useServiceOption();
+  const isFullService = option === "full_service";
   const { locale, d } = useLocale();
   const [openLetter, setOpenLetter] = useState<number | null>(null);
   // How each mailed letter travels and where it is (mail/clientView.ts).
@@ -62,7 +68,7 @@ export default function Attack() {
   // Confirmed items that are not in these letters, said plainly.
   const waiting = waitingNote(session, locale);
 
-  if (!hydrated || !view.ready) return null;
+  if (!hydrated || !view.ready || !optionHydrated) return null;
   if (view.waiting) {
     return (
       <main className="animate-rise space-y-5">
@@ -150,15 +156,16 @@ export default function Attack() {
         <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900">
           {d.attack.title(roundNumber)}
         </h1>
-        {isFullService && (
-          <p className="mt-2 text-[17px] font-semibold leading-snug text-slate-900">{d.team.lettersLead}</p>
-        )}
-        <p className={`text-[15px] leading-relaxed text-slate-500 ${isFullService ? "mt-1" : "mt-2"}`}>
+        <p className="mt-2 text-[17px] font-semibold leading-snug text-slate-900">{isFullService ? d.team.lettersLead : d.diy.lettersLead}</p>
+        <p className="mt-1 text-[15px] leading-relaxed text-slate-500">
           {isFullService
             ? d.team.lettersSubtitle(plan.letters.length, inRound.length)
-            : d.attack.subtitle(plan.letters.length, inRound.length)}
+            : d.diy.lettersSubtitle(plan.letters.length, inRound.length)}
         </p>
       </header>
+
+      {/* Credalti DIY: when a new round is due, Alti offers the team's help, once (no pressure). */}
+      {!isFullService && roundApproved === false && roundNumber > 1 && <UpgradeOffer moment={`round-due:${roundNumber}`} />}
 
       {isFullService && (
         // Where the team's work stands, before the letters themselves.
@@ -197,7 +204,9 @@ export default function Attack() {
             date={mailedAt}
             status={
               !isFullService
-                ? null
+                ? roundApproved
+                  ? [{ label: d.diy.statusMailedByYou(mailedOn), done: true }]
+                  : null
                 : status === "mailed"
                   ? (() => {
                       // "Enviada el … · Certificada · Entregada el …": one line from the letter's mail record.
@@ -240,41 +249,18 @@ export default function Attack() {
           </Link>
         </section>
       ) : (
-        <section className="card px-5 py-5">
-          {roundApproved ? (
-            <div className="pt-3 text-center">
-              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-50 text-green-700">
-                <Icon name="mail" size={26} />
-              </span>
-              <p className="mt-4 text-[22px] font-semibold leading-snug text-slate-900">{d.attack.approvedTitle}</p>
-              <p className="mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-slate-500">{d.attack.approvedBody}</p>
-              <div className="mt-5 grid gap-2.5">
-                <Link
-                  href="/rounds"
-                  className="pressable flex h-14 items-center justify-center rounded-full bg-amber-400 text-[17px] font-semibold text-blue-900 hover:bg-amber-500"
-                >
-                  {d.attack.trackRound}
-                </Link>
-                <button
-                  onClick={() => setRoundApproved(false)}
-                  className="pressable h-12 rounded-full bg-slate-100 px-5 text-[16px] font-medium text-slate-900 hover:bg-slate-200"
-                >
-                  {d.attack.resetDemo}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <p className="text-[15px] leading-relaxed text-slate-700">{d.attack.approveNote}</p>
-              <button
-                onClick={() => setRoundApproved(true)}
-                className="pressable mt-4 flex min-h-14 w-full items-center justify-center rounded-full bg-amber-400 px-6 py-2.5 text-center text-[17px] font-semibold leading-snug text-blue-900 hover:bg-amber-500"
-              >
-                {d.attack.approveButton(plan.letters.length)}
-              </button>
-            </>
-          )}
-        </section>
+        // Credalti DIY: print, "I mailed them", "Mail them for me".
+        <DiyLetterActions
+          roundNumber={roundNumber}
+          letterCount={plan.letters.length}
+          mailed={roundApproved}
+          mailedAt={mailedAt}
+          onMailed={(iso) => {
+            setRoundApproved(true, iso);
+            // With an account the server's record is read again (the round, its letters, the next round's date).
+            if (view.profile) window.location.reload();
+          }}
+        />
       )}
     </main>
   );

@@ -50,6 +50,8 @@ export interface Harness {
   anon: SupabaseClient;
   /** Adds someone to auth.users, as Supabase Auth would at their first sign-in. */
   createUser(id: string, user?: { phone?: string | null; email?: string | null }): Promise<void>;
+  /** The files the storage stand-in holds ("bucket/path" → bytes). */
+  files: Map<string, Uint8Array>;
   /** Raw SQL as the service role. */
   sql<T = Row>(text: string, params?: unknown[]): Promise<T[]>;
 }
@@ -112,12 +114,14 @@ export async function startHarness(options: { before?: string } = {}): Promise<H
 
   const schema: Schema = { columns, pkeys, functions };
   const users = new Map<string, { phone?: string | null; email?: string | null }>();
-  const make = (session: Session) => client(pg, schema, session);
+  const files = new Map<string, Uint8Array>();
+  const make = (session: Session) => client(pg, schema, { ...session, files });
   return {
     pg,
     service: make({ role: "service", uid: null, user: null }),
     anon: make({ role: "anon", uid: null, user: null }),
     as: (uid, user) => make({ role: "authenticated", uid, user: { ...users.get(uid), ...user } }),
+    files,
     async createUser(id, user = {}) {
       users.set(id, user);
       await pg.query(`insert into auth.users (id, email, phone) values ($1::uuid, $2, $3)`, [id, user.email ?? null, user.phone?.replace(/^\+/, "") ?? null]);
@@ -138,6 +142,8 @@ interface Session {
   role: "service" | "authenticated" | "anon";
   uid: string | null;
   user: { phone?: string | null; email?: string | null } | null;
+  /** The harness's in-memory storage objects ("bucket/path" → bytes), shared by every connection. */
+  files?: Map<string, Uint8Array>;
 }
 
 interface PgError {
@@ -187,9 +193,27 @@ function client(pg: PGlite, schema: Schema, session: Session): SupabaseClient {
       },
     },
     storage: {
+      // Files are kept in memory per harness (enough for the routes that upload, read back and delete).
       from: (bucket: string) => ({
         async createSignedUrl(path: string) {
           return { data: { signedUrl: `https://storage.test/${bucket}/${path}?token=test` }, error: null };
+        },
+        async createSignedUploadUrl(path: string) {
+          return { data: { signedUrl: `https://storage.test/upload/${bucket}/${path}?token=up`, token: "up", path }, error: null };
+        },
+        async upload(path: string, bytes: Uint8Array | Blob) {
+          const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(await bytes.arrayBuffer());
+          if (!session.files) return { data: null, error: { message: "no storage" } };
+          session.files.set(`${bucket}/${path}`, data);
+          return { data: { path }, error: null };
+        },
+        async download(path: string) {
+          const data = session.files?.get(`${bucket}/${path}`);
+          return data ? { data: new Blob([data.slice()]), error: null } : { data: null, error: { message: "Object not found" } };
+        },
+        async remove(paths: string[]) {
+          for (const p of paths) session.files?.delete(`${bucket}/${p}`);
+          return { data: paths.map((name) => ({ name })), error: null };
         },
       }),
       async getBucket(id: string) {

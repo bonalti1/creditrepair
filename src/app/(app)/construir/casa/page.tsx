@@ -215,7 +215,7 @@ export default function CasaPage() {
                         if (p.homeReady) await shareHome(p, false, locale);
                         else setSharing(isOpen ? null : p.partnerId);
                       }}
-                      className="pressable h-10 shrink-0 rounded-full bg-white px-4 text-[14px] font-semibold text-blue-700 shadow-[0_0_0_1px_rgba(0,0,0,0.08)]"
+                      className="pressable h-11 shrink-0 rounded-full bg-white px-4 text-[14px] font-semibold text-blue-700 shadow-[0_0_0_1px_rgba(0,0,0,0.08)]"
                     >
                       {p.homeReady ? (es ? "Dejar de compartir" : "Stop sharing") : es ? "Compartir" : "Share"}
                     </button>

@@ -18,7 +18,10 @@ import { fullName } from "@/lib/staff/types";
 import { useStaff } from "@/lib/staff/useStaff";
 import Icon from "@/components/Icon";
 import { MailModeNote, SimulatedPill } from "@/components/staff/MailBits";
-import { PRIMARY_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SectionTitle } from "@/components/staff/ui";
+import OptionBadge from "@/components/staff/OptionBadge";
+import { clientOption } from "@/lib/staff/stage";
+import { formatCents } from "@/lib/billing/money";
+import { EmptyState, PRIMARY_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SectionTitle, BACK_LINK } from "@/components/staff/ui";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import { staffMessage } from "@/lib/staff/i18n/messages";
 import type { StaffLocale } from "@/lib/staff/i18n/locale";
@@ -58,7 +61,7 @@ function LetterRow({ plan, onClass }: { plan: LetterMailPlan; onClass: (value: M
           <div className="mt-1.5 flex flex-col items-start gap-2 rounded-xl bg-red-50 px-3 py-2.5" data-testid="send-blocker">
             <p className="text-[13px] leading-snug text-red-700">{plan.blocker}</p>
             {plan.missingCompany && (
-              <Link href={addressBookHref(plan.missingCompany, plan.furnisherEntryId)} className={`${ROW_BUTTON} h-9`}>
+              <Link href={addressBookHref(plan.missingCompany, plan.furnisherEntryId)} className={`${ROW_BUTTON} h-11 md:h-9`}>
                 {t("Agregar la dirección", "Add the address")}
               </Link>
             )}
@@ -102,9 +105,12 @@ function RoundCard({ plan, onClass, held }: { plan: RoundMailPlan; onClass: (let
     <section className="card overflow-hidden" aria-label={t(`${fullName(plan.client)}, ronda ${plan.round.number}`, `${fullName(plan.client)}, round ${plan.round.number}`)}>
       <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4">
         <div className="min-w-0">
-          <Link href={`/equipo/clientes/${plan.client.id}#cartas`} className="text-[17px] font-semibold text-slate-900 underline-offset-2 hover:underline">
-            {fullName(plan.client)}
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href={`/equipo/clientes/${plan.client.id}#cartas`} className="text-[17px] font-semibold text-slate-900 underline-offset-2 hover:underline">
+              {fullName(plan.client)}
+            </Link>
+            <OptionBadge option={clientOption(plan.client)} />
+          </div>
           <p className="text-[13px] leading-snug text-slate-500">
             {t(
               `Ronda ${plan.round.number} · ${count(plan.letters.length, "carta", "cartas")} · remitente:`,
@@ -115,6 +121,14 @@ function RoundCard({ plan, onClass, held }: { plan: RoundMailPlan; onClass: (let
         </div>
         <p className="text-[15px] font-semibold tabular-nums text-slate-900">{formatMills(plan.totalMills)}</p>
       </div>
+      {plan.round.mailRequest && (
+        <p className="mx-5 mb-3 rounded-2xl bg-slate-50 px-4 py-2.5 text-[14px] leading-snug text-slate-700" data-testid="diy-mail-request">
+          {t(
+            `Cliente DIY: pidió «Envíenlas por mí» para ${count(plan.round.mailRequest.letterCount, "carta", "cartas")} (${formatCents(plan.round.mailRequest.totalCents)}, se cobra después de enviarlas). Solo salen esas cartas, y solo por el servicio de correo.`,
+            `DIY client: asked "Mail them for me" for ${count(plan.round.mailRequest.letterCount, "letter", "letters")} (${formatCents(plan.round.mailRequest.totalCents)}, charged after we mail them). Only those letters go, and only by the mail service.`,
+          )}
+        </p>
+      )}
       {held && (
         <p className="mx-5 mb-3 rounded-2xl bg-amber-50 px-4 py-2.5 text-[14px] leading-snug text-blue-900" data-testid="round-held">
           {t("No sale en este envío.", "Not going out in this send.")} {held}
@@ -167,12 +181,12 @@ function SendView() {
 
   return (
     <main className="animate-rise">
-      <Link href="/equipo" className="inline-flex min-h-11 items-center gap-1 text-[14px] font-medium text-blue-700">
+      <Link href="/equipo" className={BACK_LINK}>
         <Icon name="chevron" size={16} className="rotate-180" />
         {t("Inicio", "Home")}
       </Link>
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{t("Enviar por correo", "Send by mail")}</h1>
+        <h1 className="page-title">{t("Enviar por correo", "Send by mail")}</h1>
         {mode === "simulated" && <SimulatedPill />}
       </div>
       <p className="mt-1 text-[15px] leading-relaxed text-slate-500">
@@ -209,8 +223,18 @@ function SendView() {
       <div className="mt-6 grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-4">
           {batch.ready.length === 0 && heldWithPlan.length === 0 && (
-            <div className="card px-5 py-6 text-[15px] leading-snug text-slate-500">
-              {sent ? t("Todo lo que se eligió ya salió.", "Everything chosen already went out.") : t("No hay rondas para enviar en este enlace.", "There are no rounds to send in this link.")}
+            <div className="card" data-testid="send-empty">
+              <EmptyState pose={sent ? "celebrate" : "envelope"} title={sent ? t("Todo lo que se eligió ya salió.", "Everything chosen already went out.") : t("Todavía no hay rondas elegidas para enviar", "No rounds picked to send yet")}>
+                <p>
+                  {t(
+                    "Las rondas se eligen en «Listas para enviar», en tu inicio, o desde la página del cliente. Esta pantalla muestra a dónde va cada carta y cuánto cuesta antes de enviarla.",
+                    "Rounds are picked under “Ready to send” on your home screen, or from a client's page. This screen shows where each letter goes and what it costs before it's sent.",
+                  )}
+                </p>
+                <Link href="/equipo" className={`${ROW_BUTTON} mt-3`}>
+                  {t("Ir a «Listas para enviar»", "Go to “Ready to send”")}
+                </Link>
+              </EmptyState>
             </div>
           )}
           {batch.ready.map((plan) => (
@@ -241,7 +265,7 @@ function SendView() {
         <aside className="min-w-0 space-y-4 lg:sticky lg:top-20">
           <section className="card px-5 py-5" aria-label={t("Resumen del envío", "Send summary")}>
             <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Este envío", "This send")}</p>
-            <p className="mt-1 text-[32px] font-semibold leading-none tabular-nums text-slate-900" data-testid="batch-total">
+            <p className="mt-1 font-display text-[32px] font-semibold leading-none tabular-nums text-slate-900" data-testid="batch-total">
               {formatMills(batch.totalMills + batch.verificationMills)}
             </p>
             <p className="mt-1 text-[13px] text-slate-500">
@@ -279,9 +303,9 @@ function SendView() {
                     `Send ${count(batch.ready.length, "round", "rounds")}${mode === "simulated" ? " (simulated)" : ""}`,
                   )}
             </button>
-            {batch.ready.length > 0 && (
+            {batch.ready.some((p) => !p.round.mailRequest) && (
               <Link
-                href={roundRefsHref(batch.ready.map((p) => ({ clientId: p.client.id, roundNumber: p.round.number })))}
+                href={roundRefsHref(batch.ready.filter((p) => !p.round.mailRequest).map((p) => ({ clientId: p.client.id, roundNumber: p.round.number })))}
                 className={`${SECONDARY_BUTTON} mt-2 w-full`}
               >
                 {t("Mejor imprimirlas aquí", "Print them here instead")}

@@ -9,6 +9,14 @@ charge a client for work that is not recorded as done: the pure rules
 (`supabase/migrations/0011_billing.sql`, `0026_billing_plans.sql`) refuse it
 separately, whoever asks.
 
+There are two service options (`docs/SERVICE-OPTIONS.md`). Everything below
+about charging only after the work is **Credalti Complete** (full service),
+unchanged. **Credalti DIY**, where the client prepares and sends their own
+disputes with the software, is a monthly subscription from the start (after
+the 3-business-day window), as the owner reports the attorney approved on
+2026-11-25; see "Credalti DIY" below. Migration `0042_service_options.sql`
+keys every trigger on the option of the client's governing agreement.
+
 Nothing here is legal advice, and nothing has been reviewed by an attorney.
 The legal points come from memory: legal and processor sites could not be
 opened from the build environment. Every plan text, both payment
@@ -25,7 +33,7 @@ client with rounds every 40 days, billed day by day).
 
 | Plan type (CRC name) | What it charges | What the work is | Why it does not charge first |
 | --- | --- | --- | --- |
-| **Subscription (monthly)** | A fee for each 30-day period (counted from the first round's mailing) in which a round was mailed | The round mailed in that period | Charged only when the period has ended. A period with no round has no charge ("No work this month, no charge") |
+| **Subscription (monthly)** | A fee for each 30-day period (counted from the first round's mailing) in which a round was mailed | The round mailed in that period | Two timings (`periodTiming`). **"When the period's round is mailed"** (`on_mailing`, the default for new plans since the owner's decision of 2026-11-25): charged right after that period's round is mailed. **"When the period has ended"** (`period_end`, plans saved before; a plan without the field): charged only when the period has ended. Either way never before the window or the first round, never twice in a period, never in a period without a round ("No work this month, no charge"), and within the cap |
 | **Per round** | A fee for each round mailed (optionally up to N rounds) | The round | Charged the day after the round is mailed |
 | **Flat fee** — installments | A fixed total for N rounds in N equal installments (the last carries the remainder) | Installment *k* is round *k* | Each installment only after its round is mailed; never more than N |
 | **Flat fee** — after the last round | A fixed total for N rounds in one charge | Round N | Charged only after round N is mailed |
@@ -56,6 +64,23 @@ Options on every plan:
   `setupFee…`, `enrollment…`, `signup…`, `activation…`, `retainer…`,
   `upfront…`, `deposit…` is refused with the reason, and the table has a
   check constraint against those keys.
+
+### Credalti DIY (`diy_subscription`, migration 0042)
+
+The Credalti DIY plan type, offered only to clients who chose DIY:
+
+| What | When | Rule |
+| --- | --- | --- |
+| Subscription (`diy_period`) | One per 30-day period, charged at the period's start | The first period starts when the cancellation window ends (due rule `after_cancellation_window`; no other due rule is accepted). One per agreement and period start. The cap ("Most you'll pay for the subscription") counts only subscription charges. No first work fee. After a switch from Complete, the first period waits 30 days after the last charge under the earlier agreement: no double charge |
+| Mailing (`mailing`) | After Credalti mails the letters the client asked for ("Mail them for me") | The plan's `mailFeeCents` ($0–$25, DIY only) × the letters in the request, as shown to the client and recorded on `mail_requests` before they confirmed. One charge per request, only once it is mailed |
+
+The DB trigger (`charges_guard_insert`, replaced in 0042) refuses a DIY unit
+under a Complete agreement and a Complete unit under a DIY one, and a round or
+letter the client mailed (`mail_via` / `mail_provider` = `client`) is never
+full-service work. Tests: `src/lib/__tests__/db/serviceOptions.test.ts`
+(full service still blocked before its work; a month whose round is not mailed
+refused; one right after mailing accepted; never twice in a period; DIY
+periods and mailings; upgrade and downgrade without a double charge).
 
 ### Versions and the signed snapshot
 
@@ -249,8 +274,10 @@ fees and the chargeback rate.
    are the two adapters), set `BILLING_GATEWAY` and the keys (`.env.example`),
    and point the processor's webhooks at `/api/billing/webhooks/<gateway>`.
 2. Check every UNVERIFIED item above against the processor's sandbox.
-3. Build the plans in `/equipo/planes`, have the attorney approve each version
-   and the generated contract text, record the approvals, offer them.
+3. Build the plans in `/equipo/planes` (both options: the Credalti DIY monthly
+   amount and fee per letter, and the Credalti Complete plans), have the
+   attorney approve each version and the generated contract text, record the
+   approvals, offer them.
 4. Attorney review of the card and ACH authorizations; then set
    `NEXT_PUBLIC_PAYMENT_AUTHORIZATION_APPROVED_VERSION` and
    `NEXT_PUBLIC_ACH_AUTHORIZATION_APPROVED_VERSION`.

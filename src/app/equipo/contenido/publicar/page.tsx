@@ -9,7 +9,7 @@ import { useContent } from "@/lib/content/store";
 import { PUBLISH_CHANNELS } from "@/lib/content/types";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import Icon from "@/components/Icon";
-import { QUIET_BUTTON, SECONDARY_BUTTON_COMPACT, SectionTitle } from "@/components/staff/ui";
+import { QUIET_BUTTON, SECONDARY_BUTTON_COMPACT, SectionTitle, Switch } from "@/components/staff/ui";
 import { ContentGate, ContentHeader, DemoNote, Notice } from "@/components/staff/content/ui";
 
 // Publishing settings (administrators: content.publish). The global switch
@@ -52,22 +52,6 @@ const BACK_ERROR: Record<string, [string, string]> = {
   no_token: ["La red no devolvió un permiso.", "The network returned no token."],
 };
 
-function Switch({ on, label, disabled, onChange, testId }: { on: boolean; label: string; disabled?: boolean; onChange: (next: boolean) => void; testId?: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!on)}
-      data-testid={testId}
-      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${on ? "bg-blue-700" : "bg-slate-300"}`}
-    >
-      <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform motion-reduce:transition-none ${on ? "translate-x-6" : "translate-x-1"}`} />
-    </button>
-  );
-}
 
 export default function PublishingPage() {
   const t = useTx();

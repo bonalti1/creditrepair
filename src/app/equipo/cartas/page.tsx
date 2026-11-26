@@ -29,7 +29,7 @@ import type { StaffLocale } from "@/lib/staff/i18n/locale";
 import Icon from "@/components/Icon";
 import ChipEditor, { type ChipEditorHandle } from "@/components/staff/letters/ChipEditor";
 import { DiffView, LetterPaper } from "@/components/staff/letters/LetterParts";
-import { Chip, NoAccess, PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON, SectionTitle, WAITING_TONE } from "@/components/staff/ui";
+import { Chip, DemoNote, NoAccess, PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON, SectionTitle, WAITING_TONE, BACK_LINK } from "@/components/staff/ui";
 
 // Cartas: the letter editor. An administrator changes a letter here, without a
 // developer; each change is a new version that goes to the attorney, and only
@@ -80,16 +80,12 @@ const dayLabel = (day: string, locale: StaffLocale) => longDay(`${day}T18:00:00.
 function DemoBanner() {
   const t = useTx();
   return (
-    <p className="mt-5 flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900" data-testid="letters-demo-banner">
-      <Icon name="info" size={18} className="mt-px shrink-0" />
-      <span>
-        <strong>Demo:</strong>{" "}
-        {t(
-          "lo que cambies o apruebes aquí se guarda solo en este navegador. No cambia ninguna carta real y no se envía nada al abogado. «Reiniciar la demo», abajo, lo borra.",
-          "what you change or approve here is saved only in this browser. No real letter changes and nothing goes to the attorney. “Reset the demo”, below, clears it.",
-        )}
-      </span>
-    </p>
+    <DemoNote className="mt-5" testId="letters-demo-banner">
+      {t(
+        "Lo que cambies o apruebes aquí se guarda solo en este navegador. No cambia ninguna carta real y no se envía nada al abogado. «Reiniciar la demo», abajo, lo borra.",
+        "What you change or approve here is saved only in this browser. No real letter changes and nothing goes to the attorney. “Reset the demo”, below, clears it.",
+      )}
+    </DemoNote>
   );
 }
 
@@ -202,7 +198,7 @@ function LetterList({ versions, data, reload, allowUnapproved }: { versions: Let
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
         <div className="card px-5 py-4">
           <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Aprobadas", "Approved")}</p>
-          <p className="mt-1 text-[28px] font-semibold tabular-nums text-slate-900" data-testid="approved-count">
+          <p className="mt-1 font-display text-[28px] font-semibold tabular-nums text-slate-900" data-testid="approved-count">
             {approved} <span className="text-[16px] font-medium text-slate-500">{t("de", "of")} {LETTER_CATALOGUE.length}</span>
           </p>
           <p className="text-[13px] text-slate-500">
@@ -211,7 +207,7 @@ function LetterList({ versions, data, reload, allowUnapproved }: { versions: Let
         </div>
         <div className="card px-5 py-4">
           <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Con el abogado", "With the attorney")}</p>
-          <p className="mt-1 text-[28px] font-semibold tabular-nums text-slate-900">{pending.length}</p>
+          <p className="mt-1 font-display text-[28px] font-semibold tabular-nums text-slate-900">{pending.length}</p>
           {pending.length > 0 ? (
             <Link href="/equipo/cartas/paquete" className="text-[14px] font-medium text-blue-700">
               {t("Ver el paquete para el abogado", "See the attorney's packet")}
@@ -222,7 +218,7 @@ function LetterList({ versions, data, reload, allowUnapproved }: { versions: Let
         </div>
         <div className="card px-5 py-4">
           <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Borradores", "Drafts")}</p>
-          <p className="mt-1 text-[28px] font-semibold tabular-nums text-slate-900">{drafts.length}</p>
+          <p className="mt-1 font-display text-[28px] font-semibold tabular-nums text-slate-900">{drafts.length}</p>
           <p className="text-[13px] text-slate-500">{t("Sin enviar al abogado todavía.", "Not sent to the attorney yet.")}</p>
         </div>
       </div>
@@ -274,7 +270,7 @@ function LetterList({ versions, data, reload, allowUnapproved }: { versions: Let
                       <span className="block text-[15px] font-semibold text-slate-900">{meta.title[locale]}</span>
                       <span className="mt-0.5 block text-[13px] text-slate-500">
                         {RECIPIENT_LABELS[locale][meta.recipient]}
-                        {ORIGINAL_TEMPLATE_KEYS.includes(meta.key) && <> · {t("se usa en las rondas", "used in rounds")}</>} · <span className="font-mono text-[12px]">{meta.key}</span>
+                        {ORIGINAL_TEMPLATE_KEYS.includes(meta.key) && <> · {t("se usa en las rondas", "used in rounds")}</>}
                       </span>
                     </span>
                     <InUse meta={meta} versions={versions} />
@@ -329,7 +325,7 @@ function DecisionForm({ version, data, onDone }: { version: LetterVersion; data:
             role="radio"
             aria-checked={decision === d}
             onClick={() => setDecision(d)}
-            className={`pressable h-10 rounded-full px-4 text-[14px] font-semibold ${decision === d ? "bg-blue-900 text-white" : "bg-white text-blue-900 ring-1 ring-slate-200"}`}
+            className={`pressable h-11 md:h-10 rounded-full px-4 text-[14px] font-semibold ${decision === d ? "bg-blue-900 text-white" : "bg-white text-blue-900 ring-1 ring-slate-200"}`}
           >
             {d === "approved" ? t("La aprobó", "Approved it") : t("Pidió cambios / no la aprobó", "Asked for changes / didn't approve it")}
           </button>
@@ -606,14 +602,14 @@ function LetterEditor({
 
   return (
     <main className="animate-rise">
-      <Link href="/equipo/cartas" className="inline-flex items-center gap-1 text-[14px] font-medium text-blue-700">
+      <Link href="/equipo/cartas" className={BACK_LINK}>
         <Icon name="chevron" size={14} className="rotate-180" /> {t("Todas las cartas", "All letters")}
       </Link>
       <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[28px]">{meta.title[locale]}</h1>
+          <h1 className="page-title">{meta.title[locale]}</h1>
           <p className="mt-1 text-[14px] text-slate-500">
-            {CATEGORY_LABELS[meta.category][locale]} · {RECIPIENT_LABELS[locale][meta.recipient]} · <span className="font-mono text-[13px]">{key}</span>
+            {CATEGORY_LABELS[meta.category][locale]} · {RECIPIENT_LABELS[locale][meta.recipient]} · <span className="text-[12.5px] text-slate-400" title={t("Referencia de la carta en el paquete del abogado", "The letter's reference in the attorney's packet")}>{t("ref.", "ref.")} {key}</span>
           </p>
         </div>
         <InUse meta={meta} versions={versions} />
@@ -727,7 +723,7 @@ function LetterEditor({
                         type="button"
                         title={chipText(chip, locale).help}
                         onClick={() => editor.current?.insertChip(chip)}
-                        className="pressable inline-flex h-9 items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 text-[13px] font-semibold text-blue-800 hover:bg-blue-100"
+                        className="pressable inline-flex h-11 md:h-9 items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 text-[13px] font-semibold text-blue-800 hover:bg-blue-100"
                         data-testid={`insert-${chip}`}
                       >
                         <Icon name="plus" size={14} /> {chipText(chip, locale).label}
@@ -786,7 +782,7 @@ function LetterEditor({
                 role="tab"
                 aria-selected={tab === which}
                 onClick={() => setTab(which)}
-                className={`pressable h-8 rounded-full px-3 text-[13px] font-semibold ${tab === which ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+                className={`pressable h-11 md:h-8 rounded-full px-3 text-[13px] font-semibold ${tab === which ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
                 data-testid={`tab-${which}`}
               >
                 {which === "preview"
@@ -921,7 +917,7 @@ function Cartas() {
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Cartas", "Letters")}</h1>
+      <h1 className="page-title">{t("Cartas", "Letters")}</h1>
       <p className="mt-1 max-w-3xl text-[15px] leading-relaxed text-slate-500">
         {t(
           `Las ${LETTER_CATALOGUE.length} cartas de la biblioteca. Cambia el texto de una carta aquí; cada cambio es una versión nueva que revisa el abogado, y solo una versión aprobada se envía a los clientes.`,

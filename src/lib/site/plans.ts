@@ -1,8 +1,10 @@
 import { listPlans } from "../billing/planStore";
-import { effectiveAmounts, mostYoullPay, paymentTermsLines, type PlanVersion } from "../billing/plans";
 import type { Locale } from "../i18n/dictionaries";
-import { timelinePlan, type TimelinePlan } from "./payTimeline";
+import type { ServiceOption } from "../service/options";
 import { getAdminClient } from "../supabase/admin";
+import { optionPricesFrom, publicPlansFrom, type OptionPrice, type PublicPlan } from "./planText";
+
+export { monitoringNote, optionPricesFrom, publicPlansFrom, type OptionPrice, type PublicPlan } from "./planText";
 
 // The plans /precios may show: only versions that are OFFERED (active) and
 // carry the attorney's recorded approval, from the plan catalogue
@@ -13,25 +15,14 @@ import { getAdminClient } from "../supabase/admin";
 // explained before signing. The demo's example catalogue is never shown: it
 // is not approved by anyone.
 
-export interface PublicPlan {
-  id: string;
-  name: string;
-  terms: string[];
-  most: string;
-  /** The plan's own terms, for the "When would I pay?" timeline (payTimeline.ts). */
-  timeline: TimelinePlan;
-}
-
-export function publicPlansFrom(all: readonly PlanVersion[], locale: Locale): PublicPlan[] {
-  return all
-    .filter((p) => p.status === "active" && p.attorney !== null && p.terms.type !== "pay_per_delete")
-    .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.key.localeCompare(b.key))
-    .map((p) => {
-      const e = effectiveAmounts(p.terms, 0);
-      // The last line is the "most you'll pay" sentence: shown on its own, larger.
-      const lines = paymentTermsLines(p.terms, e, locale).slice(0, -1);
-      return { id: p.id, name: p.name[locale], terms: lines, most: mostYoullPay({ effective: e }, locale), timeline: timelinePlan(p.terms, e) };
-    });
+export async function optionPrices(locale: Locale): Promise<Record<ServiceOption, OptionPrice | null>> {
+  const db = getAdminClient();
+  if (!db) return { full_service: null, diy: null };
+  try {
+    return optionPricesFrom(await listPlans(db), locale);
+  } catch {
+    return { full_service: null, diy: null };
+  }
 }
 
 /**

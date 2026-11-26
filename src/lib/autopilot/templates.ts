@@ -269,10 +269,10 @@ export const STATUS_TEMPLATES: Record<StatusKind | "report_new" | "payment_pause
   ),
   payment_receipt: T(
     "credalti_recibo",
-    "Recibo de un cobro por una ronda ya enviada.",
+    "Recibo de un cobro: una ronda ya enviada (Credalti Complete), o la suscripción o las cartas que enviamos por el cliente (Credalti DIY).",
     ["nombre", "recibo", "monto", "fecha", "trabajo", "enlace"],
-    "Hola {{1}}, recibo {{2}}: cobramos {{3}} el {{4}} por trabajo ya hecho ({{5}}). Lo ves cuando quieras en «Mis pagos»: {{6}}",
-    "Hi {{1}}, receipt {{2}}: we charged {{3}} on {{4}} for work already done ({{5}}). You can see it anytime under \"My payments\": {{6}}",
+    "Hola {{1}}, recibo {{2}}: cobramos {{3}} el {{4}} por {{5}}. Lo ves cuando quieras en «Mis pagos»: {{6}}",
+    "Hi {{1}}, receipt {{2}}: we charged {{3}} on {{4}} for {{5}}. You can see it anytime under \"My payments\": {{6}}",
   ),
   // Billing's notices (billing/server.ts), each with the one-tap «Actualizar mi tarjeta» link. Updating the card retries the
   // same charge at once, under every billing rule (one charge per round, never before the work, never more often than 30 days).
@@ -317,7 +317,29 @@ export const STATUS_TEMPLATES: Record<StatusKind | "report_new" | "payment_pause
 };
 
 /** Every template, for the settings screen and the docs. */
-export const ALL_TEMPLATES: readonly MessageTemplate[] = [...Object.values(FOLLOWUP_TEMPLATES).flat(), ...Object.values(STATUS_TEMPLATES)];
+/**
+ * The first monitoring reminder when the team found the client's monitoring
+ * cancelled and their next report is due soon (fulfillment/monitoring.ts):
+ * sent BEFORE the report is missing, so it says when it is due instead of
+ * "we could not import a recent report". Later steps are the usual ones.
+ */
+export const MONITORING_BEFORE_DUE_TEMPLATE = "credalti_monitoreo_previo";
+
+export const EXTRA_FOLLOWUP_TEMPLATES: readonly MessageTemplate[] = [
+  T(
+    MONITORING_BEFORE_DUE_TEMPLATE,
+    "Aviso antes de la fecha: el monitoreo aparece cancelado y viene el siguiente reporte.",
+    ["nombre", "fecha", "enlace"],
+    "Hola {{1}}, tu siguiente reporte de crédito se necesita alrededor del {{2}}, y en nuestro registro tu monitoreo de crédito aparece cancelado. ¿Puedes revisar que tu suscripción esté activa? Aquí te explicamos cómo: {{3}}",
+    "Hi {{1}}, your next credit report is needed around {{2}}, and our records show your credit monitoring as cancelled. Could you check that your subscription is active? Here is how: {{3}}",
+  ),
+];
+
+export const ALL_TEMPLATES: readonly MessageTemplate[] = [
+  ...Object.values(FOLLOWUP_TEMPLATES).flat(),
+  ...EXTRA_FOLLOWUP_TEMPLATES,
+  ...Object.values(STATUS_TEMPLATES),
+];
 
 /** The template's body with its parameters filled in, without the footer. Missing values read as "". */
 export function renderTemplateBody(template: MessageTemplate, locale: MessageLocale, values: readonly string[]): string {

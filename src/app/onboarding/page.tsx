@@ -12,10 +12,14 @@ import { CharacterAvatar, CharacterFigure } from "@/components/Character";
 import { useLocale } from "@/lib/i18n";
 import { MARKETING } from "@/lib/i18n/marketing";
 import { MONITORING_OFFER } from "@/lib/monitoring/offer";
-import { GOALS, parseInvite, type Invite } from "@/lib/sales/invite";
+import { GOALS, linkOption, parseInvite, type Invite } from "@/lib/sales/invite";
 import { BRAND, aiByline } from "@/lib/brand";
-import { isFullService } from "@/lib/service/mode";
+
 import { readStoredAgreement } from "@/lib/ux/agreementLocal";
+import { OPTION_PENDING_KEY, writeStoredOption } from "@/lib/service/optionLocal";
+import { OPTION_NAME, type ServiceOption } from "@/lib/service/options";
+import OptionComparison from "@/components/service/OptionComparison";
+import { useOptionPrices } from "@/components/service/OptionPricesProvider";
 import { isFullName } from "@/lib/agreement/signature";
 import { markMilestone, readMilestones, resumeStep, type FirstWeekStep } from "@/lib/ux/firstWeek";
 import FirstWeekProgress from "@/components/FirstWeekProgress";
@@ -99,7 +103,12 @@ function Onboarding() {
   const { locale } = useLocale();
   const c = MARKETING[locale].onboarding;
   const goalLabel = (g: (typeof GOALS)[number]) => (locale === "en" ? g.labelEn : g.label);
-  const [step, setStep] = useState<"welcome" | "share" | "goal" | "state" | "idtype" | "household" | "monitoring" | "assist" | "waitlist-done">("goal");
+  const [step, setStep] = useState<"welcome" | "share" | "goal" | "state" | "option" | "idtype" | "household" | "monitoring" | "assist" | "waitlist-done">("goal");
+  // The option a link preselected (option=complete|diy from the video page, o= from an invitation or the website):
+  // shown marked in the comparison before the next questions; the person taps it or the other one.
+  const [presetOption, setPresetOption] = useState<ServiceOption | null>(null);
+  const [optionConfirmed, setOptionConfirmed] = useState(false);
+  const optionPrices = useOptionPrices();
   // "Do you have a Social Security number or an ITIN?" Only the kind is kept, never the number (src/lib/aftercare/itin.ts).
   const [idType, setIdType] = useState<IdType | null>(null);
   // "Anyone at home joining too?": a household member of their own (src/lib/household).
@@ -151,9 +160,10 @@ function Onboarding() {
       return;
     }
     const parsed = parseInvite(query);
+    const preset = linkOption(query);
     // Back again after signing: straight to the first step not done (no welcome a second time).
     const signed = Boolean(readStoredAgreement()?.signedAt);
-    if (isFullService && signed) {
+    if (signed) {
       const next = resumeStep(readMilestones(), true);
       if (next === "monitoring") {
         if (parsed) setInvite(parsed);
@@ -168,6 +178,13 @@ function Onboarding() {
       }
     }
     markMilestone("invite_opened");
+    // The option the link carries (Credalti Complete or DIY): chosen on this device, sent to the account once
+    // signed in (OnboardingSync), and shown marked in the comparison so the person can still choose the other.
+    if (preset && !readStoredAgreement()?.signedAt) {
+      writeStoredOption({ chosen: preset, signed: null });
+      save(OPTION_PENDING_KEY, preset);
+      setPresetOption(preset);
+    }
     if (parsed) {
       // A full name on the link fills in the signature field later; the client checks it there.
       if (parsed.name && isFullName(parsed.name)) save("bonalti.inviteName", parsed.name);
@@ -192,7 +209,7 @@ function Onboarding() {
    */
   const toMonitoring = () => {
     markMilestone("details_done");
-    if (isFullService && !readStoredAgreement()?.signedAt) {
+    if (!readStoredAgreement()?.signedAt) {
       save(RETURN_KEY, window.location.search);
       router.push("/acuerdo?desde=inicio");
       return;
@@ -227,8 +244,19 @@ function Onboarding() {
     if (!invite?.state) return setStep("state");
     save("bonalti.state", state);
     // A state we are not open in goes to the waitlist form, link or no link.
-    if (openStates.status(state) === "open") setStep("idtype");
+    if (openStates.status(state) === "open") setStep(afterState());
     else setStep("state");
+  };
+
+  /** After the state: the preselected option's comparison, once, then the ID question. */
+  const afterState = (): "option" | "idtype" => (presetOption && !optionConfirmed ? "option" : "idtype");
+
+  const chooseOption = (option: ServiceOption) => {
+    writeStoredOption({ chosen: option, signed: null });
+    save(OPTION_PENDING_KEY, option);
+    setPresetOption(option);
+    setOptionConfirmed(true);
+    setStep("idtype");
   };
 
   /** After monitoring: an invited customer already has their person; go straight in. */
@@ -462,7 +490,7 @@ function Onboarding() {
               <button
                 onClick={() => {
                   save("bonalti.state", state);
-                  setStep("idtype");
+                  setStep(afterState());
                 }}
                 className={primaryButton}
               >
@@ -494,6 +522,20 @@ function Onboarding() {
             </form>
             )
           )}
+        </div>
+      )}
+
+      {step === "option" && presetOption && (
+        <div className="animate-rise flex flex-1 flex-col pt-10" data-testid="onboarding-option">
+          <h1 className="font-display text-[30px] font-bold leading-tight text-blue-700">{locale === "es" ? "Dos formas de trabajar con nosotros" : "Two ways to work with us"}</h1>
+          <p className="mt-3 text-[17px] leading-relaxed text-slate-500" data-testid="onboarding-option-preset">
+            {locale === "es"
+              ? `Elegiste ${OPTION_NAME[presetOption].es} en tu enlace, así que está marcada. Tócala para seguir, o elige la otra: la decisión es tuya.`
+              : `You picked ${OPTION_NAME[presetOption].en} on your link, so it's marked. Tap it to continue, or choose the other one: it's your choice.`}
+          </p>
+          <div className="mt-6">
+            <OptionComparison locale={locale} prices={optionPrices.prices[locale]} monitoring={optionPrices.monitoring[locale]} chosen={presetOption} onChoose={chooseOption} headingLevel={2} />
+          </div>
         </div>
       )}
 

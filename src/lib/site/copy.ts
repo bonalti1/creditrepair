@@ -227,12 +227,12 @@ const CROA_1679C: Source = { label: "15 U.S.C. §1679c", url: "https://uscode.ho
 const en: SiteCopy = {
   meta: {
     home: {
-      title: `${brand} — Errors on your credit report? A team that shows you every step`,
+      title: `${brand} — Credit report help in Texas, in English and Spanish`,
       description: `Tell us what's wrong on your report. Our team prepares and mails the letters, and you see every one, with its dates. In English or Spanish. Results vary.`,
     },
     pricing: {
       title: `Pricing · ${brand}`,
-      description: "How you pay: nothing is charged until the work is done, and the most you'll pay is written before you sign.",
+      description: `How you pay: ${brand} Complete, each month right after your letters are mailed; ${brand} DIY, a simple monthly subscription. The most is in writing.`,
     },
     how: {
       title: `How it works · ${brand}`,
@@ -248,7 +248,7 @@ const en: SiteCopy = {
     },
     about: {
       title: `About us · ${brand}`,
-      description: `Who we are, who ${bot} is, and the rules we work by.`,
+      description: `Who we are, who ${bot} is (our AI assistant), and the rules we work by, in Texas, in English and Spanish.`,
     },
     rights: {
       title: `Your rights · ${brand}`,
@@ -271,7 +271,7 @@ const en: SiteCopy = {
     ctaChat: `Or sign up in a chat with ${BRAND.assistant}, in about 10 minutes`,
     whatsappText: `Hi! I want to start my credit report review with ${brand}.`,
     secondary: "See how it works",
-    underCta: "Nothing is charged until work is done · 3 business days to cancel at no cost · Results vary",
+    underCta: "Complete: charged after your letters are mailed · DIY: a simple monthly subscription · 3 business days to cancel at no cost · Results vary",
     example: "Example",
     ai: "AI",
     aiAssistant: "AI assistant",
@@ -302,7 +302,7 @@ const en: SiteCopy = {
     headline: "Something wrong on your credit report?",
     headlineAccent: "A real team handles the letters.",
     lead: "You tell us what's wrong. Our team prepares and mails the dispute letters, and you see every one, with its dates, in your app.",
-    heroPoints: ["Nothing charged until the work is done", "Every letter and date, in your app", `A team on WhatsApp, and ${bot}, our AI`],
+    heroPoints: ["Complete: charged after your letters are mailed. DIY: a simple monthly subscription", "Every letter and date, in your app", `A team on WhatsApp, and ${bot}, our AI`],
     demo: {
       title: "Try it: 20 seconds with a sample item",
       lead: `This is how the app works. ${bot}, our AI assistant, explains an item. You decide. Then you see what happens and when.`,
@@ -390,9 +390,9 @@ const en: SiteCopy = {
       rows: [
         {
           topic: "When you're charged",
-          us: "Only after the work: each charge pays for letters already mailed. No fee to sign up.",
+          us: `${brand} Complete: each month, right after your letters are mailed. ${brand} DIY: a simple monthly subscription, after your 3 business days to cancel. No fee to sign up.`,
           them: "A first work fee plus a monthly fee.",
-          facts: ["charge-after-work", "no-setup-fee", "first-work-fee-after-round"],
+          facts: ["charge-after-work", "diy-subscription-after-window", "no-setup-fee", "first-work-fee-after-round"],
         },
         {
           topic: "The total",
@@ -428,10 +428,10 @@ const en: SiteCopy = {
       note: "“Many companies” describes plans and ads we have seen in this industry, not any one company.",
     },
     pricing: {
-      title: "Nothing is charged until the work is done",
-      lead: "We explain the plan before you sign. Then every charge comes after the work it pays for.",
+      title: "Two ways to pay, both written before you sign",
+      lead: `We explain the plan before you sign. With ${brand} Complete, you're charged each month right after your letters are mailed. ${brand} DIY is a simple monthly subscription, charged after your 3 business days to cancel.`,
       points: [
-        "No fee to sign up, and none when letters are only prepared",
+        "No fee to sign up; with Complete, nothing when letters are only prepared",
         "The most you'll pay, written before you sign",
         "3 business days to cancel at no cost; after that, end the service any time",
       ],
@@ -448,7 +448,7 @@ const en: SiteCopy = {
       points: [
         { title: "You see every letter", body: "Who it went to, the date it was mailed and the date it arrived." },
         { title: "You know the most you'll pay", body: "It is written in your agreement before you sign, and on your payments screen." },
-        { title: "You pay after the work", body: "Each charge pays for letters already mailed. Nothing before." },
+        { title: "You know when you pay", body: `${brand} Complete: each charge comes right after your letters are mailed, never before. ${brand} DIY: a simple monthly subscription.` },
         { title: "No promises", body: "No one can promise what a bureau will decide. Be careful with anyone who does." },
       ],
     },
@@ -471,13 +471,13 @@ const en: SiteCopy = {
   },
   pricing: {
     eyebrow: "Pricing",
-    title: "Nothing is charged until the work is done",
-    lead: "Federal law says a credit repair company can't charge before the work is done. Our billing is built so it can't.",
+    title: "Two options, honest prices",
+    lead: `${BRAND.name} Complete is charged each month right after your letters are mailed, never before. Federal law says a credit repair company can't charge before the work, and our billing is built so it can't. ${BRAND.name} DIY is a simple monthly subscription, charged after your 3 business days to cancel.`,
     plansTitle: "Plans",
     noPlans: "Plans and prices are explained before you sign.",
-    noPlansSub: "A person on our team goes over the plan with you. It is written in your agreement, with the most you'll pay. Nothing is charged until work is done.",
+    noPlansSub: `A person on our team goes over the plan with you. It is written in your agreement, with the most you'll pay. ${brand} Complete is charged each month right after your letters are mailed. ${brand} DIY is a simple monthly subscription, after your 3 business days to cancel.`,
     planMost: "Most you'll pay",
-    rulesTitle: "How every charge works",
+    rulesTitle: `How every ${BRAND.name} Complete charge works`,
     rules: [
       { title: "After the work, always", body: "A charge pays for a round of letters already mailed. Never at sign-up, and never for letters that are only prepared." },
       { title: "No sign-up fee", body: "There is no setup, enrollment or activation fee. If a plan has a first work fee, it waits until your first round is mailed." },
@@ -494,7 +494,7 @@ const en: SiteCopy = {
     cancel: [
       "You have 3 business days after signing to cancel at no cost.",
       "After that, you can end the service any time, from the app or in writing. Ending it costs nothing.",
-      "You pay only for work fully done before we receive your request.",
+      `With ${BRAND.name} Complete you pay only for work fully done before we receive your request. With ${BRAND.name} DIY no new month is charged after it.`,
     ],
   },
   how: {
@@ -573,15 +573,15 @@ const en: SiteCopy = {
       },
       {
         q: "How much does it cost?",
-        a: "Our team explains the plan before you sign, and it is written in your agreement with the most you'll pay. Each charge pays for work already done.",
+        a: `Our team explains the plan before you sign, and it is written in your agreement with the most you'll pay. With ${brand} Complete, each charge pays for work already done; ${brand} DIY is a simple monthly subscription.`,
       },
       {
         q: "When am I charged?",
-        a: "Only after the work: for example, after a round of letters is mailed. Never at sign-up, and never more than once every 30 days.",
+        a: `With ${brand} Complete, each month right after your letters are mailed: never at sign-up, and never more than once every 30 days. ${brand} DIY is a simple monthly subscription, charged after your 3 business days to cancel.`,
       },
       {
         q: "Is there a sign-up or setup fee?",
-        a: "No. If a plan has a first work fee, it is charged only after your first round of letters is mailed.",
+        a: `No. If a ${brand} Complete plan has a first work fee, it is charged only after your first round of letters is mailed.`,
       },
       {
         q: "Why do I need credit monitoring?",
@@ -589,7 +589,7 @@ const en: SiteCopy = {
       },
       {
         q: "Can I cancel?",
-        a: "Yes. You have 3 business days after signing to cancel at no cost. After that you can end the service any time; you pay only for work already done.",
+        a: `Yes. You have 3 business days after signing to cancel at no cost. After that you can end the service any time. With ${brand} Complete you pay only for work already done; with ${brand} DIY no new month is charged.`,
       },
       {
         q: "How long does it take?",
@@ -669,7 +669,7 @@ const en: SiteCopy = {
     rules: [
       { title: "No promises", body: "We say what we do, never what a bureau will decide. Results vary." },
       { title: "You decide", body: "Only what you tell us is inaccurate goes into a letter. Nobody marks anything for you." },
-      { title: "Pay after the work", body: "Every charge pays for work already done, up to the most you'll pay." },
+      { title: "Clear charges", body: `${brand} Complete: every charge pays for work already done, up to the most you'll pay. ${brand} DIY: a simple monthly subscription.` },
       { title: "Show everything", body: "Every letter and every date, in your app." },
       { title: "Your language", body: "English or Spanish, on the same site and app." },
     ],
@@ -729,12 +729,12 @@ const en: SiteCopy = {
 const es: SiteCopy = {
   meta: {
     home: {
-      title: `${brand} — ¿Errores en tu reporte de crédito? Un equipo que te muestra cada paso`,
+      title: `${brand} — Ayuda con tu reporte de crédito en Texas, en español`,
       description: `Dinos qué está mal en tu reporte. Nuestro equipo prepara y envía las cartas, y tú ves cada una, con sus fechas. En inglés o en español. Los resultados varían.`,
     },
     pricing: {
       title: `Precios · ${brand}`,
-      description: "Cómo pagas: no se cobra nada hasta que el trabajo está hecho, y lo máximo que pagarás queda escrito antes de firmar.",
+      description: `Cómo pagas: ${brand} Complete, cada mes justo después de enviar tus cartas; ${brand} DIY, una suscripción mensual sencilla. Lo máximo, por escrito.`,
     },
     how: {
       title: `Cómo funciona · ${brand}`,
@@ -750,7 +750,7 @@ const es: SiteCopy = {
     },
     about: {
       title: `Nosotros · ${brand}`,
-      description: `Quiénes somos, quién es ${bot} y las reglas con las que trabajamos.`,
+      description: `Quiénes somos, quién es ${bot} (nuestro asistente con IA) y las reglas con las que trabajamos en Texas, en inglés y en español.`,
     },
     rights: {
       title: `Tus derechos · ${brand}`,
@@ -773,7 +773,7 @@ const es: SiteCopy = {
     ctaChat: `O regístrate en un chat con ${BRAND.assistant}, en unos 10 minutos`,
     whatsappText: `¡Hola! Quiero empezar la revisión de mi reporte de crédito con ${brand}.`,
     secondary: "Ver cómo funciona",
-    underCta: "No se cobra nada hasta que el trabajo está hecho · 3 días hábiles para cancelar sin costo · Los resultados varían",
+    underCta: "Complete: se cobra después de enviar tus cartas · DIY: una suscripción mensual sencilla · 3 días hábiles para cancelar sin costo · Los resultados varían",
     example: "Ejemplo",
     ai: "IA",
     aiAssistant: "Asistente con IA",
@@ -804,7 +804,7 @@ const es: SiteCopy = {
     headline: "¿Algo mal en tu reporte de crédito?",
     headlineAccent: "Un equipo real se encarga de las cartas.",
     lead: "Tú nos dices qué está mal. Nuestro equipo prepara y envía las cartas de disputa, y tú ves cada una, con sus fechas, en tu app.",
-    heroPoints: ["No se cobra hasta que el trabajo está hecho", "Cada carta y cada fecha, en tu app", `Un equipo en WhatsApp, y ${bot}, nuestra IA`],
+    heroPoints: ["Complete: se cobra después de enviar tus cartas. DIY: una suscripción mensual sencilla", "Cada carta y cada fecha, en tu app", `Un equipo en WhatsApp, y ${bot}, nuestra IA`],
     demo: {
       title: "Pruébalo: 20 segundos con un punto de ejemplo",
       lead: `Así funciona la app. ${bot}, nuestro asistente con IA, te explica un punto. Tú decides. Luego ves qué pasa y cuándo.`,
@@ -892,9 +892,9 @@ const es: SiteCopy = {
       rows: [
         {
           topic: "Cuándo te cobran",
-          us: "Solo después del trabajo: cada cobro paga cartas ya enviadas. Sin cuota de inscripción.",
+          us: `${brand} Complete: cada mes, justo después de enviar tus cartas. ${brand} DIY: una suscripción mensual sencilla, después de tus 3 días hábiles para cancelar. Sin cuota de inscripción.`,
           them: "Una cuota de primer trabajo y una cuota mensual.",
-          facts: ["charge-after-work", "no-setup-fee", "first-work-fee-after-round"],
+          facts: ["charge-after-work", "diy-subscription-after-window", "no-setup-fee", "first-work-fee-after-round"],
         },
         {
           topic: "El total",
@@ -930,10 +930,10 @@ const es: SiteCopy = {
       note: "«Muchas empresas» describe planes y anuncios que hemos visto en esta industria, no a una empresa en particular.",
     },
     pricing: {
-      title: "No se cobra nada hasta que el trabajo está hecho",
-      lead: "Te explicamos el plan antes de que firmes. Después, cada cobro llega después del trabajo que paga.",
+      title: "Dos formas de pagar, las dos por escrito antes de firmar",
+      lead: `Te explicamos el plan antes de que firmes. Con ${brand} Complete, se cobra cada mes justo después de enviar tus cartas. ${brand} DIY es una suscripción mensual sencilla, que se cobra después de tus 3 días hábiles para cancelar.`,
       points: [
-        "Sin cuota de inscripción, y nada cuando las cartas solo están preparadas",
+        "Sin cuota de inscripción; con Complete, nada cuando las cartas solo están preparadas",
         "Lo máximo que pagarás, por escrito antes de firmar",
         "3 días hábiles para cancelar sin costo; después, terminas el servicio cuando quieras",
       ],
@@ -950,7 +950,7 @@ const es: SiteCopy = {
       points: [
         { title: "Ves cada carta", body: "A quién fue, la fecha en que se envió y la fecha en que llegó." },
         { title: "Sabes lo máximo que pagarás", body: "Queda escrito en tu acuerdo antes de firmar, y en tu pantalla de pagos." },
-        { title: "Pagas después del trabajo", body: "Cada cobro paga cartas ya enviadas. Nada antes." },
+        { title: "Sabes cuándo pagas", body: `${brand} Complete: cada cobro llega justo después de enviar tus cartas, nunca antes. ${brand} DIY: una suscripción mensual sencilla.` },
         { title: "Sin promesas", body: "Nadie puede prometer lo que decidirá un buró. Ten cuidado con quien lo haga." },
       ],
     },
@@ -973,13 +973,13 @@ const es: SiteCopy = {
   },
   pricing: {
     eyebrow: "Precios",
-    title: "No se cobra nada hasta que el trabajo está hecho",
-    lead: "La ley federal dice que una empresa de reparación de crédito no puede cobrar antes de hacer el trabajo. Nuestro sistema de cobros está hecho para que no pueda.",
+    title: "Dos opciones, precios claros",
+    lead: `${BRAND.name} Complete se cobra cada mes justo después de enviar tus cartas, nunca antes. La ley federal dice que una empresa de reparación de crédito no puede cobrar antes del trabajo. Nuestros cobros están hechos para que no pueda. ${BRAND.name} DIY es una suscripción mensual sencilla, que se cobra después de tus 3 días hábiles para cancelar.`,
     plansTitle: "Planes",
     noPlans: "Los planes y los precios se explican antes de que firmes.",
-    noPlansSub: "Una persona del equipo repasa el plan contigo. Queda escrito en tu acuerdo, con lo máximo que pagarás. No se cobra nada hasta que el trabajo está hecho.",
+    noPlansSub: `Una persona del equipo repasa el plan contigo. Queda escrito en tu acuerdo, con lo máximo que pagarás. ${brand} Complete se cobra cada mes justo después de enviar tus cartas. ${brand} DIY es una suscripción mensual sencilla, después de tus 3 días hábiles para cancelar.`,
     planMost: "Lo máximo que pagarás",
-    rulesTitle: "Cómo funciona cada cobro",
+    rulesTitle: `Cómo funciona cada cobro de ${BRAND.name} Complete`,
     rules: [
       { title: "Después del trabajo, siempre", body: "Un cobro paga una ronda de cartas ya enviada. Nunca al firmar, y nunca por cartas que solo están preparadas." },
       { title: "Sin cuota de inscripción", body: "No hay cuota de apertura, inscripción ni activación. Si un plan tiene cuota de primer trabajo, espera a que salga tu primera ronda." },
@@ -996,7 +996,7 @@ const es: SiteCopy = {
     cancel: [
       "Tienes 3 días hábiles después de firmar para cancelar sin costo.",
       "Después, puedes terminar el servicio cuando quieras, desde la app o por escrito. Terminar no cuesta nada.",
-      "Pagas solo por el trabajo ya hecho por completo antes de que recibamos tu solicitud.",
+      `Con ${BRAND.name} Complete pagas solo por el trabajo ya hecho por completo antes de que recibamos tu solicitud. Con ${BRAND.name} DIY no se cobra ningún mes nuevo después.`,
     ],
   },
   how: {
@@ -1075,15 +1075,15 @@ const es: SiteCopy = {
       },
       {
         q: "¿Cuánto cuesta?",
-        a: "Nuestro equipo te explica el plan antes de que firmes, y queda escrito en tu acuerdo con lo máximo que pagarás. Cada cobro paga trabajo ya hecho.",
+        a: `Nuestro equipo te explica el plan antes de que firmes, y queda escrito en tu acuerdo con lo máximo que pagarás. Con ${brand} Complete, cada cobro paga trabajo ya hecho; ${brand} DIY es una suscripción mensual sencilla.`,
       },
       {
         q: "¿Cuándo me cobran?",
-        a: "Solo después del trabajo: por ejemplo, después de enviar una ronda de cartas. Nunca al firmar, y nunca más de una vez cada 30 días.",
+        a: `Con ${brand} Complete, cada mes justo después de enviar tus cartas: nunca al firmar, y nunca más de una vez cada 30 días. ${brand} DIY es una suscripción mensual sencilla, que se cobra después de tus 3 días hábiles para cancelar.`,
       },
       {
         q: "¿Hay cuota de inscripción o de apertura?",
-        a: "No. Si un plan tiene cuota de primer trabajo, se cobra solo después de enviar tu primera ronda de cartas.",
+        a: `No. Si un plan de ${brand} Complete tiene cuota de primer trabajo, se cobra solo después de enviar tu primera ronda de cartas.`,
       },
       {
         q: "¿Por qué necesito monitoreo de crédito?",
@@ -1091,7 +1091,7 @@ const es: SiteCopy = {
       },
       {
         q: "¿Puedo cancelar?",
-        a: "Sí. Tienes 3 días hábiles después de firmar para cancelar sin costo. Después puedes terminar el servicio cuando quieras; pagas solo el trabajo ya hecho.",
+        a: `Sí. Tienes 3 días hábiles después de firmar para cancelar sin costo. Después puedes terminar el servicio cuando quieras. Con ${brand} Complete pagas solo el trabajo ya hecho; con ${brand} DIY no se cobra ningún mes nuevo.`,
       },
       {
         q: "¿Cuánto tarda?",
@@ -1171,7 +1171,7 @@ const es: SiteCopy = {
     rules: [
       { title: "Sin promesas", body: "Decimos lo que hacemos, nunca lo que decidirá un buró. Los resultados varían." },
       { title: "Tú decides", body: "Solo lo que tú nos dices que es inexacto entra en una carta. Nadie marca nada por ti." },
-      { title: "Pagas después del trabajo", body: "Cada cobro paga trabajo ya hecho, hasta lo máximo que pagarás." },
+      { title: "Cobros claros", body: `${brand} Complete: cada cobro paga trabajo ya hecho, hasta lo máximo que pagarás. ${brand} DIY: una suscripción mensual sencilla.` },
       { title: "Mostrarlo todo", body: "Cada carta y cada fecha, en tu app." },
       { title: "Tu idioma", body: "Inglés o español, en el mismo sitio y la misma app." },
     ],

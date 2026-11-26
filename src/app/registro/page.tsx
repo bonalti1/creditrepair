@@ -4,7 +4,7 @@ import { softPullProvider } from "@/lib/credit/softPull";
 import { inRequestLocale } from "@/lib/i18n/server";
 import { SIGNUP_COPY } from "@/lib/signup/copy";
 import { SITE_COPY } from "@/lib/site/copy";
-import { publicPlans } from "@/lib/site/plans";
+import { monitoringNote, optionPrices, publicPlans } from "@/lib/site/plans";
 
 // /registro: sign up in one chat with Alti, the AI assistant
 // (docs/SIGNUP-CHAT.md). One more way in, beside /onboarding, /acuerdo and
@@ -21,10 +21,12 @@ export async function generateMetadata() {
 }
 
 export default async function Registro() {
-  const [en, es] = await Promise.all([publicPlans("en"), publicPlans("es")]);
+  const [en, es, pricesEn, pricesEs] = await Promise.all([publicPlans("en"), publicPlans("es"), optionPrices("en"), optionPrices("es")]);
   return (
     <SignupChat
       plans={{ en, es }}
+      optionPrices={{ en: pricesEn, es: pricesEs }}
+      monitoringNote={{ en: monitoringNote("en"), es: monitoringNote("es") }}
       rules={{ en: [...SITE_COPY.en.pricing.rules], es: [...SITE_COPY.es.pricing.rules] }}
       callsEnabled={callsEnabled()}
       softPullProvider={softPullProvider().id}

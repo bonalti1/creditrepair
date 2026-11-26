@@ -52,6 +52,31 @@ The home screen says how much: **«Esta semana el sistema resolvió N cosas
 por su cuenta»**, with the count of each kind under «Resuelto solo»
 (`autopilot_resolutions`, migration 0022).
 
+## The two service options in the console
+
+Each client has an option (`docs/SERVICE-OPTIONS.md`): **Complete** (the team
+prepares and mails) or **DIY** (the client prints and mails). A badge says
+which on the client list (filter «Opción de servicio», `?opcion=diy`), the
+client page, «Listas para enviar» and the send screen.
+
+- A DIY client is not round work: their stage is «Con el cliente» while the
+  letters are theirs to mail, and no full-service notice is raised for them.
+  They show in «Necesita una persona» when they ask a question.
+- **«Envíenlas por mí»**: the letters a DIY client paid us to mail appear in
+  «Listas para enviar» with only those letters. They go only by the mail
+  service, never the office print (the print view leaves them out and says
+  why). Capability `diy.mail_requests` (admin and specialist).
+- **DIY follow-up** (`diy_followup`): letters prepared 14 days ago and not
+  marked mailed. A gentle follow-up for sales (capability `options.followup`,
+  admin and sales): one message asking if they need help, Complete mentioned
+  without pressure.
+- Numbers by option: clients on the home screen, collected on «Facturas»,
+  revenue on the accounting dashboard, active/signed/charged on «Negocio».
+- `/equipo/planes`: every plan belongs to one option; each option has its
+  own default.
+- `/equipo/invitar`: «La opción que quiere», with «Todavía no decide» by
+  default and both options side by side as the client sees them.
+
 ## Credalti Control: Overview, Today, Leads, phone alerts
 
 The owner's control center is in `docs/CONTROL.md`. In short:
@@ -160,38 +185,72 @@ for that notice (the rule in `stage.ts` or `intake/exceptions.ts`, the button,
 what the autopilot already tried). Folded under each item in the queue, open in
 focus mode and in the help panel. A test fails if a kind has no card.
 
-**«¿Qué hago aquí?»** in the top bar of every staff screen opens the help for
-that screen (`SCREEN_HELP`) with the cards that matter there.
+**«Ask Alti»** in the top bar of every section (and Alti at the foot of the
+side menu) opens Alti's panel; its first tab, «This screen», is the help for
+that screen («¿Qué hago aquí?», `SCREEN_HELP`) with the cards that matter
+there (see «The console's design system» below).
 
 ## Navigation and the phone
 
-`src/components/staff/StaffShell.tsx`.
+`src/components/staff/StaffShell.tsx`, the groups in `src/lib/staff/nav.ts`.
+The console is laid out like **ALTO Control**, the owner's control center at
+his other company, in Credalti's brand (the whole system is in «The console's
+design system» below).
 
-- **768 px and wider:** one compact top bar: Inicio, Resumen (Overview),
-  Prospectos (Leads, for administrators and sales), Clientes, Respuestas, and
-  «Más» (Contenido and Contabilidad first, then Invitar, Acreedores,
-  Actividad, Piloto automático, Negocio, Socios, Equipo, Cartas, Alertas al
-  teléfono, Mi perfil, Bienvenida, each only for the roles that may open it),
-  then search, «¿Qué hago aquí?» and the member's
-  initial. With five tabs (Credalti Control, `docs/CONTROL.md`) the tabs show
-  their names from 1280 px and their icons alone below (the name on hover and
-  for screen readers); search and help are icons (Ctrl/Cmd+K still opens
-  search). One line from 768 to any desktop width (checked at 768, 1024, 1280,
-  1440, 1536 and 1920, in both languages).
-- **Phone:** logo, help and initial on top; a bottom tab bar like the client
-  app's (Inicio, Resumen, Prospectos, Clientes, Respuestas, Más, each for the
-  roles that may open it); «Más» opens a sheet.
+- **768 px and wider: a navy side menu** with the white logo, "Control" and
+  ten **numbered groups** in the order the business works (`NAV_GROUPS`,
+  ALTO's GROUPS): **0 Overview** (Resumen) · **1 My day** (Inicio, Actividad)
+  · **2 Marketing** (Contenido, Estudio de video, Anuncios, Webinars, SEO, Reseñas) · **3 Lead Manager** (Prospectos, Chats en vivo, Invitar) ·
+  **4 Fulfillment & Clients** (Clientes, Respuestas, Piloto automático,
+  Llamadas, Importar de CRC; the send and print screens belong here too) · **5 Payments &
+  Accounting** (Contabilidad, Facturas, Planes, Monitoreo) · **6 Letters & Rules**
+  (Cartas, Acreedores, Estados) · **7 Partners** (Socios, Ofertas) ·
+  **8 Ideas & numbers** (Negocio, Ideas: `docs/IDEAS.md`) · **9 Team &
+  Settings** (Listo para lanzar, for administrators: `docs/LAUNCH.md`;
+  Equipo, Alertas al teléfono, Mi perfil, Bienvenida). A group shows only when the role may open
+  one of its pages (the same `needs` as `PRIMARY_NAV` / `MORE_NAV`, which stay
+  the list of destinations and their capabilities), and opens on the first of
+  them; a group with two or more shows them as **sub-tabs** under the top bar.
+  The menu folds to icons (folded by default below 1280 px and, like
+  ALTO's, on Lead Manager; the member's choice is remembered in this browser). At its foot: **Alti** ("Alti · AI
+  assistant", opens his panel) and the member (name, role; the menu opens the
+  language switch, the profile and sign out).
+- **The top bar** of every section: its name (Poppins capitals after ALTO's
+  gold bar), **«✓ Clear»** when the section has a red circle, **search**
+  (Ctrl/Cmd+K), the demo pill, and **«Ask Alti»**.
+- **Red circles** (`src/lib/staff/navBadges.ts`): how many things need the
+  member in a group, from the Overview's own «Needs you» counts, never a count
+  of their own. The shell works out My day (the work queue), Leads (waiting +
+  handed over), Fulfillment (client questions) and Money (payment notices) on
+  any page (`BadgeProbe`: the same `overviewCards` on the same clients, queue
+  and lead list, through the member's own connection); the Overview adds
+  Content, the books and Partners when it opens; Marketing also counts the
+  ads marked "Turn off" that are still spending (`ads.view`, its own source,
+  added on top, `docs/ADS.md`), and the Video Studio's own count (videos
+  waiting for approval, changes asked, approved videos to hand over) is added
+  to it on any page (`lib/video/badge.ts`); Lead Manager also counts the
+  signup chats where a person asked for a human and nobody has joined yet
+  (`leads.work`, its own source «chats», polled every 30 seconds; see
+  «Live chats» below). Unknown means no circle.
+  «✓ Clear» (and «Clear all notifications») hides a circle for this member in
+  this browser until its number goes up; it changes no record.
+- **Phone:** the check, the section's short name, search and Alti's face on
+  top; a **navy bottom bar** with four sections (the groups of the everyday
+  destinations first: My day, Overview, Leads, Clients for an administrator)
+  and «More», each with its red circle (More shows a red dot when a section
+  under it needs the member); **«More» opens a navy sheet** with every
+  section, its number, its one-line purpose or, in red, what needs the member
+  there, plus search, «Clear all notifications», and the member (language,
+  profile, sign out). An open lead conversation takes the whole phone screen.
 - The demo's «Ver como» bar scrolls away with the page.
-- At 390 px every staff screen checked (home, focus mode, client page,
-  conversation, send screen, import preview, clients, saved answers, profile,
-  dashboard, welcome) has no sideways scroll, and every control is at least
-  44 px tall on a phone, except links and buttons inside a sentence (WCAG
-  2.5.8's inline exception).
+- At 390 px every staff screen checked has no sideways scroll, and every
+  control is at least 44 px tall on a phone, except links and buttons inside
+  a sentence (WCAG 2.5.8's inline exception).
 - «Cartas» (`/equipo/cartas`, the letter template editor) is behind the
   capability `letters.edit`, administrators only.
 - **Search** (`src/lib/staff/search.ts`, `components/staff/GlobalSearch.tsx`):
-  the box in the top bar, Ctrl+K / Cmd+K anywhere, and «Buscar» at the top of
-  the phone's «Más» sheet. Pages, clients by name or phone (only the ones the
+  the search button in the top bar (an icon on a phone), Ctrl+K / Cmd+K
+  anywhere, and «Buscar» at the top of the phone's «Más» sheet. Pages, clients by name or phone (only the ones the
   member's role may see: the same list, and with a database the same row level
   security, as the clients screen), partners, letter templates and actions
   ("send rounds", "import report", "import rosa" for that client's importer).
@@ -200,10 +259,128 @@ that screen (`SCREEN_HELP`) with the cards that matter there.
 - **The client page has two tabs**: «Caso» and «Reportes» (every report in
   the file, with what it changed, and Open / Print / Download; see
   `src/lib/reports/history.ts`). `?pestana=reportes` opens the second.
+- **The client page** opens with the journey strip (lead → finished), and
+  carries the client's notification settings (read-only), their credit
+  monitoring (record a check) and their documents (open, accept, or not
+  accepted with the reason the client reads). How a client goes through
+  Credalti, step by step: `docs/FULFILLMENT.md`.
+
+## The console's design system
+
+The owner asked for the console to look and feel like ALTO Control, with
+Credalti's colours, logo, fonts and Alti. ALTO Control (Vite + React +
+Tailwind + one CSS file, `tradetechpro/src/control/` in the ALTO repository)
+was run locally with fake providers and screenshotted; what follows is its
+system as Credalti uses it. Tokens and utilities: the console block at the end
+of `src/app/globals.css` (scoped to `.console`, so the client app and the
+website keep their own look); shared pieces: `src/components/staff/ui.tsx`.
+
+**Layout.** One light world: the light background `#F5F6F8` (slate-50), white
+cards, a **navy side menu** (brand navy `#12213A`, white logo, "Control" in
+spaced Poppins capitals after a gold dash, "Operations center · team
+console"), a white top bar with a hairline under it, and the page in a padded
+column (16 px on a phone, 28 px from 768 px; no centred max width, like ALTO).
+No dark mode: ALTO is light only, and so is the console (the navy menu is its
+one dark surface).
+
+**Navigation model.** Numbered groups (0–9) with a red circle each, sub-tabs
+per group, a top bar with the section's name and its helper (see «Navigation
+and the phone»).
+
+**«Ask Alti» (ALTO's per-tab bot, TabBot).** `src/components/staff/AskAlti.tsx`,
+rules in `src/lib/staff/altiHelp.ts`. ALTO's bot is a chat with its own
+access; Credalti's helper never writes an answer of its own and sends
+nothing. A panel on the right (a sheet from the bottom on a phone), headed by
+Alti's face and **"Alti · AI assistant"** (`aiByline`), with three tabs:
+**This screen** (the screen's help and its «How to handle it» cards: what
+«¿Qué hago aquí?» showed), **What Alti does here** (the AI features that
+already exist in this section and the role may use, each with where it lives
+and who has the last word: drafted replies to clients, saved answers he sends
+by himself, the lead drafts and the lead autopilot, the content writing
+assistant; tagged "A draft · a person sends it", "Approved text only",
+"Off until an administrator turns it on", "Words only"), and **Search the
+playbook** (the team's written cards, screen help and house rules, found by
+words; nothing generated, so `src/lib/compliance/guardrails.ts` and the
+drafts' own checks stay the only path for AI words). Tested in
+`consoleShell.test.ts`.
+
+**Alti in the console.** At the foot of the side menu and in «Ask Alti»; on
+the Overview, waving (`AltiWaveLoop`, a still for reduced motion) on the navy
+band with "Alti · AI assistant" over his greeting; beside every lead message
+he wrote and on his drafts (the byline on top); in empty states, with a pose
+that fits (`EmptyState` in `ui.tsx`: thumbs up or celebrate when nothing is
+waiting, thinking when a filter finds nothing, phone or envelope when a list
+is still empty). In an empty state he is a picture beside words a person
+wrote and does not speak. AltiBot never appears in the console
+(`brand.test.ts`).
+
+**Spacing and radii.** Cards 14 px corners; inner boxes, inputs and buttons
+10–12 px; pills and chips fully round. Card padding 16–20 px; gaps 14–20 px
+between cards; 6 px between pills.
+
+**Shadows.** Cards: a 1 px navy line at 8 % plus `0 1px 2px` and
+`0 6px 20px` at 5 % (ALTO's `--shadow`); navy bands a little deeper. Panels
+and sheets: a large soft shadow and a navy shade behind.
+
+**Cards.** White, the line and shadow above. A department card's title is
+Poppins capitals with its section's number ("3 · LEADS & SALES") and an icon
+tile; up to four numbers show as big figures in a two-column grid (Poppins
+26 px), longer lists as rows with the figure on the right. The Overview and
+Home open with a **navy band** (ALTO's KPI band): the day's work in gold, the
+other figures in white on navy, each opening its screen.
+
+**Tables.** Heads small (11.5 px), capitals, spaced, slate on a pale band;
+rows separated by hairlines; figures tabular.
+
+**Badges and pills.** **Red circle** (red-600, white figures, 22 px; a ring
+pings on the side menu, still for reduced motion) = how many need you. **«Needs
+you»** on a card: a white pill with the red circle and a chevron; **"✓ Clear"**
+(green) when it is zero; "—" when it is not known. Status chips: a dot in the
+chip's own colour before the word (ALTO's pill). Sub-tabs and filter chips: navy
+filled when on, white with a line (gold on hover) when off (`pillTab`).
+
+**Buttons.** One gold button per region (gold with navy text, `PRIMARY_BUTTON`),
+the others white with a slate line that turns gold on hover; 10 px corners;
+48 px tall for the main action, 44 px for the rest on a phone.
+
+**Typography.** Poppins 600 for titles: the page title 24 px (22 on a phone,
+`page-title`), the section's name on the top bar 20 px in spaced capitals,
+labels 12.5 px spaced capitals (`console-label`). Inter for everything else,
+14–15 px body, 12–13 px secondary. Figures tabular.
+
+**Icons.** The product's line icons (`Icon.tsx`, 1.75 px stroke, round joins),
+18–23 px in navigation, inside a 36–40 px rounded tile on cards and in the
+phone's sheet; on navy the active one turns gold.
+
+**Density.** ALTO is dense on a laptop (three cards across at 1440 px, the
+menu always in view) and roomy on a phone (one column, 44 px targets).
+
+**Shared pieces added in the final pass** (`ui.tsx`, docs/AUDIT.md): `DemoNote`
+(the one demo/sample note under a department's header: pale gold, the info
+icon, «Demo» in bold, the sentence, and «Reset the example» where the
+department keeps its own), `Switch` (every on/off switch: navy when on, a
+44 px target on a phone) and `BACK_LINK` («‹ Back» on every inner page).
+
+**Empty and loading states.** Empty: Alti with a pose, a short title and what
+to do. A number that could not be read: "No data yet" and why, never a 0.
+Loading: the screen waits for its data rather than flashing zeros; a box that
+breaks shows "This part couldn't be shown" inside `SafeBoundary` only.
+
+**Colour rules kept.** Gold text only on navy (`data-on-navy`, checked by
+`tokens.test.ts`); navy for headings, links and active states on light; red
+only for "needs you" and errors; green for done. Focus: the navy 3 px ring on
+everything focusable. Motion: transforms and opacity only, off for reduced
+motion.
+
+**What ALTO has that the console does not copy:** its condensed display face
+(Barlow Condensed; Credalti's is Poppins), the bell for phone alerts in the
+top bar (Credalti's alerts are a page, `/equipo/alertas`), the environment pill
+(the demo pill stands in), and ALTO's bots' own access, jobs and chat (Alti
+only points at what exists).
 
 ## Accounting
 
-«Contabilidad» / «Accounting» (`/equipo/contabilidad`, under «Más») is the
+«Contabilidad» / «Accounting» (`/equipo/contabilidad`, section 5 «Payments & Accounting») is the
 accounting department, for the owner and administrators only (the capability
 `accounting`; specialists and sales see why they can't open it, and the
 routes and the database refuse them). Dashboard, the income ledger built from
@@ -313,7 +490,7 @@ Spanish words left in the English.
 
 ## Content
 
-«Contenido» (`/equipo/contenido`, under «Más») is the marketing hub: a board
+«Contenido» (`/equipo/contenido`, section 2 «Marketing») is the marketing hub: a board
 and a calendar of content pieces (videos, carousels, stories, WhatsApp
 statuses, partner flyers, emails), each checked against the claim and brand
 rules as it is typed, with a checklist before approval, Alti's writing
@@ -323,6 +500,82 @@ turns it on), results, the brand kit and the partner kit. Specialists make
 content (`content.edit`); only an administrator approves (`content.approve`)
 and connects accounts (`content.publish`); sales sees the brand kit and the
 approved partner material only (`content.share`). See `docs/CONTENT.md`.
+
+## Ads
+
+«Anuncios» / «Ads» (`/equipo/anuncios`, section 2 «Marketing», after
+Content) is the Ads Manager: Meta ads, read only, beside the leads and signed
+clients they really brought (Meta's numbers and Credalti's verified ones,
+each labelled), the winners, every campaign → ad set → ad with a verdict from
+rules written on the screen, one ad's drawer (its creative, every number, its
+leads, what to do), «What to make next», Alti's ad copy drafts (AI, checked
+against the claim rules and a credit-repair ad checklist, sent to Content or
+Video Studio), and Meta's spend beside the books as a reconciliation
+suggestion. The numbers are administrators' (`ads.view`); the content team
+drafts ad copy (`ads.draft`); sales sees none of it. Nothing there changes
+Meta. See `docs/ADS.md`.
+## Webinars
+
+«Webinars» (`/equipo/webinars`, section 2 «Marketing», after Ads and before
+SEO) runs the live classes: the public registration page (`/webinar/<slug>`,
+English and Spanish, Texas served, other states to learn, Georgia never),
+the automatic reminders (1 week, 1 day, 1 hour, live, the replay, follow-ups
+on day 2 and day 5; WhatsApp or email, never SMS, quiet hours, opt-out,
+dedupe), attendance (Zoom's CSV or by hand), the **live console** for the
+moderator (counters, copy-paste chat messages, the run-of-show timer with the
+three calls to action, the messages and leads coming in), and the printable
+host script with the two-package pitch. Its tab «Campaigns & cost per
+client» is the owner's scorecard: spend, the funnel, CAC two ways with the
+formula on screen, each client's value (money collected under the money
+rule, IdentityIQ commissions, later purchases, DIY → Complete upgrades),
+split by package. Every role sees the webinars (`webinars.view`); only an
+administrator creates them (`webinars.manage`) and sees the campaigns
+(`campaigns.view`); registrants' phones and emails are for members who work
+leads. The Overview shows a compact «Next webinar» card. See `docs/WEBINARS.md`.
+
+## Live chats
+
+«Chats en vivo» / «Live chats» (`/equipo/chats`, section 3 «Lead Manager»,
+`leads.work`): people who asked, in Alti's signup chat (`/registro`), to talk
+with someone. The chat shows its case reference, step, state and language;
+«Join the chat» puts the member in it (the person sees "Ana from the
+Credalti team joined", and every message of theirs is labelled
+"Ana · Credalti team"); Alti pauses while a person is in and comes back with
+«Hand back to Alti». Each reply passes `checkStaffReply`, on the screen and
+again on the server. Polled every few seconds (no realtime in the app). See
+`docs/SIGNUP-CHAT.md`, «A person joins the chat».
+
+## SEO
+
+«SEO» (`/equipo/seo`, section 2, a sub-tab between Content and Reviews) is how
+the public website gets found: **Site health** (the server reads its own
+public pages, robots.txt and the sitemap and lists each check as pass or fix,
+with why and how; no score, no keys needed), **Guides** (articles in English
+and Spanish at `/guias/<slug>`, drafted by Alti or a person, every legal fact
+with an official source, the claim rules and an SEO checklist, published only
+by an administrator), **Search Console** (read-only clicks, impressions and
+position once the owner connects it; a «Connect» card until then),
+**Keywords & ideas** (Texas phrases tied to their pages, and content gaps that
+become briefs) and **Local SEO** (Google Business Profile and the business's
+details, with who ticked what). Administrators and specialists see and write
+(`seo.view`, `seo.edit`); only an administrator publishes (`seo.publish`);
+sales has no SEO. Guides waiting for approval or sent back, and checks to
+fix, add to section 2's red count. Ask Alti lists «Draft a guide for the
+website» there. See `docs/SEO.md`.
+## Video Studio
+
+«Estudio de video» / «Video Studio» (`/equipo/video`, section 2, right after
+Content) plans, edits and checks short videos and ads in the browser: a
+board (Planned → Editing → Ready for approval → Approved → Handed to
+Content), briefs from the Ads Manager (`?brief=`), Alti's script-and-shots
+draft, an editor (trim, split, order, crop or fit, words and lower thirds,
+captions, the locked logo, intro and end cards, Alti with his label, music
+from the rights-checked library) that exports H.264/AAC MP4s with
+ffmpeg.wasm, the check and checklist before approval, and the hand-off that
+gives the approved MP4 to a Content piece for posting. Specialists make videos
+(`content.edit`); only an administrator approves (`content.approve`); sales
+does not see it. Its «Needs you» is added to the Content group's red circle.
+See `docs/VIDEO.md`.
 
 ## What is not done
 

@@ -40,8 +40,8 @@ export default function ConstruirPage() {
         <h1 className="font-display text-[30px] font-bold leading-tight text-blue-700">{es ? "Construye tu crédito" : "Build your credit"}</h1>
         <p className="mt-2 text-[16px] leading-relaxed text-slate-600">
           {es
-            ? "Hábitos que cuentan en tu historial, en orden según tu reporte y tu meta. Es gratis, y lo puedes empezar hoy."
-            : "Habits that count in your history, in order for your report and your goal. It is free, and you can start today."}
+            ? "Hábitos que cuentan en tu historial, en orden según tu reporte y tu meta. No tiene costo, y lo puedes empezar hoy."
+            : "Habits that count in your history, in order for your report and your goal. It costs nothing, and you can start today."}
         </p>
       </header>
 

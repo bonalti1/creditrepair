@@ -1,9 +1,11 @@
+import type { LeadFunnel } from "../live/stages";
+
 // The lead inbox's records (migration 0034), as the console reads them. One
 // lead per prospect conversation, keyed by the phone. Pure types, shared by
 // the server (inboxServer.ts), the demo (demo.ts) and the screens.
 
 /** Where a lead first came from. First touch wins: never overwritten. */
-export const LEAD_SOURCES = ["whatsapp", "highlevel", "partner", "signup_chat", "manual", "household"] as const;
+export const LEAD_SOURCES = ["whatsapp", "highlevel", "partner", "signup_chat", "manual", "household", "crc_import", "live"] as const;
 export type LeadSourceKind = (typeof LEAD_SOURCES)[number];
 
 /** The stages a PERSON may put a lead in. */
@@ -28,6 +30,10 @@ export interface LeadFirstTouch {
   partnerCode?: string | null;
   /** The chat signup's case reference ("CR-7KQ4M"). */
   caseRef?: string | null;
+  /** The Meta ad it came from, when a tagged link, a click-to-WhatsApp ad or a form said so (docs/ADS.md). */
+  ad?: { adId?: string | null; adsetId?: string | null; campaignId?: string | null; fbclid?: boolean; via?: "link" | "ctwa" | "form" | null } | null;
+  /** The live funnel's origin (docs/LIVE-FUNNEL.md: a keyword, a /live link, a comment hand-off). */
+  funnel?: { tag?: string | null; keyword?: string | null; src?: string | null; platform?: string | null } | null;
 }
 
 export interface Lead {
@@ -66,6 +72,8 @@ export interface Lead {
   signup?: { caseRef: string; step: string; wantsPerson: boolean } | null;
   /** The newest automatic hand-off that no person has answered yet. */
   handoff?: { at: string; reason: HandoffReason } | null;
+  /** The live funnel (docs/LIVE-FUNNEL.md): where they came from and their stage. No credit data. */
+  funnel?: LeadFunnel | null;
 }
 
 /** A message in the conversation. */

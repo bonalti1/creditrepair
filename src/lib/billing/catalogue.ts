@@ -1,5 +1,7 @@
+import type { ServiceOption } from "../service/options";
 import {
   canMoveTo,
+  planOption,
   PLAN_TEXT_VERSION,
   planTermsHash,
   validatePlanTerms,
@@ -135,13 +137,14 @@ export function planRetire(all: PlanVersion[], id: string, now: Date): Catalogue
   return { ok: true, value: { ...plan, status: "retired", retiredAt: now.toISOString(), isDefault: false } };
 }
 
-/** The plan offered to clients who were not offered another one. */
+/** The plan offered to clients of its option who were not offered another one. One default per option (migration 0042). */
 export function planSetDefault(all: PlanVersion[], id: string): CatalogueResult<PlanVersion[]> {
   const plan = all.find((p) => p.id === id);
   if (!plan || plan.status !== "active") return fail("Only an offered plan can be the default.", "Solo un plan ofrecido puede ser el predeterminado.");
+  const option = planOption(plan.terms);
   return {
     ok: true,
-    value: all.filter((p) => p.isDefault || p.id === id).map((p) => ({ ...p, isDefault: p.id === id })),
+    value: all.filter((p) => planOption(p.terms) === option && (p.isDefault || p.id === id)).map((p) => ({ ...p, isDefault: p.id === id })),
   };
 }
 
@@ -153,10 +156,15 @@ export function planDiscard(all: PlanVersion[], id: string): CatalogueResult<Pla
   return { ok: true, value: plan };
 }
 
-/** The plan a client is offered: the one staff chose for them, else the default. */
-export function offeredPlan(all: PlanVersion[], chosenId: string | null = null): PlanVersion | null {
-  const chosen = chosenId ? all.find((p) => p.id === chosenId && p.status === "active") : null;
-  return chosen ?? all.find((p) => p.isDefault && p.status === "active") ?? null;
+/**
+ * The plan a client is offered: the one staff chose for them, else the
+ * default, both for the client's option (Credalti Complete or Credalti DIY).
+ * A plan for the other option is never offered.
+ */
+export function offeredPlan(all: PlanVersion[], chosenId: string | null = null, option: ServiceOption = "full_service"): PlanVersion | null {
+  const ofOption = all.filter((p) => p.status === "active" && planOption(p.terms) === option);
+  const chosen = chosenId ? ofOption.find((p) => p.id === chosenId) : null;
+  return chosen ?? ofOption.find((p) => p.isDefault) ?? null;
 }
 
 // ── The demo's catalogue ────────────────────────────────────────────────
@@ -185,7 +193,7 @@ export function demoCatalogue(now: Date = new Date()): PlanVersion[] {
     make(
       "demo-plan-per-round",
       "per-round",
-      { en: "Standard per round", es: "Estándar por ronda" },
+      { en: "Credalti Complete · per round", es: "Credalti Complete · por ronda" },
       { ...base, type: "per_round", recurringCents: 8900, duration: { kind: "rounds", count: 6 }, householdDiscountPercent: 15 },
       "active",
       true,
@@ -193,14 +201,14 @@ export function demoCatalogue(now: Date = new Date()): PlanVersion[] {
     make(
       "demo-plan-monthly",
       "monthly",
-      { en: "Monthly", es: "Mensual" },
-      { ...base, type: "subscription", firstWorkFeeCents: 9900, recurringCents: 7900, duration: { kind: "months", count: 8 }, householdDiscountPercent: 10 },
+      { en: "Credalti Complete · monthly", es: "Credalti Complete · mensual" },
+      { ...base, type: "subscription", firstWorkFeeCents: 9900, recurringCents: 7900, duration: { kind: "months", count: 8 }, householdDiscountPercent: 10, periodTiming: "on_mailing" },
       "active",
     ),
     make(
       "demo-plan-flat",
       "flat-3-rounds",
-      { en: "Flat fee, 3 rounds", es: "Tarifa fija, 3 rondas" },
+      { en: "Credalti Complete · flat fee, 3 rounds", es: "Credalti Complete · tarifa fija, 3 rondas" },
       { ...base, type: "flat_fee", recurringCents: 0, flat: { totalCents: 49900, rounds: 3, schedule: "installments" }, duration: { kind: "rounds", count: 3 } },
       "active",
     ),
@@ -210,6 +218,23 @@ export function demoCatalogue(now: Date = new Date()): PlanVersion[] {
       { en: "Pay per delete", es: "Pago por punto que ya no aparece" },
       { ...base, type: "pay_per_delete", recurringCents: 5000, duration: { kind: "indefinite" }, maxTotalCents: 60000 },
       "draft",
+    ),
+    // The other option (migration 0042): a monthly subscription from the start, after the cancellation window.
+    make(
+      "demo-plan-diy",
+      "diy-monthly",
+      { en: "Credalti DIY · monthly", es: "Credalti DIY · mensual" },
+      {
+        ...base,
+        type: "diy_subscription",
+        recurringCents: 3900,
+        dueRule: { kind: "after_cancellation_window" },
+        duration: { kind: "indefinite" },
+        maxTotalCents: 46800,
+        mailFeeCents: 400,
+      },
+      "active",
+      true,
     ),
   ];
 }

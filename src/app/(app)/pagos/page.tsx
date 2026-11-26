@@ -13,13 +13,14 @@ import { chargeStanding, type ChargeStanding } from "@/lib/billing/dunning";
 import { achAuthorization } from "@/lib/billing/achAuthorization";
 import { DEMO_BANK_TOKEN_OK, DEMO_BANK_TOKEN_RETURNS, DEMO_TOKEN_OK } from "@/lib/billing/gateway";
 import { collectedCents, invoiceNumber, invoiceStatus, statementMonths, type InvoiceStatus } from "@/lib/billing/invoices";
-import { mostYoullPay, planSummary, PLAN_TYPE_LABEL } from "@/lib/billing/plans";
+import { mostYoullPay, periodTiming, planSummary, PLAN_TYPE_LABEL } from "@/lib/billing/plans";
 import { chargedTowardCap } from "@/lib/billing/rules";
 import { unitWork } from "@/lib/billing/schedule";
 import HostedFields from "@/components/billing/HostedFields";
 import { acceptedCardsLine, brandFromIin, cardBrandMessage, CARD_BRAND_NAME, normalizeBrand } from "@/lib/billing/cardBrands";
 import { TEST_CARDS, testCardBrand, testCardLine } from "@/lib/ux/testCards";
 import { PLAN_COPY } from "@/lib/ux/billingPlanCopy";
+import { useServiceOption } from "@/lib/service/useServiceOption";
 import { billingOutlook } from "@/lib/billing/outlook";
 import { receiptFor, workLine, workLineWithoutLetters, type Receipt } from "@/lib/billing/receipts";
 import { billingDate, billingDay, formatCents } from "@/lib/billing/rules";
@@ -168,6 +169,8 @@ export default function PagosPage() {
   const { locale } = useLocale();
   const c = BILLING_COPY[locale];
   const { view, hydrated, addMethod, removeMethod, setScenario } = useBilling();
+  // The client's option (docs/SERVICE-OPTIONS.md): Credalti DIY is a subscription, not paid per round of work.
+  const { option } = useServiceOption();
   const [now, setNow] = useState<Date | null>(null);
   const [adding, setAdding] = useState(false);
   const [accepted, setAccepted] = useState(false);
@@ -214,6 +217,9 @@ export default function PagosPage() {
   const canAdd = view.canAddMethod && (view.simulated || view.hostedFields !== null);
   const plan = context.plan ?? null;
   const p = PLAN_COPY[locale];
+  // Credalti DIY (docs/SERVICE-OPTIONS.md): a subscription from the end of the window; mailings are separate from its cap.
+  const isDiyPlan = plan ? plan.terms.type === "diy_subscription" : option === "diy";
+  const towardCap = isDiyPlan ? account.charges.filter((ch) => ch.unit === "diy_period") : account.charges;
   const statements = statementMonths(context, now, locale);
   const shownAuthorization = kind === "ach" && ach ? ach : authorization;
   const amountOf = (charge: BillingCharge) => (showAmounts ? formatCents(charge.amountCents) : c.feeOfAgreement);
@@ -291,7 +297,7 @@ export default function PagosPage() {
 
         <header className="px-1">
           <h1 className="font-display text-[30px] font-bold leading-tight text-blue-700">{c.title}</h1>
-          <p className="mt-2 text-[16px] leading-relaxed text-slate-600">{c.lead}</p>
+          <p className="mt-2 text-[16px] leading-relaxed text-slate-600">{isDiyPlan ? p.diyLead : c.lead}</p>
         </header>
 
         {(view.demo || view.simulated) && (
@@ -330,9 +336,13 @@ export default function PagosPage() {
                 {outlook.client[locale]}
               </p>
             )}
-            {plan ? (
+            {plan || isDiyPlan ? (
               <p className={`text-[15px] leading-relaxed text-slate-600 ${failed ? "" : "mt-2"}`} data-testid="fee-line">
-                {p.onlyAfterWork}
+                {isDiyPlan
+                  ? p.diyOnly
+                  : plan && plan.terms.type === "subscription" && periodTiming(plan.terms) === "on_mailing"
+                    ? `${p.onlyAfterWork} ${p.onMailing}`
+                    : p.onlyAfterWork}
               </p>
             ) : (
               <>
@@ -357,10 +367,10 @@ export default function PagosPage() {
                 {formatCents(plan.effective.maxTotalCents)}
               </p>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
-                <div className="h-full rounded-full bg-amber-400" style={{ width: `${Math.min(100, (chargedTowardCap(account.charges) / Math.max(1, plan.effective.maxTotalCents)) * 100)}%` }} />
+                <div className="h-full rounded-full bg-amber-400" style={{ width: `${Math.min(100, (chargedTowardCap(towardCap) / Math.max(1, plan.effective.maxTotalCents)) * 100)}%` }} />
               </div>
-              <p className="mt-1.5 text-[14px] text-slate-600">{p.chargedSoFar(formatCents(chargedTowardCap(account.charges)), formatCents(plan.effective.maxTotalCents))}</p>
-              <p className="mt-2 text-[14px] leading-relaxed text-slate-600">{p.mostNote}</p>
+              <p className="mt-1.5 text-[14px] text-slate-600">{p.chargedSoFar(formatCents(chargedTowardCap(towardCap)), formatCents(plan.effective.maxTotalCents))}</p>
+              <p className="mt-2 text-[14px] leading-relaxed text-slate-600">{isDiyPlan ? p.diyMostNote : p.mostNote}</p>
               {plan.terms.type === "pay_per_delete" && <p className="mt-2 text-[14px] leading-relaxed text-slate-600">{p.perDelete}</p>}
               <p className="mt-2 text-xs text-slate-500">
                 {PLAN_TYPE_LABEL[plan.terms.type][locale]} · v{plan.version}
@@ -412,7 +422,7 @@ export default function PagosPage() {
                             <button
                               type="button"
                               onClick={() => setPrinting({ kind: "receipt", id: charge.id })}
-                              className="pressable mt-3 flex h-10 items-center justify-center rounded-full bg-white px-4 text-[14px] font-semibold text-slate-900"
+                              className="pressable mt-3 flex h-11 items-center justify-center rounded-full bg-white px-4 text-[14px] font-semibold text-slate-900"
                             >
                               {c.print}
                             </button>
@@ -501,7 +511,7 @@ export default function PagosPage() {
                   </p>
                 ) : (
                   <>
-                    {!account.paymentMethod && <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{c.methodNoCharge}</p>}
+                    {!account.paymentMethod && <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{isDiyPlan ? p.diyMethodNoCharge : c.methodNoCharge}</p>}
                     <button type="button" onClick={openForm} data-testid="method-open" className={`${account.paymentMethod ? SECONDARY : PRIMARY} mt-4`}>
                       {account.paymentMethod ? c.methodReplace : c.methodAdd}
                     </button>
@@ -562,7 +572,7 @@ export default function PagosPage() {
                     ))}
                   </div>
                 )}
-                {kind === "ach" && <p className="mt-2 text-[14px] leading-relaxed text-slate-600">{p.methodBankWhy}</p>}
+                {kind === "ach" && <p className="mt-2 text-[14px] leading-relaxed text-slate-600">{isDiyPlan ? p.diyMethodBankWhy : p.methodBankWhy}</p>}
                 <p className="mt-4 text-[13px] font-semibold uppercase tracking-wide text-slate-500">{c.formStepAuthorization}</p>
                 {view.draft && (
                   <p role="note" className="mt-2 rounded-2xl bg-amber-100 px-4 py-2.5 text-[13px] leading-snug text-blue-900" data-testid="authorization-draft">
@@ -663,7 +673,7 @@ export default function PagosPage() {
                 <button type="button" onClick={() => setAdding(false)} className={`${SECONDARY} mt-2.5`}>
                   {c.formCancel}
                 </button>
-                <p className="mt-3 text-center text-[13px] leading-snug text-slate-500">{c.methodNoCharge}</p>
+                <p className="mt-3 text-center text-[13px] leading-snug text-slate-500">{isDiyPlan ? p.diyMethodNoCharge : c.methodNoCharge}</p>
               </div>
             )}
             {!adding && error && (
@@ -700,7 +710,7 @@ export default function PagosPage() {
               <button
                 type="button"
                 onClick={() => setPrinting({ kind: "authorization" })}
-                className="pressable mt-4 flex h-10 items-center justify-center rounded-full bg-slate-100 px-4 text-[14px] font-semibold text-slate-900"
+                className="pressable mt-4 flex h-11 items-center justify-center rounded-full bg-slate-100 px-4 text-[14px] font-semibold text-slate-900"
               >
                 {c.print}
               </button>
@@ -758,7 +768,7 @@ export default function PagosPage() {
                       setOpenReceipt(null);
                       window.scrollTo({ top: 0 });
                     }}
-                    className={`pressable inline-flex h-10 items-center rounded-full px-4 text-[14px] font-semibold ${
+                    className={`pressable inline-flex h-11 items-center rounded-full px-4 text-[14px] font-semibold ${
                       view.scenario === key ? "bg-blue-700 text-white" : "bg-slate-100 text-slate-900 hover:bg-slate-200"
                     }`}
                   >

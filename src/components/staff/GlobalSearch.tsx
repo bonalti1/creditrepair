@@ -177,14 +177,15 @@ export function SearchButton({ onOpen }: { onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      className="pressable hidden h-10 w-10 items-center justify-center gap-2 rounded-full bg-slate-100 text-left text-[14px] text-slate-500 hover:bg-slate-200 md:flex"
+      className="pressable hidden h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white text-left text-[13.5px] font-medium text-slate-600 hover:border-amber-500 hover:text-slate-900 md:flex lg:w-auto lg:justify-start lg:pl-3 lg:pr-1.5"
       aria-label={c.open}
       aria-keyshortcuts="Control+K Meta+K"
+      title={`${c.open} (${mac ? "⌘K" : "Ctrl K"})`}
       data-testid="search-button"
     >
       <Icon name="search" size={16} className="shrink-0" />
       <span className="sr-only">{c.open}</span>
-      <kbd className="hidden shrink-0 rounded-md bg-white px-1.5 py-0.5 font-sans text-[11px] font-semibold text-slate-500 shadow-sm">{mac ? "⌘K" : "Ctrl K"}</kbd>
+      <kbd className="hidden shrink-0 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-sans text-[11px] font-semibold text-slate-600 lg:inline">{mac ? "⌘K" : "Ctrl K"}</kbd>
     </button>
   );
 }

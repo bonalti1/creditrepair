@@ -317,7 +317,7 @@ function EntryCard({
         </button>
       </div>
       <details className="group mt-2">
-        <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[13px] font-medium text-blue-700 [&::-webkit-details-marker]:hidden">
+        <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-[13px] font-medium text-blue-700 md:min-h-0 [&::-webkit-details-marker]:hidden">
           <Icon name="clock" size={14} />
           {t("Historial", "History")} ({entry.history.length})
         </summary>
@@ -406,7 +406,7 @@ function AddressBook() {
     <main className="animate-rise">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Acreedores", "Creditors")}</h1>
+          <h1 className="page-title">{t("Acreedores", "Creditors")}</h1>
           <p className="mt-1 max-w-2xl text-[15px] leading-relaxed text-slate-500">
             {t(
               "A dónde se envían las cartas a acreedores y agencias de cobranza. Solo se usa una dirección comprobada en una fuente y con fecha; la que trae el reporte de crédito no se usa.",

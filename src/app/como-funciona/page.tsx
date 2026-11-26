@@ -7,6 +7,7 @@ import { CheckList, Container, CtaGroup, Lead, PageHero, SectionTitle } from "@/
 import { requestLocale } from "@/lib/i18n/server";
 import { SITE_COPY } from "@/lib/site/copy";
 import { siteMetadata } from "@/lib/site/seo";
+import OptionsSection from "@/components/site/OptionsSection";
 
 // /como-funciona: the whole journey as a scroll story, with screens of the
 // real app (its demo mode, sample data, taken at 390 px and 2x in each
@@ -65,6 +66,9 @@ export default async function HowItWorks() {
             </div>
           </Container>
         </section>
+
+        {/* The two options: who does what, help, price and when you pay (docs/SERVICE-OPTIONS.md). */}
+        <OptionsSection locale={locale} />
 
         {/* After the letters: the after-care features (docs/AFTERCARE.md), truthfully: general guidance in the app. */}
         <section aria-labelledby="after" className="py-14 sm:py-20">

@@ -3,6 +3,13 @@
 The software is finished as far as it can go without real accounts. This is
 the list of what only the owner can do, with the messages already written.
 
+**The checklist, checked:** once the database is on, open
+`/equipo/lanzamiento` («Listo para lanzar», administrators only). It shows how
+many required items are ready, the next three things to do, what is blocked by
+what, and a system health view, from the real settings (only "set" or "not
+set", never a key), the database, the scheduled jobs' heartbeats and your own
+ticks for what the software cannot know. See `docs/LAUNCH.md`.
+
 **One rule about keys:** every key and password below goes into the hosting
 settings (Render → your service → Environment), under the exact
 name shown. Never paste a key into a chat or an email.
@@ -77,14 +84,16 @@ name shown. Never paste a key into a chat or an email.
 >    should the two businesses be related, if at all?
 > 7. **Texas registration and bond.** We expect to need them as a credit
 >    services organization. Please confirm, and in whose name.
-> 8. **The agreement and the fee.** What the service agreement must disclose,
+> 8. **The agreement and the fee (Credalti Complete).** What the service agreement must disclose,
 >    the 3-business-day right to cancel, and when the monthly fee may be
 >    charged so that nothing is charged before the service it pays for.
 > 9. **Letters in the client's name.** Our staff prepares and mails them. What
 >    must the client sign for that? (The letter packet asks this in detail.)
 > 10. **Billing plans.** We offer plans like Credit Repair Cloud's (monthly for
 >    a month in which letters were mailed, per round, flat fee in installments,
->    pay per deleted item), each charged only after the work. The questions,
+>    pay per deleted item), each charged only after the work (Credalti Complete; Credalti DIY is a
+>    monthly subscription after the 3-business-day window, per
+>    `docs/SERVICE-OPTIONS.md`). The questions,
 >    plan by plan, are in `docs/BILLING.md`; each plan's contract text needs
 >    your approval, as do the card and the bank-debit (ACH) authorizations.
 
@@ -116,7 +125,7 @@ Also set, with no account needed:
 | `NEXT_PUBLIC_MONITORING_SIGNUP_URL` | The partner link from IdentityIQ (when you have it) |
 | `NEXT_PUBLIC_MONITORING_PRICE` | The price on that link's checkout page, for example `$31.49` |
 | `MONITORING_PROVIDER` | Leave empty until report reading is built |
-| `NEXT_PUBLIC_SERVICE_MODE` | Leave empty: that is full service, where the team prepares and mails the letters. `self_serve` brings back the version where the client approves and sends their own letters; it is kept for later. |
+| `NEXT_PUBLIC_DIY_AGREEMENT_APPROVED_VERSION` | Only to offer Credalti DIY: the DIY agreement version, set after the attorney approves it (`docs/SERVICE-OPTIONS.md`). The old `NEXT_PUBLIC_SERVICE_MODE` is retired: each client chooses Credalti Complete or Credalti DIY. |
 
 ### The service agreement
 
@@ -165,7 +174,8 @@ In short:
 
 ## Step 4 — Check it
 
-Ask the developer (or Claude) to open `https://YOUR-APP/api/health` with the
+Open `/equipo/lanzamiento`: every item should say Ready. For the same check
+from outside the console, ask the developer (or Claude) to open `https://YOUR-APP/api/health` with the
 header `x-webhook-secret`. It lists every integration as set or missing, checks
 the database tables, and says whether the app is ready for customers. It never
 shows a key.

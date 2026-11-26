@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cancellationDeadline } from "../agreement/businessDays";
-import { AGREEMENT_VERSION, disclosureHash, documentHash, type AgreementLocale } from "../agreement/documents";
+import { agreementVersionFor, disclosureHash, documentHash, type AgreementLocale } from "../agreement/documents";
 import { canCancelWithoutPenalty } from "../agreement/gate";
 import { agreementReadiness, type AgreementMode } from "../agreement/readiness";
 import { agreementDocumentsFor, type StateDocumentsStatus } from "../agreement/stateDocuments";
 import { EMPTY_AGREEMENT, normalizeAgreement, type AgreementState } from "../agreement/record";
-import { resolveTerms, withPlan } from "../agreement/terms";
+import { resolveTerms, withOption, withPlan } from "../agreement/terms";
+import { readStoredOption, writeStoredOption } from "../service/optionLocal";
+import { optionOfTerms, parseServiceOption, type ServiceOption } from "../service/options";
 import { demoOfferedPlan } from "../billing/planData";
 import { readPlanSnapshot, type PlanSnapshot } from "../billing/plans";
 import { readStoredAgreement, writeStoredAgreement } from "./agreementLocal";
@@ -34,6 +36,10 @@ interface ServerStatus {
   readiness?: { mode: AgreementMode; canSign: boolean; version: string; stateDocuments?: { state: string; status: StateDocumentsStatus } };
   /** The plan the client would sign (billing/plans.ts), or null when the catalogue has none. */
   plan?: unknown;
+  /** The option whose agreement is shown (migration 0042). */
+  option?: unknown;
+  /** They chose the other option after signing: its agreement waits for their signature. */
+  switchPending?: boolean;
 }
 
 async function post(path: string, body: unknown): Promise<{ status: number; data: Record<string, unknown> }> {
@@ -67,6 +73,11 @@ export function useAgreement() {
   /** The plan the client is offered: the server's answer when signed in, the demo catalogue's default otherwise. */
   const [plan, setPlan] = useState<PlanSnapshot | null>(null);
   const planRef = useRef<PlanSnapshot | null>(null);
+  /** The option whose agreement is shown and signed: Credalti Complete or Credalti DIY. */
+  const [option, setOption] = useState<ServiceOption>("full_service");
+  const optionRef = useRef<ServiceOption>("full_service");
+  /** During a switch: the agreement still in force, for the other option. */
+  const [previous, setPrevious] = useState<AgreementState | null>(null);
   const synced = useRef(false);
 
   const store = useCallback((next: AgreementState | null) => {
@@ -89,11 +100,28 @@ export function useAgreement() {
           if (data.readiness?.stateDocuments) setStateDocuments(data.readiness.stateDocuments);
           planRef.current = readPlanSnapshot(data.plan);
           setPlan(planRef.current);
-          store(normalizeAgreement(data.agreement));
+          optionRef.current = parseServiceOption(data.option) ?? "full_service";
+          setOption(optionRef.current);
+          const record = normalizeAgreement(data.agreement);
+          // A switch not yet acknowledged: the signed agreement (other option) is the previous one; the new flow starts.
+          if (data.switchPending && record?.signedAt && !record.cancelledAt) {
+            setPrevious(record);
+            store(null);
+          } else {
+            store(record);
+          }
         } else {
-          planRef.current = demoOfferedPlan();
+          const stored = readStoredOption();
+          optionRef.current = stored.chosen ?? stored.signed ?? "full_service";
+          setOption(optionRef.current);
+          planRef.current = demoOfferedPlan(optionRef.current);
           setPlan(planRef.current);
-          setAgreement(local);
+          if (local?.signedAt && !local.cancelledAt && optionOfTerms(local.terms) !== optionRef.current) {
+            setPrevious(local);
+            setAgreement(null);
+          } else {
+            setAgreement(local);
+          }
           // The demo: the state chosen in onboarding, on this device.
           const state = readDemoState();
           setStateDocuments(agreementDocumentsFor(state));
@@ -102,7 +130,10 @@ export function useAgreement() {
       })
       .catch(() => {
         if (cancelled) return;
-        planRef.current = demoOfferedPlan();
+        const stored = readStoredOption();
+        optionRef.current = stored.chosen ?? stored.signed ?? "full_service";
+        setOption(optionRef.current);
+        planRef.current = demoOfferedPlan(optionRef.current);
         setPlan(planRef.current);
         setAgreement(local);
       })
@@ -130,7 +161,8 @@ export function useAgreement() {
   /** Step 1: "I received it and read it", with consent to electronic records. */
   const acknowledge = useCallback(
     async (locale: AgreementLocale): Promise<AgreementActionResult> => {
-      const terms = withPlan(resolveTerms(), planRef.current);
+      const terms = withOption(withPlan(resolveTerms(), planRef.current), optionRef.current);
+      const AGREEMENT_VERSION = agreementVersionFor(optionRef.current);
       if (synced.current) {
         try {
           return fromServer(
@@ -154,7 +186,8 @@ export function useAgreement() {
   /** Step 2: the typed signature. */
   const sign = useCallback(
     async (fullName: string, locale: AgreementLocale): Promise<AgreementActionResult> => {
-      const terms = withPlan(resolveTerms(), planRef.current);
+      const terms = withOption(withPlan(resolveTerms(), planRef.current), optionRef.current);
+      const AGREEMENT_VERSION = agreementVersionFor(optionRef.current);
       const hash = documentHash(AGREEMENT_VERSION, locale, terms);
       if (synced.current) {
         try {
@@ -185,6 +218,9 @@ export function useAgreement() {
         documentHash: hash,
         terms,
       });
+      // The demo: the option is now the one signed; a switch replaces the previous agreement on this device.
+      writeStoredOption({ chosen: optionRef.current, signed: optionRef.current });
+      setPrevious(null);
       return { ok: true };
     },
     [fromServer, store],
@@ -223,5 +259,5 @@ export function useAgreement() {
     if (!synced.current) store(null);
   }, [store]);
 
-  return { agreement, hydrated, signedIn, profileName, mode, plan, stateDocuments, acknowledge, sign, cancel, resetDemo };
+  return { agreement, hydrated, signedIn, profileName, mode, plan, stateDocuments, acknowledge, sign, cancel, resetDemo, option, previous };
 }

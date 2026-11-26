@@ -189,6 +189,16 @@ export const PLAYBOOK: Record<ExceptionKind, PlaybookCard> = {
     ],
     doneWhen: "El cliente confirmó una dirección que el correo reconoce; la ronda sale sola.",
   },
+  diy_followup: {
+    title: EXCEPTION_LABEL.diy_followup,
+    steps: [
+      "Credalti DIY: Alti preparó las cartas del cliente hace 14 días o más y no las marcó como enviadas. El cliente envía sus propias cartas.",
+      "Escríbele una vez por WhatsApp para preguntar si necesita ayuda para imprimirlas o enviarlas. Si quiere que nos encarguemos, menciona Credalti Complete, sin presión.",
+      "Nunca le digas qué marcar ni prometas resultados. Si dice que no, respétalo: no insistas.",
+      "Marca «Atendido» y deja una nota con lo que dijo.",
+    ],
+    doneWhen: "El cliente respondió, marcó sus cartas como enviadas, pidió «Envíenlas por mí» o eligió cambiar de opción.",
+  },
 };
 
 const PLAYBOOK_EN: Record<ExceptionKind, PlaybookCard> = {
@@ -345,6 +355,16 @@ const PLAYBOOK_EN: Record<ExceptionKind, PlaybookCard> = {
     ],
     doneWhen: "The client confirmed an address the post office recognizes; the round goes out on its own.",
   },
+  diy_followup: {
+    title: EXCEPTION_LABEL_EN.diy_followup,
+    steps: [
+      "Credalti DIY: Alti prepared the client's letters 14 days ago or more and they haven't marked them as mailed. The client mails their own letters.",
+      "Message them once on WhatsApp to ask whether they need help printing or mailing them. If they'd like us to handle it, mention Credalti Complete, with no pressure.",
+      "Never tell them what to mark or promise results. If they say no, respect it: don't insist.",
+      "Mark it “Handled” and leave a note with what they said.",
+    ],
+    doneWhen: "The client answered, marked their letters as mailed, asked for “Mail them for me” or chose to change option.",
+  },
 };
 
 /** Every card, in each language. */
@@ -384,8 +404,8 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
   },
   "/equipo/clientes": {
     title: "Clientes",
-    what: "La lista de clientes que te tocan, con su etapa y quién hace lo siguiente.",
-    steps: ["Busca por nombre o teléfono.", "Filtra por etapa con los chips de arriba.", "Toca un nombre para abrir su caso."],
+    what: "La lista de clientes que te tocan, con su etapa, su opción (Complete o DIY) y quién hace lo siguiente.",
+    steps: ["Busca por nombre o teléfono.", "Filtra por etapa o por opción.", "Toca un nombre para abrir su caso.", "Un cliente DIY imprime y envía sus cartas; solo trabajas su caso cuando pregunta algo o pide «Envíenlas por mí»."],
     playbooks: [],
   },
   "/equipo/clientes/": {
@@ -396,6 +416,7 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
       "«Necesita una persona»: los avisos de este cliente.",
       "«Conversación»: lo que habló con la app. Si te hizo una pregunta, hay una respuesta guardada o un borrador para revisar y enviar.",
       "Las respuestas del reporte son del cliente: tú las lees, no las cambias.",
+      "Arriba, el camino del cliente: en qué paso está. A la derecha: sus avisos (cómo quiere que le escribamos), su monitoreo de crédito y sus documentos, donde aceptas uno o pides otro con el motivo que él lee.",
     ],
     playbooks: ["question_waiting", "documents_missing", "review_stalled", "letter_returned", "identity_theft_report_missing"],
   },
@@ -412,7 +433,12 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
   "/equipo/enviar": {
     title: "Enviar rondas",
     what: "Antes de que salga una carta ves a dónde va, cómo va (normal o certificada) y cuánto cuesta.",
-    steps: ["Revisa la dirección de cada carta.", "Cambia la clase de envío solo si hace falta.", "Confirma. Las reglas (acuerdo, reporte vigente, direcciones) se revisan otra vez al enviar."],
+    steps: [
+      "Revisa la dirección de cada carta.",
+      "Cambia la clase de envío solo si hace falta.",
+      "Confirma. Las reglas (acuerdo, reporte vigente, direcciones) se revisan otra vez al enviar.",
+      "Un cliente DIY con «Envíenlas por mí» trae solo las cartas que pidió y pagó por carta: salen solo por el servicio de correo, nunca impresas aquí.",
+    ],
     playbooks: ["furnisher_address_missing", "report_stale"],
   },
   "/equipo/imprimir": {
@@ -445,9 +471,31 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     steps: ["Elige el periodo arriba.", "Toca «?» para ver cómo se cuenta cada número."],
     playbooks: [],
   },
+  "/equipo/ideas": {
+    title: "Ideas",
+    what: "Ideas para mejorar el negocio, las pruebas que se hacen con ellas y lo que enseñó cada una. Cualquiera agrega; un administrador aprueba y decide.",
+    steps: [
+      "Agrega la idea: qué cambiar, por qué, el número que debería moverse y el esfuerzo.",
+      "Un administrador la aprueba, empieza la prueba con su duración y al final decide si se queda o se descarta, con lo que se aprendió.",
+      "En «Propuestas de Alti», un administrador le pide ideas a Alti y agrega al tablero las que valgan la pena. Nada se hace solo.",
+      "Antes de agregar una idea, busca en «Aprendizajes»: quizás ya se probó.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/lanzamiento": {
+    title: "Listo para lanzar",
+    what: "Todo lo que tiene que estar listo antes del primer cliente real, qué ya está, qué falta y quién lo hace. Solo para administradores. Nunca muestra una clave.",
+    steps: [
+      "Arriba: cuántos pasos obligatorios están listos, lo siguiente por hacer y qué está detenido.",
+      "Abre cada paso: por qué importa, el siguiente paso exacto y dónde están las instrucciones.",
+      "Lo que el sistema no puede saber (la sesión con el abogado, la prueba completa) lo marcas tú; queda quién y cuándo.",
+      "En «Salud del sistema», revisa cada servicio y cada tarea programada; «Revisar ahora» hace una pregunta inofensiva.",
+    ],
+    playbooks: [],
+  },
   "/equipo/socios": { title: "Socios", what: "Las personas y negocios que refieren clientes, y sus comisiones.", steps: ["Revisa solicitudes nuevas.", "Solo un administrador aprueba y fija comisiones."], playbooks: [] },
   "/equipo/equipo": { title: "Equipo", what: "Quién está en el equipo y con qué rol.", steps: ["Agrega por correo o teléfono.", "Cambia el rol o desactiva; nadie se borra."], playbooks: [] },
-  "/equipo/invitar": { title: "Invitar", what: "El enlace de invitación que ventas le manda a un prospecto.", steps: ["Escribe su nombre y teléfono.", "Copia el mensaje y envíalo por WhatsApp."], playbooks: ["agreement_unsigned"] },
+  "/equipo/invitar": { title: "Invitar", what: "El enlace de invitación que ventas le manda a un prospecto.", steps: ["Escribe su nombre y teléfono.", "Si ya eligió una opción, márcala; si no, la elige en la app. Explica la diferencia si pregunta, sin empujar ninguna.", "Copia el mensaje y envíalo por WhatsApp."], playbooks: ["agreement_unsigned", "diy_followup"] },
   "/equipo/perfil": {
     title: "Tu perfil",
     what: "Tus datos, tu idioma, tu resumen de la mañana y tu lista del primer día.",
@@ -462,19 +510,60 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
   },
   "/equipo/cartas": { title: "Cartas", what: "Las plantillas de las cartas.", steps: ["Solo un administrador las edita."], playbooks: [] },
   "/equipo/contenido": { title: "Contenido", what: "Las piezas de marketing, de la idea a los resultados, con la revisión de cumplimiento y marca.", steps: ["Crea la pieza (en blanco, con plantilla o con Alti) y corrige lo que marque la revisión.", "Marca la lista y mándala a revisión; solo un administrador aprueba.", "Publícala (o prográmala) y agrega los resultados reales."], playbooks: [] },
+  // El Administrador de anuncios (docs/ADS.md).
+  "/equipo/anuncios": {
+    title: "Anuncios",
+    what: "Los anuncios de Meta, solo lectura: gasto, resultados y costo por resultado de Meta, junto a los prospectos y clientes firmados que de verdad trajeron (los nuestros). Cada anuncio tiene un veredicto con reglas escritas en la pantalla. Aquí nada cambia Meta.",
+    steps: [
+      "Elige las fechas (7, 14, 30 o 90 días, u otras) y mira primero el aviso rojo: un anuncio marcado «Apagar» que sigue gastando se apaga en el Administrador de anuncios de Meta.",
+      "Toca un anuncio para ver su video o imagen, cada número (de Meta y de Credalti), sus prospectos y qué hacer.",
+      "Mira «Qué hacer después»: lo que tienen en común los ganadores.",
+      "En «Textos con Alti», escribe el siguiente anuncio con Alti, corrige lo que marque la revisión y mándalo a Contenido o a Video Studio.",
+      "Cada mes, en «Gasto y libros», compara el gasto de Meta con los libros y registra el cargo de Meta con su recibo.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/seo": { title: "SEO", what: "Cómo encuentran el sitio: salud del sitio, guías, números de Search Console, frases seguidas y la lista local. Sin puntaje: cada revisión pasa o dice qué arreglar.", steps: ["Corre la revisión del sitio y arregla lo que liste, lo más importante primero.", "Escribe una guía (en blanco o con el borrador de Alti), da a cada dato legal una fuente oficial, marca la lista y mándala a aprobación; solo un administrador publica.", "Sigue las frases que importan (solo Texas), convierte los huecos de contenido en encargos, y avanza con el dueño la lista local."], playbooks: [] },
+  // Webinars y campañas (docs/WEBINARS.md).
+  "/equipo/webinars": {
+    title: "Webinars",
+    what: "Las clases en vivo: el registro público, los recordatorios automáticos (WhatsApp o correo, nunca SMS), la asistencia, la consola en vivo del moderador, el guion y, para el dueño, las campañas con su costo por cliente y el valor de cada cliente.",
+    steps: [
+      "Crea el webinar (título en inglés y español, quién lo da, fecha en hora de Texas, plataformas, palabra clave) y publícalo; comparte el enlace de registro.",
+      "El día del webinar, abre «Consola en vivo» en la laptop junto a la transmisión: copia los mensajes del chat, sigue el reloj y los tres momentos de invitación, y mira los mensajes que llegan.",
+      "Los contadores incluyen el embudo en vivo: reportes subidos en /live, videos enviados y vistos (Revisiones de reportes) y quién tocó «Empezar» en su video.",
+      "Después, pon el enlace de la repetición e importa el CSV de asistentes de Zoom (o marca a mano quién asistió).",
+      "En «Campañas», junta anuncios, webinars, palabras clave y fuentes orgánicas, y agrega los costos que no son de Meta: ahí ves el costo por cliente de dos formas y cuánto vale cada cliente.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/chats": {
+    title: "Chats en vivo",
+    what: "Las personas que, en el chat de registro con Alti, pidieron hablar con alguien. Entras al mismo chat, respondes con tu nombre, y Alti se pausa hasta que se lo devuelves.",
+    steps: [
+      "Abre el chat que espera (el número de caso va arriba) y toca «Entrar al chat»: la persona ve que entraste, con tu nombre.",
+      "Responde en el idioma de la persona. Cada respuesta pasa las mismas reglas que cualquier respuesta del equipo: sin promesas, sin precio, la persona decide qué está mal.",
+      "Nunca pidas el número de Seguro Social, una tarjeta ni documentos por el chat: la persona los sube en el registro.",
+      "Cuando termines, toca «Devolver a Alti»: Alti sigue con el registro.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/video": { title: "Estudio de video", what: "Videos cortos y anuncios, editados en este navegador: plan, edición, revisión, aprobación y paso a Contenido.", steps: ["Crea el video (o ábrelo desde un brief de Anuncios) y planea el guion y las tomas; Alti puede hacer un borrador.", "En el editor: sube los clips, recorta, pon textos, subtítulos, logo y música de la biblioteca; exporta el MP4.", "En «Revisión y aprobación»: corrige lo que marque, marca la lista y mándalo; solo un administrador aprueba.", "Ya aprobado, pásalo a Contenido: la pieza lo publica."], playbooks: [] },
   "/equipo/planes": {
     title: "Planes de cobro",
     what: "Los planes que se ofrecen a los clientes, como en Credit Repair Cloud, y la vista previa de cuándo se cobra.",
     steps: [
       "Guarda un borrador, envíalo al abogado y registra su aprobación; solo entonces se puede ofrecer.",
       "Un plan ofrecido no cambia: para cambiarlo, guarda una versión nueva. Quien ya firmó sigue con la suya.",
-      "No hay cuota de inscripción: la cuota de primer trabajo se cobra después de enviar la primera ronda.",
+      "No hay cuota de inscripción: en Credalti Complete, la cuota de primer trabajo se cobra después de enviar la primera ronda.",
+      "Cada plan es de una opción. Credalti Complete: nunca se cobra antes del trabajo; un plan mensual nuevo cobra justo después de enviar las cartas del mes. Credalti DIY: suscripción mensual desde el fin de los 3 días hábiles, más la cuota por carta si pide que enviemos.",
+      "Cada opción tiene su propio plan predeterminado.",
     ],
     playbooks: [],
   },
   "/equipo/cobros": {
     title: "Facturas y contracargos",
-    what: "Cada cobro es una factura. Filtra, exporta a CSV o a QuickBooks y registra contracargos.",
+    what: "Cada cobro es una factura. Filtra, exporta a CSV o a QuickBooks y registra contracargos. Debajo de los totales, lo cobrado por opción.",
     steps: ["Filtra por estado, método o fecha.", "Descarga el CSV que necesites.", "Ante un contracargo, abre el paquete de evidencia y envíalo al procesador."],
     playbooks: [],
   },
@@ -491,10 +580,96 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     steps: ["Empieza por «Esperando».", "Abre la conversación: «✨ Sugerir respuesta» o una respuesta guardada; léela y envíala.", "Pasado un día sin que escriba, solo se puede enviar la plantilla aprobada.", "Cuando esté listo, «Preparar su invitación». «Invitado» y «Firmó» se ponen solos."],
     playbooks: [],
   },
+  // The live funnel (docs/LIVE-FUNNEL.md).
+  "/equipo/revisiones": {
+    title: "Revisiones de reportes",
+    what: "Los reportes que los prospectos del webinar o de un anuncio subieron en /live, con el resumen para el equipo. Grabas un video corto y privado y se lo mandas. La persona decide.",
+    steps: [
+      "Abre la primera revisión lista y lee el resumen: números, lo que la ley le permite disputar, lo que notaron las revisiones de datos y el paquete que le puede quedar.",
+      "Toca «Grabar video»: comparte esta pestaña (la vista de grabación solo muestra a esta persona), enciende la cámara si quieres y sigue el guion de 2 a 5 minutos.",
+      "Revisa el video, recorta el inicio o el final si hace falta y súbelo.",
+      "Mándalo por WhatsApp con un toque (o por correo). Ves cuando lo abre, lo ve y toca «Empezar».",
+      "«Empezar» abre el registro con el paquete que eligió ya marcado (Complete o DIY); todavía puede elegir el otro. El webinar y sus campañas cuentan el video y el registro.",
+      "Si firma, toca «Importar como primer reporte». Si no firma, el reporte y su video se borran solos a los 30 días.",
+    ],
+    playbooks: [],
+  },
   "/equipo/alertas": {
     title: "Alertas al teléfono",
     what: "Tú eliges qué te avisa al teléfono. Todo empieza apagado.",
     steps: ["Enciende los temas que te tocan.", "Toca «Recibir alertas en este teléfono» y da permiso.", "Manda una prueba para ver cómo se ven."],
+    playbooks: [],
+  },
+  // Fulfillment (docs/FULFILLMENT.md).
+  "/equipo/importar": {
+    title: "Importar de Credit Repair Cloud",
+    what: "Pasa los clientes, prospectos y afiliados de CRC a Credalti desde su CSV. Las columnas de Seguro Social y fecha de nacimiento se quitan antes de todo y nunca se guardan.",
+    steps: [
+      "Elige qué importas (clientes, prospectos o afiliados) y sube el CSV de CRC.",
+      "Revisa las columnas que encontramos; cámbialas si alguna no es la correcta.",
+      "Mira la prueba: qué se crea, los duplicados (mismo teléfono o correo) y los problemas (fuera de Texas, sin teléfono…).",
+      "Importa. Cada persona queda como prospecto: envíale su invitación desde el registro para que firme el acuerdo de Credalti. Nada se cobra.",
+      "Si algo salió mal, «Deshacer» quita a los que todavía no fueron invitados.",
+    ],
+    playbooks: ["agreement_unsigned"],
+  },
+  "/equipo/contabilidad": {
+    title: "Contabilidad",
+    what: "Los libros del negocio, con números reales del cobro y lo que tú anotas: ingresos, gastos, banco, conciliación, cobranza, comisiones, informes e impuestos. Base de caja, hora de Texas.",
+    steps: [
+      "Empieza en el Tablero: la ganancia del mes, lo que se debe y los pagos fallidos.",
+      "Anota cada gasto con su recibo (los de $75 o más lo necesitan), o importa el estado de cuenta del banco.",
+      "Concilia el mes con la exportación del procesador de pagos.",
+      "Después del día 5, cierra el mes en Informes y descarga el archivo para el contador.",
+    ],
+    playbooks: ["payment_past_due"],
+  },
+  "/equipo/resenas": {
+    title: "Reseñas",
+    what: "Dónde los clientes dejan su reseña y cuándo se les pide: a todos igual, una sola vez, sin nada a cambio. Las respuestas a reseñas también se preparan aquí.",
+    steps: [
+      "Pon el enlace de cada sitio (Google, Trustpilot, BBB) y enciende los que uses.",
+      "Elige en qué momentos se pide: siempre los mismos para todos.",
+      "Anota la calificación que muestra cada sitio, copiada de su página.",
+      "Para responder una reseña, pega su texto y pide un borrador; léelo y corrígelo antes de publicarlo.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/estados": {
+    title: "Estados",
+    what: "Qué pide la ley de cada estado para vender ahí y el interruptor que lo abre. Hoy solo Texas está abierto.",
+    steps: [
+      "Elige un estado en el mapa para ver su ley, registro, fianza y cancelación.",
+      "Un estado se abre solo con el registro, la fianza y la revisión del abogado anotados.",
+      "Un estado sin abrir recibe la lista de espera, nunca prospectos ni registros.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/ofertas": {
+    title: "Ofertas de socios",
+    what: "Productos para construir crédito que el cliente puede ver al terminar. Opcionales, ordenados por lo que le cuestan, nunca por comisión.",
+    steps: [
+      "Revisa cada oferta: costo para el cliente, si acepta ITIN y si Credalti puede recibir un pago.",
+      "Antes de encenderlas, pide al abogado que revise las preguntas pendientes.",
+      "Enciende «Mostrar ofertas a los clientes» solo cuando estén listas.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/llamadas": {
+    title: "Llamadas",
+    what: "Las llamadas que un cliente o prospecto pidió con una persona, en los horarios del equipo.",
+    steps: ["Revisa las llamadas de hoy y quién las toma.", "Después de cada una, deja una nota con lo que se habló.", "Nada se cobra ni se firma por teléfono: todo pasa en la app."],
+    playbooks: [],
+  },
+  "/equipo/monitoreo": {
+    title: "Comisiones del monitoreo",
+    what: "Lo que paga el proveedor del monitoreo por los clientes inscritos con nuestro enlace, conciliado por cliente y mes, y pasado a los libros en un paso.",
+    steps: [
+      "Importa el CSV del estado de cuenta del proveedor, o registra una línea a mano.",
+      "Elige el cliente de cada línea que quedó sin cliente.",
+      "Revisa «Esperada, sin pago» y «Sin inscripción registrada»: actualiza el monitoreo del cliente o pregúntale al proveedor.",
+      "Escribe el día en que pagó el proveedor y toca «Pasar» para agregarlo a Contabilidad.",
+    ],
     playbooks: [],
   },
 };
@@ -513,8 +688,8 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
   },
   "/equipo/clientes": {
     title: "Clients",
-    what: "The list of clients that are yours, with their stage and who does the next thing.",
-    steps: ["Search by name or phone.", "Filter by stage with the chips at the top.", "Tap a name to open their case."],
+    what: "The list of clients that are yours, with their stage, their option (Complete or DIY) and who does the next thing.",
+    steps: ["Search by name or phone.", "Filter by stage or by option.", "Tap a name to open their case.", "A DIY client prints and mails their own letters; you only work their case when they ask something or ask \"Mail them for me\"."],
     playbooks: [],
   },
   "/equipo/clientes/": {
@@ -525,6 +700,7 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
       "“Needs a person”: this client's notices.",
       "“Conversation”: what they talked about with the app. If they asked you something, there's a saved answer or a draft to review and send.",
       "The answers on the report are the client's: you read them, you don't change them.",
+      "At the top, the client's journey: which step they're on. On the right: their notifications (how they want us to write), their credit monitoring and their documents, where you accept one or ask for another with the reason they read.",
     ],
     playbooks: ["question_waiting", "documents_missing", "review_stalled", "letter_returned", "identity_theft_report_missing"],
   },
@@ -541,7 +717,12 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
   "/equipo/enviar": {
     title: "Send rounds",
     what: "Before a letter goes out you see where it's going, how (regular or certified) and what it costs.",
-    steps: ["Check each letter's address.", "Change the mail class only if needed.", "Confirm. The rules (agreement, current report, addresses) are checked again when sending."],
+    steps: [
+      "Check each letter's address.",
+      "Change the mail class only if needed.",
+      "Confirm. The rules (agreement, current report, addresses) are checked again when sending.",
+      "A DIY client's \"Mail them for me\" brings only the letters they asked for and paid per letter: they go only by the mail service, never printed here.",
+    ],
     playbooks: ["furnisher_address_missing", "report_stale"],
   },
   "/equipo/imprimir": {
@@ -574,9 +755,31 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
     steps: ["Pick the period at the top.", "Tap “?” to see how each number is counted."],
     playbooks: [],
   },
+  "/equipo/ideas": {
+    title: "Ideas",
+    what: "Ideas to improve the business, the tests run on them and what each one taught. Anyone adds; an administrator approves and decides.",
+    steps: [
+      "Add the idea: what to change, why, the number it should move and the effort.",
+      "An administrator approves it, starts the test with its length, and at the end keeps or drops it, with what was learned.",
+      "In “Alti's proposals”, an administrator asks Alti for ideas and adds the worthwhile ones to the board. Nothing happens by itself.",
+      "Before adding an idea, search the learnings: it may have been tried already.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/lanzamiento": {
+    title: "Launch readiness",
+    what: "Everything that has to be ready before the first real client, what is done, what is missing and who does it. Administrators only. It never shows a key.",
+    steps: [
+      "On top: how many required items are ready, the next things to do, and what is blocked.",
+      "Open each item: why it matters, the exact next step and where the full steps are.",
+      "What the software can't know (the attorney's session, the test pass) you tick by hand; who and when are recorded.",
+      "In “System health”, look at each service and each scheduled job; “Check now” asks one harmless question.",
+    ],
+    playbooks: [],
+  },
   "/equipo/socios": { title: "Partners", what: "The people and businesses who refer clients, and their commissions.", steps: ["Review new applications.", "Only an administrator approves and sets commissions."], playbooks: [] },
   "/equipo/equipo": { title: "Team", what: "Who's on the team and with what role.", steps: ["Add people by email or phone.", "Change the role or deactivate; nobody gets deleted."], playbooks: [] },
-  "/equipo/invitar": { title: "Invite", what: "The invite link sales sends to a lead.", steps: ["Enter their name and phone.", "Copy the message and send it on WhatsApp."], playbooks: ["agreement_unsigned"] },
+  "/equipo/invitar": { title: "Invite", what: "The invite link sales sends to a lead.", steps: ["Enter their name and phone.", "If they already chose an option, mark it; if not, they choose in the app. Explain the difference if they ask, without pushing either.", "Copy the message and send it on WhatsApp."], playbooks: ["agreement_unsigned", "diy_followup"] },
   "/equipo/perfil": {
     title: "Your profile",
     what: "Your details, your language, your morning summary and your first-day list.",
@@ -591,19 +794,60 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
   },
   "/equipo/cartas": { title: "Letters", what: "The letter templates.", steps: ["Only an administrator edits them."], playbooks: [] },
   "/equipo/contenido": { title: "Content", what: "Marketing pieces, from the idea to the results, with the compliance and brand check.", steps: ["Create the piece (blank, from a template or with Alti) and fix what the check marks.", "Tick the checklist and send it for review; only an administrator approves.", "Post it (or schedule it) and add the real results."], playbooks: [] },
+  // The Ads Manager (docs/ADS.md).
+  "/equipo/anuncios": {
+    title: "Ads",
+    what: "Meta ads, read only: Meta's spend, results and cost per result, beside the leads and signed clients they really brought (our own records). Every ad gets a verdict from rules written on the screen. Nothing here changes Meta.",
+    steps: [
+      "Pick the dates (7, 14, 30 or 90 days, or custom) and look at the red notice first: an ad marked “Turn off” that is still spending is turned off in Meta Ads Manager.",
+      "Tap an ad to see its video or picture, every number (Meta's and Credalti's), its leads and what to do.",
+      "Read “What to make next”: what the winners have in common.",
+      "In “Ad copy”, draft the next ad with Alti, fix what the check marks and send it to Content or Video Studio.",
+      "Each month, in “Spend & books”, compare Meta's spend with the books and record Meta's charge from its receipt.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/seo": { title: "SEO", what: "How the website is found: site health, guides, Search Console numbers, tracked phrases and the local checklist. No score: each check passes or says what to fix.", steps: ["Run the site check and fix what it lists, most important first.", "Write a guide (blank or drafted by Alti), give every legal fact an official source, tick the checklist and send it for approval; only an administrator publishes.", "Track the phrases that matter (Texas only), turn content gaps into briefs, and work through the local to-dos with the owner."], playbooks: [] },
+  // Webinars and campaigns (docs/WEBINARS.md).
+  "/equipo/webinars": {
+    title: "Webinars",
+    what: "The live classes: the public registration page, the automatic reminders (WhatsApp or email, never SMS), attendance, the moderator's live console, the script and, for the owner, the campaigns with their cost per client and each client's value.",
+    steps: [
+      "Create the webinar (title in English and Spanish, the host, the date on Texas time, the platforms, the keyword) and publish it; share the registration link.",
+      "On the day, open “Live console” on the laptop beside the stream: copy the chat messages, follow the timer and the three call-to-action moments, and watch the messages coming in.",
+      "The counters include the live funnel: reports uploaded on /live, videos sent and watched (Report reviews) and who tapped “Get started” on their video.",
+      "Afterwards, add the replay link and import Zoom's attendee CSV (or mark by hand who attended).",
+      "In “Campaigns”, group ads, webinars, keywords and organic sources, and add the costs that are not Meta's: there you see the cost per client two ways and what each client is worth.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/chats": {
+    title: "Live chats",
+    what: "People who asked, in the signup chat with Alti, to talk with someone. You join the same chat, answer under your own name, and Alti pauses until you hand it back.",
+    steps: [
+      "Open the chat that is waiting (the case number is on top) and tap “Join the chat”: the person sees that you joined, with your name.",
+      "Answer in the person's language. Every reply passes the same rules as any team reply: no promises, no price, the person decides what is wrong.",
+      "Never ask for a Social Security number, a card or documents in the chat: the person uploads them in the signup.",
+      "When you are done, tap “Hand back to Alti”: Alti carries on with the signup.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/video": { title: "Video Studio", what: "Short videos and ads, edited in this browser: plan, edit, check, approval and hand-off to Content.", steps: ["Create the video (or open it from an Ads brief) and plan the script and shots; Alti can draft them.", "In the editor: upload the clips, trim, add words, captions, the logo and music from the library; export the MP4.", "In «Check & approve»: fix what it marks, tick the checklist and send it; only an administrator approves.", "Once approved, hand it to Content: the piece posts it."], playbooks: [] },
   "/equipo/planes": {
     title: "Billing plans",
     what: "The plans offered to clients, as in Credit Repair Cloud, with a preview of when each charge happens.",
     steps: [
       "Save a draft, send it to the attorney and record the approval; only then can it be offered.",
       "An offered plan never changes: to change it, save a new version. Clients who signed keep theirs.",
-      "There is no setup fee: the first work fee is charged after the first round is mailed.",
+      "There is no setup fee: under Credalti Complete, the first work fee is charged after the first round is mailed.",
+      "Each plan belongs to one option. Credalti Complete: never charged before the work; a new monthly plan charges right after that month's letters are mailed. Credalti DIY: a monthly subscription from the end of the 3 business days, plus the per-letter fee when they ask us to mail.",
+      "Each option has its own default plan.",
     ],
     playbooks: [],
   },
   "/equipo/cobros": {
     title: "Invoices and chargebacks",
-    what: "Every charge is an invoice. Filter, export to CSV or QuickBooks, and record chargebacks.",
+    what: "Every charge is an invoice. Filter, export to CSV or QuickBooks, and record chargebacks. Under the totals, what was collected by option.",
     steps: ["Filter by status, method or date.", "Download the CSV you need.", "For a chargeback, open the evidence pack and send it to the processor."],
     playbooks: [],
   },
@@ -620,10 +864,96 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
     steps: ["Start with “Waiting”.", "Open the conversation: “✨ Suggest reply” or a saved answer; read it and send it.", "A day after their last message, only the approved template can be sent.", "When they're ready, “Prepare invitation”. “Invited” and “Signed” set themselves."],
     playbooks: [],
   },
+  // The live funnel (docs/LIVE-FUNNEL.md).
+  "/equipo/revisiones": {
+    title: "Report reviews",
+    what: "The reports that leads from a webinar or an ad uploaded on /live, with the overview for the team. You record a short private video and send it to them. They decide.",
+    steps: [
+      "Open the first review that's ready and read the overview: the counts, what the law lets them dispute, what the data checks noticed and which package may fit.",
+      "Tap “Record video”: share this tab (the recording view shows only this person), turn the camera on if you like and follow the 2 to 5 minute script.",
+      "Watch it back, trim the start or the end if needed, and upload it.",
+      "Send it on WhatsApp with one tap (or by email). You see when they open it, watch it and tap “Get started”.",
+      "“Get started” opens the signup with the package they picked already marked (Complete or DIY); they can still choose the other. The webinar and its campaign count the video and the signup.",
+      "If they sign, tap “Import as the first report”. If they don't, the report and its video delete themselves after 30 days.",
+    ],
+    playbooks: [],
+  },
   "/equipo/alertas": {
     title: "Phone alerts",
     what: "You choose what pings your phone. Everything starts off.",
     steps: ["Turn on the topics that are yours.", "Tap “Get alerts on this phone” and allow it.", "Send a test to see how they look."],
+    playbooks: [],
+  },
+  // Fulfillment (docs/FULFILLMENT.md).
+  "/equipo/importar": {
+    title: "Import from Credit Repair Cloud",
+    what: "Moves CRC's clients, leads and affiliates into Credalti from its CSV. Social Security and date-of-birth columns are removed before anything else and never stored.",
+    steps: [
+      "Choose what you import (clients, leads or affiliates) and upload CRC's CSV.",
+      "Check the columns we found; change any that isn't right.",
+      "Look at the dry run: what will be created, the duplicates (same phone or email) and the problems (outside Texas, no phone…).",
+      "Import. Each person becomes a prospect: send their invitation from the log so they sign Credalti's agreement. Nothing is charged.",
+      "If something went wrong, “Undo” removes the people not invited yet.",
+    ],
+    playbooks: ["agreement_unsigned"],
+  },
+  "/equipo/contabilidad": {
+    title: "Accounting",
+    what: "The business's books, with real numbers from billing and what you enter: income, expenses, bank, reconciliation, collections, commissions, reports and taxes. Cash basis, Texas time.",
+    steps: [
+      "Start on the Dashboard: the month's profit, what is owed and the failed payments.",
+      "Record each expense with its receipt ($75 or more needs one), or import the bank statement.",
+      "Reconcile the month against the payment processor's export.",
+      "After the 5th, close the month in Reports and download the file for the accountant.",
+    ],
+    playbooks: ["payment_past_due"],
+  },
+  "/equipo/resenas": {
+    title: "Reviews",
+    what: "Where clients leave a review and when they are asked: everyone the same way, once, with nothing in exchange. Replies to reviews are drafted here too.",
+    steps: [
+      "Enter each site's link (Google, Trustpilot, BBB) and turn on the ones you use.",
+      "Pick the moments when the ask goes out: always the same for everyone.",
+      "Record the rating each site shows, copied from its page.",
+      "To reply to a review, paste its text and ask for a draft; read it and fix it before you post it.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/estados": {
+    title: "States",
+    what: "What each state's law asks before Credalti can sell there, and the switch that opens it. Today only Texas is open.",
+    steps: [
+      "Pick a state on the map to see its law, registration, bond and cancellation rules.",
+      "A state opens only once the registration, the bond and the attorney's review are recorded.",
+      "A state that isn't open gets the waitlist, never leads or signups.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/ofertas": {
+    title: "Partner offers",
+    what: "Credit-building products a client can see once they finish. Optional, ordered by what they cost the client, never by commission.",
+    steps: [
+      "Check each offer: its cost to the client, whether it accepts an ITIN, and whether Credalti may be paid.",
+      "Before turning them on, ask the attorney to review the open questions.",
+      "Turn on “Show offers to clients” only when they are ready.",
+    ],
+    playbooks: [],
+  },
+  "/equipo/llamadas": {
+    title: "Calls",
+    what: "The calls a client or lead asked to have with a person, in the team's hours.",
+    steps: ["Look at today's calls and who takes each one.", "After each call, leave a note with what was said.", "Nothing is charged or signed over the phone: everything happens in the app."],
+    playbooks: [],
+  },
+  "/equipo/monitoreo": {
+    title: "Monitoring commissions",
+    what: "What the monitoring provider pays for clients enrolled through our link, reconciled per client and month, and posted to the books in one step.",
+    steps: [
+      "Import the provider's statement CSV, or record a line by hand.",
+      "Choose the client for each line left without one.",
+      "Look at “Expected, not paid” and “No link enrollment on record”: update the client's monitoring or ask the provider.",
+      "Enter the day the provider paid and tap “Post” to add it to Accounting.",
+    ],
     playbooks: [],
   },
 };

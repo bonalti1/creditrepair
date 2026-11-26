@@ -3,6 +3,8 @@
 import { Suspense, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PLAN_TYPE_LABEL } from "@/lib/billing/plans";
+import { OPTION_NAME, SERVICE_OPTIONS } from "@/lib/service/options";
+import OptionBadge from "@/components/staff/OptionBadge";
 import { formatCents } from "@/lib/billing/rules";
 import {
   businessMetrics,
@@ -41,7 +43,7 @@ function Stat({ metric, value, note }: { metric: MetricKey; value: string; note?
         <p className="min-w-0 text-[13px] leading-snug text-slate-500">{info.label}</p>
         <Definition label={info.label} text={info.definition} />
       </div>
-      <p className="mt-1 text-[26px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">{value}</p>
+      <p className="mt-1 font-display text-[26px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">{value}</p>
       {note && <p className="mt-1.5 text-[12.5px] leading-snug text-slate-500">{note}</p>}
     </div>
   );
@@ -188,7 +190,7 @@ function Dashboard() {
     <main className="animate-rise">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Negocio", "Business")}</h1>
+          <h1 className="page-title">{t("Negocio", "Business")}</h1>
           <p className="mt-0.5 text-[14px] text-slate-500">
             {t("De los mismos registros que la consola. Toca «?» para ver cómo se cuenta cada número.", "From the same records as the console. Tap “?” to see how each number is counted.")}
           </p>
@@ -222,6 +224,34 @@ function Dashboard() {
           <Stat metric="ended" value={String(m.clients.ended)} />
           <Stat metric="churn" value={formatPercent(m.clients.churn)} />
         </StatGrid>
+        {/* The two service options (docs/SERVICE-OPTIONS.md). */}
+        <div className="card mt-3 overflow-x-auto" data-testid="business-by-option">
+          <table className="w-full min-w-[20rem] text-[14px]">
+            <caption className="sr-only">{t("Clientes y cobros por opción", "Clients and charges by option")}</caption>
+            <thead>
+              <tr className="border-b hairline text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th scope="col" className="px-5 py-2.5">{t("Opción", "Option")}</th>
+                <th scope="col" className="px-3 py-2.5 text-right">{t("Activos hoy", "Active today")}</th>
+                <th scope="col" className="px-3 py-2.5 text-right">{t("Firmaron", "Signed")}</th>
+                <th scope="col" className="px-3 py-2.5 pr-5 text-right">{t("Cobrado", "Charged")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {SERVICE_OPTIONS.map((o) => (
+                <tr key={o} className="border-b hairline last:border-b-0">
+                  <th scope="row" className="px-5 py-2.5 text-left font-medium text-slate-800">
+                    <span className="inline-flex items-center gap-2">
+                      <OptionBadge option={o} /> {OPTION_NAME[o][locale]}
+                    </span>
+                  </th>
+                  <td className="px-3 py-2.5 text-right tabular-nums text-slate-900">{m.clients.byOption[o].active}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums text-slate-900">{m.clients.byOption[o].signed}</td>
+                  <td className="px-3 py-2.5 pr-5 text-right tabular-nums text-slate-900">{formatCents(m.money.byOption[o])}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="mt-7" aria-labelledby="trabajo">
@@ -312,10 +342,10 @@ function Dashboard() {
               note={t(`${m.money.chargebacks} contracargos · aviso desde 0.75%`, `${m.money.chargebacks} chargebacks · warning from 0.75%`)}
             />
             <div className="flex min-w-0 flex-col justify-center gap-1.5 px-4 py-4 sm:px-5">
-              <a href="/equipo/cobros" className="text-[14px] font-medium text-blue-700 underline-offset-2 hover:underline">
+              <a href="/equipo/cobros" className="inline-flex min-h-11 items-center text-[14px] font-medium text-blue-700 underline-offset-2 hover:underline md:min-h-0">
                 {t("Facturas y exportar CSV", "Invoices and CSV export")}
               </a>
-              <a href="/equipo/planes" className="text-[14px] font-medium text-blue-700 underline-offset-2 hover:underline">
+              <a href="/equipo/planes" className="inline-flex min-h-11 items-center text-[14px] font-medium text-blue-700 underline-offset-2 hover:underline md:min-h-0">
                 {t("Planes de cobro", "Billing plans")}
               </a>
             </div>

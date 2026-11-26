@@ -1,6 +1,6 @@
 import type { Locale } from "../i18n/dictionaries";
 import { formatAgreementDay, workMayStart, type AgreementRecord } from "../agreement/gate";
-import { SERVICE_MODE, type ServiceMode } from "../service/mode";
+import { DEFAULT_SERVICE_MODE as SERVICE_MODE, type ServiceMode } from "../service/mode";
 import { readStoredAgreement } from "./agreementLocal";
 import { readPaymentMethodOnFile } from "./billingLocal";
 import { ESTIMATED_CYCLE_DAYS, nextRoundDue, REINVESTIGATION_DAYS } from "../rounds/timing";
@@ -22,8 +22,12 @@ import { ESTIMATED_CYCLE_DAYS, nextRoundDue, REINVESTIGATION_DAYS } from "../rou
 //    comes after the review, never before it, and it holds nothing back: the
 //    team prepares and mails the letters either way, and a charge is made only
 //    after a round was mailed (src/lib/billing/rules.ts).
-//  - Self-serve (kept for later). The client reviews, approves and sends their
-//    own letters, as the product worked before.
+//  - Credalti DIY ("Do it yourself, guided"; the client's option,
+//    service/options.ts). The same agreement first, then the review; then
+//    the letters Alti prepared are the client's to print and mail (or to ask
+//    us to mail), "I mailed them" starts the bureaus' 30 days, and Alti says
+//    when the next round is due. The subscription needs a payment method
+//    once the cancellation window is over.
 
 export interface JourneyState {
   reportImported: boolean;
@@ -297,7 +301,7 @@ export function sessionJourneyState(
 }
 
 export interface JourneyOptions {
-  /** Defaults to the mode the app is running in. */
+  /** The client's option (service/options.ts). Defaults to Credalti Complete (full service). */
   mode?: ServiceMode;
   now?: Date;
 }
@@ -317,10 +321,95 @@ function roundTiming(s: JourneyState, now: Date): { beforeNextRound: boolean; da
   };
 }
 
-/** Self-serve: the client reviews, approves and sends their own letters. */
+const DIY_COPY = {
+  en: {
+    windowOpen: (day: string) => ({
+      title: "Your letters can be prepared soon",
+      description: `Your review is saved. Alti prepares your letters from ${day}, when your 3 business days to cancel at no cost are over. The law does not allow starting sooner.`,
+      cta: "See my agreement",
+    }),
+    paymentMethod: {
+      title: "Add your payment method",
+      description:
+        "Credalti DIY is a monthly subscription. It starts when your 3 business days to cancel are over, never before. Adding a card takes a minute and charges nothing today.",
+      cta: "Add payment method",
+    },
+    ready: (n: number) => ({
+      title: "Your letters are ready to print",
+      description: `${n === 1 ? "1 confirmed item" : `${n} confirmed items`}. Alti prepared your letters from approved templates. Print them, sign them and mail them, or ask us to mail them for you. Then tap "I mailed them".`,
+      cta: "My letters",
+    }),
+    waiting: (daysLeft: number) => ({
+      title: "Your letters are on their way 📬",
+      description:
+        daysLeft > 0
+          ? `You mailed them. Bureaus have ~${RESPONSE_WINDOW_DAYS} days to respond (~${daysLeft} left). Alti tells you when your next round is due.`
+          : "The bureaus' response window has passed. When your report refreshes, Alti shows you what changed and prepares your next round.",
+      cta: "See my rounds",
+    }),
+    nextRound: {
+      title: "Your next round is due",
+      description: "Your report is compared with the last one. Alti can prepare your next round of letters on the items you confirmed, for you to print and mail.",
+      cta: "Prepare my next round",
+    },
+  },
+  es: {
+    windowOpen: (day: string) => ({
+      title: "Pronto se pueden preparar tus cartas",
+      description: `Tu revisión quedó guardada. Alti prepara tus cartas a partir del ${day}, cuando terminan tus 3 días hábiles para cancelar sin costo. La ley no permite empezar antes.`,
+      cta: "Ver mi acuerdo",
+    }),
+    paymentMethod: {
+      title: "Agrega tu método de pago",
+      description:
+        "Credalti DIY es una suscripción mensual. Empieza cuando terminan tus 3 días hábiles para cancelar, nunca antes. Agregar una tarjeta toma un minuto y hoy no cobra nada.",
+      cta: "Agregar método de pago",
+    },
+    ready: (n: number) => ({
+      title: "Tus cartas están listas para imprimir",
+      description: `${n === 1 ? "1 elemento confirmado" : `${n} elementos confirmados`}. Alti preparó tus cartas con modelos aprobados. Imprímelas, fírmalas y envíalas, o pídenos que las enviemos por ti. Después toca «Ya las envié».`,
+      cta: "Mis cartas",
+    }),
+    waiting: (daysLeft: number) => ({
+      title: "Tus cartas van en camino 📬",
+      description:
+        daysLeft > 0
+          ? `Ya las enviaste. Los burós tienen ~${RESPONSE_WINDOW_DAYS} días para responder (quedan ~${daysLeft}). Alti te avisa cuándo toca tu siguiente ronda.`
+          : "La ventana de respuesta de los burós ya pasó. Cuando tu reporte se actualice, Alti te muestra qué cambió y prepara tu siguiente ronda.",
+      cta: "Ver mis rondas",
+    }),
+    nextRound: {
+      title: "Toca tu siguiente ronda",
+      description: "Tu reporte se compara con el anterior. Alti puede preparar tu siguiente ronda de cartas sobre los puntos que confirmaste, para que tú las imprimas y las envíes.",
+      cta: "Preparar mi siguiente ronda",
+    },
+  },
+} as const;
+
+/**
+ * Credalti DIY: the agreement first, then the review, then the client prints
+ * and mails the letters Alti prepared (or asks us to). Without an agreement
+ * on record (the old self-serve demo) the agreement step is skipped.
+ */
 function selfServeStep(s: JourneyState, locale: Locale, now: Date): JourneyStep {
   const totalSteps = 5;
   const c = COPY[locale];
+  const d = DIY_COPY[locale];
+  const f = c.full;
+  const gate = s.agreement ? workMayStart(s.agreement, now) : null;
+
+  if (gate && !gate.allowed && gate.code === "disclosure_not_acknowledged") {
+    return { step: 1, totalSteps, key: "agreement", ...f.agreementStart, href: "/acuerdo" };
+  }
+  if (gate && !gate.allowed && gate.code === "not_signed") {
+    return { step: 1, totalSteps, key: "agreement", ...f.agreementContinue, href: "/acuerdo" };
+  }
+  if (gate && !gate.allowed && gate.code === "cancelled") {
+    return { step: 1, totalSteps, key: "agreement-cancelled", ...f.agreementCancelled, href: "/acuerdo" };
+  }
+  if (gate && !gate.allowed && gate.code === "service_end_requested") {
+    return { step: 4, totalSteps, key: "end-requested", ...f.endRequested, href: "/acuerdo" };
+  }
 
   if (!s.reportImported) {
     return { step: 1, totalSteps, key: "import", ...c.import, href: "/onboarding" };
@@ -344,14 +433,23 @@ function selfServeStep(s: JourneyState, locale: Locale, now: Date): JourneyStep 
     if (s.attestedCount === 0) {
       return { step: 2, totalSteps, key: "review-empty", ...c.reviewEmpty, href: "/items" };
     }
-    return { step: 3, totalSteps, key: "attack", ...c.attack(s.attestedCount), href: "/asistente" };
+    // Inside the cancellation window no letter is prepared; the step says when.
+    if (gate && !gate.allowed && gate.code === "in_cancellation_window") {
+      const day = gate.startsAt ? formatAgreementDay(new Date(gate.startsAt), locale) : "";
+      return { step: 3, totalSteps, key: "diy-window", ...d.windowOpen(day), href: "/acuerdo" };
+    }
+    if (s.agreement && s.paymentMethodOnFile === false) {
+      return { step: 3, totalSteps, key: "payment-method", ...d.paymentMethod, href: "/pagos" };
+    }
+    if (!s.agreement) return { step: 3, totalSteps, key: "attack", ...c.attack(s.attestedCount), href: "/asistente" };
+    return { step: 3, totalSteps, key: "attack", ...d.ready(s.attestedCount), href: "/attack" };
   }
 
   const { beforeNextRound, daysLeft } = roundTiming(s, now);
   if (beforeNextRound) {
-    return { step: 4, totalSteps, key: "waiting", ...c.waiting(daysLeft), href: "/rounds" };
+    return { step: 4, totalSteps, key: "waiting", ...(s.agreement ? d.waiting(daysLeft) : c.waiting(daysLeft)), href: "/rounds" };
   }
-  return { step: 5, totalSteps, key: "next-round", ...c.nextRound, href: "/asistente" };
+  return { step: 5, totalSteps, key: "next-round", ...(s.agreement ? d.nextRound : c.nextRound), href: s.agreement ? "/attack" : "/asistente" };
 }
 
 /**

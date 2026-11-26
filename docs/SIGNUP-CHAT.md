@@ -7,8 +7,10 @@ competitor's chat signup (a "specialist" chat with a progress bar, a case
 number, the price in the chat and the disclosures as a sheet), keeping what
 works and dropping what does not fit our rules: our assistant says he is AI
 and is labelled as AI on every message, never a human-looking fake specialist;
-the price shown is only an attorney-reviewed plan; nothing is charged before
-the work.
+the price shown is only an attorney-reviewed plan; Credalti Complete is
+charged each month right after the letters are mailed (never before the
+work), and Credalti DIY is a simple monthly subscription after the 3-business-day
+window.
 
 Also built: **"Schedule a call with a person"**, switched **off** by default.
 
@@ -26,6 +28,7 @@ Also built: **"Schedule a call with a person"**, switched **off** by default.
 | The disclosures and contract sheets | `src/components/signup/AgreementSheets.tsx` |
 | Sign in by phone, in the chat | `src/components/signup/PhoneSignIn.tsx` |
 | "Rather talk to someone?" | `src/components/signup/TalkToPerson.tsx` |
+| A person joins the chat | `src/components/signup/LivePerson.tsx`, `src/lib/signup/liveChat*.ts`, `src/app/api/signup/chat`, `src/app/api/staff/signup-chats`, `src/app/equipo/chats` |
 | Words (EN/ES), the transcript | `src/lib/signup/copy.ts` |
 | Steps, saved progress | `src/lib/signup/steps.ts` |
 | Case reference | `src/lib/signup/caseRef.ts` |
@@ -35,6 +38,12 @@ Also built: **"Schedule a call with a person"**, switched **off** by default.
 | Calls | `src/lib/calls/*`, `src/app/registro/llamada`, `src/components/signup/CallBooking.tsx`, `src/app/api/calls`, `src/app/api/staff/calls`, `src/app/equipo/llamadas`, `src/components/staff/CallsScreen.tsx`, `CallsQueue.tsx` |
 | Database | `supabase/migrations/0032_calls.sql` (in `supabase/setup.sql`) |
 | Tests | `src/lib/__tests__/signupChat.test.ts`, `calls.test.ts`, `db/calls.test.ts` |
+
+**The lead's name.** Once the person is signed in, the chat's progress call
+also carries the first name they typed (never before sign-in). The server
+(`updateSignupCase`) puts it on their lead when the lead has no name yet, so
+the lead inbox and the Ads Manager show "Rosa", not "No name yet"; it never
+overwrites a name a person or a form gave (`db/controlLeads.test.ts`).
 
 Linked from the website: under every "Start my review" button group, "Or sign
 up in a chat with Alti, in about 10 minutes" (`CHAT_START` in
@@ -55,7 +64,7 @@ the header from the first moment.
 | 2 Your info | Last name (as on the ID), SSN or ITIN (the kind only), email (optional), then the cell phone | Sign-in is the `/login` code (Supabase phone code; text messages only for login codes). Then the profile through `/api/profile/onboarding` (goal, state, id type, salesperson and partner from an invitation link), the same record onboarding writes; the account is linked to the case. |
 | 3 Verify identity | Mailing address, ID, proof of address | `MailingAddress` and `IdentityDocs` (the intake: `/api/intake/document`, automatic check, a person sees what fails). "I'll do this later" is allowed; letters wait for them. |
 | 4 Your report | — | When a report is on file: what it lists in counts and words ("5 accounts. Among them: 2 collections and 1 account with late payments…"), then "you choose which look wrong; only you decide" and "nobody can promise how the bureaus respond". No score, no gauge, no colours. With no report (the usual case): the monitoring subscription (IdentityIQ, `MONITORING_OFFER`, with the commission disclosure), turned on **right after signing**. |
-| 5 Sign up | — | The plan: attorney-approved, offered plans only (`publicPlans`, as `/precios`); with none, the rule only ("How every charge works") and "your plan is in the agreement". Then the two sheets below. |
+| 5 Sign up | Which option: Credalti Complete or Credalti DIY | First the two options side by side (`OptionComparison`: Complete first, "Who it's for", each option's price from its offered plan or "Price set by the team", the monitoring note with the commission, "Start with DIY, upgrade anytime and keep everything you've done"). Nothing pre-selected; "Ask Alti" explains the difference, never pushes. A link with `option=diy|complete` (the video page) or `o=diy|complete` (an invitation, the website) marks that option in the comparison and Alti says so; the person still taps it or the other one. Saved with `POST /api/service-option` (`docs/SERVICE-OPTIONS.md`). Then the plan of that option: attorney-approved, offered plans only (`publicPlans`, as `/precios`); with none, the rule only and "your plan is in the agreement". Then the two sheets below, with that option's agreement. |
 
 **The sheets** reuse the agreement itself (`useAgreement` → the same
 `/api/agreement/acknowledge` and `/sign`, the same documents, readiness,
@@ -93,6 +102,60 @@ character; the robot never appears (brand test). Every line passes
 25 words (`signupChat.test.ts`). Inputs are labelled, everything works by
 keyboard (Escape closes sheets and the panel), the thread is a polite live
 region, and motion stops under reduced motion.
+
+## A person joins the chat
+
+At any step, "Rather talk to someone?" now offers first **"Chat with a person
+here"** (then WhatsApp, and a call when calls are on). Tapping it:
+
+1. **The person** (`src/components/signup/LivePerson.tsx`): a "Chat with a
+   person" box opens under the signup, with "Please don't write your Social
+   Security number, account numbers or card numbers here" and a message
+   field. The signup carries on above it: they can keep signing up while
+   they wait. `POST /api/signup/chat` `request` opens the thread (and marks
+   the case `wants_person`); `send` stores their message (numbers that look
+   like an SSN, an ITIN or an account are replaced with "•••" first, and
+   they are told); `read` is polled every 3 seconds. Every call carries the
+   case reference and its resume token (or comes from the account the case
+   is linked to), as `/api/signup` does.
+2. **The team** (`/equipo/chats`, «Live chats», Lead Manager, `leads.work`:
+   administrators and sales): the open chats with the case reference, the
+   step, the state and the language, newest first; a red circle on Lead
+   Manager for each one waiting. **«Join the chat»**: the person sees a line
+   "Ana from the Credalti team joined the chat. Alti is paused while a person
+   is here."; the teammate's messages are labelled **"Ana · Credalti team"**
+   (`teamByline`, with a person icon, never a character); Alti's stay
+   **"Alti · AI assistant"** (`aiByline`, with his face). **«Hand back to
+   Alti»** ends it ("The team handed the chat back to Alti").
+3. **Alti** answers while nobody is in (from the website's own library, the
+   same answers as "Ask Alti", already checked; with no match, "I passed
+   your message to the team. A person will answer here."). **No model
+   writes in this thread.** While a teammate is in, Alti is **paused**: he
+   writes nothing in the thread (the database refuses it too), and the
+   agreement's "I have a question first" box says Alti is paused instead of
+   answering. He resumes when the chat is handed back.
+4. **A teammate's reply** passes `checkStaffReply` (the claim rules and plain
+   promises, the same check as every staff reply) on the screen as it is
+   sent and again on the server (422 with the reasons). The database refuses
+   a teammate's line before they joined.
+
+**Realtime**: the app uses no Supabase realtime anywhere, so both sides poll
+(`POLL_MS`: the person and an open thread every 3 seconds, the staff list
+every 5 seconds, the menu's red circle every 30 seconds).
+
+**Demo**: the threads live in this browser's storage, so `/registro` and
+`/equipo/chats` in two tabs of the same browser see each other; two sample
+chats always wait on the console; and a chat started at `/registro` that no
+teammate joins within 8 seconds is joined by a sample teammate ("Rolando")
+who says hello, so the person's side can be tried alone.
+
+Database (migration 0044): `signup_chat_threads` (requested → joined →
+handed_back, who joined), `signup_chat_messages` (append-only; author
+person, staff with their first name, alti, or system). Staff read them by the
+same scope as the signup cases (administrators and sales, or whoever may see
+the client once the case is linked); anon reads nothing; the server writes.
+Tests: `webinars.test.ts` («a person joins Alti's signup chat») and
+`db/webinars.test.ts`.
 
 ## The case reference
 

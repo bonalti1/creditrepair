@@ -929,6 +929,21 @@ describe("billing: receipts", () => {
     expect(receiptFor(paid, null)!.work.es).toBe("Ronda 2: cartas enviadas el 4 de noviembre");
   });
 
+  it("for a Credalti DIY charge, says what it paid for, never «work already done» (the subscription is not our team's work)", () => {
+    const period = receiptFor({ ...paid, unit: "diy_period", roundNumber: 0, workDate: "2026-11-05T00:00:00.000Z" }, null)!;
+    const mailing = receiptFor({ ...paid, unit: "mailing", workDate: "2026-11-04T16:00:00.000Z" }, round2)!;
+    expect(period.paidFor.en).toMatch(/^Credalti DIY: your monthly subscription, the period starting November \d+$/);
+    expect(mailing.paidFor.es).toMatch(/^Credalti DIY: las cartas que enviamos por ti el 4 de noviembre$/);
+    for (const r of [period, mailing]) {
+      const m = receiptMessage(r);
+      expect(`${m.es} ${m.en}`).not.toMatch(/trabajo ya hecho|work already done|Ronda 0|Round 0/);
+      expectCleanClientCopy(m.es);
+      expectCleanClientCopy(m.en);
+    }
+    // Credalti Complete keeps its words.
+    expect(receiptFor(paid, round2)!.paidFor.en).toMatch(/^work already done: Round 2: 3 letters mailed/);
+  });
+
   it("is sent in words that pass the claim rules", () => {
     const message = receiptMessage(receiptFor(paid, round2)!);
     expect(message.es).toBe(
@@ -1288,12 +1303,27 @@ describe("billing: the staff console", () => {
           const plan = c.agreementPlan;
           expect(c.billing.charges.reduce((n, ch) => n + ch.amountCents, 0)).toBeLessThanOrEqual(plan.effective.maxTotalCents);
           for (const ch of c.billing.charges) {
+            if (ch.unit === "diy_period") {
+              // Credalti DIY: the subscription, from the end of the cancellation window, never before it.
+              expect(c.serviceOption, c.id).toBe("diy");
+              expect(new Date(ch.createdAt).getTime()).toBeGreaterThanOrEqual(new Date(c.cancellationDeadline!).getTime());
+              continue;
+            }
+            // Credalti DIY never pays a full-service unit; a mailing is charged only after we mailed it.
+            if (ch.unit === "mailing") {
+              const m = (c.mailRequests ?? []).find((x) => x.id === ch.mailRequestId);
+              expect(m?.mailedAt, `${c.id} mailing`).toBeTruthy();
+              continue;
+            }
+            expect(c.serviceOption ?? "full_service", c.id).toBe("full_service");
             const r = c.rounds.find((x) => x.number === ch.roundNumber)!;
             expect(r?.mailedAt, `${c.id} ${ch.unit}`).toBeTruthy();
-            expect(ch.workDate).toBe(ch.unit === "period" ? ch.periodEnd : r.mailedAt);
+            // A month is charged when its round is mailed (the default since 2026-11-25), or after the month ends.
+            const onMailing = ch.unit === "period" && plan.terms.type === "subscription" && plan.terms.periodTiming === "on_mailing";
+            expect(ch.workDate).toBe(ch.unit === "period" && !onMailing ? ch.periodEnd : r.mailedAt);
             expect(new Date(ch.createdAt).getTime()).toBeGreaterThanOrEqual(new Date(ch.workDate).getTime() + DAY);
           }
-          const created = c.billing.charges.map((ch) => new Date(ch.createdAt).getTime()).sort((a, b) => a - b);
+          const created = c.billing.charges.filter((ch) => ch.unit !== "mailing").map((ch) => new Date(ch.createdAt).getTime()).sort((a, b) => a - b);
           for (let i = 1; i < created.length; i++) expect(created[i]! - created[i - 1]!).toBeGreaterThanOrEqual(30 * DAY);
           continue;
         }
@@ -1318,7 +1348,9 @@ describe("billing: the staff console", () => {
         const eligibility = chargeEligibility({ agreement: null, signedMonthlyFee: c.agreementMonthlyFee ?? null, rounds: c.rounds.map(billableRound), account: c.billing }, read);
         expect(eligibility.eligible, c.id).toBe(false);
       }
-      expect(clients.filter((c) => c.agreementSignedAt).every((c) => c.agreementMonthlyFee === DEMO_EXAMPLE_FEE)).toBe(true);
+      // Credalti Complete clients signed the example fee; Credalti DIY clients signed the DIY plan, no monthly fee.
+      expect(clients.filter((c) => c.agreementSignedAt && c.serviceOption !== "diy").every((c) => c.agreementMonthlyFee === DEMO_EXAMPLE_FEE)).toBe(true);
+      expect(clients.filter((c) => c.serviceOption === "diy").every((c) => c.agreementMonthlyFee === null && c.agreementPlan?.terms.type === "diy_subscription")).toBe(true);
     });
 
     it("tell the money in each client's history", () => {
@@ -1367,7 +1399,7 @@ describe("billing: the staff console", () => {
 
 describe("billing: the journey's payment-method nudge", () => {
   const base: JourneyState = { reportImported: true, totalItems: 8, reviewedCount: 8, attestedCount: 3, roundApproved: false, agreement: SIGNED };
-  const step = (state: JourneyState, mode: "full_service" | "self_serve" = "full_service") => nextAction(state, "es", { mode, now: NOW });
+  const step = (state: JourneyState, mode: "full_service" | "diy" = "full_service") => nextAction(state, "es", { mode, now: NOW });
 
   it("appears after the review is finished and work may start, when there is no method on file", () => {
     expect(step({ ...base, paymentMethodOnFile: false })).toMatchObject({ key: "payment-method", step: 4, href: "/pagos", title: "Agrega tu método de pago" });
@@ -1388,14 +1420,18 @@ describe("billing: the journey's payment-method nudge", () => {
     expect(before.map((s) => step(s).key)).toEqual(["agreement", "agreement", "import", "review", "review", "review-empty"]);
   });
 
-  it("does not appear with a method on file, when nothing is known, inside the window, after a stop, or in self-serve", () => {
+  it("does not appear with a method on file, when nothing is known, inside the window, or after a stop", () => {
     expect(step({ ...base, paymentMethodOnFile: true }).key).toBe("team-preparing");
     expect(step(base).key).toBe("team-preparing");
     const inWindow = { ...SIGNED, signedAt: ago(1), disclosureAcknowledgedAt: ago(1, 1), cancellationDeadline: later(3).toISOString() };
     expect(step({ ...base, agreement: inWindow, paymentMethodOnFile: false }).key).toBe("team-starts-soon");
     expect(step({ ...base, agreement: { ...SIGNED, cancelledAt: ago(58) }, paymentMethodOnFile: false }).key).toBe("agreement-cancelled");
     expect(step({ ...base, agreement: { ...SIGNED, serviceEndRequestedAt: ago(1) }, paymentMethodOnFile: false }).key).toBe("end-requested");
-    expect(step({ ...base, paymentMethodOnFile: false }, "self_serve").key).toBe("attack");
+  });
+
+  it("appears for a Credalti DIY client too: the subscription is charged from the end of the window", () => {
+    expect(step({ ...base, paymentMethodOnFile: false }, "diy").key).toBe("payment-method");
+    expect(step({ ...base, paymentMethodOnFile: true }, "diy").key).not.toBe("payment-method");
   });
 });
 

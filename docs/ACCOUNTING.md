@@ -134,7 +134,9 @@ the aliases once a real export is in hand.
 ## Collections
 
 Only charges that exist are listed, and the database lets a charge exist only
-for work already done after the cancellation window (BILLING.md). Nothing is
+after the cancellation window: under Credalti Complete for work already
+done, under Credalti DIY for the period's subscription or the letters we
+mailed (BILLING.md). Nothing is
 ever asked for work not yet done; upcoming charges are not receivable.
 
 - The system already retries a declined card on day 3 and 7 and tells the

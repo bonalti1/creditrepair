@@ -6,7 +6,7 @@ import type { TodayItem } from "@/lib/control/today";
 import { ago } from "@/lib/control/overview";
 import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import Icon from "@/components/Icon";
-import { QUIET_BUTTON, ROW_BUTTON, SECONDARY_BUTTON_COMPACT } from "@/components/staff/ui";
+import { EmptyState, QUIET_BUTTON, ROW_BUTTON, SECONDARY_BUTTON_COMPACT } from "@/components/staff/ui";
 import SafeBoundary from "./SafeBoundary";
 
 // The Today list (src/lib/control/today.ts): one list, top to bottom. Each
@@ -32,6 +32,9 @@ const KIND_TONE: Record<TodayItem["kind"], string> = {
   content_failed: "bg-red-50 text-red-700",
   content_review: "bg-blue-50 text-blue-700",
   content_changes: "bg-blue-50 text-blue-700",
+  video_review: "bg-blue-50 text-blue-700",
+  video_changes: "bg-blue-50 text-blue-700",
+  video_handoff: "bg-blue-50 text-blue-700",
   books_close: "bg-amber-100 text-blue-900",
   books_receipts: "bg-slate-100 text-slate-700",
 };
@@ -53,6 +56,9 @@ function Row({ item, index, now, actions }: { item: TodayItem; index: number; no
     content_failed: t("Contenido · falló", "Content · failed"),
     content_review: t("Contenido · aprobar", "Content · approve"),
     content_changes: t("Contenido · cambios", "Content · changes"),
+    video_review: t("Video · aprobar", "Video · approve"),
+    video_changes: t("Video · cambios", "Video · changes"),
+    video_handoff: t("Video · pasar a Contenido", "Video · hand over"),
     books_close: t("Contabilidad", "Accounting"),
     books_receipts: t("Contabilidad", "Accounting"),
   };
@@ -170,11 +176,10 @@ export default function TodayList({ items, now, actions }: { items: TodayItem[];
   const t = useTx();
   if (items.length === 0) {
     return (
-      <div className="card flex items-center gap-3 px-5 py-6 text-[15px] text-slate-600" data-testid="today-empty">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-50 text-green-700">
-          <Icon name="check" size={18} />
-        </span>
-        {t("Nada necesita una persona ahora. Si te sobra tiempo, revisa los prospectos de la semana en Prospectos.", "Nothing needs a person right now. If you have time, look over this week's leads in Leads.")}
+      <div className="card" data-testid="today-empty">
+        <EmptyState pose="celebrate" title={t("Nada necesita una persona ahora.", "Nothing needs a person right now.")}>
+          {t("Si te sobra tiempo, revisa los prospectos de la semana en Prospectos.", "If you have time, look over this week's leads in Leads.")}
+        </EmptyState>
       </div>
     );
   }

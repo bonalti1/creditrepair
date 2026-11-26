@@ -1,7 +1,7 @@
 import { AGREEMENT_TIME_ZONE } from "../agreement/businessDays";
 import { deadlineOf, workMayStart } from "../agreement/gate";
 import { feeToCents } from "./money";
-import { installmentCents, type PlanSnapshot } from "./plans";
+import { installmentCents, periodTiming, type PlanSnapshot } from "./plans";
 import type { Bilingual, BillableRound, BillingCharge, BillingContext, ChargeUnit, L, ProvenResult } from "./types";
 
 // When may a client be charged?
@@ -97,6 +97,8 @@ export type ChargeEligibility =
       periodEnd?: string;
       installmentNumber?: number;
       resultItemIds?: string[];
+      /** DIY mailing: the request it pays for. */
+      mailRequestId?: string;
     }
   | {
       eligible: false;
@@ -213,6 +215,7 @@ const no = (
 export function chargeEligibility(context: BillingContext, now: Date): ChargeEligibility {
   // Under a plan the unit of work depends on the plan type. Without one (an
   // agreement signed before plans existed) it is the mailed round, as below.
+  if (context.plan?.terms.type === "diy_subscription") return diyEligibility(context, context.plan, now);
   if (context.plan) return planEligibility(context, context.plan, now);
   const { agreement, account } = context;
 
@@ -529,9 +532,11 @@ function pickUnit(context: BillingContext, plan: PlanSnapshot, rounds: BillableR
     case "subscription": {
       if (firstWorkDue) return firstWork();
       const limit = t.duration.kind === "months" ? t.duration.count : Infinity;
+      // The owner's decision (2026-11-25): "on_mailing" charges the period right after its round is mailed.
+      const onMailing = periodTiming(t) === "on_mailing";
       const periods = subscriptionPeriods(context, now);
       const chargedCount = charges.filter((c) => unitOf(c) === "period").length;
-      const due = periods.find((p) => p.index < limit && p.ended && !p.charged && p.rounds.length > 0);
+      const due = periods.find((p) => p.index < limit && (onMailing || p.ended) && !p.charged && p.rounds.length > 0);
       if (!due) {
         if (chargedCount >= limit || (periods.length > limit && periods.slice(0, limit).every((p) => p.ended))) return complete;
         const open = periods.find((p) => p.index < limit && !p.ended && p.rounds.length > 0 && !p.charged);
@@ -555,13 +560,16 @@ function pickUnit(context: BillingContext, plan: PlanSnapshot, rounds: BillableR
         unit: "period",
         round,
         roundNumber: due.rounds[0]!,
-        workDate: due.end,
+        workDate: onMailing && round?.mailedAt ? round.mailedAt : due.end,
         baseCents: e.recurringCents,
         firstWorkCents: 0,
         periodStart: due.start,
         periodEnd: due.end,
       };
     }
+    case "diy_subscription":
+      // Never reached: a DIY plan is decided by diyEligibility. Nothing is charged as full-service work.
+      return { code: "nothing_unbilled", reason: { es: "Un plan hazlo tú no se cobra como trabajo del equipo.", en: "A DIY plan is not charged as team work." } };
     case "pay_per_delete": {
       if (!context.switches?.payPerDelete) {
         return {
@@ -723,4 +731,154 @@ function planEligibility(context: BillingContext, plan: PlanSnapshot, now: Date)
     ...(c.installmentNumber ? { installmentNumber: c.installmentNumber } : {}),
     ...(c.resultItemIds ? { resultItemIds: c.resultItemIds } : {}),
   };
+}
+
+// ── Do it yourself, guided (migration 0042) ─────────────────────────────
+//
+// The other service option. The client performs their disputes with the
+// software, and the owner reports the attorney approved a monthly
+// subscription charged from the start for it (docs/SERVICE-OPTIONS.md,
+// 2026-11-25). What may be charged, in this order:
+//
+//   the agreement gate (signed, not cancelled, PAST the 3-business-day
+//   cancellation window: that stays); no pause, nothing unpaid; then a
+//   mailing the client asked for and Credalti already mailed (once, at the
+//   total the client accepted); else the subscription period now running,
+//   once per 30-day period counted from the end of the window (or from 30
+//   days after the last charge under an earlier agreement, after a switch),
+//   within the plan's length and its most-you'll-pay total; a payment method.
+// The trigger checks the same (0042: diy_period, mailing).
+
+const sameAgreement = (context: BillingContext, charge: BillingCharge): boolean =>
+  !context.agreementId || !charge.agreementId || charge.agreementId === context.agreementId;
+
+/** When the DIY subscription periods start counting: the end of the window, or the next cycle after an earlier agreement's last charge. */
+export function diyAnchor(context: BillingContext): Date | null {
+  const deadline = context.agreement ? deadlineOf(context.agreement) : null;
+  if (!deadline) return null;
+  const earlier = context.account.charges
+    .filter((c) => !sameAgreement(context, c) && c.createdAt)
+    .map((c) => addDays(c.createdAt, MIN_DAYS_BETWEEN_CHARGES).getTime());
+  return new Date(Math.max(deadline.getTime(), ...earlier));
+}
+
+/** The DIY subscription period running at `now`: index, start and end. Null before the anchor. */
+export function diyPeriodAt(context: BillingContext, now: Date): { index: number; start: string; end: string } | null {
+  const anchor = diyAnchor(context);
+  if (!anchor || now.getTime() < anchor.getTime()) return null;
+  const index = Math.floor((now.getTime() - anchor.getTime()) / (PERIOD_DAYS * DAY_MS));
+  const start = anchor.getTime() + index * PERIOD_DAYS * DAY_MS;
+  return { index, start: new Date(start).toISOString(), end: new Date(start + PERIOD_DAYS * DAY_MS).toISOString() };
+}
+
+function diyEligibility(context: BillingContext, plan: PlanSnapshot, now: Date): ChargeEligibility {
+  const { agreement, account } = context;
+  const gate = workMayStart(agreement, now);
+  if (!gate.allowed && (gate.code === "disclosure_not_acknowledged" || gate.code === "not_signed")) {
+    return no("agreement_not_signed", { es: "No se cobra: no hay un acuerdo de servicio firmado.", en: "Nothing is charged: there is no signed service agreement." });
+  }
+  if (!gate.allowed && gate.code === "cancelled") {
+    return no("agreement_cancelled", { es: "No se cobra: el cliente canceló su acuerdo.", en: "Nothing is charged: the client cancelled their agreement." });
+  }
+  if (!gate.allowed && gate.code === "in_cancellation_window") {
+    return no(
+      "in_cancellation_window",
+      { es: "No se cobra: está en su periodo de cancelación.", en: "Nothing is charged: the client is inside the cancellation period." },
+      gate.startsAt ? { availableAt: gate.startsAt } : {},
+    );
+  }
+  if (!gate.allowed && gate.code === "service_end_requested") {
+    return no("service_end_requested", {
+      es: "No se cobra: el cliente pidió terminar el servicio. La suscripción no se cobra más.",
+      en: "Nothing is charged: the client asked to end the service. The subscription is not charged again.",
+    });
+  }
+  if (account.pause) {
+    return no("billing_paused", { es: `No se cobra: el equipo puso los cobros en pausa («${account.pause.reason}»).`, en: `Nothing is charged: the team paused billing ("${account.pause.reason}").` });
+  }
+  if (account.charges.some(isUnpaid)) {
+    return no("earlier_charge_unpaid", { es: "No se crea un cobro nuevo: uno anterior sigue sin pagarse.", en: "No new charge is created: an earlier one is still unpaid." });
+  }
+  const needMethod = (what: Bilingual) =>
+    !account.paymentMethod || !account.paymentMethod.authorizedAt || !account.paymentMethod.authorizationVersion
+      ? no("no_payment_method", { es: `Falta su método de pago: ${what.es} ya se puede cobrar y no hay con qué.`, en: `No payment method on file: ${what.en} can be charged and there is nothing to charge.` }, { needsPerson: true })
+      : null;
+
+  // A mailing the client asked for, which we already mailed.
+  const charged = new Set(account.charges.map((c) => c.mailRequestId).filter(Boolean));
+  const mailing = (context.mailings ?? []).find(
+    (m) => m.status === "mailed" && m.mailedAt && new Date(m.mailedAt).getTime() <= now.getTime() && !charged.has(m.id) && sameAgreementId(context, m.agreementId),
+  );
+  if (mailing) {
+    const what = { es: `el envío de ${mailing.letterCount} ${mailing.letterCount === 1 ? "carta" : "cartas"}`, en: `the mailing of ${mailing.letterCount} ${mailing.letterCount === 1 ? "letter" : "letters"}` };
+    if (mailing.allReturned) {
+      return no(
+        "all_letters_returned",
+        { es: `No se cobra solo: el correo devolvió todas las cartas de ${what.es}. La revisa una persona.`, en: `Not charged automatically: the post office returned every letter of ${what.en}. A person reviews it.` },
+        { roundNumber: mailing.roundNumber, needsPerson: true },
+      );
+    }
+    const missing = needMethod(what);
+    if (missing) return missing;
+    return {
+      eligible: true,
+      roundNumber: mailing.roundNumber,
+      amountCents: mailing.totalCents,
+      workDate: new Date(mailing.mailedAt!).toISOString(),
+      unit: "mailing",
+      firstWorkCents: 0,
+      creditCents: 0,
+      mailRequestId: mailing.id,
+    };
+  }
+
+  // The subscription: the period running now.
+  const period = diyPeriodAt(context, now);
+  if (!period) {
+    const anchor = diyAnchor(context);
+    return no(
+      "before_due_date",
+      anchor
+        ? { es: `Todavía no: la suscripción empieza el ${billingDay(anchor, "es")}, en el siguiente ciclo.`, en: `Not yet: the subscription starts on ${billingDay(anchor, "en")}, at the next cycle.` }
+        : { es: "Todavía no: la suscripción empieza al terminar el periodo de cancelación.", en: "Not yet: the subscription starts when the cancellation period ends." },
+      anchor ? { availableAt: anchor.toISOString() } : {},
+    );
+  }
+  const t = plan.terms;
+  if (t.duration.kind === "months" && period.index >= t.duration.count) {
+    return no("plan_complete", { es: "No se cobra nada más: la suscripción llegó a su duración.", en: "Nothing more is charged: the subscription reached its length." });
+  }
+  const periodCharges = account.charges.filter((c) => unitOf(c) === "diy_period" && sameAgreement(context, c));
+  if (periodCharges.some((c) => c.periodStart && new Date(c.periodStart).toISOString() === period.start)) {
+    return no(
+      "waiting_for_work",
+      { es: `Ya se cobró este periodo. El siguiente empieza el ${billingDay(period.end, "es")}.`, en: `This period is already charged. The next one starts on ${billingDay(period.end, "en")}.` },
+      { availableAt: period.end },
+    );
+  }
+  const remaining = Math.max(0, plan.effective.maxTotalCents - chargedTowardCap(periodCharges));
+  if (remaining <= 0) {
+    return no("plan_complete", { es: "No se cobra nada más: ya se cobró el total máximo de la suscripción.", en: "Nothing more is charged: the subscription's maximum total has been charged." });
+  }
+  const amountCents = Math.min(plan.effective.recurringCents, remaining);
+  if (!Number.isInteger(amountCents) || amountCents <= 0) {
+    return no("no_amount", { es: "No se cobra: el plan firmado no da un monto válido. Lo revisa una persona.", en: "Nothing is charged: the signed plan gives no valid amount. A person has to look." }, { needsPerson: true });
+  }
+  const missing = needMethod({ es: "la suscripción de este mes", en: "this month's subscription" });
+  if (missing) return missing;
+  return {
+    eligible: true,
+    roundNumber: 0,
+    amountCents,
+    workDate: period.start,
+    unit: "diy_period",
+    firstWorkCents: 0,
+    creditCents: 0,
+    periodStart: period.start,
+    periodEnd: period.end,
+  };
+}
+
+function sameAgreementId(context: BillingContext, agreementId: string | null | undefined): boolean {
+  return !context.agreementId || !agreementId || agreementId === context.agreementId;
 }

@@ -48,7 +48,7 @@ function AssetRow({ asset, url, editable, onAlt, onRemove }: { asset: ContentAss
               onBlur={() => alt !== asset.altText && onAlt(alt)}
               readOnly={!editable}
               maxLength={500}
-              className={`${FIELD} mt-1 h-10 text-[14px] ${image && alt.trim().length < 5 ? "ring-red-300" : ""}`}
+              className={`${FIELD} mt-1 h-11 md:h-10 text-[14px] ${image && alt.trim().length < 5 ? "ring-red-300" : ""}`}
             />
           </label>
         ) : null}

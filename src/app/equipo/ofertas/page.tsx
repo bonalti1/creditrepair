@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { NoAccess, PRIMARY_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SectionTitle } from "@/components/staff/ui";
+import { DemoNote, NoAccess, PRIMARY_BUTTON, ROW_BUTTON, SECONDARY_BUTTON, SectionTitle } from "@/components/staff/ui";
 import { OfferCard } from "@/components/aftercare/AftercareViews";
 import { readDemoAccepting, writeDemoAccepting } from "@/lib/aftercare/connect";
 import {
@@ -156,13 +156,14 @@ export default function OfertasPage() {
   return (
     <main className="animate-rise space-y-8" data-testid="staff-offers">
       <header>
-        <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Ofertas de socios", "Partner offers")}</h1>
+        <h1 className="page-title">{t("Ofertas de socios", "Partner offers")}</h1>
         <p className="mt-1 max-w-3xl text-[15px] leading-relaxed text-slate-600">
           {t(
             "Productos para construir crédito que los clientes pueden ver en «Construye tu crédito». Opcionales, nunca requeridos, y ordenados por lo que le cuestan al cliente y luego por nombre, nunca por comisión. Si Credalti puede recibir un pago, el cliente ve el aviso junto a la oferta.",
             "Credit-building products clients can see in \"Build your credit\". Optional, never required, and ordered by what they cost the client and then by name, never by commission. If Credalti may be paid, the client sees the disclosure next to the offer.",
           )}
         </p>
+        {demo && <DemoNote>{t("Demo: las ofertas son ejemplos inventados. Los cambios se guardan solo en este navegador.", "Demo: the offers are made-up examples. Changes are saved only in this browser.")}</DemoNote>}
       </header>
 
       <section aria-labelledby="switch" className="card flex flex-wrap items-center justify-between gap-4 px-5 py-4" data-testid="offers-switch">
@@ -180,7 +181,7 @@ export default function OfertasPage() {
 
       {message && <p className="rounded-xl bg-blue-50 px-4 py-3 text-[14px] text-blue-900" role="status">{message}</p>}
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
         <section aria-labelledby="list">
           <SectionTitle aside={!form && <button type="button" className={ROW_BUTTON} onClick={() => setForm({ ...EMPTY })} data-testid="offer-add">{t("Agregar oferta", "Add offer")}</button>}>
             <span id="list">{t("Ofertas, en el orden que las ven los clientes", "Offers, in the order clients see them")}</span>
@@ -348,7 +349,6 @@ export default function OfertasPage() {
         </aside>
       </div>
 
-      {demo && <p className="text-xs text-slate-500">{t("Demo: las ofertas son ejemplos inventados. Los cambios se guardan solo en este navegador.", "Demo: the offers are made-up examples. Changes are saved only in this browser.")}</p>}
     </main>
   );
 }

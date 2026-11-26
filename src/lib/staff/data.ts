@@ -1,4 +1,5 @@
 import { applyAutopilotDemoActions, loadAutopilotDemo, resetAutopilotDemo } from "../autopilot/data";
+import { applyFulfillmentDemo, loadFulfillmentDemo, resetFulfillmentDemo } from "../fulfillment/demo";
 import { PAUSE_REASON_MIN_CHARS } from "../billing/api";
 import { createMemoryChargeStore, runClientBilling } from "../billing/collect";
 import { rearmAfterNewPaymentMethod } from "../billing/dunning";
@@ -190,11 +191,22 @@ export function applyDemoActions(clients: StaffClient[], actions: DemoActions): 
     const samples = actions.samples[client.id] ?? [];
     const documents = (actions.documents[client.id] ?? []).filter((kind) => !client.documents.includes(kind));
 
+    // Credalti DIY "Mail them for me" (docs/SERVICE-OPTIONS.md): sending mails only the letters asked for and
+    // closes the request; the rest of the round stays the client's to print and mail.
+    const mailedRequests = new Map<string, string>();
     const acted: StaffClient = {
       ...client,
       rounds: client.rounds.map((round) => {
         const sentAt = sent[String(round.number)];
         if (!sentAt || round.status !== "ready") return round;
+        if (round.mailRequest) {
+          const asked = new Set(round.mailRequest.letterIds);
+          mailedRequests.set(round.mailRequest.id, sentAt);
+          const { mailRequest: _done, ...rest } = round;
+          const letters = round.letters.map((letter) => (asked.has(letter.id) ? { ...letter, mailStatus: "in_transit" as const } : letter));
+          // Every letter mailed by us: the round is mailed.
+          return letters.every((l) => asked.has(l.id)) ? { ...rest, status: "mailed" as const, mailedAt: sentAt, letters } : { ...rest, letters };
+        }
         return {
           ...round,
           status: "mailed" as const,
@@ -202,6 +214,9 @@ export function applyDemoActions(clients: StaffClient[], actions: DemoActions): 
           letters: round.letters.map((letter) => ({ ...letter, mailStatus: "in_transit" as const })),
         };
       }),
+      ...(client.mailRequests
+        ? { mailRequests: client.mailRequests.map((m) => (mailedRequests.has(m.id) ? { ...m, status: "mailed" as const, mailedAt: mailedRequests.get(m.id)! } : m)) }
+        : {}),
       notes: [...client.notes, ...notes],
       questions: client.questions.map((q) => {
         const answeredAt = handled[`${QUESTION_PREFIX}${q.id}`];
@@ -362,7 +377,11 @@ function createDemoData(): StaffData & {
     // rounds sent from the send screen (mail/demo.ts).
     const team = loadTeamActions();
     // Last, the holds and opt-outs a person recorded on the autopilot (autopilot/data.ts).
-    return applyAutopilotDemoActions(applyDemoSends(applyTeamActions(applyDemoActions([...s.base, ...team.added], s.actions), team), loadDemoSends()), loadAutopilotDemo());
+    // Then the monitoring checks and document reviews a person recorded (fulfillment/demo.ts).
+    return applyFulfillmentDemo(
+      applyAutopilotDemoActions(applyDemoSends(applyTeamActions(applyDemoActions([...s.base, ...team.added], s.actions), team), loadDemoSends()), loadAutopilotDemo()),
+      loadFulfillmentDemo(),
+    );
   };
 
   return {
@@ -387,6 +406,8 @@ function createDemoData(): StaffData & {
         const client = clients.find((c) => c.id === clientId);
         const round = client ? sendableRound(client, now, { furnishers }) : null;
         if (!client || !round || round.number !== roundNumber) continue;
+        // A DIY client's "Mail them for me" letters go only through the mail service, never the office printer.
+        if (round.mailRequest && options.via === "print") continue;
         const plan = roundMailPlan(client, round, furnishers, now, options.mailClasses);
         if (plan.blockers.length > 0) continue;
         a.sent[clientId] = { ...a.sent[clientId], [String(roundNumber)]: at };
@@ -548,6 +569,7 @@ function createDemoData(): StaffData & {
       try {
         window.localStorage.removeItem(STORAGE_KEY);
         window.localStorage.removeItem(SAMPLES_KEY);
+        resetFulfillmentDemo();
       } catch {
         // ignore
       }

@@ -519,3 +519,60 @@ export interface StaffClientAftercareFields {
 }
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StaffClient extends StaffClientAftercareFields {}
+
+// ── Fulfillment (migration 0041, docs/FULFILLMENT.md) ───────────────────
+
+export interface StaffClientFulfillmentFields {
+  /** The client's notification settings (notification_settings). Absent or null: never chosen (every channel, every message). */
+  notificationSettings?: import("../fulfillment/notifications").NotificationSettings | null;
+  /** What the team checked about the client's credit monitoring (monitoring_checks), oldest first. */
+  monitoringChecks?: import("../fulfillment/monitoring").MonitoringCheck[];
+  /** A person's reviews of the client's documents (document_reviews), oldest first. */
+  documentReviews?: import("../fulfillment/documents").DocumentReview[];
+  /** The other documents the client gave the team (client_files), oldest first. */
+  files?: import("../fulfillment/documents").ClientFile[];
+  /** When each identity document on file was uploaded (identity_documents.uploaded_at), by kind. */
+  documentUploadedAt?: Partial<Record<DocumentKind, string>>;
+}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientFulfillmentFields {}
+
+// ── Service options (migration 0042, docs/SERVICE-OPTIONS.md) ───────────
+
+/** A Credalti DIY client's "Mail them for me" request: the letters they asked us to mail and paid the fee shown for. */
+export interface StaffMailRequest {
+  id: string;
+  roundNumber: number;
+  /** The letters asked for, by the console's letter ids (StaffLetter.id). */
+  letterIds: string[];
+  /** The same letters by their database row ids (letters.id), for the send. Absent in the demo: letterIds are the ids. */
+  letterRowIds?: string[];
+  letterCount: number;
+  totalCents: number;
+  status: "requested" | "mailed" | "cancelled";
+  acceptedAt: string;
+  mailedAt: string | null;
+}
+
+export interface StaffClientOptionFields {
+  /**
+   * The client's option: "full_service" (Credalti Complete: the team prepares
+   * and mails) or "diy" (Credalti DIY: the client prints and mails; the team
+   * answers questions and mails only what the client asked and paid us to).
+   * Absent: Credalti Complete, as every client before options existed.
+   */
+  serviceOption?: import("../service/options").ServiceOption;
+  /** DIY: every "Mail them for me" request, oldest first. */
+  mailRequests?: StaffMailRequest[];
+}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffClient extends StaffClientOptionFields {}
+
+export interface StaffRoundOptionFields {
+  /** DIY: when Alti prepared this round's letters for the client to print. */
+  diyPreparedAt?: string | null;
+  /** DIY: the open "Mail them for me" request on this round: only its letters go to the team's send queue. */
+  mailRequest?: StaffMailRequest | null;
+}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface StaffRound extends StaffRoundOptionFields {}

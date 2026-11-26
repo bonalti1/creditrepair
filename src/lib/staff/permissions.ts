@@ -74,6 +74,36 @@ export const CAPABILITIES = [
   "content.share",
   // The accounting department (src/lib/accounting, migration 0036): the books, expenses, reconciliation, month close.
   "accounting",
+  // The Ads Manager (src/lib/ads, migration 0037): the ad spend, results and leads per ad (money: administrators);
+  // and Alti's ad copy drafts, sent to Content or Video Studio (the content team).
+  "ads.view",
+  "ads.draft",
+  // SEO (src/lib/seo, migration 0039): site health, guides, Search Console, keywords and the local checklist; publishing guides.
+  "seo.view",
+  "seo.edit",
+  "seo.publish",
+  // Launch readiness (src/lib/launch, migration 0040): what is ready to go live, ticks, system health and its checks.
+  "launch",
+  // Ideas and experiments (src/lib/ideas, migration 0040): everyone sees and adds; an administrator approves, runs and decides tests and asks Alti.
+  "ideas.add",
+  "ideas.approve",
+  // Fulfillment (src/lib/fulfillment, migration 0041): a person's review of a client's documents,
+  // importing clients from Credit Repair Cloud, and the monitoring referral commissions.
+  "documents.review",
+  "clients.import",
+  "monitoring.commissions",
+  // The live funnel (src/lib/live, migration 0043): a lead's report review before signup and their personal video.
+  "reviews.video",
+  // Webinars (src/lib/webinars, migration 0044): the webinars, their registrants, the live console and the
+  // scripts; creating and changing webinars and importing attendance.
+  "webinars.view",
+  "webinars.manage",
+  // The campaign scorecard (src/lib/webinars/scorecard.ts): spend, CAC and client value. Money: administrators.
+  "campaigns.view",
+  // Service options (migration 0042, docs/SERVICE-OPTIONS.md): mail the letters a Credalti DIY client paid us to mail
+  // ("Mail them for me"), and the gentle follow-up when a DIY client's letters wait 14 days unmailed.
+  "diy.mail_requests",
+  "options.followup",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -124,6 +154,23 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "content.publish": "Conectar las redes sociales y activar la publicación",
   "content.share": "Ver el kit de marca y el material aprobado para socios",
   accounting: "Contabilidad: libros, gastos, conciliación y cierre de mes",
+  "ads.view": "Ver los anuncios: gasto, resultados y prospectos por anuncio",
+  "ads.draft": "Escribir textos de anuncios con Alti y mandarlos a Contenido o a Video Studio",
+  "seo.view": "Ver el SEO: salud del sitio, guías, búsquedas y palabras clave",
+  "seo.edit": "Escribir guías, seguir frases y marcar la lista local",
+  "seo.publish": "Publicar guías en el sitio y conectar Search Console",
+  launch: "Ver qué falta para lanzar, marcar pasos y revisar el sistema",
+  "ideas.add": "Ver las ideas y agregar nuevas",
+  "ideas.approve": "Aprobar ideas, decidir pruebas y pedirle ideas a Alti",
+  "documents.review": "Revisar los documentos del cliente: aceptar o pedir otro",
+  "clients.import": "Importar clientes desde Credit Repair Cloud",
+  "monitoring.commissions": "Registrar y conciliar las comisiones del monitoreo",
+  "reviews.video": "Revisar el reporte de un prospecto y grabarle su video personal",
+  "webinars.view": "Ver los webinars, la consola en vivo y los guiones",
+  "webinars.manage": "Crear y cambiar webinars e importar la asistencia",
+  "campaigns.view": "Ver las campañas: gasto, costo por cliente y valor del cliente",
+  "diy.mail_requests": "Enviar las cartas que un cliente DIY nos pidió enviar",
+  "options.followup": "Dar seguimiento a clientes DIY con cartas sin enviar",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -156,6 +203,23 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "content.publish": "Connect social accounts and turn publishing on",
   "content.share": "See the brand kit and the approved partner material",
   accounting: "Accounting: the books, expenses, reconciliation and month close",
+  "ads.view": "See the ads: spend, results and leads per ad",
+  "ads.draft": "Write ad copy with Alti and send it to Content or Video Studio",
+  "seo.view": "See SEO: site health, guides, search numbers and keywords",
+  "seo.edit": "Write guides, track phrases and tick the local checklist",
+  "seo.publish": "Publish guides on the website and connect Search Console",
+  launch: "See what's missing to launch, tick steps and check the system",
+  "ideas.add": "See the ideas and add new ones",
+  "ideas.approve": "Approve ideas, decide tests and ask Alti for ideas",
+  "documents.review": "Review a client's documents: accept, or ask for another",
+  "clients.import": "Import clients from Credit Repair Cloud",
+  "monitoring.commissions": "Record and reconcile the monitoring commissions",
+  "reviews.video": "Review a lead's report and record their personal video",
+  "webinars.view": "See the webinars, the live console and the scripts",
+  "webinars.manage": "Create and change webinars and import attendance",
+  "campaigns.view": "See the campaigns: spend, cost per client and client value",
+  "diy.mail_requests": "Mail the letters a DIY client asked us to mail",
+  "options.followup": "Follow up with DIY clients whose letters wait unmailed",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -206,6 +270,32 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "content.publish": false,
       "content.share": true,
       accounting: false,
+      // Ads (migration 0037): spend is money, the owner's; a specialist on the content team drafts ad copy with Alti.
+      "ads.view": false,
+      "ads.draft": true,
+      // SEO (migration 0039): a specialist writes guides and tracks phrases; only an administrator publishes.
+      "seo.view": true,
+      "seo.edit": true,
+      "seo.publish": false,
+      // Launch readiness is the owner's (keys, the attorney's approvals, the system's health).
+      launch: false,
+      // Ideas (migration 0040): everyone sees the board and adds ideas; only an administrator approves and decides.
+      "ideas.add": true,
+      "ideas.approve": false,
+      // Documents are part of the case they work; the import and the money are the owner's.
+      "documents.review": true,
+      "clients.import": false,
+      "monitoring.commissions": false,
+      // Reading reports is their work: a specialist reviews a lead's report and records the video.
+      "reviews.video": true,
+      // Webinars (migration 0044): a specialist can moderate (the live console, the scripts); creating
+      // webinars and the campaign money are the owner's.
+      "webinars.view": true,
+      "webinars.manage": false,
+      "campaigns.view": false,
+      // Specialists mail rounds, so they mail what a DIY client asked us to mail; the upgrade follow-up is sales'.
+      "diy.mail_requests": true,
+      "options.followup": false,
     },
   },
   sales: {
@@ -244,6 +334,29 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "content.publish": false,
       "content.share": true,
       accounting: false,
+      // Ads (migration 0037): no spend (sales never sees money) and no ad copy (that is the content team's).
+      "ads.view": false,
+      "ads.draft": false,
+      // SEO: not sales' work (the website's words are the content team's).
+      "seo.view": false,
+      "seo.edit": false,
+      "seo.publish": false,
+      launch: false,
+      "ideas.add": true,
+      "ideas.approve": false,
+      // Sales does not see the case (no case.view): no document review, no import, no money.
+      "documents.review": false,
+      "clients.import": false,
+      "monitoring.commissions": false,
+      // Sales never sees credit data: the funnel's stage shows in the Lead Manager, the report and the video do not.
+      "reviews.video": false,
+      // Sales answers the messages a webinar brings in: the live console and the registrants. No money.
+      "webinars.view": true,
+      "webinars.manage": false,
+      "campaigns.view": false,
+      // Sales follows up a DIY client whose letters wait (no pressure); mailing is fulfillment's.
+      "diy.mail_requests": false,
+      "options.followup": true,
     },
   },
 };
@@ -331,10 +444,12 @@ export function defaultsToMine(role: StaffRole | null | undefined): boolean {
  * the work starts (an unsigned agreement, missing documents); everything after
  * that is fulfillment's, and money is not theirs to discuss.
  */
-const SALES_EXCEPTIONS: readonly ExceptionKind[] = ["agreement_unsigned", "documents_missing"];
+const SALES_EXCEPTIONS: readonly ExceptionKind[] = ["agreement_unsigned", "documents_missing", "diy_followup"];
 
 export function exceptionVisibleTo(role: StaffRole | null | undefined, kind: ExceptionKind): boolean {
   if (!isStaffRole(role)) return false;
+  // The DIY follow-up goes to whoever may do it (options.followup: sales and the owner).
+  if (kind === "diy_followup") return can(role, "options.followup");
   if (role === "sales") return SALES_EXCEPTIONS.includes(kind);
   return true;
 }

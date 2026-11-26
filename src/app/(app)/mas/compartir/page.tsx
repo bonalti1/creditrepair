@@ -76,7 +76,7 @@ export default function CompartirPage() {
   return (
     <main className="animate-rise space-y-6" data-testid="sharing-page">
       <div>
-        <Link href="/mas" className="inline-flex items-center gap-1 text-[15px] font-medium text-blue-700">
+        <Link href="/mas" className="inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-blue-700">
           <Icon name="chevron" size={16} className="rotate-180" />
           {locale === "es" ? "Más" : "More"}
         </Link>
@@ -101,7 +101,7 @@ export default function CompartirPage() {
               <span className="text-[15px] text-slate-700">
                 {SHARE_LEVEL_LABEL[locale][p.level]}
               </span>
-              <button type="button" className="text-[15px] font-semibold text-blue-700" onClick={() => setOpen(open === p.id ? null : p.id)} aria-expanded={open === p.id}>
+              <button type="button" className="inline-flex min-h-11 items-center text-[15px] font-semibold text-blue-700" onClick={() => setOpen(open === p.id ? null : p.id)} aria-expanded={open === p.id}>
                 {open === p.id ? (locale === "es" ? "Cerrar" : "Close") : locale === "es" ? "Cambiar" : "Change"}
               </button>
             </div>

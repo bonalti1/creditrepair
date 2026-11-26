@@ -63,7 +63,7 @@ export default function BrandKit() {
         <ul className="-mx-4 flex gap-1 overflow-x-auto px-4 lg:mx-0 lg:block lg:space-y-0.5 lg:px-0">
           {SECTIONS.map((s) => (
             <li key={s.id}>
-              <a href={`#${s.id}`} className="inline-flex h-10 items-center whitespace-nowrap rounded-full px-3 text-[14px] font-medium text-slate-600 hover:bg-slate-100 lg:w-full">
+              <a href={`#${s.id}`} className="inline-flex h-11 md:h-10 items-center whitespace-nowrap rounded-full px-3 text-[14px] font-medium text-slate-600 hover:bg-slate-100 lg:w-full">
                 {t(...s.label)}
               </a>
             </li>

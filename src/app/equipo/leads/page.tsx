@@ -13,7 +13,7 @@ import { FilterBar, LeadRow } from "@/components/staff/control/LeadList";
 import LeadNumbers, { QualityStrip } from "@/components/staff/control/LeadNumbers";
 import LeadPipeline from "@/components/staff/control/LeadPipeline";
 import SafeBoundary from "@/components/staff/control/SafeBoundary";
-import { NoAccess } from "@/components/staff/ui";
+import { EmptyState, NoAccess, pillTab } from "@/components/staff/ui";
 
 // Credalti Control's lead inbox (docs/CONTROL.md): one inbox for every
 // prospect conversation, whatever the way in (WhatsApp, HighLevel, a partner,
@@ -96,16 +96,17 @@ export default function LeadsPage() {
 
   return (
     <main className="animate-rise">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      {/* On a phone an open conversation takes the screen (ALTO's): the title and the tabs step aside; «← Leads» brings them back. */}
+      <div className={`flex-wrap items-end justify-between gap-3 ${selected && tab === "inbox" ? "hidden md:flex" : "flex"}`}>
         <div>
-          <h1 className="font-display text-[28px] font-semibold tracking-tight text-slate-900">{t("Prospectos", "Leads")}</h1>
+          <h1 className="page-title">{t("Prospectos", "Leads")}</h1>
           <p className="mt-1 text-[15px] leading-relaxed text-slate-500">
             {t("Cada conversación con un prospecto, venga de donde venga. Solo una persona mueve un prospecto de etapa.", "Every lead conversation, wherever it came from. Only a person moves a lead's stage.")}
           </p>
         </div>
       </div>
 
-      <div className="-mx-1 mt-4 flex gap-1 overflow-x-auto px-1" role="tablist" aria-label={t("Vista", "View")}>
+      <div className={`-mx-1 mt-4 gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] ${selected && tab === "inbox" ? "hidden md:flex" : "flex"}`} role="tablist" aria-label={t("Vista", "View")}>
         {TABS.map((v) => (
           <button
             key={v}
@@ -113,11 +114,11 @@ export default function LeadsPage() {
             role="tab"
             aria-selected={tab === v}
             onClick={() => go({ tab: v })}
-            className={`pressable h-11 shrink-0 rounded-full px-4 text-[14px] font-semibold md:h-10 ${tab === v ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+            className={pillTab(tab === v)}
             data-testid={`tab-${v}`}
           >
             {tabLabel[v]}
-            {v === "inbox" && counts.waiting ? <span className="ml-1.5 rounded-full bg-amber-400 px-1.5 text-[12px] text-blue-900 tabular-nums">{counts.waiting}</span> : null}
+            {v === "inbox" && counts.waiting ? <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 text-[11.5px] text-white tabular-nums">{counts.waiting}</span> : null}
           </button>
         ))}
       </div>
@@ -137,13 +138,13 @@ export default function LeadsPage() {
       )}
 
       {tab === "inbox" && (
-        <div className="mt-4 grid grid-cols-[minmax(0,1fr)] items-start gap-4 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+        <div className={`grid grid-cols-[minmax(0,1fr)] items-start gap-4 md:mt-4 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] ${selected ? "" : "mt-4"}`}>
           <section className={`${selected ? "hidden md:block" : ""} min-w-0`} aria-label={t("Lista de prospectos", "Lead list")}>
             <div className="mb-2">
               <label htmlFor="lead-search" className="sr-only">
                 {t("Buscar", "Search")}
               </label>
-              <div className="flex h-11 items-center gap-2 rounded-full bg-white px-3.5 shadow-[0_0_0_1px_rgba(0,0,0,0.08)]">
+              <div className="flex h-11 items-center gap-2 rounded-[12px] border border-slate-300 bg-white px-3.5 focus-within:border-amber-500">
                 <Icon name="search" size={17} className="text-slate-400" />
                 <input id="lead-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("Nombre, número o CR-…", "Name, number or CR-…")} className="h-full min-w-0 flex-1 bg-transparent text-[16px] outline-none" />
               </div>
@@ -152,10 +153,12 @@ export default function LeadsPage() {
             <SafeBoundary>
               <ul className="card mt-2 overflow-hidden" data-testid="lead-list">
                 {shown.length === 0 ? (
-                  <li className="px-4 py-6 text-[14px] leading-snug text-slate-500">
-                    {leads.length === 0
-                      ? t("Todavía no hay prospectos. Aparecen aquí en cuanto alguien escribe por WhatsApp, llena un formulario de HighLevel, lo refiere un socio o empieza el registro con Alti.", "No leads yet. They show up here as soon as someone writes on WhatsApp, fills a HighLevel form, is referred by a partner or starts the chat signup.")
-                      : t("Nadie con este filtro.", "Nobody with this filter.")}
+                  <li>
+                    <EmptyState pose={leads.length === 0 ? "phone" : "thinking"} title={leads.length === 0 ? t("Todavía no hay prospectos", "No leads yet") : t("Nadie con este filtro", "Nobody with this filter")}>
+                      {leads.length === 0
+                        ? t("Aparecen aquí en cuanto alguien escribe por WhatsApp, llena un formulario de HighLevel, lo refiere un socio o empieza el registro con Alti.", "They show up here as soon as someone writes on WhatsApp, fills a HighLevel form, is referred by a partner or starts the chat signup.")
+                        : null}
+                    </EmptyState>
                   </li>
                 ) : (
                   shown.map((lead) => <LeadRow key={lead.id} lead={lead} now={now} selected={lead.id === selected} onOpen={() => go({ lead: lead.id })} members={memberNames} />)
@@ -169,9 +172,10 @@ export default function LeadsPage() {
                 <LeadConversation leadId={selected} data={data} viewer={viewer} can={can} now={now} members={salesMembers} templates={list?.templates ?? []} answers={list?.answers ?? []} onChanged={load} onBack={() => go({ lead: null })} />
               </SafeBoundary>
             ) : (
-              <div className="card flex min-h-64 flex-col items-center justify-center gap-2 px-6 py-10 text-center text-[14px] text-slate-500">
-                <Icon name="inbox" size={28} className="text-slate-400" />
-                {t("Elige una conversación de la lista.", "Pick a conversation from the list.")}
+              <div className="card flex min-h-64 items-center justify-center">
+                <EmptyState pose="phone" title={t("Elige una conversación de la lista.", "Pick a conversation from the list.")}>
+                  {t("Cada conversación trae sus datos, las respuestas guardadas y «Sugerir respuesta».", "Each conversation carries its details, the saved answers and “Suggest reply”.")}
+                </EmptyState>
               </div>
             )}
           </section>

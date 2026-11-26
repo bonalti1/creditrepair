@@ -40,11 +40,16 @@ export function signupCaseFromRow(row: Row): SignupCase {
 export const tokenHash = (token: string) => sha256Hex(`credalti-signup:v1:${token}`);
 
 /** A new signup with a fresh reference. Retries the rare collision. */
-export async function startSignupCase(db: SupabaseClient, input: { locale: "es" | "en" }, refs: () => string = () => newCaseRef()): Promise<{ caseRef: string; token: string }> {
+export async function startSignupCase(
+  db: SupabaseClient,
+  input: { locale: "es" | "en"; attribution?: object | null },
+  refs: () => string = () => newCaseRef(),
+): Promise<{ caseRef: string; token: string }> {
   const token = newResumeToken();
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const caseRef = refs();
-    const { error } = await db.from("signup_cases").insert({ case_ref: caseRef, token_hash: tokenHash(token), locale: input.locale });
+    // An ad link's marketing tags (migration 0037), copied into the lead's first touch when the account links.
+    const { error } = await db.from("signup_cases").insert({ case_ref: caseRef, token_hash: tokenHash(token), locale: input.locale, ...(input.attribution ? { attribution: input.attribution } : {}) });
     if (!error) return { caseRef, token };
     if (error.code !== "23505") throw new Error(`signup_cases: ${error.message}`);
   }
@@ -55,7 +60,7 @@ export async function startSignupCase(db: SupabaseClient, input: { locale: "es" 
  * The row, when the caller started it (the token it was started with) or it
  * belongs to the signed-in account (another device, after sign-in).
  */
-async function ownedCase(db: SupabaseClient, caseRef: string, token: string | null, userId: string | null): Promise<Row | null> {
+export async function ownedCase(db: SupabaseClient, caseRef: string, token: string | null, userId: string | null): Promise<Row | null> {
   if (!isCaseRef(caseRef)) return null;
   const { data } = await db.from("signup_cases").select("*").eq("case_ref", caseRef).maybeSingle();
   const row = (data as Row | null) ?? null;
@@ -73,7 +78,7 @@ export type SignupUpdateResult = { ok: true; signup: SignupCase } | { ok: false;
  */
 export async function updateSignupCase(
   db: SupabaseClient,
-  input: { caseRef: string; token: string | null; step?: SignupStage; state?: string | null; locale?: "es" | "en"; wantsPerson?: boolean },
+  input: { caseRef: string; token: string | null; step?: SignupStage; state?: string | null; locale?: "es" | "en"; wantsPerson?: boolean; firstName?: string | null },
   userId: string | null,
 ): Promise<SignupUpdateResult> {
   const row = await ownedCase(db, input.caseRef, input.token, userId);
@@ -86,10 +91,27 @@ export async function updateSignupCase(
   if (input.locale && input.locale !== current.locale) patch.locale = input.locale;
   if (input.wantsPerson && !current.wantsPerson) patch.wants_person = true;
   if (userId && !current.userId) patch.user_id = userId;
-  if (Object.keys(patch).length === 0) return { ok: true, signup: current };
-  const { data, error } = await db.from("signup_cases").update(patch).eq("case_ref", current.caseRef).select("*").single();
-  if (error) throw new Error(`signup_cases: ${error.message}`);
-  return { ok: true, signup: signupCaseFromRow(data as Row) };
+  let signup = current;
+  if (Object.keys(patch).length > 0) {
+    const { data, error } = await db.from("signup_cases").update(patch).eq("case_ref", current.caseRef).select("*").single();
+    if (error) throw new Error(`signup_cases: ${error.message}`);
+    signup = signupCaseFromRow(data as Row);
+  }
+  // The first name they gave the chat, on their lead once the account is linked (the lead exists from then on,
+  // leads_from_signup in migration 0034), so the team sees "Rosa", not "No name yet". It only fills a lead
+  // with no name: a name a person or a form already gave is never overwritten.
+  const firstName = signupFirstName(input.firstName);
+  if (firstName && signup.userId) {
+    const { error } = await db.from("leads").update({ display_name: firstName }).eq("client_user_id", signup.userId).is("display_name", null);
+    if (error) throw new Error(`leads: ${error.message}`);
+  }
+  return { ok: true, signup };
+}
+
+/** The chat's first name, as a lead's name: letters, spaces, apostrophes, dots and hyphens, 1–60 characters; else null. */
+export function signupFirstName(value: string | null | undefined): string | null {
+  const name = (value ?? "").normalize("NFC").replace(/\s+/g, " ").trim();
+  return /^\p{L}[\p{L}\p{M}' .-]{0,59}$/u.test(name) ? name : null;
 }
 
 /** The signed-in person's newest signup, to resume on another device. Read through their own connection (RLS). */

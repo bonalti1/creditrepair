@@ -51,7 +51,7 @@ function Activity() {
 
   return (
     <main className="animate-rise">
-      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("Actividad", "Activity")}</h1>
+      <h1 className="page-title">{t("Actividad", "Activity")}</h1>
       <p className="mt-1 text-[15px] leading-relaxed text-slate-500">
         {teamChanges
           ? t("Quién hizo qué y cuándo, en todos los clientes y en el equipo.", "Who did what and when, across every client and the team.")

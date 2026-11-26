@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { BRAND } from "@/lib/brand";
+import { aiByline, BRAND } from "@/lib/brand";
 import type { LeadData } from "@/lib/leads/data";
 import type { LeadDraftOutcome } from "@/lib/leads/drafts";
 import { effectiveStage, firstTouchLine, HANDOFF_LABELS, leadLanguage, leadName, leadPhone, STAGE_HELP, STAGE_LABELS, waitingMinutes, whatsappWindow } from "@/lib/leads/inbox";
@@ -21,6 +21,7 @@ import { CharacterAvatar } from "@/components/Character";
 import { PRIMARY_BUTTON_COMPACT, QUIET_BUTTON, ROW_BUTTON, SECONDARY_BUTTON_COMPACT } from "@/components/staff/ui";
 import { Bubble, stageTone } from "./LeadBits";
 import SafeBoundary from "./SafeBoundary";
+import { FUNNEL_STAGES, FUNNEL_STAGE_LABELS, funnelLine, type LeadFunnel } from "@/lib/live/stages";
 
 // One lead's conversation, like WhatsApp, with everything sales needs around
 // it: ✨ Suggest reply (Alti's drafted-reply engine; facts only, checked
@@ -142,6 +143,7 @@ export default function LeadConversation(props: Props) {
             <dd className={`font-semibold tabular-nums ${waited !== null && waited >= 60 ? "text-red-700" : "text-slate-900"}`}>{waited === null ? t("No", "No") : minutesText(waited)}</dd>
           </div>
         </dl>
+        {lead.funnel && <FunnelSteps funnel={lead.funnel} canReview={props.can("reviews.video")} />}
         {lead.signup && (
           <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-[13px] leading-snug text-slate-700">
             {t(`Registro con Alti: ${lead.signup.caseRef}, va en el paso «${lead.signup.step}».`, `Chat signup: ${lead.signup.caseRef}, at the “${lead.signup.step}” step.`)}
@@ -218,7 +220,7 @@ export default function LeadConversation(props: Props) {
 
       {/* Banners: a person is needed, STOP, the window */}
       {lead.handoff && (
-        <p className="flex gap-2 rounded-2xl bg-red-50 px-4 py-3 text-[14px] leading-snug text-red-800" data-testid="handoff-banner">
+        <p className="flex gap-2 rounded-[12px] bg-red-50 px-4 py-3 text-[14px] leading-snug text-red-800" data-testid="handoff-banner">
           <Icon name="info" size={18} className="mt-px shrink-0" />
           <span>
             <span className="font-semibold">{t("El piloto automático no respondió: ", "The autopilot did not answer: ")}</span>
@@ -227,11 +229,11 @@ export default function LeadConversation(props: Props) {
         </p>
       )}
       {lead.optedOutAt ? (
-        <p className="rounded-2xl bg-slate-100 px-4 py-3 text-[14px] leading-snug text-slate-700" data-testid="optout-banner">
+        <p className="rounded-[12px] bg-slate-100 px-4 py-3 text-[14px] leading-snug text-slate-700" data-testid="optout-banner">
           {t(`Pidió que no le escribamos (BAJA) el ${shortDateTime(lead.optedOutAt, "es")}. No se puede enviar nada hasta que escriba ALTA.`, `Said STOP on ${shortDateTime(lead.optedOutAt, "en")}. Nothing can be sent until they write START.`)}
         </p>
       ) : (
-        <p className={`rounded-2xl px-4 py-2.5 text-[13.5px] leading-snug ${wa.state === "closed" ? "bg-slate-100 text-slate-700" : wa.closing ? "bg-amber-100 text-blue-900" : "bg-green-50 text-green-800"}`} data-testid="window-banner">
+        <p className={`rounded-[12px] px-4 py-2.5 text-[13.5px] leading-snug ${wa.state === "closed" ? "bg-slate-100 text-slate-700" : wa.closing ? "bg-amber-100 text-blue-900" : "bg-green-50 text-green-800"}`} data-testid="window-banner">
           {wa.state === "open"
             ? t(`Ventana de WhatsApp abierta: ${wa.hoursLeft} h para responder con texto libre.`, `WhatsApp window open: ${wa.hoursLeft} h left to reply with any text.`)
             : t("Ventana de WhatsApp cerrada (más de 24 h desde su último mensaje): solo la plantilla aprobada.", "WhatsApp window closed (over 24 h since their last message): only the approved template.")}
@@ -240,7 +242,7 @@ export default function LeadConversation(props: Props) {
 
       {/* The conversation */}
       <SafeBoundary>
-        <section className="rounded-3xl bg-slate-100 px-3 py-4 sm:px-4" aria-label={t("Conversación", "Conversation")}>
+        <section className="rounded-[14px] border border-slate-200 bg-[#ECEEF2] px-3 py-4 sm:px-4" aria-label={t("Conversación", "Conversation")}>
           {thread.messages.length === 0 ? (
             <p className="px-2 py-6 text-center text-[14px] text-slate-600">
               {t("Todavía no hay mensajes. El primero lo escribe una persona, por WhatsApp.", "No messages yet. The first one is written by a person, on WhatsApp.")}
@@ -269,7 +271,7 @@ export default function LeadConversation(props: Props) {
           {wa.state === "closed" ? (
             <div data-testid="template-box">
               <p className="text-[13px] font-semibold text-slate-700">{t("Plantilla aprobada", "Approved template")} · {LEAD_FOLLOWUP_TEMPLATE.name}</p>
-              <p className="mt-1 whitespace-pre-wrap rounded-2xl bg-slate-50 px-3 py-2.5 text-[14px] leading-snug text-slate-800">
+              <p className="mt-1 whitespace-pre-wrap rounded-[12px] bg-slate-50 px-3 py-2.5 text-[14px] leading-snug text-slate-800">
                 {renderLeadTemplate(LEAD_FOLLOWUP_TEMPLATE, language, [lead.name?.split(" ")[0] ?? "", viewer?.name.split(" ")[0] ?? ""])}
               </p>
               {templateApproved ? (
@@ -305,10 +307,13 @@ export default function LeadConversation(props: Props) {
               </div>
               {draft === "loading" && <p className="mt-3 text-[13.5px] text-slate-500">{t(`${BRAND.assistant} está escribiendo un borrador…`, `${BRAND.assistant} is writing a draft…`)}</p>}
               {draft && draft !== "loading" && (
-                <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3" data-testid="lead-draft">
+                <div className="mt-3 rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-3" data-testid="lead-draft">
                   <p className="flex items-center gap-2 text-[12.5px] font-semibold text-slate-700">
-                    <CharacterAvatar character="assistant" size={24} decorative />
-                    {t(`Borrador de ${BRAND.assistant} (IA): revísalo antes de enviar`, `${BRAND.assistant}'s draft (AI): check it before sending`)}
+                    <CharacterAvatar character="assistant" size={32} tone="navy" decorative />
+                    <span>
+                      <span className="block text-slate-900">{aiByline(locale)}</span>
+                      <span className="block font-medium">{t(`Borrador de ${BRAND.assistant} (IA): revísalo antes de enviar`, `${BRAND.assistant}'s draft (AI): check it before sending`)}</span>
+                    </span>
                     {draft.demoDraft && <span className="font-normal text-slate-500">{t(" · demo, sin modelo", " · demo, no model")}</span>}
                   </p>
                   {draft.ok ? (
@@ -329,7 +334,7 @@ export default function LeadConversation(props: Props) {
                 </div>
               )}
               {showAnswers && (
-                <div className="mt-3 rounded-2xl bg-slate-50 px-3 py-3" data-testid="answers-list">
+                <div className="mt-3 rounded-[12px] bg-slate-50 px-3 py-3" data-testid="answers-list">
                   {inLanguage.length === 0 ? (
                     <p className="text-[13.5px] text-slate-600">{t("No hay respuestas aprobadas en este idioma todavía.", "No approved answers in this language yet.")}</p>
                   ) : (
@@ -359,7 +364,7 @@ export default function LeadConversation(props: Props) {
                 rows={4}
                 maxLength={4000}
                 placeholder={t("Escribe tu respuesta. Va firmada con tu nombre.", "Write your reply. It goes out signed with your name.")}
-                className="mt-3 w-full rounded-2xl border border-slate-300 bg-white px-3.5 py-3 text-[16px] leading-snug"
+                className="mt-3 w-full rounded-[12px] border border-slate-300 bg-white px-3.5 py-3 text-[16px] leading-snug"
                 data-testid="lead-reply"
               />
               {typed.length > 0 && (
@@ -453,6 +458,37 @@ export default function LeadConversation(props: Props) {
           </details>
         )}
       </section>
+    </div>
+  );
+}
+
+/** The live funnel's line on a lead (docs/LIVE-FUNNEL.md): where they came from and the stages reached. Facts, never chosen. */
+function FunnelSteps({ funnel, canReview }: { funnel: LeadFunnel; canReview: boolean }) {
+  const { locale } = useStaffLocale();
+  const t = useTx();
+  const reached = FUNNEL_STAGES.indexOf(funnel.stage);
+  return (
+    <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5" data-testid="lead-funnel-steps">
+      <p className="text-[12.5px] font-semibold text-slate-600">
+        {t("Embudo en vivo", "Live funnel")} · <span className="font-medium text-blue-700">{funnelLine(funnel, locale)}</span>
+      </p>
+      <ol className="mt-2 flex flex-wrap gap-1.5" aria-label={t("Etapas del embudo", "Funnel stages")}>
+        {FUNNEL_STAGES.map((stage, index) => (
+          <li
+            key={stage}
+            aria-current={index === reached ? "step" : undefined}
+            className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${index < reached ? "bg-green-50 text-green-700" : index === reached ? "bg-blue-900 text-white" : "bg-white text-slate-500 ring-1 ring-inset ring-slate-200"}`}
+          >
+            {index < reached ? "✓ " : ""}
+            {FUNNEL_STAGE_LABELS[locale][stage]}
+          </li>
+        ))}
+      </ol>
+      {canReview && reached >= 1 && (
+        <Link href="/equipo/revisiones" className="mt-2 inline-flex min-h-11 items-center text-[13px] font-semibold text-blue-700 underline-offset-2 hover:underline md:min-h-0">
+          {t("Abrir su revisión de reporte", "Open their report review")}
+        </Link>
+      )}
     </div>
   );
 }

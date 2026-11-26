@@ -64,7 +64,7 @@ export function CallItem({ item, onClose }: { item: CallQueueItem; onClose?: (id
       {onClose && (
         <label className="mt-2 block text-[13px] text-slate-600">
           {t("Nota (opcional)", "Note (optional)")}
-          <input value={note} onChange={(e) => setNote(e.target.value.slice(0, 500))} className="mt-1 h-10 w-full rounded-xl bg-slate-50 px-3 text-[14px] text-slate-900 ring-1 ring-slate-200" />
+          <input value={note} onChange={(e) => setNote(e.target.value.slice(0, 500))} className="mt-1 h-11 md:h-10 w-full rounded-xl bg-slate-50 px-3 text-[14px] text-slate-900 ring-1 ring-slate-200" />
         </label>
       )}
     </li>

@@ -88,7 +88,7 @@ export function DashboardPulse({ pulse, clients }: { pulse: PulseSummary; client
             <p className="min-w-0 text-[13px] leading-snug text-slate-500">{info.label}</p>
             <Definition label={info.label} text={info.definition} />
           </div>
-          <p className="mt-1 text-[26px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums" data-testid="metric-pulse">
+          <p className="mt-1 font-display text-[26px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums" data-testid="metric-pulse">
             {pulse.average === null ? "—" : t(`${pulse.average.toFixed(1)} de 3`, `${pulse.average.toFixed(1)} of 3`)}
           </p>
           <div className="mt-3 flex items-start gap-1.5">

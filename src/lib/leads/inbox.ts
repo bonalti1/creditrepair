@@ -174,8 +174,8 @@ export const STAGE_HELP: Record<StaffLocale, Record<LeadStage, string>> = {
 };
 
 export const SOURCE_LABELS: Record<StaffLocale, Record<LeadSourceKind, string>> = {
-  en: { whatsapp: "WhatsApp", highlevel: "HighLevel", partner: "Partner", signup_chat: "Chat signup", manual: "Added by hand", household: "Household" },
-  es: { whatsapp: "WhatsApp", highlevel: "HighLevel", partner: "Socio", signup_chat: "Registro con Alti", manual: "Agregado a mano", household: "Hogar" },
+  en: { whatsapp: "WhatsApp", highlevel: "HighLevel", partner: "Partner", signup_chat: "Chat signup", manual: "Added by hand", household: "Household", crc_import: "From Credit Repair Cloud", live: "Live funnel" },
+  es: { whatsapp: "WhatsApp", highlevel: "HighLevel", partner: "Socio", signup_chat: "Registro con Alti", manual: "Agregado a mano", household: "Hogar", crc_import: "De Credit Repair Cloud", live: "Embudo en vivo" },
 };
 
 /** "HighLevel · Casa nov" / "Partner · Laura Benítez" / "Chat signup · CR-7KQ4M" / "WhatsApp". */

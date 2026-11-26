@@ -13,6 +13,8 @@ import {
 } from "./catalogue";
 import { snapshotPlan, type PlanSnapshot, type PlanTerms, type PlanVersion } from "./plans";
 import { loadSwitches } from "./server";
+import { clientOption } from "../service/server";
+import type { ServiceOption } from "../service/options";
 import type { BillingSwitches } from "./types";
 
 // The plan catalogue in the database (migration 0026). Every change is
@@ -144,14 +146,16 @@ export async function discard(db: SupabaseClient, id: string): Promise<Catalogue
  * signup flow (household_discount_applies, migration 0027). Null when the catalogue has none
  * (then the agreement carries the monthly fee from the settings, as before).
  */
-export async function offeredSnapshot(db: SupabaseClient, userId: string): Promise<PlanSnapshot | null> {
+export async function offeredSnapshot(db: SupabaseClient, userId: string, option?: ServiceOption): Promise<PlanSnapshot | null> {
+  // The client's option decides which plans may be offered (Credalti Complete or Credalti DIY).
+  const forOption = option ?? (await clientOption(db, userId));
   const [plans, offer, household] = await Promise.all([
     listPlans(db),
     db.from("client_plan_offers").select("plan_id").eq("user_id", userId).maybeSingle(),
     // Linked to another client, or in an open household from the signup flow (migration 0027).
     db.rpc("household_discount_applies", { uid: userId }),
   ]);
-  const plan = offeredPlan(plans, (offer.data as Row | null)?.plan_id ? text((offer.data as Row).plan_id) : null);
+  const plan = offeredPlan(plans, (offer.data as Row | null)?.plan_id ? text((offer.data as Row).plan_id) : null, forOption);
   if (!plan) return null;
   let linked = !household.error && household.data === true;
   if (household.error) {

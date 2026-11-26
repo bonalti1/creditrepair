@@ -22,7 +22,7 @@ import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import { staffMessage } from "@/lib/staff/i18n/messages";
 import type { StaffLocale } from "@/lib/staff/i18n/locale";
 import Icon from "@/components/Icon";
-import { PRIMARY_BUTTON, PRIMARY_BUTTON_COMPACT, SECONDARY_BUTTON, SECONDARY_BUTTON_COMPACT } from "@/components/staff/ui";
+import { EmptyState, PRIMARY_BUTTON, PRIMARY_BUTTON_COMPACT, ROW_BUTTON, SECONDARY_BUTTON, SECONDARY_BUTTON_COMPACT, BACK_LINK } from "@/components/staff/ui";
 
 // Print a batch of letters here, in the office, instead of through a mail
 // service. The screen shows the pages as they come out of the printer; the
@@ -324,18 +324,25 @@ function PrintView() {
       <style>{PRINT_CSS}</style>
 
       <div className="pl-screen">
-        <Link href="/equipo" className="inline-flex items-center gap-1 text-[14px] font-medium text-blue-700">
+        <Link href="/equipo" className={BACK_LINK}>
           <Icon name="chevron" size={16} className="rotate-180" />
           {t("Inicio", "Home")}
         </Link>
-        <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{t("Imprimir cartas", "Print letters")}</h1>
+        <h1 className="mt-2 page-title">{t("Imprimir cartas", "Print letters")}</h1>
 
         {counts.letters === 0 ? (
-          <div className="card mt-5 px-5 py-6 text-[15px] leading-snug text-slate-600" data-testid="print-empty">
-            {t(
-              "No hay cartas para imprimir. Elige las rondas en «Listas para enviar», en el inicio, o abre la ronda desde la página del cliente.",
-              "There are no letters to print. Choose the rounds under “Ready to send” on the home screen, or open the round from the client's page.",
-            )}
+          <div className="card mt-5" data-testid="print-empty">
+            <EmptyState pose="envelope" title={t("No hay cartas para imprimir", "No letters to print")}>
+              <p>
+                {t(
+                  "Elige las rondas en «Listas para enviar», en el inicio, o abre la ronda desde la página del cliente.",
+                  "Choose the rounds under “Ready to send” on the home screen, or open the round from the client's page.",
+                )}
+              </p>
+              <Link href="/equipo" className={`${ROW_BUTTON} mt-3`}>
+                {t("Ir a «Listas para enviar»", "Go to “Ready to send”")}
+              </Link>
+            </EmptyState>
           </div>
         ) : (
           <div className="card mt-5 px-5 py-4" data-testid="print-toolbar">

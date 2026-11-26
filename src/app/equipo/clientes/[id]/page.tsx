@@ -63,6 +63,9 @@ import ActivityList from "@/components/staff/ActivityList";
 import AssignmentCard from "@/components/staff/AssignmentCard";
 import LeadSourceCard from "@/components/staff/LeadSourceCard";
 import BillingCard from "@/components/staff/BillingCard";
+import OptionBadge from "@/components/staff/OptionBadge";
+import { clientOption, isDiy, openMailRequest } from "@/lib/staff/stage";
+import { OPTION_NAME } from "@/lib/service/options";
 import Conversation from "@/components/staff/Conversation";
 import { ClientPulse } from "@/components/staff/PulseCards";
 import ReportImport from "@/components/staff/ReportImport";
@@ -74,19 +77,12 @@ import { RELATIONSHIP_LABEL } from "@/lib/household/household";
 import { reportHistoryOf } from "@/lib/reports/history";
 import { reappearedItems } from "@/lib/reports/reimport";
 import IntakeChecks from "@/components/staff/IntakeChecks";
-import {
-  ActorTag,
-  Chip,
-  ClientLanguageTag,
-  DeniedNote,
-  PRIMARY_BUTTON,
-  QUIET_BUTTON,
-  ROW_BUTTON,
-  SectionTitle,
-  SeverityDot,
-  StageChip,
-  WAITING_TONE,
-} from "@/components/staff/ui";
+import DocumentsCard from "@/components/staff/fulfillment/DocumentsCard";
+import JourneyStrip from "@/components/staff/fulfillment/JourneyStrip";
+import MessagesCard from "@/components/staff/fulfillment/MessagesCard";
+import MonitoringCard from "@/components/staff/fulfillment/MonitoringCard";
+import { DOCUMENT_KIND_LABEL } from "@/lib/fulfillment/documents";
+import { ActorTag, Chip, ClientLanguageTag, DeniedNote, pillTab, PRIMARY_BUTTON, QUIET_BUTTON, ROW_BUTTON, SectionTitle, SeverityDot, StageChip, WAITING_TONE, BACK_LINK } from "@/components/staff/ui";
 
 // One client. The top card answers "where is this person and why" at a glance:
 // the stage, what happens next and who does it. Below it, everything on file:
@@ -103,13 +99,6 @@ import {
 // reply) is in the client's, and says so (ClientLanguageTag).
 
 const BUREAU: Record<Bureau, string> = { equifax: "Equifax", experian: "Experian", transunion: "TransUnion" };
-
-const DOCUMENT: Record<DocumentKind, { es: string; en: string }> = {
-  government_id: { es: "Identificación con foto", en: "Photo ID" },
-  proof_of_address: { es: "Comprobante de domicilio", en: "Proof of address" },
-  ssn_card: { es: "Tarjeta de Seguro Social", en: "Social Security card" },
-  identity_theft_report: { es: "Reporte de robo de identidad", en: "Identity theft report" },
-};
 
 const ROUND_STATUS: Record<RoundStatus, { label: { es: string; en: string }; tone: string }> = {
   draft: { label: { es: "En preparación", en: "Being prepared" }, tone: "bg-slate-100 text-slate-600" },
@@ -298,7 +287,7 @@ function Letter({
         </ul>
       )}
       <details className="group mt-2">
-        <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden">
+        <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline md:min-h-0 [&::-webkit-details-marker]:hidden">
           <Icon name="doc" size={15} />
           <span className="group-open:hidden">{t("Ver la carta", "See the letter")}</span>
           <span className="hidden group-open:inline">{t("Ocultar la carta", "Hide the letter")}</span>
@@ -350,11 +339,11 @@ export default function ClientePage() {
   if (!client) {
     return (
       <main className="animate-rise">
-        <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">{t("No encontramos a este cliente", "We couldn't find this client")}</h1>
+        <h1 className="page-title">{t("No encontramos a este cliente", "We couldn't find this client")}</h1>
         <p className="mt-2 text-[15px] text-slate-500">
           {t("Puede que no exista o que no esté entre los clientes que tu rol te deja ver.", "They may not exist, or they aren't among the clients your role lets you see.")}
         </p>
-        <Link href="/equipo/clientes" className="mt-4 inline-block text-[15px] font-medium text-blue-700">
+        <Link href="/equipo/clientes" className={`${BACK_LINK} mt-2`}>
           {t("Volver a clientes", "Back to clients")}
         </Link>
       </main>
@@ -442,12 +431,13 @@ export default function ClientePage() {
 
   return (
     <main className="animate-rise">
-      <Link href="/equipo/clientes" className="inline-flex min-h-11 items-center gap-1 text-[14px] font-medium text-blue-700">
+      <Link href="/equipo/clientes" className={BACK_LINK}>
         <Icon name="chevron" size={16} className="rotate-180" />
         {t("Clientes", "Clients")}
       </Link>
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900">{fullName(client)}</h1>
+        <h1 className="page-title">{fullName(client)}</h1>
+        <OptionBadge option={clientOption(client)} />
         <StageChip stage={stage} />
         <ItinBadge client={client} />
       </div>
@@ -458,6 +448,20 @@ export default function ClientePage() {
         {client.assignedTo ? memberName(members, client.assignedTo, locale) : t("nadie todavía", "nobody yet")} · {t("última actividad", "last activity")}{" "}
         {relativeDay(client.lastActivityAt, now, locale)} · <ClientLanguageTag client={client} />
       </p>
+      {isDiy(client) && (
+        <p className="mt-1.5 text-[14px] leading-snug text-slate-600" data-testid="client-diy-note">
+          <span className="font-medium text-slate-900">{OPTION_NAME.diy[locale]}:</span>{" "}
+          {t(
+            "el cliente imprime y envía sus propias cartas, preparadas por Alti con los modelos aprobados. El equipo responde sus preguntas y solo envía las cartas que el cliente nos pague por enviar.",
+            "the client prints and mails their own letters, prepared by Alti from the approved templates. The team answers their questions and mails only the letters the client pays us to mail.",
+          )}
+          {openMailRequest(client) &&
+            t(
+              ` Pidió «Envíenlas por mí» para ${count(openMailRequest(client)!.letterCount, "carta", "cartas")}: están en «Listas para enviar».`,
+              ` Asked "Mail them for me" for ${count(openMailRequest(client)!.letterCount, "letter", "letters")}: they're under "Ready to send".`,
+            )}
+        </p>
+      )}
       {client.household && (
         <p className="mt-1.5 text-[14px] text-slate-600" data-testid="client-household">
           <span className="font-medium text-slate-900">{t("Hogar", "Household")}:</span>{" "}
@@ -473,7 +477,7 @@ export default function ClientePage() {
       )}
 
       {caseView && (
-        <div className="mt-5 flex gap-1 rounded-2xl bg-slate-100 p-1 sm:inline-flex" role="tablist" aria-label={t("Secciones del cliente", "Client sections")} data-testid="client-tabs">
+        <div className="mt-5 flex gap-1.5 sm:inline-flex" role="tablist" aria-label={t("Secciones del cliente", "Client sections")} data-testid="client-tabs">
           {(
             [
               ["case", t("Caso", "Case")],
@@ -493,7 +497,7 @@ export default function ClientePage() {
                 else url.searchParams.delete("pestana");
                 window.history.replaceState(null, "", url.toString());
               }}
-              className={`pressable h-11 flex-1 rounded-xl px-4 text-[14px] font-semibold sm:flex-none md:h-9 ${tab === key ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+              className={`${pillTab(tab === key)} flex-1 sm:flex-none`}
             >
               {label}
             </button>
@@ -509,8 +513,26 @@ export default function ClientePage() {
         ) : (
         <div className="min-w-0 space-y-6">
           <section className="card px-5 py-5 sm:px-6" aria-label={t("Dónde está y qué sigue", "Where they are and what's next")}>
-            <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Dónde está", "Where they are")}</p>
-            <p className="mt-1.5 text-[17px] leading-snug text-slate-900">{STAGES[stage].description}</p>
+            <JourneyStrip client={client} stage={stage} />
+            <p className="mt-3 text-[13px] font-semibold uppercase tracking-wide text-slate-500">{t("Dónde está", "Where they are")}</p>
+            <p className="mt-1.5 text-[17px] leading-snug text-slate-900">
+              {/* The documents stage names the ones still missing (or not accepted), not both every time. */}
+              {stage === "documents_pending" && missing.length > 0
+                ? t(
+                    `Falta: ${missing.map((k) => DOCUMENT_KIND_LABEL.es[k as Exclude<typeof k, "ssn_card">].toLowerCase()).join(" y ")}. Van dentro de cada carta; el cliente lo sube desde su app.`,
+                    `Missing: ${missing.map((k) => DOCUMENT_KIND_LABEL.en[k as Exclude<typeof k, "ssn_card">].toLowerCase()).join(" and ")}. They go inside every letter; the client uploads them from their app.`,
+                  )
+                : STAGES[stage].description}
+            </p>
+            {/* A client past signing with nobody working the case: say so where the next step is read. */}
+            {!client.assignedTo && client.agreementSignedAt && stage !== "cancelled" && stage !== "graduated" && (
+              <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] leading-snug text-blue-900" data-testid="no-owner">
+                {t("Nadie trabaja este caso todavía.", "Nobody is working this case yet.")}{" "}
+                {can("clients.assign")
+                  ? t("Asígnalo en «Quién lo trabaja», a la derecha (abajo en el teléfono).", "Assign it under “Who works it”, on the right (below on a phone).")
+                  : t("Pide a un administrador que lo asigne.", "Ask an administrator to assign it.")}
+              </p>
+            )}
 
             <div className="mt-4 flex flex-col gap-4 border-t hairline pt-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
@@ -895,6 +917,10 @@ export default function ClientePage() {
             </div>
           </section>
 
+          <MessagesCard client={client} />
+
+          <MonitoringCard client={client} now={now} demo={data.demo} canRecord={can("clients.followup")} viewerName={viewer?.name ?? staffAuthor()} onChanged={reload} />
+
           {can("clients.add") && viewer && (
             <section aria-labelledby="hogar">
               <SectionTitle>
@@ -958,30 +984,15 @@ export default function ClientePage() {
             <SectionTitle>
               <span id="documentos">{t("Documentos", "Documents")}</span>
             </SectionTitle>
-            <ul className="card overflow-hidden">
-              {documents.map((kind, index) => {
-                const onFile = client.documents.includes(kind);
-                return (
-                  <li key={kind} className={`flex items-center justify-between gap-3 px-5 py-3 ${index > 0 ? "border-t hairline" : ""}`}>
-                    <span className="text-[14px] text-slate-900">{DOCUMENT[kind][locale]}</span>
-                    {onFile ? (
-                      <Chip tone="bg-green-50 text-green-700">{t("En archivo", "On file")}</Chip>
-                    ) : (
-                      // Gold once the client has signed and the document is actually being waited on.
-                      <Chip
-                        tone={
-                          (client.agreementSignedAt && missing.includes(kind)) || kind === "identity_theft_report"
-                            ? WAITING_TONE
-                            : "bg-slate-100 text-slate-600"
-                        }
-                      >
-                        {t("Falta", "Missing")}
-                      </Chip>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+            <DocumentsCard
+              client={client}
+              documents={documents}
+              missing={missing}
+              demo={data.demo}
+              canReview={can("documents.review")}
+              viewerName={viewer?.name ?? staffAuthor()}
+              onChanged={reload}
+            />
             {data.demo && theftReportMissing && (
               <p className="px-1 pt-2 text-xs leading-relaxed text-slate-500">
                 {t("Los documentos los sube el cliente. Demo:", "The client uploads documents. Demo:")}{" "}
