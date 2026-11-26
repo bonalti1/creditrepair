@@ -308,7 +308,16 @@ the package preselected:
     /onboarding?…&option=diy
 
 `option` (`complete` | `diy`, `src/lib/live/packages.ts` `OPTION_PARAM`) is
-for the signup to read and preselect the package; anything else is ignored.
+read by onboarding and the signup chat (`src/lib/sales/invite.ts`
+`linkOption`, which also reads the older `o=`): the comparison shows both,
+with that package marked, and the person taps it or the other one (onboarding:
+a comparison step before the ID question; the chat: the option step, with
+Alti's line «You picked … on your link»). Anything else is ignored.
+
+In the demo, a video "sent" from the review queue gets its lead's own link
+(`/v/demo-rosa`, `/v/demo-210`; `/v/demo` is Angela's), and what the person
+does there (watched, «Get started») is kept in that browser, so the review
+queue's stage line and the Webinars live console move with it.
 
 ## Step 5 in the Lead Manager: the funnel's stages
 
@@ -319,6 +328,10 @@ WhatsApp · CREDIT · webinar-nov). The row shows "Live · Video sent"; the
 conversation shows the steps and, for a reviewer, a link to the review.
 
 ## For the Webinars section (migration 0044)
+
+**Connected**: `src/lib/live/webinarSource.ts` is the Webinars section's
+`LiveFunnelSource` (reports uploaded, videos sent and watched, «Get started»,
+by lead id; `docs/WEBINARS.md`, «How the live funnel plugs in»).
 
 The funnel's facts by campaign and keyword are in `live_leads` (`tag`,
 `keyword`, `campaign`, `src`, `platform`, and the stage dates), with
@@ -402,4 +415,3 @@ must keep `'live'`.
   and was not tried. Trimming re-records in real time (up to 5 minutes).
 - No live WhatsApp, Twilio, HighLevel, ManyChat or Claude call was made; all
   were tested with mocks.
-- The signup does not read `option=` yet: the other packages' helper builds it.

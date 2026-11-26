@@ -32,6 +32,8 @@ export interface LeadFirstTouch {
   caseRef?: string | null;
   /** The Meta ad it came from, when a tagged link, a click-to-WhatsApp ad or a form said so (docs/ADS.md). */
   ad?: { adId?: string | null; adsetId?: string | null; campaignId?: string | null; fbclid?: boolean; via?: "link" | "ctwa" | "form" | null } | null;
+  /** The live funnel's origin (docs/LIVE-FUNNEL.md: a keyword, a /live link, a comment hand-off). */
+  funnel?: { tag?: string | null; keyword?: string | null; src?: string | null; platform?: string | null } | null;
 }
 
 export interface Lead {

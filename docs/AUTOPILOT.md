@@ -244,7 +244,7 @@ Every row below is one name with an **en_US** and an **es_MX** version.
 | `credalti_reporte_cambios` | nombre, cambio, enlace | New report, with disputed items no longer listed |
 | `credalti_reporte_nuevo` | nombre, enlace | New report, nothing gone |
 | `credalti_ronda_preparada` | nombre, ronda, enlace | Next round prepared |
-| `credalti_recibo` | nombre, recibo, monto, fecha, trabajo, enlace | Payment receipt |
+| `credalti_recibo` | nombre, recibo, monto, fecha, trabajo, enlace | Payment receipt. Body (2026-11-26): «…cobramos {{3}} el {{4}} por {{5}}…», where {{5}} is «trabajo ya hecho: Ronda 2: …» under Credalti Complete, or the Credalti DIY subscription period / the letters we mailed for them: a DIY charge never says "work already done". Submit this body (`src/lib/autopilot/templates.ts`) |
 | `credalti_direccion_1`, `_2`, `_3` | nombre, enlace | Address the post office could not confirm (link to «Confirmar dirección») |
 | `credalti_documento_nuevo_1`, `_2`, `_3` | nombre, documento, motivo, enlace | Document to upload again, with the plain reason |
 | `credalti_pago_rechazado` | nombre, monto, ronda, fecha, enlace | A charge declined; retried on the date; link to «Actualizar mi tarjeta» |

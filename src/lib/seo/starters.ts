@@ -227,7 +227,7 @@ export const STARTER_GUIDES: readonly Starter[] = [
           {
             heading: "How Credalti handles these rules",
             paragraphs: [
-              "Credalti works in Texas. You get the disclosures before you sign, the contract shows how every charge works, and nothing is charged before your first letters are mailed. See [how it works](/como-funciona) and [how pricing works](/precios).",
+              "Credalti works in Texas. You get the disclosures before you sign, and the contract shows how every charge works. With Credalti Complete, you're charged each month right after your letters are mailed, never before. Credalti DIY is a simple monthly subscription, charged after your 3 business days to cancel.[^croa-1679e] See [how it works](/como-funciona) and [how pricing works](/precios).",
               "You can still dispute errors with the bureaus on your own, at no cost.[^fcra-611] Results vary, and the bureaus decide.",
             ],
           },
@@ -279,7 +279,7 @@ export const STARTER_GUIDES: readonly Starter[] = [
           {
             heading: "Cómo cumple Credalti estas reglas",
             paragraphs: [
-              "Credalti trabaja en Texas. Recibes las declaraciones antes de firmar y el contrato muestra cómo funciona cada cobro. No se cobra nada antes de que se envíen tus primeras cartas. Mira [cómo funciona](/como-funciona) y [cómo funcionan los precios](/precios).",
+              "Credalti trabaja en Texas. Recibes las declaraciones antes de firmar y el contrato muestra cómo funciona cada cobro. Con Credalti Complete, se cobra cada mes justo después de enviar tus cartas, nunca antes. Credalti DIY es una suscripción mensual sencilla, que se cobra después de tus 3 días hábiles para cancelar.[^croa-1679e] Mira [cómo funciona](/como-funciona) y [cómo funcionan los precios](/precios).",
               "Aun así, puedes disputar errores con los burós por tu cuenta, sin costo.[^fcra-611] Los resultados varían, y deciden los burós.",
             ],
           },
@@ -454,7 +454,7 @@ export const STARTER_GUIDES: readonly Starter[] = [
             heading: "On your own, or with Credalti",
             paragraphs: [
               "You can dispute errors directly with the bureaus at no cost.[^fcra-611] Would you rather have a team prepare and mail the letters for what you say is wrong? See [how Credalti works](/como-funciona) and [how pricing works](/precios).",
-              "With Credalti, nothing is charged before your first letters are mailed, and you can end the service any time. Results vary, and the bureaus decide.",
+              "With Credalti Complete, you're charged each month right after your letters are mailed, never before, and you can end the service any time. Results vary, and the bureaus decide.",
             ],
           },
         ],
@@ -505,7 +505,7 @@ export const STARTER_GUIDES: readonly Starter[] = [
             heading: "Por tu cuenta, o con Credalti",
             paragraphs: [
               "Puedes disputar errores directamente con los burós sin costo.[^fcra-611] ¿Prefieres que un equipo prepare y envíe las cartas por lo que tú dices que está mal? Mira [cómo funciona Credalti](/como-funciona) y [cómo funcionan los precios](/precios).",
-              "Con Credalti no se cobra nada antes de que se envíen tus primeras cartas, y puedes terminar el servicio cuando quieras. Los resultados varían, y deciden los burós.",
+              "Con Credalti Complete, se cobra cada mes justo después de enviar tus cartas, nunca antes, y puedes terminar el servicio cuando quieras. Los resultados varían, y deciden los burós.",
             ],
           },
         ],

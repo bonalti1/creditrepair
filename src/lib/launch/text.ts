@@ -140,7 +140,7 @@ export const LAUNCH_TEXT = defineText({
         lob: { title: "Letters by mail (Lob)", what: "Printing, mailing and tracking." },
         whatsapp: { title: "WhatsApp (Meta)", what: "Messages to clients and leads." },
         email: { title: "Email", what: "Automatic messages by email, with the unsubscribe link." },
-        payments: { title: "Payments (NMI or Authorize.Net)", what: "Charges by card and bank debit, after the work." },
+        payments: { title: "Payments (NMI or Authorize.Net)", what: "Charges by card and bank debit: Complete after the work, DIY's subscription after the cancellation window." },
         error_alerts: { title: "Error alerts", what: "Failures posted to Slack or n8n." },
         phone_alerts: { title: "Phone alerts (web push)", what: "The team's alerts on their phones." },
         publishing: { title: "Content publishing", what: "Posting approved pieces to the social accounts." },
@@ -402,7 +402,7 @@ export const LAUNCH_TEXT = defineText({
       ),
       job_billing: item(
         "Billing run (hourly)",
-        "The only place a charge is made, after the work.",
+        "The only place a charge is made: Complete after the work, DIY's subscription after the cancellation window.",
         "In n8n, call /api/cron/billing every hour (Workflow 4).",
       ),
       job_leads: item(
@@ -648,7 +648,7 @@ export const LAUNCH_TEXT = defineText({
         lob: { title: "Cartas por correo (Lob)", what: "Imprimir, enviar y rastrear." },
         whatsapp: { title: "WhatsApp (Meta)", what: "Mensajes a clientes y prospectos." },
         email: { title: "Correo electrónico", what: "Mensajes automáticos por correo, con el enlace para darse de baja." },
-        payments: { title: "Pagos (NMI o Authorize.Net)", what: "Cobros con tarjeta y débito bancario, después del trabajo." },
+        payments: { title: "Pagos (NMI o Authorize.Net)", what: "Cobros con tarjeta y débito bancario: Complete después del trabajo, la suscripción DIY después del periodo para cancelar." },
         error_alerts: { title: "Avisos de errores", what: "Las fallas se publican en Slack o n8n." },
         phone_alerts: { title: "Alertas al teléfono (web push)", what: "Las alertas del equipo en sus teléfonos." },
         publishing: { title: "Publicación de contenido", what: "Publicar las piezas aprobadas en las redes." },
@@ -910,7 +910,7 @@ export const LAUNCH_TEXT = defineText({
       ),
       job_billing: item(
         "Corrida de cobros (cada hora)",
-        "El único lugar donde se hace un cobro, después del trabajo.",
+        "El único lugar donde se hace un cobro: Complete después del trabajo, la suscripción DIY después del periodo para cancelar.",
         "En n8n, llama a /api/cron/billing cada hora (flujo 4).",
       ),
       job_leads: item(

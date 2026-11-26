@@ -497,7 +497,7 @@ export async function runBillingForUser(
           receiptNumber: receipt.number,
           amount: receipt.amount,
           date: receipt.date,
-          work: receipt.work,
+          work: receipt.paidFor,
         });
       }
     } else if (attempt.outcome === "declined" || attempt.outcome === "exhausted") {

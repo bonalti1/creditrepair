@@ -90,7 +90,7 @@ const LEAD_STEPS: Record<StaffLocale, Record<ProcedureKey, { steps: string[]; do
       steps: [
         "Open the conversation.",
         "Don't quote a price: the plan is explained in writing, in the agreement, before signing.",
-        "Tell them how the service works and that nothing is charged before the work.",
+        "Tell them how the service works: with Credalti Complete they're charged each month right after their letters are mailed; Credalti DIY is a simple monthly subscription.",
         "If they ask for a discount, a refund or a special deal, tap “Escalate to the owner”.",
       ],
       doneWhen: "A person answered them.",
@@ -198,7 +198,7 @@ const LEAD_STEPS: Record<StaffLocale, Record<ProcedureKey, { steps: string[]; do
       steps: [
         "Abre la conversación.",
         "No des un precio: el plan se explica por escrito, en el acuerdo, antes de firmar.",
-        "Explícale cómo funciona el servicio y que nada se cobra antes del trabajo.",
+        "Explícale cómo funciona el servicio: con Credalti Complete se cobra cada mes justo después de enviar sus cartas; Credalti DIY es una suscripción mensual sencilla.",
         "Si pide descuento, reembolso o un trato especial, toca «Pasar al dueño».",
       ],
       doneWhen: "Una persona le respondió.",

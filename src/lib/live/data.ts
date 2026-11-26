@@ -1,5 +1,7 @@
 import { isDemoMode } from "../supabase/config";
+import { demoLeadForToken, demoLeadFunnels, demoTokenForLead } from "./demoFunnels";
 import type { ReviewItem, ReviewVideo } from "./review";
+import type { FunnelStage, LeadFunnel } from "./stages";
 
 // Where the review queue's screen gets its reviews and records what a member
 // does (docs/LIVE-FUNNEL.md). With a database: /api/staff/live, which checks
@@ -26,18 +28,93 @@ export interface SendOptions {
 
 const DEMO_KEY = "credalti.demo.live.v1";
 
+/** What the person did on their demo video page (/v/demo-…), by lead id. */
+type DemoPageEvents = Partial<Record<"openedAt" | "watchedAt" | "startedAt", string>>;
+
 interface DemoActions {
   videos: Record<string, ReviewVideo[]>;
   deleted: string[];
+  events: Record<string, DemoPageEvents>;
 }
 
 function readDemo(): DemoActions {
   try {
     const raw = JSON.parse(window.localStorage.getItem(DEMO_KEY) ?? "null") as Partial<DemoActions> | null;
-    return { videos: raw?.videos ?? {}, deleted: raw?.deleted ?? [] };
+    return { videos: raw?.videos ?? {}, deleted: raw?.deleted ?? [], events: raw?.events ?? {} };
   } catch {
-    return { videos: {}, deleted: [] };
+    return { videos: {}, deleted: [], events: {} };
   }
+}
+
+/**
+ * The demo leads' funnel line with what was done in this browser (a video sent
+ * from the review queue, the demo video page watched, «Get started»), so the
+ * Lead Manager, the review queue and the Webinars console tell the same story.
+ */
+export function demoLeadFunnelsHere(now: Date = new Date()): Record<string, LeadFunnel> {
+  const base = demoLeadFunnels(now);
+  if (typeof window === "undefined") return base;
+  const local = readDemo();
+  const out: Record<string, LeadFunnel> = {};
+  for (const [leadId, funnel] of Object.entries(base)) {
+    const reviewId = leadId.replace(/^lead-/, "demo-review-");
+    const sent = (local.videos[reviewId] ?? []).find((v) => v.sentAt && !v.deleted);
+    const page = local.events[leadId] ?? {};
+    const reached: { stage: FunnelStage; at: string | null | undefined } | null = page.startedAt ? { stage: "started", at: page.startedAt } : page.watchedAt ? { stage: "watched", at: page.watchedAt } : sent ? { stage: "video_sent", at: sent.sentAt } : null;
+    out[leadId] = reached && STAGE_ORDER[reached.stage] > STAGE_ORDER[funnel.stage] ? { ...funnel, stage: reached.stage, stageAt: reached.at ?? funnel.stageAt } : funnel;
+  }
+  return out;
+}
+
+/** The demo's review ids are "demo-review-<x>", their leads "lead-<x>" (live/demo.ts). */
+const leadOfDemoReview = (reviewId: string) => reviewId.replace(/^demo-review-/, "lead-");
+
+/** The demo video page records what the person did, in this browser only (nothing is sent). */
+export function recordDemoVideoEvent(token: string, event: "opened" | "watched" | "started" | "chat"): void {
+  const leadId = demoLeadForToken(token);
+  if (!leadId || event === "chat") return;
+  const local = readDemo();
+  const at = new Date().toISOString();
+  const mine = { ...(local.events[leadId] ?? {}) };
+  // Facts only move forward: the first time is kept; watching counts as opening, «Get started» as watching enough.
+  mine.openedAt ??= at;
+  if (event === "watched" || event === "started") mine.watchedAt ??= at;
+  if (event === "started") mine.startedAt ??= at;
+  local.events[leadId] = mine;
+  writeDemo(local);
+  try {
+    window.dispatchEvent(new Event(LIVE_CHANGED_EVENT));
+  } catch {
+    // No window events: the next refresh shows it.
+  }
+}
+
+const STAGE_ORDER: Record<FunnelStage, number> = { new: 0, reviewing: 1, video_sent: 2, watched: 3, started: 4, signed: 5 };
+
+/**
+ * The demo's live-funnel facts for the Webinars section, by lead id: the
+ * sample leads' own stage (demoFunnels.ts) plus what was done in this
+ * browser (a video sent from the review queue, the video page watched,
+ * «Get started» tapped). The webinars' demo merges it with its sample leads.
+ */
+export function demoLiveFunnelEvents(now: Date = new Date()): { sent: Set<string>; watched: Set<string>; reports: Set<string>; started: Set<string> } {
+  const out = { sent: new Set<string>(), watched: new Set<string>(), reports: new Set<string>(), started: new Set<string>() };
+  const local = typeof window === "undefined" ? { videos: {}, deleted: [], events: {} } : readDemo();
+  for (const [leadId, funnel] of Object.entries(demoLeadFunnels(now))) {
+    const reached = STAGE_ORDER[funnel.stage];
+    if (reached >= STAGE_ORDER.reviewing) out.reports.add(leadId);
+    if (reached >= STAGE_ORDER.video_sent) out.sent.add(leadId);
+    if (reached >= STAGE_ORDER.watched) out.watched.add(leadId);
+    if (reached >= STAGE_ORDER.started) out.started.add(leadId);
+  }
+  for (const [reviewId, videos] of Object.entries(local.videos)) {
+    if (videos.some((v) => v.sentAt && !v.deleted)) out.sent.add(leadOfDemoReview(reviewId));
+  }
+  for (const [leadId, e] of Object.entries(local.events)) {
+    if (e.watchedAt) out.watched.add(leadId);
+    if (e.startedAt) out.started.add(leadId);
+  }
+  return out;
 }
 
 function writeDemo(actions: DemoActions): void {
@@ -75,9 +152,13 @@ export async function fetchQueue(): Promise<ReviewQueue> {
         if (local.deleted.includes(item.id)) return { ...item, status: "deleted" as const, overview: null };
         const mine = (local.videos[item.id] ?? []).map((v) => ({ ...v, localUrl: sessionUrls.get(v.id) ?? "/live/sample-video.webm" }));
         if (mine.length === 0) return item;
-        const videos = [...mine, ...item.videos];
+        const page = local.events[item.leadId] ?? {};
+        // What the person did on the demo video page moves the sent video and the funnel line forward.
+        const videos = [...mine.map((v) => (v.sentAt && !v.deleted ? { ...v, openedAt: v.openedAt ?? page.openedAt ?? null, watchedAt: v.watchedAt ?? page.watchedAt ?? null, startedAt: v.startedAt ?? page.startedAt ?? null } : v)), ...item.videos];
         const sent = mine.find((v) => v.sentAt && !v.deleted);
-        return { ...item, videos, funnel: item.funnel && sent && item.funnel.stage === "reviewing" ? { ...item.funnel, stage: "video_sent" as const, stageAt: sent.sentAt } : item.funnel };
+        const reached: { stage: FunnelStage; at: string | null | undefined } | null = !sent ? null : page.startedAt ? { stage: "started", at: page.startedAt } : page.watchedAt ? { stage: "watched", at: page.watchedAt } : { stage: "video_sent", at: sent.sentAt };
+        const funnel = item.funnel && reached && STAGE_ORDER[reached.stage] > STAGE_ORDER[item.funnel.stage] ? { ...item.funnel, stage: reached.stage, stageAt: reached.at ?? item.funnel.stageAt } : item.funnel;
+        return { ...item, videos, funnel };
       })
       .filter((item) => item.status !== "deleted");
   }
@@ -153,7 +234,7 @@ export async function sendVideo(reviewId: string, videoId: string, channel: Send
     const now = new Date().toISOString();
     local.videos[reviewId] = (local.videos[reviewId] ?? []).map((v) => (v.id === videoId ? { ...v, sentAt: v.sentAt ?? now, sentVia: [...new Set([...v.sentVia, channel])] } : v));
     writeDemo(local);
-    const link = `${window.location.origin}/v/demo`;
+    const link = `${window.location.origin}/v/${demoTokenForLead(leadOfDemoReview(reviewId))}`;
     return { ok: true, link, message: demoMessage(link), email: channel === "email" ? "sample@example.com" : null, sent: false };
   }
   const answer = await post({ action: "send", videoId, channel });

@@ -7,8 +7,10 @@ competitor's chat signup (a "specialist" chat with a progress bar, a case
 number, the price in the chat and the disclosures as a sheet), keeping what
 works and dropping what does not fit our rules: our assistant says he is AI
 and is labelled as AI on every message, never a human-looking fake specialist;
-the price shown is only an attorney-reviewed plan; nothing is charged before
-the work.
+the price shown is only an attorney-reviewed plan; Credalti Complete is
+charged each month right after the letters are mailed (never before the
+work), and Credalti DIY is a simple monthly subscription after the 3-business-day
+window.
 
 Also built: **"Schedule a call with a person"**, switched **off** by default.
 
@@ -62,7 +64,7 @@ the header from the first moment.
 | 2 Your info | Last name (as on the ID), SSN or ITIN (the kind only), email (optional), then the cell phone | Sign-in is the `/login` code (Supabase phone code; text messages only for login codes). Then the profile through `/api/profile/onboarding` (goal, state, id type, salesperson and partner from an invitation link), the same record onboarding writes; the account is linked to the case. |
 | 3 Verify identity | Mailing address, ID, proof of address | `MailingAddress` and `IdentityDocs` (the intake: `/api/intake/document`, automatic check, a person sees what fails). "I'll do this later" is allowed; letters wait for them. |
 | 4 Your report | — | When a report is on file: what it lists in counts and words ("5 accounts. Among them: 2 collections and 1 account with late payments…"), then "you choose which look wrong; only you decide" and "nobody can promise how the bureaus respond". No score, no gauge, no colours. With no report (the usual case): the monitoring subscription (IdentityIQ, `MONITORING_OFFER`, with the commission disclosure), turned on **right after signing**. |
-| 5 Sign up | Which option: Credalti Complete or Credalti DIY | First the two options side by side (`OptionComparison`: Complete first, "Who it's for", each option's price from its offered plan or "Price set by the team", the monitoring note with the commission, "Start with DIY, upgrade anytime and keep everything you've done"). Nothing pre-selected; "Ask Alti" explains the difference, never pushes. An invitation with `o=diy` / `o=complete` presets it. Saved with `POST /api/service-option` (`docs/SERVICE-OPTIONS.md`). Then the plan of that option: attorney-approved, offered plans only (`publicPlans`, as `/precios`); with none, the rule only and "your plan is in the agreement". Then the two sheets below, with that option's agreement. |
+| 5 Sign up | Which option: Credalti Complete or Credalti DIY | First the two options side by side (`OptionComparison`: Complete first, "Who it's for", each option's price from its offered plan or "Price set by the team", the monitoring note with the commission, "Start with DIY, upgrade anytime and keep everything you've done"). Nothing pre-selected; "Ask Alti" explains the difference, never pushes. A link with `option=diy|complete` (the video page) or `o=diy|complete` (an invitation, the website) marks that option in the comparison and Alti says so; the person still taps it or the other one. Saved with `POST /api/service-option` (`docs/SERVICE-OPTIONS.md`). Then the plan of that option: attorney-approved, offered plans only (`publicPlans`, as `/precios`); with none, the rule only and "your plan is in the agreement". Then the two sheets below, with that option's agreement. |
 
 **The sheets** reuse the agreement itself (`useAgreement` → the same
 `/api/agreement/acknowledge` and `/sign`, the same documents, readiness,

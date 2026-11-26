@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { VIDEO_COPY } from "@/lib/live/copy";
+import { recordDemoVideoEvent } from "@/lib/live/data";
 import { PACKAGE_TEXT, type PackageKey } from "@/lib/live/packages";
 import type { VideoPage } from "@/lib/live/server";
 import Icon from "@/components/Icon";
@@ -13,7 +14,9 @@ import Logo from "@/components/Logo";
 // /api/live/v, from this browser only, so a link preview does not count as
 // opened. In the person's language, with a switch.
 
-function track(token: string, event: "opened" | "watched" | "started" | "chat"): void {
+function track(token: string, event: "opened" | "watched" | "started" | "chat", sample = false): void {
+  // The demo's sample page: kept in this browser only, so the demo's review queue and Webinars counters move.
+  if (sample) return recordDemoVideoEvent(token, event);
   const body = JSON.stringify({ token, event });
   try {
     if (navigator.sendBeacon?.("/api/live/v", new Blob([body], { type: "application/json" }))) return;
@@ -31,11 +34,11 @@ export default function VideoView({ page, token, whatsapp }: { page: VideoPage; 
   const ok = page.state === "ok";
 
   useEffect(() => {
-    if (ok && !("sample" in page && page.sample)) track(token, "opened");
+    if (ok) track(token, "opened", "sample" in page && page.sample === true);
   }, [ok, page, token]);
 
   const chatHref = whatsapp ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(c.chatText)}` : null;
-  const real = ok && !page.sample;
+  const sample = ok && page.sample === true;
 
   return (
     <main className="min-h-screen bg-slate-50" data-testid="video-page">
@@ -74,15 +77,15 @@ export default function VideoView({ page, token, whatsapp }: { page: VideoPage; 
                 className="aspect-video w-full"
                 onTimeUpdate={(e) => {
                   const v = e.currentTarget;
-                  if (!watched.current && real && Number.isFinite(v.duration) && v.duration > 0 && v.currentTime / v.duration >= 0.8) {
+                  if (!watched.current && ok && Number.isFinite(v.duration) && v.duration > 0 && v.currentTime / v.duration >= 0.8) {
                     watched.current = true;
-                    track(token, "watched");
+                    track(token, "watched", sample);
                   }
                 }}
                 onEnded={() => {
-                  if (!watched.current && real) {
+                  if (!watched.current && ok) {
                     watched.current = true;
-                    track(token, "watched");
+                    track(token, "watched", sample);
                   }
                 }}
                 onError={() => setFailed(true)}
@@ -107,7 +110,7 @@ export default function VideoView({ page, token, whatsapp }: { page: VideoPage; 
                       <p className={`mt-1 text-[13px] leading-snug ${key === "complete" ? "text-blue-100" : "text-slate-500"}`}>{p.charged}</p>
                       <a
                         href={page.startHref[key].replace(/([?&]lang=)(en|es)/, `$1${locale}`)}
-                        onClick={() => real && track(token, "started")}
+                        onClick={() => ok && track(token, "started", sample)}
                         className={`pressable mt-3 inline-flex min-h-12 items-center justify-center rounded-full px-5 text-[16px] font-semibold ${key === "complete" ? "bg-amber-400 text-blue-900 hover:bg-amber-300" : "bg-blue-900 text-white hover:bg-blue-800"}`}
                         data-testid={`start-${key}`}
                       >
@@ -130,7 +133,7 @@ export default function VideoView({ page, token, whatsapp }: { page: VideoPage; 
         {chatHref && (
           <a
             href={chatHref}
-            onClick={() => real && track(token, "chat")}
+            onClick={() => ok && track(token, "chat", sample)}
             className="pressable mx-auto mt-5 flex min-h-12 max-w-sm items-center justify-center gap-2 rounded-full bg-white px-5 text-[16px] font-semibold text-blue-900 ring-1 ring-blue-900/20 hover:bg-slate-50"
             data-testid="video-chat"
           >

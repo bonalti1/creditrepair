@@ -78,7 +78,8 @@ November 2026, and where Credalti stands on each.
   then a person), tells them what happened, and mails every round that passes
   its gates after a review window (once the owner turns that on). One queue
   lists only what needs a person, with an estimate of the minutes it takes.
-- **Billing cannot charge before the work.** CRC charges on a date rule (days
+- **Billing cannot charge Credalti Complete before the work** (Credalti DIY
+  is a simple monthly subscription after the cancellation window). CRC charges on a date rule (days
   after the plan is saved, or when letters are saved), and its first work fee
   can be taken at signup. Credalti offers the same plan types and options in
   the same words, but every charge waits for the work it pays for (a mailed

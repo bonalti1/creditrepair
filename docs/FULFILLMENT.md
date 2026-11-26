@@ -7,8 +7,9 @@ Nov 25, 2026 (notification settings, credit monitoring tracking and its
 commissions, document review, the import from Credit Repair Cloud) and the
 end-to-end walkthrough of the demo that found the problems fixed here.
 
-The rules that never bend, whatever a screen seems to allow: no charge before
-the work (the database refuses it), the client decides what is inaccurate
+The rules that never bend, whatever a screen seems to allow: no Credalti Complete charge before
+its work and no DIY subscription before the cancellation window ends (the
+database refuses both), the client decides what is inaccurate
 (nobody on the team marks an item), no promises, no score pictures, never
 "free", never SMS for follow-ups, quiet hours 9 p.m.–8 a.m. Texas time, the
 3-business-day cancellation window, letters only from attorney-approved

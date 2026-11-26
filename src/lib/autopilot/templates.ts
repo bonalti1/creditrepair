@@ -269,10 +269,10 @@ export const STATUS_TEMPLATES: Record<StatusKind | "report_new" | "payment_pause
   ),
   payment_receipt: T(
     "credalti_recibo",
-    "Recibo de un cobro por una ronda ya enviada.",
+    "Recibo de un cobro: una ronda ya enviada (Credalti Complete), o la suscripción o las cartas que enviamos por el cliente (Credalti DIY).",
     ["nombre", "recibo", "monto", "fecha", "trabajo", "enlace"],
-    "Hola {{1}}, recibo {{2}}: cobramos {{3}} el {{4}} por trabajo ya hecho ({{5}}). Lo ves cuando quieras en «Mis pagos»: {{6}}",
-    "Hi {{1}}, receipt {{2}}: we charged {{3}} on {{4}} for work already done ({{5}}). You can see it anytime under \"My payments\": {{6}}",
+    "Hola {{1}}, recibo {{2}}: cobramos {{3}} el {{4}} por {{5}}. Lo ves cuando quieras en «Mis pagos»: {{6}}",
+    "Hi {{1}}, receipt {{2}}: we charged {{3}} on {{4}} for {{5}}. You can see it anytime under \"My payments\": {{6}}",
   ),
   // Billing's notices (billing/server.ts), each with the one-tap «Actualizar mi tarjeta» link. Updating the card retries the
   // same charge at once, under every billing rule (one charge per round, never before the work, never more often than 30 days).

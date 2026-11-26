@@ -531,6 +531,7 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     steps: [
       "Crea el webinar (título en inglés y español, quién lo da, fecha en hora de Texas, plataformas, palabra clave) y publícalo; comparte el enlace de registro.",
       "El día del webinar, abre «Consola en vivo» en la laptop junto a la transmisión: copia los mensajes del chat, sigue el reloj y los tres momentos de invitación, y mira los mensajes que llegan.",
+      "Los contadores incluyen el embudo en vivo: reportes subidos en /live, videos enviados y vistos (Revisiones de reportes) y quién tocó «Empezar» en su video.",
       "Después, pon el enlace de la repetición e importa el CSV de asistentes de Zoom (o marca a mano quién asistió).",
       "En «Campañas», junta anuncios, webinars, palabras clave y fuentes orgánicas, y agrega los costos que no son de Meta: ahí ves el costo por cliente de dos formas y cuánto vale cada cliente.",
     ],
@@ -554,7 +555,7 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     steps: [
       "Guarda un borrador, envíalo al abogado y registra su aprobación; solo entonces se puede ofrecer.",
       "Un plan ofrecido no cambia: para cambiarlo, guarda una versión nueva. Quien ya firmó sigue con la suya.",
-      "No hay cuota de inscripción: la cuota de primer trabajo se cobra después de enviar la primera ronda.",
+      "No hay cuota de inscripción: en Credalti Complete, la cuota de primer trabajo se cobra después de enviar la primera ronda.",
       "Cada plan es de una opción. Credalti Complete: nunca se cobra antes del trabajo; un plan mensual nuevo cobra justo después de enviar las cartas del mes. Credalti DIY: suscripción mensual desde el fin de los 3 días hábiles, más la cuota por carta si pide que enviemos.",
       "Cada opción tiene su propio plan predeterminado.",
     ],
@@ -588,6 +589,7 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
       "Toca «Grabar video»: comparte esta pestaña (la vista de grabación solo muestra a esta persona), enciende la cámara si quieres y sigue el guion de 2 a 5 minutos.",
       "Revisa el video, recorta el inicio o el final si hace falta y súbelo.",
       "Mándalo por WhatsApp con un toque (o por correo). Ves cuando lo abre, lo ve y toca «Empezar».",
+      "«Empezar» abre el registro con el paquete que eligió ya marcado (Complete o DIY); todavía puede elegir el otro. El webinar y sus campañas cuentan el video y el registro.",
       "Si firma, toca «Importar como primer reporte». Si no firma, el reporte y su video se borran solos a los 30 días.",
     ],
     playbooks: [],
@@ -813,6 +815,7 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
     steps: [
       "Create the webinar (title in English and Spanish, the host, the date on Texas time, the platforms, the keyword) and publish it; share the registration link.",
       "On the day, open “Live console” on the laptop beside the stream: copy the chat messages, follow the timer and the three call-to-action moments, and watch the messages coming in.",
+      "The counters include the live funnel: reports uploaded on /live, videos sent and watched (Report reviews) and who tapped “Get started” on their video.",
       "Afterwards, add the replay link and import Zoom's attendee CSV (or mark by hand who attended).",
       "In “Campaigns”, group ads, webinars, keywords and organic sources, and add the costs that are not Meta's: there you see the cost per client two ways and what each client is worth.",
     ],
@@ -836,7 +839,7 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
     steps: [
       "Save a draft, send it to the attorney and record the approval; only then can it be offered.",
       "An offered plan never changes: to change it, save a new version. Clients who signed keep theirs.",
-      "There is no setup fee: the first work fee is charged after the first round is mailed.",
+      "There is no setup fee: under Credalti Complete, the first work fee is charged after the first round is mailed.",
       "Each plan belongs to one option. Credalti Complete: never charged before the work; a new monthly plan charges right after that month's letters are mailed. Credalti DIY: a monthly subscription from the end of the 3 business days, plus the per-letter fee when they ask us to mail.",
       "Each option has its own default plan.",
     ],
@@ -870,6 +873,7 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
       "Tap “Record video”: share this tab (the recording view shows only this person), turn the camera on if you like and follow the 2 to 5 minute script.",
       "Watch it back, trim the start or the end if needed, and upload it.",
       "Send it on WhatsApp with one tap (or by email). You see when they open it, watch it and tap “Get started”.",
+      "“Get started” opens the signup with the package they picked already marked (Complete or DIY); they can still choose the other. The webinar and its campaign count the video and the signup.",
       "If they sign, tap “Import as the first report”. If they don't, the report and its video delete themselves after 30 days.",
     ],
     playbooks: [],

@@ -26,9 +26,15 @@ export interface ProductFact {
 export const PRODUCT_FACTS: ProductFact[] = [
   {
     id: "charge-after-work",
-    fact: "No charge before a round is recorded as mailed; every plan type charges after the work it pays for.",
+    fact: "Credalti Complete: no charge before a round is recorded as mailed; every Complete plan type charges after the work it pays for.",
     source: "src/lib/billing/plans.ts",
     evidence: /never by a date on a calendar/,
+  },
+  {
+    id: "diy-subscription-after-window",
+    fact: "Credalti DIY: a monthly subscription, charged at the start of each 30-day period from the end of the 3-business-day cancellation window.",
+    source: "src/lib/billing/plans.ts",
+    evidence: /charged at the start of each\n\/\/\s+30-day period from the end of the 3-business-day/,
   },
   {
     id: "no-setup-fee",

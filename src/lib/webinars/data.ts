@@ -11,13 +11,16 @@ import {
   demoAdDays,
   demoCampaigns,
   demoCosts,
+  demoFunnelEvents,
   demoFunnelLeads,
   demoPurchases,
   demoRegistrations,
   demoReportClients,
   demoValues,
   demoWebinars,
+  mergeFunnelEvents,
 } from "./demo";
+import { demoLiveFunnelEvents } from "../live/data";
 import { leadFromWebinar } from "./live";
 import { TEXAS_TZ, texasToIso } from "./time";
 import type { Campaign, CampaignCost, ClientPurchase, CostKind, PurchaseKind, Registration, Webinar, WebinarLanguage, WebinarPlatform } from "./types";
@@ -170,7 +173,7 @@ export function useWebinarsData(viewer: Viewer | null) {
             registrants: regs.map((r) => registrantView(r, contact)),
             contact,
             reminders: role === "admin" ? reminderStats(demoReminderLog(webinar, regs, now)) : null,
-            counters: countersFor(webinar, regs, leads, demoReportClients(now), null),
+            counters: countersFor(webinar, regs, leads, demoReportClients(now), demoVideos(now)),
             sample: true,
           };
         }
@@ -187,7 +190,7 @@ export function useWebinarsData(viewer: Viewer | null) {
           const phones = new Set(regs.map((r) => r.phone));
           // The live demo's keyword messages arrive as the minutes pass.
           const leads = demoFunnelLeads(now).filter((l) => leadFromWebinar(l, webinar, phones) && Date.parse(l.createdAt) <= now.getTime());
-          return { webinar, phase: summarize([webinar], regs, now)[0]!.phase, links: webinarLinks(webinar, origin()), counters: countersFor(webinar, regs, leads, demoReportClients(now), null), leads: liveLeadViews(leads), sample: true };
+          return { webinar, phase: summarize([webinar], regs, now)[0]!.phase, links: webinarLinks(webinar, origin()), counters: countersFor(webinar, regs, leads, demoReportClients(now), demoVideos(now)), leads: liveLeadViews(leads), sample: true };
         }
         return getJson(`?live=${encodeURIComponent(id)}`);
       },
@@ -204,7 +207,7 @@ export function useWebinarsData(viewer: Viewer | null) {
             registrations: w.registrations,
             leads: demoFunnelLeads(now).filter((l) => Date.parse(l.createdAt) <= now.getTime()),
             reportClients: demoReportClients(now),
-            videos: null,
+            videos: demoVideos(now),
             values: demoValues(now),
             dayOf: (at) => dayInZone(at, TEXAS_TZ),
           });
@@ -367,6 +370,11 @@ export function useWebinarsData(viewer: Viewer | null) {
 }
 
 export type WebinarsData = ReturnType<typeof useWebinarsData>;
+
+/** The live funnel's facts in the demo: the sample's, and what a member did in this browser (a video sent, the video page watched, «Get started»). */
+function demoVideos(now: Date) {
+  return mergeFunnelEvents(demoFunnelEvents(now), demoLiveFunnelEvents(now));
+}
 
 /** The demo's reminder log: what would have gone, by the schedule, for the reminders' table. */
 function demoReminderLog(webinar: Webinar, regs: readonly Registration[], now: Date): Array<{ kind: import("./types").ReminderKind; status: string }> {

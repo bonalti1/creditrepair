@@ -149,9 +149,9 @@ what we do may be described; what the bureaus will do may not be promised.
 3. Monitoring is a separate subscription: the client pays it to the monitoring
    service, not to us.
 4. The plan is explained before signing, as it is written in the agreement.
-   With Complete, nothing is charged before the service it pays for has been
-   performed. With DIY it is a monthly subscription from the start, after the
-   3 business days.
+   With Complete, they're charged each month right after their letters are
+   mailed, never before the work. DIY is a simple monthly subscription, after
+   the 3 business days.
 5. After signing, the client has 3 business days to cancel at no cost.
 
 **What you may not say or do**

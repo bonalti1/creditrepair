@@ -1,66 +1,41 @@
+import { effectiveOption, parseServiceOption, type ServiceOption as ClientOption } from "../service/options";
 import type { PackageUpgrade, ServiceOption } from "./types";
 
-// Which package a client is on, and their DIY → Complete upgrades
-// (owner's decision, 2026-11-25: "Credalti Complete" and "Credalti DIY").
-// Another helper builds the packages themselves: a per-client `option`
-// field and the upgrade events, with a small function to read them. Until
-// that lands, this is the interface the scorecard reads through:
+// Which package a client is on, and their DIY → Complete upgrades, as the
+// campaign scorecard reads them (docs/WEBINARS.md, «Packages»), from the
+// service options module (docs/SERVICE-OPTIONS.md, migration 0042):
 //
-//   - packageOf(client): the client's `option` (also accepted: `package`,
-//     `servicePackage`), any of diy, do_it_yourself, self_serve,
-//     credalti_diy → DIY; anything else, or nothing → Complete (every
-//     client before the packages was full service);
-//   - upgradesOf(client): the client's `packageEvents` / `upgrades`, entries
-//     with `at`, `from` and `to`, kept when from is DIY and to is Complete.
+//   - packageOf(client): the client's recorded option, `serviceOption` on the
+//     console's client record (src/lib/staff/fromRows.ts: the signed agreement
+//     in force, else the option they chose). "diy" is Credalti DIY,
+//     "full_service" Credalti Complete. A client with NO recorded option
+//     (signed before options existed) is Credalti Complete: the same rule
+//     billing and the console apply (effectiveOption);
+//   - upgradesOf(clientId, events): the client's `service_option_upgraded`
+//     events (written when a Complete agreement supersedes a DIY one,
+//     api/agreement/sign), read on the server by listUpgrades
+//     (src/lib/service/server.ts, beside countUpgrades).
 //
-// When the packages module exists, it calls `registerPackageReader` once
-// (import it from src/lib/webinars/server.ts) and its own reading wins.
+// The scorecard's words are "complete" and "diy"; the client record's are
+// "full_service" and "diy".
 
-export interface PackageReader {
-  optionOf(client: unknown): ServiceOption;
-  upgradesOf(client: unknown): PackageUpgrade[];
+export function toPackage(option: ClientOption): ServiceOption {
+  return option === "diy" ? "diy" : "complete";
 }
 
-const DIY = /^(diy|do_it_yourself|do-it-yourself|self_serve|self-serve|credalti_diy|guided)$/i;
-
-function asRecord(v: unknown): Record<string, unknown> {
-  return v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+export function packageOf(client: { serviceOption?: unknown }): ServiceOption {
+  return toPackage(effectiveOption({ chosenOption: parseServiceOption(client.serviceOption) }));
 }
 
-export function normalizeOption(value: unknown): ServiceOption {
-  return typeof value === "string" && DIY.test(value.trim()) ? "diy" : "complete";
+/** An upgrade event as service/server.ts listUpgrades returns it. */
+export interface UpgradeEvent {
+  userId: string;
+  at: string;
 }
 
-const GENERIC: PackageReader = {
-  optionOf(client) {
-    const c = asRecord(client);
-    return normalizeOption(c.option ?? c.package ?? c.servicePackage);
-  },
-  upgradesOf(client) {
-    const c = asRecord(client);
-    const id = typeof c.id === "string" ? c.id : "";
-    const list = Array.isArray(c.packageEvents) ? c.packageEvents : Array.isArray(c.upgrades) ? c.upgrades : [];
-    return list.flatMap((raw): PackageUpgrade[] => {
-      const e = asRecord(raw);
-      const at = typeof e.at === "string" && !Number.isNaN(Date.parse(e.at)) ? e.at : null;
-      if (!at || normalizeOption(e.from) !== "diy" || normalizeOption(e.to) !== "complete") return [];
-      return [{ clientId: id, at, from: "diy", to: "complete" }];
-    });
-  },
-};
-
-let reader: PackageReader = GENERIC;
-
-export function registerPackageReader(next: PackageReader): void {
-  reader = next;
+export function upgradesOf(clientId: string, events: readonly UpgradeEvent[]): PackageUpgrade[] {
+  return events
+    .filter((e) => e.userId === clientId && !Number.isNaN(Date.parse(e.at)))
+    .map((e) => ({ clientId, at: e.at, from: "diy" as const, to: "complete" as const }))
+    .sort((a, b) => a.at.localeCompare(b.at));
 }
-
-export function packageOf(client: unknown): ServiceOption {
-  return reader.optionOf(client);
-}
-
-export function upgradesOf(client: unknown): PackageUpgrade[] {
-  return reader.upgradesOf(client);
-}
-
-export const PACKAGE_NAMES: Record<ServiceOption, string> = { complete: "Credalti Complete", diy: "Credalti DIY" };

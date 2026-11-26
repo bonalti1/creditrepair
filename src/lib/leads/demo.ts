@@ -1,6 +1,8 @@
 import { BRAND } from "../brand";
 import { LEAD_GREETINGS } from "../integrations/whatsapp";
 import { composeAutoReply, labelled } from "./autopilot";
+import { liveLink } from "../live/keywords";
+import { keywordReplyText } from "../live/replies";
 
 const FAQ_QUESTION = "Hello, how long do the bureaus take to answer?";
 import type { Lead, LeadAutoMessage, LeadMessage, LeadNote, LeadStageEvent, LeadThread } from "./types";
@@ -84,10 +86,11 @@ export function buildDemoLeadRecords(now: Date): DemoLead[] {
 
   const leads: DemoLead[] = [
     {
-      lead: base({ id: "lead-rosa", phone: "+17135550141", name: "Rosa Elena Gutiérrez", locale: "es", source: "whatsapp", createdAt: at(40 * MIN), firstTouch: { channel: "whatsapp" }, salesperson: "ana", assignedAt: at(39 * MIN), state: "TX" }),
+      // Typed CRÉDITO during the demo's live class (live/demoFunnels.ts, campaign webinar-test-1): Alti's keyword reply answered.
+      lead: base({ id: "lead-rosa", phone: "+17135550141", name: "Rosa Elena Gutiérrez", locale: "es", source: "whatsapp", createdAt: at(40 * MIN), firstTouch: { channel: "whatsapp", campaign: "webinar-test-1", funnel: { tag: "webinar", keyword: "CREDITO", src: "whatsapp", platform: "whatsapp" } }, salesperson: "ana", assignedAt: at(39 * MIN), state: "TX" }),
       messages: [
-        msg("rosa-1", 40 * MIN, "user", "journey", "Hola, vi su anuncio en Facebook. ¿Cómo funciona?"),
-        greeting("rosa-2", 40 * MIN - 5_000, "es"),
+        msg("rosa-1", 40 * MIN, "user", "journey", "Crédito"),
+        msg("rosa-2", 40 * MIN - 5_000, "assistant", "journey", keywordReplyText("whatsapp", "es", liveLink("https://credalti.com", { src: "whatsapp", keyword: "CREDITO", campaign: "webinar-test-1", locale: "es" }))),
         msg("rosa-3", 26 * MIN, "user", "journey", "Vivo en Houston y quiero comprar casa el próximo año. ¿Me pueden ayudar a revisar mi reporte?"),
       ],
       notes: [],
@@ -156,8 +159,13 @@ export function buildDemoLeadRecords(now: Date): DemoLead[] {
       autoMessages: [],
     },
     {
-      lead: base({ id: "lead-210", phone: "+12105550178", source: "whatsapp", createdAt: at(18 * MIN), firstTouch: { channel: "whatsapp" }, state: null }),
-      messages: [msg("210-1", 18 * MIN, "user", "journey", "Hi is this the credit repair? How much is it per month?"), greeting("210-2", 18 * MIN - 4_000, "en")],
+      // Typed CREDIT during the demo's live class (live/demoFunnels.ts): Alti's keyword reply, then a question about money for a person.
+      lead: base({ id: "lead-210", phone: "+12105550178", source: "whatsapp", createdAt: at(18 * MIN), firstTouch: { channel: "whatsapp", campaign: "webinar-test-1", funnel: { tag: "webinar", keyword: "CREDIT", src: "whatsapp", platform: "whatsapp" } }, state: null }),
+      messages: [
+        msg("210-1", 18 * MIN, "user", "journey", "CREDIT"),
+        msg("210-2", 18 * MIN - 4_000, "assistant", "journey", keywordReplyText("whatsapp", "en", liveLink("https://credalti.com", { src: "whatsapp", keyword: "CREDIT", campaign: "webinar-test-1", locale: "en" }))),
+        msg("210-3", 16 * MIN, "user", "journey", "Got it. Is this the credit repair? How much is it per month?"),
+      ],
       notes: [],
       stageEvents: [],
       autoMessages: [{ id: "am-210", at: at(15 * MIN), kind: "handoff", status: "handed_off", reason: "billing", body: null }],

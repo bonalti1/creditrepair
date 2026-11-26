@@ -157,7 +157,7 @@ const es: MarketingCopy = {
       ],
       [
         "¿Cuánto cuesta?",
-        `El servicio de ${brand} tiene una cuota mensual. Nuestro equipo te explica el plan antes de que firmes, y queda escrito en tu acuerdo. Cada cobro es por trabajo que ya se hizo; no se cobra por adelantado. Aparte está ${monitoringName("es")}, que le pagas directo al servicio de monitoreo.`,
+        `${brand} Complete es el servicio en el que nuestro equipo prepara y envía tus cartas. Tiene una cuota mensual: se cobra cada mes justo después de enviar tus cartas, nunca por adelantado. Nuestro equipo te explica el plan antes de que firmes, y queda escrito en tu acuerdo. Aparte está ${monitoringName("es")}, que le pagas directo al servicio de monitoreo.`,
       ],
       [
         "¿Y si firmo y cambio de opinión?",
@@ -295,7 +295,7 @@ const en: MarketingCopy = {
       ],
       [
         "How much does it cost?",
-        `The ${brand} service has a monthly fee. Our team explains the plan before you sign, and it is written in your agreement. Each charge is for work already done; nothing is charged in advance. Separately there is ${monitoringName("en")}, which you pay directly to the monitoring service.`,
+        `${brand} Complete is the service where our team prepares and mails your letters. It has a monthly fee: you're charged each month right after your letters are mailed, never in advance. Our team explains the plan before you sign, and it is written in your agreement. Separately there is ${monitoringName("en")}, which you pay directly to the monitoring service.`,
       ],
       [
         "What if I sign and change my mind?",

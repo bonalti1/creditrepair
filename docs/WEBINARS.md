@@ -243,7 +243,7 @@ and the screen says the host reads the approved plan's price.
 
 Every line of the scripts passes the claim rules and the advertising rules
 in both languages; nothing "free", no pressure (`webinars.test.ts`). If
-`docs/LIVE-FUNNEL.md` lands with its own chat lines, they replace
+`docs/LIVE-FUNNEL.md` adds its own chat lines, they replace
 `moderatorMessages` in `scripts.ts`.
 
 ## After
@@ -263,57 +263,66 @@ in both languages; nothing "free", no pressure (`webinars.test.ts`). If
 
 ## How the live funnel plugs in
 
-Another helper builds the keyword funnel (migration 0043, `src/lib/live/*`):
+The keyword funnel (migration 0043, `src/lib/live/*`, `docs/LIVE-FUNNEL.md`):
 a keyword typed in a live chat or sent on WhatsApp gets an automatic reply
-and the lead is tagged with source `webinar`, the keyword and the campaign.
-It did not exist when this was built, so the webinars read those tags
-**generically** from the lead inbox's own records (`leads`, migration 0034;
-`src/lib/webinars/live.ts` `leadTags`), whatever shape they land in: source
-`webinar` (or `first_touch.channel = "webinar"`); the keyword in
-`first_touch.keyword` or `first_touch.live.keyword`; the campaign in
+and the lead is tagged with the keyword and the campaign. The webinars read
+those tags from the lead inbox's own records (`leads`, migration 0034;
+`src/lib/webinars/live.ts` `leadTags`): source `webinar` (or
+`first_touch.channel = "webinar"`, or the live funnel's
+`first_touch.funnel.tag = "webinar"`); the keyword in `first_touch.keyword`,
+`.live.keyword` or the live funnel's `.funnel.keyword`; the campaign in
 `first_touch.campaign`, `.campaignTag`, `.live.campaign` or `utm.campaign`;
 the webinar in `first_touch.webinarId` or `.live.webinarId`, or the lead's
 phone matching a registrant.
 
 A lead belongs to a webinar by its id, a registrant's phone, or its keyword
-(with source `webinar`) or campaign tag from the day before the class on.
+(tagged as from a webinar) or campaign tag from the day before the class on.
+"Keyword messages" counts the webinar's leads who sent any keyword (CREDIT or
+the Spanish CRÉDITO).
 
-What only the funnel knows, the short video sent after the keyword and
-whether it was watched, comes through one interface:
+What only the funnel knows comes through one interface, **connected**:
 
 ```ts
 // src/lib/webinars/live.ts
 export interface LiveFunnelSource {
   id: string;
-  videos(leadIds: readonly string[]): Promise<{ sent: ReadonlySet<string>; watched: ReadonlySet<string> }>;
+  videos(leadIds: readonly string[]): Promise<{ sent; watched; reports?; started? }>; // sets of lead ids
 }
-registerLiveFunnelSource(source);
 ```
 
-To connect it: in `src/lib/live/`, export a `LiveFunnelSource` and call
-`registerLiveFunnelSource` in a server module, and add one import of that
-module at the top of `src/lib/webinars/server.ts`. Until then the video
-counters read "No data yet", never 0.
+`src/lib/live/webinarSource.ts` registers it (`registerLiveFunnelSource`),
+imported once at the top of `src/lib/webinars/server.ts`. It reads four facts
+per lead from `live_leads`, by lead id only (no name, phone or report data),
+with the service role after the route checked the capability:
+`report_at` (report uploaded on `/live`), `video_sent_at`, `video_watched_at`
+and `started_at` («Get started» on `/v/<token>`). The console and the
+scorecard count a report uploaded on `/live` and «Get started» even before an
+account exists. If the source fails, the video counters read "No data yet",
+never 0. In the demo the same facts come from the sample
+(`webinars/demo.ts` `demoFunnelEvents`) plus what was done in this browser
+(a video sent from `/equipo/revisiones`, the demo video page watched,
+«Get started»: `live/data.ts` `demoLiveFunnelEvents`); the live funnel's
+sample leads (Rosa, the 210 number) typed the keyword during the live class
+(campaign tag `webinar-test-1`).
 
 ## Packages (Complete and DIY)
 
-Another helper builds the packages (owner's decision, 2026-11-25:
-"Credalti Complete", done for you, monthly, charged right after each month's
-letters are mailed; "Credalti DIY", do it yourself guided by Alti, a monthly
-subscription from the start), with a per-client `option` field and DIY →
-Complete upgrade events. Until that lands, the scorecard reads them through
+Owner's decision, 2026-11-25: "Credalti Complete", done for you, monthly,
+charged right after each month's letters are mailed; "Credalti DIY", do it
+yourself guided by Alti, a simple monthly subscription. The scorecard reads
+them from the service options module (`docs/SERVICE-OPTIONS.md`), through
 `src/lib/webinars/packages.ts`:
 
-- `packageOf(client)`: the client's `option` (also `package`,
-  `servicePackage`); diy, do_it_yourself, self_serve or credalti_diy → DIY;
-  anything else or nothing → **Complete** (every client before the packages
-  was full service);
-- `upgradesOf(client)`: `packageEvents` / `upgrades` entries with `at`,
-  `from: "diy"`, `to: "complete"`.
-
-When the packages module exists, it calls `registerPackageReader({ optionOf,
-upgradesOf })` once (imported from `src/lib/webinars/server.ts`) and its own
-reading wins.
+- `packageOf(client)`: the client's recorded option, `serviceOption` on the
+  console's client record (the signed agreement in force, else the option
+  they chose). `diy` is DIY, `full_service` Complete. A client with **no
+  recorded option** (signed before the options existed) is Complete, the same
+  rule billing and the console apply (`effectiveOption`).
+- `upgradesOf(clientId, events)`: the client's `service_option_upgraded`
+  events (written when a Complete agreement supersedes a DIY one), read on the
+  server by `listUpgrades(db, userIds)` in `src/lib/service/server.ts`, beside
+  `countUpgrades(db, from, to)`. "Collected after the upgrade" counts from the
+  first one.
 
 ## The scorecard and its formulas
 
@@ -342,8 +351,9 @@ under the first that matches:
 | Registered, attended | registrations of the campaign's webinars |
 | Leads | the campaign's leads (above) |
 | Reports uploaded | of those, the ones whose client has a report on file (only the client id is read, never the report) |
-| Videos sent / watched | the live funnel (above); "No data yet" until it is connected |
-| Signups started | a chat signup or an account began |
+| Reports uploaded | (also) the report the lead uploaded on `/live` (the live funnel) |
+| Videos sent / watched | the live funnel (above); "No data yet" if it cannot be read |
+| Signups started | a chat signup or an account began, or «Get started» on the video page |
 | Signed | the service agreement is signed (`leads.signed_at`) |
 
 **CAC, two ways**, each with its formula written on the screen:
@@ -465,11 +475,6 @@ migration check (sentinel `signup_chat_messages`).
 
 ## What is not done
 
-- The keyword auto-replies and the video after the keyword are the live
-  funnel's (another helper); the video counters read "No data yet" until it
-  registers its `LiveFunnelSource`.
-- The packages' own module (another helper); the scorecard reads `option`
-  and upgrade events through `packages.ts` meanwhile.
 - No live Zoom, Facebook, YouTube, Instagram or TikTok connection: links are
   typed in, attendance is Zoom's CSV.
 - Nothing has been sent to a real number or address; the reminders were

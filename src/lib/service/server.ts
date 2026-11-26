@@ -122,3 +122,28 @@ export async function countUpgrades(db: SupabaseClient, from: Date, to: Date): P
     userIds: [...new Set(up.map((r) => String(r.user_id)))],
   };
 }
+
+/**
+ * Each DIY → Complete upgrade of these clients (the `service_option_upgraded`
+ * events, written at signature), oldest first, for the campaign scorecard's
+ * value per client (src/lib/webinars/packages.ts upgradesOf).
+ */
+export async function listUpgrades(db: SupabaseClient, userIds: readonly string[]): Promise<Array<{ userId: string; at: string }>> {
+  const ids = [...new Set(userIds)].filter(Boolean);
+  if (ids.length === 0) return [];
+  const out: Array<{ userId: string; at: string }> = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await db
+      .from("events")
+      .select("user_id, created_at")
+      .eq("kind", "service_option_upgraded")
+      .in("user_id", ids.slice(i, i + 200))
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(`events: ${error.message}`);
+    for (const r of (data as Row[] | null) ?? []) {
+      const at = r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at ?? "");
+      if (!Number.isNaN(Date.parse(at))) out.push({ userId: String(r.user_id), at: new Date(at).toISOString() });
+    }
+  }
+  return out;
+}

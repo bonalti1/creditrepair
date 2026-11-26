@@ -1,5 +1,5 @@
 import { addDays } from "../ads/window";
-import type { FunnelLead, VideoEvents } from "./live";
+import { reportUploaded, signupStarted, type FunnelLead, type VideoEvents } from "./live";
 import { SERVICE_OPTIONS, type Campaign, type CampaignCost, type PurchaseKind, type Registration, type ServiceOption, type Webinar } from "./types";
 
 // The campaign scorecard (docs/WEBINARS.md, «The scorecard and its formulas»).
@@ -222,10 +222,10 @@ export function buildScorecard(input: ScorecardInput): Scorecard {
       registered: registrations.length,
       attended: registrations.filter((r) => r.attended).length,
       leads: members.length,
-      reportsUploaded: memberLeads.filter((l) => l.clientUserId && input.reportClients.has(l.clientUserId)).length,
+      reportsUploaded: memberLeads.filter((l) => reportUploaded(l, input.reportClients, input.videos)).length,
       videosSent: input.videos ? memberLeads.filter((l) => input.videos!.sent.has(l.id)).length : null,
       videosWatched: input.videos ? memberLeads.filter((l) => input.videos!.watched.has(l.id)).length : null,
-      signupsStarted: memberLeads.filter((l) => l.signupStarted).length,
+      signupsStarted: memberLeads.filter((l) => signupStarted(l, input.videos)).length,
       signed: signedMembers.length,
     },
     byChannel,

@@ -73,10 +73,16 @@ export interface SignupProgress {
   planSeen: boolean;
   /**
    * The option the person chose (docs/SERVICE-OPTIONS.md): Credalti Complete or
-   * Credalti DIY. Null until they choose; never pre-selected (a website link
-   * that says which one they started with counts as their choice).
+   * Credalti DIY. Null until they choose; never chosen for them (a link's
+   * option is only a preselection: presetOption).
    */
   option: "full_service" | "diy" | null;
+  /**
+   * The option a link preselected (`option=` from the video page, `o=` from the
+   * website or an invitation): marked in the comparison, never chosen for the
+   * person; they tap it, or the other one, to continue.
+   */
+  presetOption?: "full_service" | "diy" | null;
   /** What the report listed, in counts only (never a score), when one was on file. */
   reportCounts: ReportCounts | null;
   /** The counts are the demo's example report. */
@@ -90,7 +96,7 @@ export interface SignupProgress {
 export const EMPTY_ANSWERS: SignupAnswers = { firstName: null, goal: null, state: null, lastName: null, idType: null, email: null };
 
 export function newProgress(caseRef: string, token: string | null, now: Date = new Date()): SignupProgress {
-  return { version: 1, caseRef, token, stage: "start", path: null, answers: { ...EMPTY_ANSWERS }, signedIn: false, identity: null, reportSeen: false, planSeen: false, option: null, reportCounts: null, reportDemo: false, signedName: null, deadlineIso: null, startedAt: now.toISOString() };
+  return { version: 1, caseRef, token, stage: "start", path: null, answers: { ...EMPTY_ANSWERS }, signedIn: false, identity: null, reportSeen: false, planSeen: false, option: null, presetOption: null, reportCounts: null, reportDemo: false, signedName: null, deadlineIso: null, startedAt: now.toISOString() };
 }
 
 export const SIGNUP_STORAGE_KEY = "bonalti.signupChat.v1";
@@ -129,6 +135,7 @@ export function parseProgress(raw: string | null): SignupProgress | null {
     reportSeen: v.reportSeen === true,
     planSeen: v.planSeen === true,
     option: v.option === "diy" || v.option === "full_service" ? v.option : null,
+    presetOption: v.presetOption === "diy" || v.presetOption === "full_service" ? v.presetOption : null,
     reportCounts: parseCounts(v.reportCounts),
     reportDemo: v.reportDemo === true,
     signedName: s(v.signedName, 120),

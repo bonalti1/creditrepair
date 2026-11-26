@@ -511,7 +511,7 @@ export default function PagosPage() {
                   </p>
                 ) : (
                   <>
-                    {!account.paymentMethod && <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{c.methodNoCharge}</p>}
+                    {!account.paymentMethod && <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{isDiyPlan ? p.diyMethodNoCharge : c.methodNoCharge}</p>}
                     <button type="button" onClick={openForm} data-testid="method-open" className={`${account.paymentMethod ? SECONDARY : PRIMARY} mt-4`}>
                       {account.paymentMethod ? c.methodReplace : c.methodAdd}
                     </button>
@@ -572,7 +572,7 @@ export default function PagosPage() {
                     ))}
                   </div>
                 )}
-                {kind === "ach" && <p className="mt-2 text-[14px] leading-relaxed text-slate-600">{p.methodBankWhy}</p>}
+                {kind === "ach" && <p className="mt-2 text-[14px] leading-relaxed text-slate-600">{isDiyPlan ? p.diyMethodBankWhy : p.methodBankWhy}</p>}
                 <p className="mt-4 text-[13px] font-semibold uppercase tracking-wide text-slate-500">{c.formStepAuthorization}</p>
                 {view.draft && (
                   <p role="note" className="mt-2 rounded-2xl bg-amber-100 px-4 py-2.5 text-[13px] leading-snug text-blue-900" data-testid="authorization-draft">
@@ -673,7 +673,7 @@ export default function PagosPage() {
                 <button type="button" onClick={() => setAdding(false)} className={`${SECONDARY} mt-2.5`}>
                   {c.formCancel}
                 </button>
-                <p className="mt-3 text-center text-[13px] leading-snug text-slate-500">{c.methodNoCharge}</p>
+                <p className="mt-3 text-center text-[13px] leading-snug text-slate-500">{isDiyPlan ? p.diyMethodNoCharge : c.methodNoCharge}</p>
               </div>
             )}
             {!adding && error && (

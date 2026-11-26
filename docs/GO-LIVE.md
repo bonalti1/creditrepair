@@ -84,14 +84,16 @@ name shown. Never paste a key into a chat or an email.
 >    should the two businesses be related, if at all?
 > 7. **Texas registration and bond.** We expect to need them as a credit
 >    services organization. Please confirm, and in whose name.
-> 8. **The agreement and the fee.** What the service agreement must disclose,
+> 8. **The agreement and the fee (Credalti Complete).** What the service agreement must disclose,
 >    the 3-business-day right to cancel, and when the monthly fee may be
 >    charged so that nothing is charged before the service it pays for.
 > 9. **Letters in the client's name.** Our staff prepares and mails them. What
 >    must the client sign for that? (The letter packet asks this in detail.)
 > 10. **Billing plans.** We offer plans like Credit Repair Cloud's (monthly for
 >    a month in which letters were mailed, per round, flat fee in installments,
->    pay per deleted item), each charged only after the work. The questions,
+>    pay per deleted item), each charged only after the work (Credalti Complete; Credalti DIY is a
+>    monthly subscription after the 3-business-day window, per
+>    `docs/SERVICE-OPTIONS.md`). The questions,
 >    plan by plan, are in `docs/BILLING.md`; each plan's contract text needs
 >    your approval, as do the card and the bank-debit (ACH) authorizations.
 

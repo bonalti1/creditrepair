@@ -4,7 +4,7 @@ import { PLAN_TEXT_VERSION, snapshotPlan, type PlanTerms, type PlanVersion } fro
 import { activate, listPlans, offeredSnapshot, recordApproval, saveDraft } from "../../billing/planStore";
 import { chargeEligibility } from "../../billing/rules";
 import { loadBilling, runBillingForUser } from "../../billing/server";
-import { countUpgrades, loadClientOption, recordOptionChoice } from "../../service/server";
+import { countUpgrades, listUpgrades, loadClientOption, recordOptionChoice } from "../../service/server";
 import { startHarness, type Harness } from "./pg";
 import { addClient, DAY } from "./seed";
 
@@ -464,6 +464,13 @@ describe("switching option: a new agreement, the old one superseded at the signa
     const counted = await countUpgrades(h.service, new Date(Date.now() - DAY), new Date(Date.now() + DAY));
     expect(counted.upgrades).toBeGreaterThanOrEqual(1);
     expect(counted.userIds).toContain(uid);
+    // The campaign scorecard reads the same events per client (webinars/packages.ts upgradesOf).
+    const other = await addClient(h);
+    await h.service.from("events").insert({ user_id: other, kind: "service_option_downgraded", payload: { from: "full_service", to: "diy" } });
+    const listed = await listUpgrades(h.service, [uid, other]);
+    expect(listed.map((u) => u.userId)).toEqual([uid]);
+    expect(Number.isNaN(Date.parse(listed[0]!.at))).toBe(false);
+    expect(await listUpgrades(h.service, [])).toEqual([]);
   });
 });
 

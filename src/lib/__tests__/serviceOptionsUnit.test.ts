@@ -4,7 +4,12 @@ import { demoCatalogue } from "@/lib/billing/catalogue";
 import { periodTiming, planOption, planTermsHash, snapshotPlan, validatePlanTerms, type PlanTerms, type PlanVersion } from "@/lib/billing/plans";
 import { checkClaimGuardrails, checkMarketingCopy } from "@/lib/compliance/guardrails";
 import { MAILED_ON_MAX_DAYS_BACK, mailedOnProblem, mailFeeCents, mailQuote, UNMAILED_NUDGE_DAYS, unmailedTooLong } from "@/lib/diy/rules";
-import { buildInvitePath, inviteMessage, parseInvite } from "@/lib/sales/invite";
+import { buildInvitePath, inviteMessage, linkOption, parseInvite } from "@/lib/sales/invite";
+import { startHref } from "@/lib/live/server";
+import { SIGNUP_COPY, transcript } from "@/lib/signup/copy";
+import { SITE_COPY } from "@/lib/site/copy";
+import { plainWhenCharged, plainWhoDoes } from "@/lib/agreement/plainWords";
+import { currentQuestion, newProgress, parseProgress } from "@/lib/signup/steps";
 import {
   BOTH_OPTIONS_NOTE,
   COMPARISON,
@@ -204,10 +209,134 @@ describe("the invitation carries the option the person chose, and nothing when t
     }
   });
 
+  it("the video page's option=complete|diy (and the older o=) preselect the package; anything else is ignored", () => {
+    const q = (query: string) => new URLSearchParams(query);
+    expect(linkOption(q("option=diy"))).toBe("diy");
+    expect(linkOption(q("option=complete"))).toBe("full_service");
+    expect(linkOption(q("o=diy"))).toBe("diy");
+    expect(linkOption(q("option=COMPLETE&o=diy"))).toBe("full_service");
+    expect(linkOption(q("option=premium"))).toBeNull();
+    expect(linkOption(q(""))).toBeNull();
+    // The live funnel's «Get started» link, as the signup reads it.
+    const href = startHref({ firstName: "Rosa", goal: "mortgage", state: "TX", locale: "es", salesperson: null }, "diy");
+    const params = new URL(href, "https://app.test").searchParams;
+    expect(new URL(href, "https://app.test").pathname).toBe("/onboarding");
+    expect(parseInvite(params)).toMatchObject({ name: "Rosa", goal: "mortgage", state: "TX", lang: "es", option: "diy" });
+    expect(parseInvite(new URL(startHref({ firstName: "Rosa", goal: "mortgage", state: "TX", locale: "en", salesperson: null }, "complete"), "https://app.test").searchParams)?.option).toBe("full_service");
+  });
+
+  it("the signup chat marks the preselected package but still asks: the person taps it or the other one", () => {
+    const p = { ...newProgress("CR-ABCDE", null), path: "chat" as const, answers: { firstName: "Rosa", goal: "mortgage" as const, state: "TX", lastName: "Martínez", idType: "ssn" as const, email: "" }, signedIn: true, identity: "done" as const, reportSeen: true, presetOption: "diy" as const };
+    expect(currentQuestion(p)).toBe("option");
+    for (const locale of LOCALES) {
+      const lines = transcript(p, locale, { demo: true, monitoring: { provider: null, price: "$30" } });
+      const preset = lines.find((l) => l.key === "option-preset")!;
+      expect(preset.text).toContain("Credalti DIY");
+      expect(checkClaimGuardrails(preset.text, "diy")).toEqual([]);
+      expect(lines.some((l) => l.key === "a-option")).toBe(false);
+    }
+    // Kept on the device, read back; a choice ends the preselection's line.
+    expect(parseProgress(JSON.stringify(p))?.presetOption).toBe("diy");
+    expect(parseProgress(JSON.stringify({ ...p, presetOption: "gold" }))?.presetOption).toBeNull();
+    const chose = { ...p, option: "full_service" as const };
+    expect(currentQuestion(chose)).toBe("plan");
+    expect(transcript(chose, "en", { demo: true, monitoring: { provider: null, price: "$30" } }).some((l) => l.key === "option-preset")).toBe(false);
+    const chat = readFileSync("src/components/signup/SignupChat.tsx", "utf8");
+    expect(chat).toMatch(/linkOption\(/);
+    expect(chat).toMatch(/chosen=\{progress\.presetOption \?\? null\}/);
+    expect(chat).not.toMatch(/fresh\.option = /);
+  });
+
+  it("onboarding (where «Get started» lands) shows the comparison with the link's package marked, and the person can choose the other", () => {
+    const page = readFileSync("src/app/onboarding/page.tsx", "utf8");
+    expect(page).toMatch(/linkOption\(query\)/);
+    expect(page).toMatch(/<OptionComparison[^>]*chosen=\{presetOption\}[^>]*onChoose=\{chooseOption\}/);
+    expect(readFileSync("src/app/onboarding/layout.tsx", "utf8")).toMatch(/optionPrices\("en"\)/);
+  });
+
   it("is chosen on the invitation page with nothing selected by default, and both side by side", () => {
     const page = readFileSync("src/app/equipo/invitar/page.tsx", "utf8");
     expect(page).toMatch(/useState<ServiceOption \| null>\(null\)/);
     expect(page).toMatch(/<OptionComparison/);
     expect(page).toMatch(/buildInvitePath\(\{[^}]*option \}\)/);
+  });
+});
+
+describe("how each package is charged, in every sentence a person reads (owner, 2026-11-25)", () => {
+  // Complete: charged each month right after the letters are mailed. DIY: a simple monthly subscription,
+  // after the 3-business-day window. "Nothing is charged until the work is done" is untrue for DIY:
+  // wherever it is still said, the same line names Credalti Complete.
+  const OLD_CLAIM = /nothing (is )?charged (until|before) (the )?work|until (the )?work is done|no se cobra (nada )?hasta que el trabajo|nada se cobra antes del trabajo|solo después del trabajo/i;
+  const FILES = [
+    "src/lib/site/copy.ts",
+    "src/lib/site/live.ts",
+    "src/lib/site/askAlti.ts",
+    "src/lib/site/facts.ts",
+    "src/lib/signup/copy.ts",
+    "src/lib/live/copy.ts",
+    "src/lib/live/text.ts",
+    "src/lib/live/packages.ts",
+    "src/components/live/LiveContent.tsx",
+    "src/components/live/VideoView.tsx",
+    "src/lib/webinars/scripts.ts",
+    "src/lib/i18n/marketing.ts",
+    "src/lib/seo/starters.ts",
+    "src/lib/staff/playbook.ts",
+    "src/lib/control/today.ts",
+    "src/lib/control/overview.ts",
+    "src/lib/sales/invite.ts",
+    "src/lib/coach/systemPrompt.ts",
+    "src/lib/autopilot/templates.ts",
+    "src/lib/ux/billingCopy.ts",
+    "src/lib/ux/billingPlanCopy.ts",
+    "src/lib/service/options.ts",
+    "src/lib/agreement/plainWords.ts",
+    "src/components/signup/AgreementSheets.tsx",
+    "src/components/signup/SignupChat.tsx",
+    "src/app/(app)/acuerdo/page.tsx",
+    "src/app/(app)/pagos/page.tsx",
+    "src/app/onboarding/page.tsx",
+    "docs/LIVE-FUNNEL.md",
+    "docs/WEBINARS.md",
+    "docs/SALES-FLOW.md",
+    "docs/SIGNUP-CHAT.md",
+    "docs/SERVICE-OPTIONS.md",
+    "README.md",
+  ];
+
+  it("no line says nothing is charged before the work without naming Credalti Complete", () => {
+    for (const file of FILES) {
+      readFileSync(file, "utf8")
+        .split("\n")
+        .forEach((line, i) => {
+          if (OLD_CLAIM.test(line)) expect(line, `${file}:${i + 1}`).toMatch(/Complete/);
+        });
+    }
+  });
+
+  it("the website and the signup say both, true for each, and pass the claim rules", () => {
+    for (const locale of LOCALES) {
+      const both = [SITE_COPY[locale].pricing.lead, SITE_COPY[locale].home.pricing.lead, SITE_COPY[locale].faq.items.find((q) => /When am I charged|Cuándo me cobran/.test(q.q))!.a, SIGNUP_COPY[locale].choose.lead];
+      for (const text of both) {
+        expect(text, text).toMatch(/Complete/);
+        expect(text, text).toMatch(locale === "es" ? /suscripción mensual sencilla/ : /simple monthly subscription/);
+        expect(text, text).not.toMatch(/\bfree\b|gratis/i);
+        expect(checkClaimGuardrails(text, "full_service"), text).toEqual([]);
+      }
+    }
+  });
+
+  it("the agreement's plain words follow its option: DIY is a subscription, never «after the work it pays for»", () => {
+    for (const locale of LOCALES) {
+      const diy = plainWhenCharged({ serviceOption: "diy" }, locale);
+      expect(diy).toMatch(locale === "es" ? /suscripción mensual sencilla/ : /simple monthly subscription/);
+      expect(diy).not.toMatch(/work it pays for|trabajo que paga/);
+      expect(plainWhoDoes({ serviceOption: "diy" }, locale).body).toMatch(locale === "es" ? /tú las imprimes y las envías/ : /you print and mail them/);
+      expect(plainWhenCharged({}, locale)).toMatch(/Complete/);
+      expect(plainWhoDoes({}, locale).body).toMatch(locale === "es" ? /las envía por correo/ : /mails them/);
+    }
+    const page = readFileSync("src/app/(app)/acuerdo/page.tsx", "utf8");
+    expect(page).toMatch(/plainWhoDoes\(terms, locale\)/);
+    expect(readFileSync("src/components/signup/AgreementSheets.tsx", "utf8")).toMatch(/plainWhenCharged\(terms, locale\)/);
   });
 });

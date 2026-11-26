@@ -269,7 +269,8 @@ describe("what a prospect reads, under full service", () => {
     // How billing works is described, without an amount, in one FAQ answer.
     const cost = MARKETING.es.empezar.faq.find(([question]) => question === "¿Cuánto cuesta?")![1];
     expect(cost).toMatch(/Nuestro equipo te explica el plan antes de que firmes/);
-    expect(cost).toMatch(/Cada cobro es por trabajo que ya se hizo/);
+    // This page presents Credalti Complete, and says so (owner, 2026-11-25: charged each month right after the letters are mailed).
+    expect(cost).toMatch(/Complete es el servicio en el que nuestro equipo prepara y envía tus cartas\. Tiene una cuota mensual: se cobra cada mes justo después de enviar tus cartas, nunca por adelantado/);
     expect(cost).toMatch(/que le pagas directo al servicio de monitoreo/);
   });
 

@@ -157,7 +157,7 @@ const RULE_TEXT: Record<string, { explain: Bilingual; fix: Bilingual }> = {
     fix: { en: "Describe what the picture shows in one sentence.", es: "Describe en una oración lo que muestra la imagen." },
   },
   "old-positioning": {
-    explain: { en: "\"Do it yourself\" and \"Spanish-first\" describe the old product. Say \"in English or Spanish\".", es: "\"Hazlo tú mismo\" y \"español primero\" describen el producto anterior. Di \"en inglés o en español\"." },
+    explain: { en: "\"Do it yourself\" and \"Spanish-first\" describe the old product (the package's own name, Credalti DIY, is fine). Say \"in English or Spanish\".", es: "\"Hazlo tú mismo\" y \"español primero\" describen el producto anterior (el nombre del paquete, Credalti DIY, sí se puede usar). Di \"en inglés o en español\"." },
     fix: { en: "Use today's wording.", es: "Usa la forma de hoy." },
   },
 };
@@ -199,7 +199,7 @@ const TEXT_RULES: TextRule[] = [
     pattern:
       /\b(act\s+now|limited\s+time|only\s+today|today\s+only|last\s+chance|hurry|don['’]t\s+wait|spots?\s+left|before\s+it['’]s\s+too\s+late|ends\s+tonight|ahora\s+mismo|solo\s+hoy|s[oó]lo\s+por\s+hoy|[uú]ltima\s+oportunidad|por\s+tiempo\s+limitado|no\s+esperes|date\s+prisa|ap[uú]rate|quedan\s+pocos|antes\s+de\s+que\s+sea\s+tarde)\b/i,
   },
-  { rule: "old-positioning", severity: "warn", pattern: /\bDIY\b|do.it.yourself|hazlo\s+t[uú]\s+mismo|Spanish-first|espa[nñ]ol\s+primero/i },
+  { rule: "old-positioning", severity: "warn", pattern: /(?<!Credalti\s)\bDIY\b|do.it.yourself|hazlo\s+t[uú]\s+mismo|Spanish-first|espa[nñ]ol\s+primero/i },
 ];
 
 const ALTI = new RegExp(`\\b${BRAND.assistant}\\b`);

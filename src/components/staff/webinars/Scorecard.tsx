@@ -345,7 +345,36 @@ function CampaignCard({ card, view, data, onChanged, manage }: { card: Scorecard
         )}
       </p>
 
-      <div className="mt-3 overflow-x-auto">
+      {/* On a phone: one card per package (Complete first), the same figures as the table. */}
+      <div className="mt-3 grid gap-2 sm:hidden" data-testid="by-package-cards">
+        {SERVICE_OPTIONS.map((o) => {
+          const p = card.byPackage[o];
+          const cac = (c: CacFigure) => (c.state === "ok" ? money(c.cents) : text.cacState[c.state]);
+          const rows: Array<[string, string]> = [
+            [t("Firmaron", "Signed"), String(p.signed)],
+            [t("Cobrado", "Collected"), money(p.collectedCents)],
+            [t("Valor promedio", "Average value"), money(p.averageValueCents)],
+            ["CAC*", cac(p.cac)],
+            [t("CAC anuncios", "Ads CAC"), cac(p.adsCac)],
+            [t("Valor ÷ CAC", "Value ÷ CAC"), ratio(p.valueOverCac) ?? "—"],
+            ...(o === "complete" ? ([[t("Cambios desde DIY", "Upgrades from DIY"), String(p.upgrades)]] as Array<[string, string]>) : []),
+          ];
+          return (
+            <div key={o} className="rounded-[12px] border border-slate-200 px-4 py-3" data-testid={`by-package-${o}`}>
+              <p className="text-[15px] font-semibold text-blue-900">{text.package[o]}</p>
+              <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[13.5px] tabular-nums">
+                {rows.map(([label, value]) => (
+                  <div key={label} className="contents">
+                    <dt className="text-slate-500">{label}</dt>
+                    <dd className="text-right font-medium text-slate-900">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 hidden overflow-x-auto sm:block">
         <table className="w-full min-w-[40rem] text-[13.5px]" data-testid="by-package">
           <thead>
             <tr className="bg-slate-50 text-left text-[11.5px] uppercase tracking-[0.06em] text-slate-500">

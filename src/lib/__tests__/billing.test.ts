@@ -929,6 +929,21 @@ describe("billing: receipts", () => {
     expect(receiptFor(paid, null)!.work.es).toBe("Ronda 2: cartas enviadas el 4 de noviembre");
   });
 
+  it("for a Credalti DIY charge, says what it paid for, never «work already done» (the subscription is not our team's work)", () => {
+    const period = receiptFor({ ...paid, unit: "diy_period", roundNumber: 0, workDate: "2026-11-05T00:00:00.000Z" }, null)!;
+    const mailing = receiptFor({ ...paid, unit: "mailing", workDate: "2026-11-04T16:00:00.000Z" }, round2)!;
+    expect(period.paidFor.en).toMatch(/^Credalti DIY: your monthly subscription, the period starting November \d+$/);
+    expect(mailing.paidFor.es).toMatch(/^Credalti DIY: las cartas que enviamos por ti el 4 de noviembre$/);
+    for (const r of [period, mailing]) {
+      const m = receiptMessage(r);
+      expect(`${m.es} ${m.en}`).not.toMatch(/trabajo ya hecho|work already done|Ronda 0|Round 0/);
+      expectCleanClientCopy(m.es);
+      expectCleanClientCopy(m.en);
+    }
+    // Credalti Complete keeps its words.
+    expect(receiptFor(paid, round2)!.paidFor.en).toMatch(/^work already done: Round 2: 3 letters mailed/);
+  });
+
   it("is sent in words that pass the claim rules", () => {
     const message = receiptMessage(receiptFor(paid, round2)!);
     expect(message.es).toBe(

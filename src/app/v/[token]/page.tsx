@@ -1,7 +1,9 @@
 import RequestLocaleProvider from "@/lib/i18n/RequestLocaleProvider";
 import { requestLocale } from "@/lib/i18n/server";
 import { VIDEO_COPY } from "@/lib/live/copy";
-import { DEMO_VIDEO_TOKEN, SAMPLE_VIDEO_URL } from "@/lib/live/demo";
+import { demoReviews, SAMPLE_VIDEO_URL } from "@/lib/live/demo";
+import { demoLeadForToken } from "@/lib/live/demoFunnels";
+import type { GoalKey } from "@/lib/sales/invite";
 import { startHref, videoForToken, type VideoPage } from "@/lib/live/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { isDemoMode } from "@/lib/supabase/config";
@@ -28,22 +30,25 @@ export default async function VideoLinkPage({ params }: { params: Promise<{ toke
   const now = new Date();
   let page: VideoPage;
   if (isDemoMode()) {
-    page =
-      token === DEMO_VIDEO_TOKEN
-        ? {
-            state: "ok",
-            videoId: "demo",
-            src: SAMPLE_VIDEO_URL,
-            firstName: "Angela",
-            locale: (await requestLocale()).locale,
-            expiresAt: new Date(now.getTime() + 14 * 86_400_000).toISOString(),
-            startHref: {
-              complete: startHref({ firstName: "Angela", goal: "card", state: "TX", locale: "en", salesperson: null }, "complete"),
-              diy: startHref({ firstName: "Angela", goal: "card", state: "TX", locale: "en", salesperson: null }, "diy"),
-            },
-            sample: true,
-          }
-        : { state: "gone", locale: (await requestLocale()).locale };
+    // The demo's sample links: /v/demo (Angela's sample video) and the one a member "sends" from the review queue
+    // (/v/demo-rosa, /v/demo-210). Always the labelled sample video; what the person does stays in this browser.
+    const leadId = demoLeadForToken(token);
+    const review = leadId ? demoReviews(now).find((r) => r.leadId === leadId) : undefined;
+    const locale = (await requestLocale()).locale;
+    if (review) {
+      const firstName = review.firstName?.split(" ")[0] ?? null;
+      const who = { firstName, goal: (review.goal as GoalKey | null) ?? null, state: review.state, locale, salesperson: null };
+      page = {
+        state: "ok",
+        videoId: `demo-${review.id}`,
+        src: SAMPLE_VIDEO_URL,
+        firstName,
+        locale,
+        expiresAt: new Date(now.getTime() + 14 * 86_400_000).toISOString(),
+        startHref: { complete: startHref(who, "complete"), diy: startHref(who, "diy") },
+        sample: true,
+      };
+    } else page = { state: "gone", locale };
   } else {
     const db = getAdminClient();
     page = db ? await videoForToken(db, token, now) : { state: "gone", locale: "en" };

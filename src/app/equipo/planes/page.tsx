@@ -336,7 +336,7 @@ function Editor({ form, setForm, onSave, saving, problems, l, switches }: { form
                   {OPTION_SUBTITLE[option][l]}.{" "}
                   {option === "diy"
                     ? t("Suscripción mensual desde el inicio, después de los 3 días hábiles para cancelar.", "Monthly subscription from the start, after the 3 business days to cancel.")
-                    : t("Cada cobro, después del trabajo que paga.", "Every charge after the work it pays for.")}
+                    : t("Cada cobro, después del trabajo que paga: un plan mensual nuevo, justo después de enviar las cartas del mes.", "Every charge after the work it pays for: a new monthly plan, right after that month's letters are mailed.")}
                 </span>
               </span>
             </label>

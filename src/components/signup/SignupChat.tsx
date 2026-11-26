@@ -19,7 +19,7 @@ import { useOpenStates } from "@/lib/compliance/useOpenStates";
 import { NO_SOFT_PULL, reportStepMode, SOFT_PULL_CONSENT } from "@/lib/credit/softPull";
 import { useLocale } from "@/lib/i18n";
 import { AFFILIATE_DISCLOSURE, MONITORING_OFFER } from "@/lib/monitoring/offer";
-import { GOALS, parseInvite } from "@/lib/sales/invite";
+import { GOALS, linkOption, parseInvite } from "@/lib/sales/invite";
 import { newCaseRef } from "@/lib/signup/caseRef";
 import { reportLines, SIGNUP_COPY, stateName, transcript, type ChatLine } from "@/lib/signup/copy";
 import { LIVE_CHAT_COPY } from "@/lib/signup/liveChat";
@@ -42,7 +42,7 @@ import { markMilestone } from "@/lib/ux/firstWeek";
 import { useClientReport } from "@/lib/ux/reportStore";
 import type { PublicPlan } from "@/lib/site/plans";
 import OptionComparison, { type ComparisonPrice } from "@/components/service/OptionComparison";
-import { parseServiceOption, type ServiceOption } from "@/lib/service/options";
+import type { ServiceOption } from "@/lib/service/options";
 import { useServiceOption } from "@/lib/service/useServiceOption";
 import AgreementFlow, { type SheetKind } from "./AgreementSheets";
 import { AltiRun, Transcript, TypingDots, YouBubble } from "./Bubbles";
@@ -269,8 +269,14 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
   // The device's signup, or a new one with a reference from the server.
   useEffect(() => {
     let cancelled = false;
+    // A link's option (option=complete|diy from the video page, o= from the website or an invitation): preselected, never chosen for them.
+    const preset = linkOption(new URLSearchParams(window.location.search));
     const saved = parseProgress(read(SIGNUP_STORAGE_KEY));
     if (saved) {
+      if (preset && !saved.option && saved.presetOption !== preset) {
+        saved.presetOption = preset;
+        save(SIGNUP_STORAGE_KEY, JSON.stringify(saved));
+      }
       setProgress(saved);
       if (livePersonOpen(saved.caseRef)) setPerson("open");
       setResumed(saved.path === "chat" && Boolean(saved.answers.firstName) && saved.stage !== "done");
@@ -288,9 +294,8 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
       .then((body) => {
         if (cancelled) return;
         const fresh = newProgress(body?.caseRef ?? newCaseRef(), body?.token ?? null);
-        // Started from the website's comparison ("Start with Credalti DIY"): that is their choice; they can still change it.
-        const linkOption = parseServiceOption(new URLSearchParams(window.location.search).get("o") === "complete" ? "full_service" : new URLSearchParams(window.location.search).get("o"));
-        if (linkOption) fresh.option = linkOption;
+        // Started from the video page or the website's comparison ("Start with Credalti DIY"): marked in the comparison; they tap it or the other one.
+        if (preset) fresh.presetOption = preset;
         if (invite) {
           const first = invite.name?.split(" ")[0] ?? null;
           fresh.answers = { ...fresh.answers, firstName: first, goal: invite.goal, state: null };
@@ -531,6 +536,7 @@ export default function SignupChat({ plans, rules, callsEnabled, softPullProvide
               prices={optionPrices[locale]}
               monitoring={monitoringNote[locale]}
               headingLevel={3}
+              chosen={progress.presetOption ?? null}
               onChoose={async (option) => {
                 // Recorded on the account (signed in by now) before the agreement is shown: it is that option's agreement.
                 await serviceOption.choose(option, "signup_chat");

@@ -4,7 +4,7 @@ import { can, type Viewer } from "../staff/permissions";
 import type { StaffLocale } from "../staff/i18n/locale";
 import { isDemoMode } from "../supabase/config";
 import { buildDemoLeadRecords, latestHandoff, withFacts, type DemoLead } from "./demo";
-import { demoLeadFunnels } from "../live/demoFunnels";
+import { demoLeadFunnelsHere } from "../live/data";
 import type { LeadDraftOutcome } from "./drafts";
 import { isPersonStage, leadLanguage, whatsappWindow } from "./inbox";
 import { LEAD_FOLLOWUP_TEMPLATE, renderLeadTemplate } from "./templates";
@@ -151,8 +151,9 @@ export function createDemoLeadData(viewer: Viewer | null, locale: StaffLocale): 
   const now = () => new Date();
   const records = () => {
     const at = now();
-    // Three invented leads came through the live funnel (live/demoFunnels.ts): their funnel line.
-    const funnels = demoLeadFunnels(at);
+    // Three invented leads came through the live funnel (live/demoFunnels.ts): their funnel line, with what
+    // was done in this browser's review queue and on the demo video page (live/data.ts).
+    const funnels = demoLeadFunnelsHere(at);
     return applyDemoLeadActions(buildDemoLeadRecords(at), readDemo())
       .filter((e) => mayWork(viewer, e.lead))
       .map((e) => (funnels[e.lead.id] ? { ...e, lead: { ...e.lead, funnel: funnels[e.lead.id]! } } : e));

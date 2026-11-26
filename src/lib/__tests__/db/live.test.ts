@@ -309,6 +309,28 @@ describe("the review queue and the personal video", () => {
     expect(await trackVideo(h.service, token, "opened", new Date(now.getTime() + 15 * 86_400_000))).toBe(false);
   });
 
+  it("the Webinars section reads the funnel's facts: the live console counts the report, the video sent and watched, and «Get started»", async () => {
+    const lead = await leadByPhone("+17135550321");
+    const { loadFunnelEvents, LIVE_FUNNEL_SOURCE_ID } = await import("../../live/webinarSource");
+    const { liveFunnelSource } = await import("../../webinars/live");
+    const { loadLive, saveWebinar } = await import("../../webinars/server");
+    // Registered by importing the webinars' server module.
+    expect(liveFunnelSource()?.id).toBe(LIVE_FUNNEL_SOURCE_ID);
+    const facts = await loadFunnelEvents(h.service, [String(lead!.id), "00000000-0000-0000-0000-000000000000"]);
+    expect([facts.reports.has(String(lead!.id)), facts.sent.has(String(lead!.id)), facts.watched.has(String(lead!.id)), facts.started.has(String(lead!.id))]).toEqual([true, true, true, true]);
+    expect(facts.sent.size).toBe(1);
+    const saved = await saveWebinar(
+      h.service,
+      { slug: "funnel-check", titleEn: "Credit questions, live", titleEs: "Preguntas de crédito, en vivo", host: "Daniela", startsAt: new Date(Date.now() - 20 * 60_000).toISOString(), durationMinutes: 45, language: "both", topic: "", campaignTag: "webinar-nov", keyword: "CREDIT", links: {}, replayUrl: null, campaignId: null },
+      { userId: admin.userId, name: "Carmen Ruiz" },
+      null,
+    );
+    expect(saved.ok).toBe(true);
+    const view = await loadLive(h.as(admin.userId), h.service, saved.ok ? saved.value.id : "", { contact: true }, new Date());
+    // Keyword messages: the earlier CREDIT, CRÉDITO #webinar-nov and quiet-hours numbers, and Rosa's form (kw=credit, c=webinar-nov).
+    expect(view!.counters).toMatchObject({ keywordMessages: 4, reportsUploaded: 1, videosSent: 1, videosWatched: 1, signupsStarted: 1, signed: 0 });
+  });
+
   it("signed: a simulated reading is never imported; a real one becomes the case's first report and the funnel's copy goes", async () => {
     const client = await addClient(h, { name: "Rosa Elena", phone: "+17135550321" });
     await signAgreement(h, client, { signedDaysAgo: 0 });

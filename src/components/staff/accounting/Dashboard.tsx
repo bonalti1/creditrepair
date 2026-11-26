@@ -77,7 +77,7 @@ export default function Dashboard({ acc, month }: { acc: Acc; month: MonthKey })
         </Tile>
         <Tile
           label={t("Por cobrar", "Accounts receivable")}
-          definition={t("Cobros por trabajo ya hecho que todavía no se cobran (en proceso o rechazados), sin los dados de baja. Nada por trabajo que no se ha hecho.", "Charges for work already done that are not collected yet (processing or declined), without written-off ones. Nothing for work not yet done.")}
+          definition={t("Cobros ya ganados que todavía no se cobran (en proceso o rechazados), sin los dados de baja: en Complete, trabajo ya hecho; en DIY, la suscripción del periodo o las cartas enviadas. Nada por trabajo que no se ha hecho.", "Charges already earned that are not collected yet (processing or declined), without written-off ones: under Complete, work already done; under DIY, the period's subscription or letters mailed. Nothing for work not yet done.")}
           note={t(`${d.receivableCount} cobro(s)`, `${d.receivableCount} charge(s)`)}
           testId="tile-ar"
         >

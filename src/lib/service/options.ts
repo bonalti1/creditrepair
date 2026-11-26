@@ -103,8 +103,8 @@ export const COMPARISON: Record<ServiceOption, Record<Exclude<ComparisonRow, "pr
     next_round: { en: "Our team prepares it, about every 40 days", es: "Nuestro equipo la prepara, cada 40 días más o menos" },
     help: { en: "Our team works your case and answers your questions", es: "Nuestro equipo trabaja tu caso y responde tus preguntas" },
     when_pay: {
-      en: "Only after the work is done: nothing before your letters are mailed",
-      es: "Solo después del trabajo: nada antes de que se envíen tus cartas",
+      en: "Each month, right after your letters are mailed: nothing before the work",
+      es: "Cada mes, justo después de enviar tus cartas: nada antes del trabajo",
     },
   },
   diy: {

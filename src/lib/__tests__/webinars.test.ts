@@ -16,9 +16,11 @@ import { helpForPath } from "../staff/playbook";
 import type { StaffClient } from "../staff/types";
 import { matchAttendance, readAttendees } from "../webinars/attendance";
 import { webinarCopyProblems } from "../webinars/check";
-import { demoAdDays, demoCampaigns, demoCosts, demoFunnelLeads, demoRegistrations, demoReportClients, demoValues, demoWebinars } from "../webinars/demo";
+import { demoAdDays, demoCampaigns, demoCosts, demoFunnelEvents, demoFunnelLeads, demoRegistrations, demoReportClients, demoUpgrades, demoValues, demoWebinars, mergeFunnelEvents } from "../webinars/demo";
+import { funnelEventsFromRows } from "../live/webinarSource";
+import { buildDemoClients } from "../staff/demoClients";
 import { leadFromWebinar, leadTags, liveCounters, type FunnelLead } from "../webinars/live";
-import { normalizeOption, packageOf, upgradesOf } from "../webinars/packages";
+import { packageOf, toPackage, upgradesOf } from "../webinars/packages";
 import { REMINDERS_CONSENT, WEBINAR_PUBLIC_COPY } from "../webinars/publicCopy";
 import { cleanRegistration, servedFor, type RegisterBody } from "../webinars/register";
 import { fillTemplate, kindDueAt, planReminder, reminderWindow, sampleReminderTexts, WEBINAR_TEMPLATE_NAMES, WEBINAR_TEMPLATES, type ReminderContext } from "../webinars/reminders";
@@ -418,17 +420,61 @@ describe("webinars: the live funnel's tags, read generically", () => {
   });
 });
 
-describe("webinars: packages", () => {
-  it("DIY when the client's option says so; Complete otherwise; DIY → Complete upgrades read from the events", () => {
-    expect(normalizeOption("diy")).toBe("diy");
-    expect(normalizeOption("do_it_yourself")).toBe("diy");
-    expect(normalizeOption("complete")).toBe("complete");
-    expect(normalizeOption(undefined)).toBe("complete");
-    expect(packageOf({ option: "DIY" })).toBe("diy");
+describe("webinars: packages (from the service options, docs/SERVICE-OPTIONS.md)", () => {
+  it("the client's recorded option decides; no recorded option is Credalti Complete, as billing and the console read it", () => {
+    expect(packageOf({ serviceOption: "diy" })).toBe("diy");
+    expect(packageOf({ serviceOption: "full_service" })).toBe("complete");
     expect(packageOf({})).toBe("complete");
-    expect(upgradesOf({ id: "c1", packageEvents: [{ at: "2026-11-01T00:00:00Z", from: "diy", to: "complete" }, { at: "2026-11-02T00:00:00Z", from: "complete", to: "diy" }, { at: "bad", from: "diy", to: "complete" }] })).toEqual([
-      { clientId: "c1", at: "2026-11-01T00:00:00Z", from: "diy", to: "complete" },
+    expect(packageOf({ serviceOption: "something else" })).toBe("complete");
+    // The old generic fields are not read any more: the real field exists.
+    expect(packageOf({ option: "diy" } as { serviceOption?: unknown })).toBe("complete");
+    expect([toPackage("diy"), toPackage("full_service")]).toEqual(["diy", "complete"]);
+    // The demo's DIY clients (Valeria, Arturo, Celia) are DIY on the scorecard too.
+    const demo = buildDemoClients(new Date("2026-11-26T18:00:00Z"));
+    expect(demo.filter((c) => packageOf(c) === "diy").map((c) => c.id).sort()).toEqual(["c70", "c71", "c72"]);
+  });
+
+  it("upgrades are the client's service_option_upgraded events, oldest first", () => {
+    const events = [
+      { userId: "c1", at: "2026-11-05T00:00:00.000Z" },
+      { userId: "c2", at: "2026-11-02T00:00:00.000Z" },
+      { userId: "c1", at: "2026-11-01T00:00:00.000Z" },
+      { userId: "c1", at: "bad" },
+    ];
+    expect(upgradesOf("c1", events)).toEqual([
+      { clientId: "c1", at: "2026-11-01T00:00:00.000Z", from: "diy", to: "complete" },
+      { clientId: "c1", at: "2026-11-05T00:00:00.000Z", from: "diy", to: "complete" },
     ]);
+    expect(upgradesOf("c3", events)).toEqual([]);
+  });
+});
+
+describe("webinars: the live funnel plugged in (src/lib/live/webinarSource.ts)", () => {
+  it("reads the live funnel's own first touch: the keyword in first_touch.funnel and its webinar tag", () => {
+    expect(leadTags("whatsapp", { channel: "whatsapp", campaign: "webinar-test-1", funnel: { tag: "webinar", keyword: "CREDITO", src: "whatsapp", platform: "whatsapp" } })).toEqual({ keyword: "CREDITO", campaign: "webinar-test-1", webinarId: null, fromWebinar: true });
+    expect(leadTags("live", { channel: "web", funnel: { tag: "ad", keyword: null } }).fromWebinar).toBe(false);
+  });
+
+  it("the funnel's facts by lead: report on /live, video sent, watched, «Get started»", () => {
+    const facts = funnelEventsFromRows([
+      { lead_id: "a", report_at: "x", video_sent_at: "x", video_watched_at: "x", started_at: "x" },
+      { lead_id: "b", report_at: "x", video_sent_at: null, video_watched_at: null, started_at: null },
+      { lead_id: "", report_at: "x" },
+    ]);
+    expect([...facts.reports].sort()).toEqual(["a", "b"]);
+    expect([...facts.sent, ...facts.watched, ...facts.started]).toEqual(["a", "a", "a"]);
+  });
+
+  it("the console counts them: a report uploaded on /live and «Get started» count even before an account exists", () => {
+    const S = Date.parse("2026-12-05T19:00:00Z");
+    const lead = (id: string): FunnelLead => ({ id, name: null, phone: null, createdAt: new Date(S).toISOString(), source: "whatsapp", fromWebinar: true, keyword: "CREDITO", campaign: "webinar-test-1", webinarId: null, utmSource: null, utmCampaign: null, adCampaignId: null, fromMeta: false, clientUserId: null, signupStarted: false, signedAt: null, lastMessage: null });
+    const videos = { sent: new Set(["a"]), watched: new Set(["a"]), reports: new Set(["a", "b"]), started: new Set(["a"]) };
+    expect(liveCounters({ registrations: [], leads: [lead("a"), lead("b")], keyword: "CREDIT", reportClients: new Set(), videos })).toMatchObject({ keywordMessages: 2, reportsUploaded: 2, videosSent: 1, videosWatched: 1, signupsStarted: 1, signed: 0 });
+    // Not connected: the videos read "No data yet" (null), never 0.
+    expect(liveCounters({ registrations: [], leads: [lead("a")], keyword: "CREDIT", reportClients: new Set(), videos: null })).toMatchObject({ videosSent: null, videosWatched: null, reportsUploaded: 0 });
+    // A Spanish keyword lead from the live funnel belongs to the webinar by its keyword tag when the keyword is the webinar's.
+    expect(leadFromWebinar({ ...lead("c"), keyword: "CREDIT", campaign: null }, { id: "w", keyword: "CREDIT", campaignTag: null, startsAt: new Date(S).toISOString() }, new Set())).toBe(true);
+    expect(mergeFunnelEvents({ sent: new Set(["a"]), watched: new Set() }, { sent: new Set(["b"]), watched: new Set(["b"]), started: new Set(["b"]) })).toEqual({ sent: new Set(["a", "b"]), watched: new Set(["b"]), reports: new Set(), started: new Set(["b"]) });
   });
 });
 
@@ -513,7 +559,7 @@ describe("webinars: the scorecard and its formulas", () => {
 
   it("client value comes from the money rule: payments in, refunds out, test charges never; voided commissions not", () => {
     const charge = (id: string, over: Partial<BillingCharge> = {}): BillingCharge => ({ id, roundNumber: 1, amountCents: 8900, status: "succeeded", workDate: "2026-12-01T00:00:00Z", createdAt: "2026-12-01T00:00:00Z", attempts: 1, lastAttemptAt: null, nextAttemptAt: null, chargedAt: "2026-12-02T00:00:00Z", failureCode: null, refund: null, ...over });
-    const client = { id: "c1", firstName: "Rosa", lastName: "Martínez", option: "diy", packageEvents: [{ at: "2026-12-05T00:00:00Z", from: "diy", to: "complete" }], billing: { paymentMethod: null, charges: [charge("p1"), charge("p2", { chargedAt: "2026-12-10T00:00:00Z" }), charge("p3", { refund: { id: "rf", amountCents: 8900, reason: "x", by: "carmen", at: "2026-12-11T00:00:00Z", completedAt: "2026-12-11T00:00:00Z" } as BillingCharge["refund"] }), charge("t1")], pause: null } } as unknown as StaffClient;
+    const client = { id: "c1", firstName: "Rosa", lastName: "Martínez", serviceOption: "diy", billing: { paymentMethod: null, charges: [charge("p1"), charge("p2", { chargedAt: "2026-12-10T00:00:00Z" }), charge("p3", { refund: { id: "rf", amountCents: 8900, reason: "x", by: "carmen", at: "2026-12-11T00:00:00Z", completedAt: "2026-12-11T00:00:00Z" } as BillingCharge["refund"] }), charge("t1")], pause: null } } as unknown as StaffClient;
     const values = clientValueFacts({
       clients: [client],
       chargeMeta: { t1: { gateway: "demo", reference: null } },
@@ -522,6 +568,7 @@ describe("webinars: the scorecard and its formulas", () => {
         { id: "m2", clientId: "c1", provider: "IdentityIQ", month: "2026-12", amountCents: 4000, kind: "commission", memberRef: "", paidOn: null, source: "manual", note: "", postedIncomeId: null, voidedAt: "2026-12-12T00:00:00Z", voidReason: "dup", by: "x", at: "" },
       ],
       purchases: [{ id: "u1", clientId: "c1", kind: "partner_offer", amountCents: 2500, day: "2026-12-12", note: null, by: "x", voidedAt: null }],
+      upgrades: [{ userId: "c1", at: "2026-12-05T00:00:00.000Z" }, { userId: "c9", at: "2026-12-01T00:00:00.000Z" }],
     }).get("c1")!;
     expect(values).toMatchObject({ name: "Rosa M.", option: "diy", collectedCents: 8900 + 8900 + 8900 - 8900, commissionsCents: 4000, purchasesCents: 2500, upgrades: 1, purchaseCounts: { partner_offer: 1 } });
     // After the upgrade (Dec 5): the Dec 10 payment and the Dec 11 refund.
@@ -544,6 +591,14 @@ describe("webinars: the demo", () => {
     expect(card!.byPackage.diy.signed).toBeGreaterThan(0);
     expect(card!.value.upgrades).toBeGreaterThan(0);
     expect(card!.funnel.videosSent).toBeNull();
+    // With the live funnel's sample facts: reports, videos sent and watched, and the package split from the clients' own option.
+    const [withFunnel] = scorecardsFor({ campaigns: demoCampaigns(now).map((c) => ({ ...c, webinarIds: webinars.map((w) => w.id) })), costs: demoCosts(now), adDays: demoAdDays(now), webinars, registrations: demoRegistrations(now), leads: demoFunnelLeads(now), reportClients: demoReportClients(now), videos: demoFunnelEvents(now), values: demoValues(now), dayOf: (iso) => dayInZone(iso, TEXAS_TZ) });
+    expect(withFunnel!.funnel.videosSent).toBeGreaterThan(0);
+    expect(withFunnel!.funnel.videosWatched).toBeGreaterThan(0);
+    expect(withFunnel!.funnel.videosWatched!).toBeLessThanOrEqual(withFunnel!.funnel.videosSent!);
+    expect(withFunnel!.funnel.reportsUploaded).toBeGreaterThan(card!.funnel.reportsUploaded);
+    expect(withFunnel!.value.clients.filter((c) => c.option === "diy").map((c) => c.clientId).every((id) => ["c70", "c71", "c72"].includes(id))).toBe(true);
+    expect(demoUpgrades(now).map((u) => u.userId)).toEqual(["c20"]);
   });
 
   it("feeds the Ideas center: the webinars' numbers, filled by the code, null below the threshold", () => {

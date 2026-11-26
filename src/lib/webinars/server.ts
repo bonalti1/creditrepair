@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+// The live funnel registers its LiveFunnelSource (reports, videos sent and watched, «Get started»): docs/WEBINARS.md.
+import "../live/webinarSource";
 import { attributionIndex, attributeLead } from "../ads/attribution";
 import { adLeadFromRow, loadAdsSnapshot, shortName as adShortName } from "../ads/server";
 import { addDays, dayInZone } from "../ads/window";
@@ -10,6 +12,7 @@ import type { ChargeMeta } from "../accounting/types";
 import { sha256Hex } from "../agreement/sha256";
 import { commissionLineFromRow } from "../fulfillment/commissionData";
 import { sendEmail } from "../integrations/email";
+import { listUpgrades } from "../service/server";
 import { sendWhatsAppTemplate, sendWhatsAppText } from "../integrations/whatsapp";
 import { reportError } from "../observability/errors";
 import { siteUrl } from "../site/routes";
@@ -337,6 +340,7 @@ export function funnelLeadFromRow(r: Row, adCampaignOf: (row: Row) => { campaign
     phone: str(r.phone_e164),
     createdAt: iso(r.created_at) ?? new Date(0).toISOString(),
     source: String(r.source ?? ""),
+    fromWebinar: tags.fromWebinar,
     keyword: tags.keyword,
     campaign: tags.campaign,
     webinarId: tags.webinarId,
@@ -459,13 +463,18 @@ export async function loadCampaignsView(reader: SupabaseClient, now: Date): Prom
   const [registrations, leads] = await Promise.all([loadRegistrations(reader, webinars.map((w) => w.id)), loadFunnelLeads(reader, since)]);
   const clientIds = leads.map((l) => l.clientUserId).filter((v): v is string => Boolean(v));
   const signedIds = [...new Set(leads.filter((l) => l.signedAt && l.clientUserId).map((l) => l.clientUserId!))];
-  const [reportClients, clients, charges, commissions, households, loanOfficer] = await Promise.all([
+  const [reportClients, clients, charges, commissions, households, loanOfficer, upgrades] = await Promise.all([
     loadReportClients(reader, clientIds),
     signedIds.length ? loadStaffClients(reader).then((list) => list.filter((c) => signedIds.includes(c.id))) : Promise.resolve([]),
     signedIds.length ? rows(reader.from("charges").select("id, gateway, gateway_reference").in("user_id", signedIds), "charges").catch(() => [] as Row[]) : Promise.resolve([] as Row[]),
     signedIds.length ? rows(reader.from("monitoring_commissions").select("*").in("user_id", signedIds), "monitoring_commissions").catch(() => [] as Row[]) : Promise.resolve([] as Row[]),
     signedIds.length ? rows(reader.from("household_members").select("primary_user_id").in("primary_user_id", signedIds), "household_members").catch(() => [] as Row[]) : Promise.resolve([] as Row[]),
     signedIds.length ? rows(reader.from("loan_officer_requests").select("user_id").in("user_id", signedIds), "loan_officer_requests").catch(() => [] as Row[]) : Promise.resolve([] as Row[]),
+    // DIY → Complete upgrades: the service options' own events (docs/SERVICE-OPTIONS.md, «Counting upgrades»).
+    listUpgrades(reader, signedIds).catch(async (error) => {
+      await reportError(error, { where: "webinars:upgrades" });
+      return [];
+    }),
   ]);
   const chargeMeta: Record<string, ChargeMeta> = {};
   for (const c of charges) chargeMeta[String(c.id)] = { gateway: str(c.gateway), reference: str(c.gateway_reference) };
@@ -474,7 +483,7 @@ export async function loadCampaignsView(reader: SupabaseClient, now: Date): Prom
     for (const r of list) m.set(String(r[key]), (m.get(String(r[key])) ?? 0) + 1);
     return m;
   };
-  const values = clientValueFacts({ clients, chargeMeta, commissions: commissions.map(commissionLineFromRow), purchases, households: countBy(households, "primary_user_id"), loanOfficer: countBy(loanOfficer, "user_id") });
+  const values = clientValueFacts({ clients, chargeMeta, commissions: commissions.map(commissionLineFromRow), purchases, households: countBy(households, "primary_user_id"), loanOfficer: countBy(loanOfficer, "user_id"), upgrades });
   const adDays = (snapshot?.days ?? []).map((d) => ({ campaignId: d.campaignId, day: d.day, spendCents: d.spendCents }));
   const scorecards = scorecardsFor({ campaigns, costs, adDays, webinars, registrations, leads, reportClients, videos: await videoEvents(leads.map((l) => l.id)), values, dayOf: (at) => dayInZone(at, TEXAS_TZ) });
   return {

@@ -380,8 +380,9 @@ automatic message is labelled as AI. No SMS anywhere (carriers reject credit
 repair texts; ALTO used SMS). No selling by phone: the Today procedures and
 the reply box say so (Telemarketing Sales Rule). Quiet hours and STOP apply
 to leads. Money is a separate card that sales never sees. Leads become
-"Signed" from the agreement record, not from a payment, and nothing is
-charged before the work (billing is untouched).
+"Signed" from the agreement record, not from a payment; Credalti Complete is
+never charged before the work and Credalti DIY's subscription waits for the
+cancellation window (billing is untouched).
 
 ## For the owner
 

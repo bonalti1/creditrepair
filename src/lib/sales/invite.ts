@@ -81,6 +81,22 @@ export const toPartnerCode = (value: string | null | undefined): string | null =
   return /^[a-z0-9-]{3,30}$/.test(code) ? code : null;
 };
 
+/**
+ * The option a link asks to preselect: `option=complete|diy` (the live
+ * funnel's video page, src/lib/live/packages.ts OPTION_PARAM) or the older
+ * `o=complete|diy` (the website's comparison, a salesperson's invitation).
+ * Anything else: null (the person picks with nothing preselected). A
+ * preselection only: the person still sees both and can choose the other.
+ */
+export function linkOption(params: { get(name: string): string | null }): "full_service" | "diy" | null {
+  for (const raw of [params.get("option"), params.get("o")]) {
+    const value = raw?.trim().toLowerCase();
+    if (value === "diy") return "diy";
+    if (value === "complete" || value === "full_service") return "full_service";
+  }
+  return null;
+}
+
 export function parseInvite(params: { get(name: string): string | null }): Invite | null {
   const goal = params.get("g");
   const state = params.get("s")?.toUpperCase() ?? null;
@@ -95,9 +111,8 @@ export function parseInvite(params: { get(name: string): string | null }): Invit
   if (partner) invite.partner = partner;
   const lang = params.get("lang");
   if (lang === "es" || lang === "en") invite.lang = lang;
-  const option = params.get("o");
-  if (option === "diy") invite.option = "diy";
-  else if (option === "complete") invite.option = "full_service";
+  const option = linkOption(params);
+  if (option) invite.option = option;
   // A link with nothing usable in it is just the ordinary onboarding.
   return invite.name || invite.goal || invite.state || invite.ref ? invite : null;
 }
@@ -162,7 +177,7 @@ export const SALES_MAY_SAY: readonly string[] = [
   "Cómo trabajamos: el cliente revisa su reporte y dice qué es inexacto. Hay dos opciones y él elige: con Credalti Complete nuestro equipo prepara y envía las cartas, en rondas de unos 40 días; con Credalti DIY, Alti las prepara y el cliente las imprime y las envía. Puede cambiar a Complete cuando quiera.",
   "Lo que le toca al cliente: firmar el acuerdo, subir su identificación y un comprobante de domicilio, conectar su monitoreo y revisar su reporte.",
   "El monitoreo es una suscripción aparte: el cliente se la paga al servicio de monitoreo, no a nosotros.",
-  "El plan se explica antes de firmar, tal como está en el acuerdo. Con Complete no se cobra un servicio antes de haberlo hecho. Con DIY es una suscripción mensual desde el inicio, después de los 3 días hábiles.",
+  "El plan se explica antes de firmar, tal como está en el acuerdo. Con Complete se cobra cada mes justo después de enviar sus cartas, nunca antes del trabajo. DIY es una suscripción mensual sencilla, después de los 3 días hábiles.",
   "Después de firmar, el cliente tiene 3 días hábiles para cancelar sin costo.",
 ];
 
@@ -179,7 +194,7 @@ export const SALES_MAY_SAY_EN: readonly string[] = [
   "How we work: the client reviews their report and says what's inaccurate. There are two options and they choose: with Credalti Complete our team prepares and mails the letters, in rounds of about 40 days; with Credalti DIY, Alti prepares them and the client prints and mails them. They can change to Complete anytime.",
   "What's on the client: signing the agreement, uploading their ID and a proof of address, connecting their monitoring and reviewing their report.",
   "Monitoring is a separate subscription: the client pays the monitoring service for it, not us.",
-  "The plan is explained before signing, exactly as it is in the agreement. With Complete, no service is charged before it's done. With DIY it's a monthly subscription from the start, after the 3 business days.",
+  "The plan is explained before signing, exactly as it is in the agreement. With Complete, they're charged each month right after their letters are mailed, never before the work. DIY is a simple monthly subscription, after the 3 business days.",
   "After signing, the client has 3 business days to cancel at no cost.",
 ];
 

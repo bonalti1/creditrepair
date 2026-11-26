@@ -10,16 +10,19 @@ import type { Registration, Webinar } from "./types";
 // webinars read those tags GENERICALLY from the lead inbox's own records
 // (`leads`, migration 0034), whatever shape they land in:
 //
-//   - source "webinar" (or first_touch.channel "webinar");
-//   - the keyword: first_touch.keyword (or .live.keyword);
+//   - source "webinar" (or first_touch.channel "webinar", or the live
+//     funnel's first_touch.funnel.tag "webinar");
+//   - the keyword: first_touch.keyword (or .live.keyword, or the live
+//     funnel's .funnel.keyword);
 //   - the campaign: first_touch.campaign / .campaignTag / .live.campaign, or utm.campaign;
 //   - the webinar: first_touch.webinarId (or .live.webinarId), or the lead's phone
 //     matching one of the webinar's registrants.
 //
-// What only the live funnel knows (the short video sent after the keyword,
-// and whether it was watched) comes through a LiveFunnelSource it registers
-// (registerLiveFunnelSource). Until one is registered, "videos sent" and
-// "videos watched" read "No data yet", never 0.
+// What only the live funnel knows (the report uploaded on /live, the short
+// video sent after the keyword, whether it was watched, «Get started» tapped
+// on the video page) comes through the LiveFunnelSource it registers
+// (src/lib/live/webinarSource.ts, imported by server.ts). Without one,
+// "videos sent" and "videos watched" read "No data yet", never 0.
 
 export interface FunnelLead {
   id: string;
@@ -29,6 +32,8 @@ export interface FunnelLead {
   phone: string | null;
   createdAt: string;
   source: string;
+  /** Tagged as from a webinar or a keyword (leadTags), whatever its source. */
+  fromWebinar?: boolean;
   keyword: string | null;
   campaign: string | null;
   webinarId: string | null;
@@ -49,9 +54,13 @@ export interface FunnelLead {
 export interface VideoEvents {
   sent: ReadonlySet<string>;
   watched: ReadonlySet<string>;
+  /** Leads who uploaded their report on /live (before any account exists). */
+  reports?: ReadonlySet<string>;
+  /** Leads who tapped «Get started» on their video page. */
+  started?: ReadonlySet<string>;
 }
 
-/** What the live funnel adds: which leads got the video after the keyword, and which watched it. */
+/** What the live funnel adds, by lead id: report uploaded, video sent, watched, «Get started» tapped. */
 export interface LiveFunnelSource {
   id: string;
   videos(leadIds: readonly string[]): Promise<VideoEvents>;
@@ -75,11 +84,13 @@ const str = (v: unknown): string | null => (typeof v === "string" && v.trim() !=
 export function leadTags(source: string, firstTouch: unknown): { keyword: string | null; campaign: string | null; webinarId: string | null; fromWebinar: boolean } {
   const t = rec(firstTouch);
   const live = rec(t.live);
+  // The live funnel's own shape (src/lib/live/server.ts ensureFunnelLead): { campaign, funnel: { tag, keyword, src, platform } }.
+  const funnel = rec(t.funnel);
   const utm = rec(t.utm);
-  const keyword = str(t.keyword) ?? str(live.keyword);
+  const keyword = str(t.keyword) ?? str(live.keyword) ?? str(funnel.keyword);
   const campaign = str(t.campaign) ?? str(t.campaignTag) ?? str(live.campaign) ?? str(utm.campaign);
   const webinarId = str(t.webinarId) ?? str(live.webinarId);
-  const fromWebinar = source === "webinar" || str(t.channel) === "webinar" || Boolean(webinarId) || Boolean(keyword);
+  const fromWebinar = source === "webinar" || str(t.channel) === "webinar" || str(funnel.tag) === "webinar" || Boolean(webinarId) || Boolean(keyword);
   return { keyword: keyword ? keyword.toUpperCase() : null, campaign, webinarId, fromWebinar };
 }
 
@@ -89,7 +100,7 @@ export function leadFromWebinar(lead: FunnelLead, webinar: Pick<Webinar, "id" | 
   if (lead.phone && registrantPhones.has(lead.phone)) return true;
   const sinceDayBefore = Date.parse(lead.createdAt) >= Date.parse(webinar.startsAt) - 24 * 3_600_000;
   if (!sinceDayBefore) return false;
-  if (lead.keyword && lead.keyword === webinar.keyword.toUpperCase() && lead.source === "webinar") return true;
+  if (lead.keyword && lead.keyword === webinar.keyword.toUpperCase() && (lead.source === "webinar" || lead.fromWebinar)) return true;
   return Boolean(webinar.campaignTag && lead.campaign && lead.campaign.toLowerCase() === webinar.campaignTag.toLowerCase());
 }
 
@@ -113,15 +124,25 @@ export function liveCounters(input: {
   reportClients: ReadonlySet<string>;
   videos: VideoEvents | null;
 }): LiveCounters {
-  const kw = input.keyword.toUpperCase();
   return {
     registered: input.registrations.length,
     attended: input.registrations.filter((r) => r.attended).length,
-    keywordMessages: input.leads.filter((l) => l.keyword === kw).length,
-    reportsUploaded: input.leads.filter((l) => l.clientUserId && input.reportClients.has(l.clientUserId)).length,
+    // The webinar's leads who sent a keyword: its own (CREDIT) or the Spanish one (CREDITO), whichever they typed.
+    keywordMessages: input.leads.filter((l) => Boolean(l.keyword)).length,
+    reportsUploaded: input.leads.filter((l) => reportUploaded(l, input.reportClients, input.videos)).length,
     videosSent: input.videos ? input.leads.filter((l) => input.videos!.sent.has(l.id)).length : null,
     videosWatched: input.videos ? input.leads.filter((l) => input.videos!.watched.has(l.id)).length : null,
-    signupsStarted: input.leads.filter((l) => l.signupStarted).length,
+    signupsStarted: input.leads.filter((l) => signupStarted(l, input.videos)).length,
     signed: input.leads.filter((l) => l.signedAt).length,
   };
+}
+
+/** A report is on file for the lead: their client's report, or the one they uploaded on /live (the live funnel). */
+export function reportUploaded(lead: Pick<FunnelLead, "id" | "clientUserId">, reportClients: ReadonlySet<string>, videos: VideoEvents | null): boolean {
+  return Boolean((lead.clientUserId && reportClients.has(lead.clientUserId)) || videos?.reports?.has(lead.id));
+}
+
+/** A signup began: a chat signup or an account, or «Get started» on their video page (the live funnel). */
+export function signupStarted(lead: Pick<FunnelLead, "id" | "signupStarted">, videos: VideoEvents | null): boolean {
+  return lead.signupStarted || Boolean(videos?.started?.has(lead.id));
 }

@@ -12,7 +12,7 @@ the app shows them and what the team does for them.
 | Mailing | The team mails them | The client prints and mails them, or taps "Mail them for me" and Credalti mails the letters they pick, for a fee per letter shown before they confirm |
 | Next round | The team prepares it | Alti says when it is due |
 | Help | The team, and Alti | Alti, and the team answers questions |
-| When they pay | Only after the work is done (unchanged) | A monthly subscription from the start, after the 3-business-day window; a mailing fee after Credalti mails |
+| When they pay | Each month, right after that month's letters are mailed: never before the work (unchanged rule) | A monthly subscription from the start, after the 3-business-day window; a mailing fee after Credalti mails |
 
 Names, subtitles and "Who it's for" are in `src/lib/service/options.ts`
 (`OPTION_NAME`, `OPTION_SUBTITLE`, `OPTION_FOR`) and are used everywhere.
@@ -54,9 +54,15 @@ Recorded as the owner reported them; not legal advice.
 
 - **Signup chat** (`/registro`): after the report step and before the plan, a
   side-by-side comparison with one button per option and an "Ask Alti"
-  button. Nothing is pre-selected. An invitation link with `o=diy` or
-  `o=complete` presets what the person already told the salesperson; they can
-  still change it. `docs/SIGNUP-CHAT.md`.
+  button. Nothing is pre-selected, except what a link asks for: `option=diy` /
+  `option=complete` (the live funnel's video page) or `o=diy` / `o=complete`
+  (an invitation, the website's "Start with …") marks that option in the
+  comparison, and the person taps it or the other one to continue
+  (`linkOption` in `src/lib/sales/invite.ts`). `docs/SIGNUP-CHAT.md`.
+- **Onboarding** (`/onboarding`, where the video page's «Get started» and an
+  invitation land): when the link carries an option, the same comparison, with
+  it marked, comes before the ID question; the prices come from the layout
+  (the offered, attorney-approved plans).
 - **Website**: `/precios` (after the hero) and `/como-funciona` show the same
   comparison (`src/components/site/OptionsSection.tsx`), with "Start with …"
   links that carry the option to `/registro`.
@@ -170,7 +176,8 @@ messages or turned reminders off (`UpgradeOffer.tsx`, `firstTimeFor`):
 Each switch writes an `events` row at signature: `service_option_upgraded` or
 `service_option_downgraded`. `countUpgrades(db, from, to)` in
 `src/lib/service/server.ts` returns `{ upgrades, downgrades, userIds }` for a
-date range, for a campaign's scorecard.
+date range; `listUpgrades(db, userIds)` returns each client's upgrades, which
+the campaign scorecard reads per client (`docs/WEBINARS.md`, «Packages»).
 
 ## Invariants kept
 

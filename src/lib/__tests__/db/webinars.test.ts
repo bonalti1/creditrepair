@@ -6,7 +6,8 @@ import { REMINDERS_CONSENT } from "../../webinars/publicCopy";
 import { remindersConsentHash, runWebinarReminders, type ReminderDeliver } from "../../webinars/server";
 import { webinarUnsubscribeToken } from "../../webinars/unsubscribe";
 import { startHarness, type Harness } from "./pg";
-import { addStaff } from "./seed";
+import { addClient, addStaff } from "./seed";
+import { recordOptionChoice } from "../../service/server";
 
 // Migration 0044 against the real migrations, with row level security:
 // webinars, registrations, the reminders' log, campaigns, costs, purchases,
@@ -292,6 +293,29 @@ describe("webinars: attendance and the campaign scorecard", () => {
     await expect(h.sql(`delete from public.campaign_costs where id = $1`, [cost!.id])).rejects.toThrow(/never deleted/);
     expect((await json(await route.POST(request("/api/staff/webinars", { action: "void_cost", id: cost!.id })))).status).toBe(200);
     await expect(h.sql(`update public.campaign_costs set amount_cents = 1 where id = $1`, [cost!.id])).rejects.toThrow(/does not change/);
+  });
+
+  it("the scorecard splits signed clients by their own option (service options, 0042) and counts DIY → Complete upgrades from their events", async () => {
+    const diy = await addClient(h, { name: "Valeria Treviño", phone: "+17135550901" });
+    const upgraded = await addClient(h, { name: "Leticia Varela", phone: "+17135550902" });
+    const none = await addClient(h, { name: "Héctor Salas", phone: "+17135550903" });
+    expect((await recordOptionChoice(h.service, diy, "diy", "signup_chat")).ok).toBe(true);
+    await h.service.from("events").insert({ user_id: upgraded, kind: "service_option_upgraded", payload: { from: "diy", to: "full_service" } });
+    const at = new Date().toISOString();
+    for (const [i, id] of [diy, upgraded, none].entries()) {
+      const { error } = await h.service.from("leads").insert({ phone_e164: `+1713555091${i}`, source: "whatsapp", first_touch: { channel: "whatsapp", campaign: "webinar-test-1", funnel: { tag: "webinar", keyword: "CREDIT" } }, client_user_id: id, signed_at: at, created_at: at });
+      expect(error).toBeNull();
+    }
+    const route = await import("@/app/api/staff/webinars/route");
+    as(h.as(admin.userId));
+    const view = await json(await route.GET(request("/api/staff/webinars?campaigns=1")));
+    type Split = { signed: number; upgrades: number };
+    const card = (view.body.scorecards as Array<{ byPackage: { complete: Split; diy: Split }; value: { upgrades: number; clients: Array<{ clientId: string; option: string }> } }>)[0]!;
+    // Valeria chose DIY; Leticia upgraded to Complete; Héctor has no recorded option: Credalti Complete.
+    expect(card.byPackage.diy.signed).toBe(1);
+    expect(card.byPackage.complete).toMatchObject({ signed: 2, upgrades: 1 });
+    expect(card.value.upgrades).toBe(1);
+    expect(Object.fromEntries(card.value.clients.map((c) => [c.clientId, c.option]))).toEqual({ [diy]: "diy", [upgraded]: "complete", [none]: "complete" });
   });
 });
 

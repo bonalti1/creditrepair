@@ -5,7 +5,8 @@ import { addDays, dayInZone } from "../ads/window";
 import { demoCommissionLines } from "../fulfillment/commissionData";
 import { buildDemoClients } from "../staff/demoClients";
 import type { StaffClient } from "../staff/types";
-import type { FunnelLead } from "./live";
+import { DEMO_FUNNEL_CAMPAIGN } from "../live/demoFunnels";
+import type { FunnelLead, VideoEvents } from "./live";
 import type { ClientValueFacts } from "./scorecard";
 import { TEXAS_TZ, texasToIso } from "./time";
 import { GOALS, TIMELINES, type Campaign, type CampaignCost, type ClientPurchase, type Registration, type Webinar } from "./types";
@@ -165,22 +166,22 @@ export function demoPurchases(now: Date): ClientPurchase[] {
   ];
 }
 
-/** The signed sample clients the campaign's leads are matched to (they have charges in the demo's books). */
-const SIGNED_CLIENTS = ["c24", "c25", "c26", "c27", "c13", "c19", "c29", "c20", "c28", "c30", "c12", "c14"];
-/** Sample packages: DIY clients, and one who moved from DIY to Complete. */
-const DIY_CLIENTS = new Set(["c13", "c19", "c29"]);
+/**
+ * The signed sample clients the campaign's leads are matched to (they have
+ * charges in the demo's books). Their package is their own option in the
+ * demo's client records (serviceOption): Valeria, Arturo and Celia (c70–c72)
+ * are the demo's Credalti DIY clients, the rest Credalti Complete.
+ */
+const SIGNED_CLIENTS = ["c24", "c25", "c26", "c27", "c70", "c71", "c72", "c20", "c28", "c30", "c12", "c14"];
 
-export function demoClientsWithPackages(now: Date): StaffClient[] {
-  return buildDemoClients(now).map((c) => {
-    if (DIY_CLIENTS.has(c.id)) return { ...c, option: "diy" } as StaffClient;
-    if (c.id === "c20") return { ...c, option: "complete", packageEvents: [{ at: new Date(now.getTime() - 40 * DAY).toISOString(), from: "diy", to: "complete" }] } as StaffClient;
-    return c;
-  });
+/** The sample DIY → Complete upgrade: Leticia (c20) signed Credalti Complete 40 days ago over a DIY agreement. */
+export function demoUpgrades(now: Date): Array<{ userId: string; at: string }> {
+  return [{ userId: "c20", at: new Date(now.getTime() - 40 * DAY).toISOString() }];
 }
 
 export function demoValues(now: Date): Map<string, ClientValueFacts> {
-  const clients = demoClientsWithPackages(now);
-  return clientValueFacts({ clients, chargeMeta: demoChargeMeta(clients), commissions: demoCommissionLines(now), purchases: demoPurchases(now), loanOfficer: new Map([["c24", 1]]), households: new Map([["c25", 1]]) });
+  const clients: StaffClient[] = buildDemoClients(now);
+  return clientValueFacts({ clients, chargeMeta: demoChargeMeta(clients), commissions: demoCommissionLines(now), purchases: demoPurchases(now), loanOfficer: new Map([["c24", 1]]), households: new Map([["c25", 1]]), upgrades: demoUpgrades(now) });
 }
 
 const EXCERPTS = ["CREDIT", "credit", "CREDIT 🙌", "Hola, CREDIT", "CREDIT please", "¿Cómo me registro?", "CREDIT, gracias"];
@@ -294,7 +295,61 @@ export function demoFunnelLeads(now: Date): FunnelLead[] {
       lastMessage: null,
     });
   }
+  // The live funnel's sample leads (live/demoFunnels.ts, leads/demo.ts): Rosa typed CRÉDITO and the 210 number CREDIT
+  // during the live class; their report review, video and «Get started» are the live funnel's (demoFunnelEvents).
+  const MIN = 60_000;
+  const liveLead = (id: string, name: string | null, keyword: string, ago: number): FunnelLead => ({
+    id,
+    name,
+    phone: null,
+    createdAt: new Date(now.getTime() - ago).toISOString(),
+    source: "whatsapp",
+    fromWebinar: true,
+    keyword,
+    campaign: DEMO_FUNNEL_CAMPAIGN,
+    webinarId: null,
+    utmSource: null,
+    utmCampaign: null,
+    adCampaignId: null,
+    fromMeta: false,
+    clientUserId: null,
+    signupStarted: false,
+    signedAt: null,
+    lastMessage: { at: new Date(now.getTime() - ago).toISOString(), excerpt: keyword === "CREDITO" ? "Crédito" : "CREDIT", fromLead: true },
+  });
+  out.push(liveLead("lead-rosa", "Rosa Elena G.", "CREDITO", 40 * MIN), liveLead("lead-210", null, "CREDIT", 18 * MIN));
   return out;
+}
+
+/**
+ * The live funnel's sample facts for the demo's keyword leads (what
+ * src/lib/live/webinarSource.ts reads from live_leads with a database): after
+ * the ended class, about half uploaded their report on /live, most of those
+ * got their personal video and about two thirds watched it; during the live
+ * class some reports are in and the videos come after. The live funnel's own
+ * sample leads (Rosa, the 210 number) and what a member does in this browser
+ * are added by the screens (live/data.ts demoLiveFunnelEvents).
+ */
+export function demoFunnelEvents(now: Date): Required<VideoEvents> {
+  const out = { sent: new Set<string>(), watched: new Set<string>(), reports: new Set<string>(), started: new Set<string>() };
+  for (const l of demoFunnelLeads(now)) {
+    if (!l.keyword || !l.id.startsWith("demo-kw-")) continue;
+    const live = l.id.includes("demo-webinar-live");
+    const report = l.signedAt !== null || noise(`${l.id}:rep`) < (live ? 0.3 : 0.55);
+    if (!report) continue;
+    out.reports.add(l.id);
+    if (live) continue;
+    if (l.signedAt !== null || noise(`${l.id}:vid`) < 0.85) out.sent.add(l.id);
+    if (out.sent.has(l.id) && (l.signedAt !== null || noise(`${l.id}:w`) < 0.66)) out.watched.add(l.id);
+    if (out.watched.has(l.id) && l.signupStarted) out.started.add(l.id);
+  }
+  return out;
+}
+
+/** Two sets of funnel facts as one (the sample's and this browser's). */
+export function mergeFunnelEvents(...all: ReadonlyArray<VideoEvents>): Required<VideoEvents> {
+  const join = (pick: (e: VideoEvents) => ReadonlySet<string> | undefined) => new Set(all.flatMap((e) => [...(pick(e) ?? [])]));
+  return { sent: join((e) => e.sent), watched: join((e) => e.watched), reports: join((e) => e.reports), started: join((e) => e.started) };
 }
 
 /** Sample clients with a report on file (a share of the campaign's leads who signed up). */

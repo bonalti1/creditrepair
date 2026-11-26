@@ -31,7 +31,7 @@ export const SIGNUP_COPY = {
     progressAria: "Signup progress",
     choose: {
       title: "How would you like to start?",
-      lead: "Either way, nothing is charged before the work it pays for.",
+      lead: "Either way, Credalti Complete is charged each month right after your letters are mailed. Credalti DIY is a simple monthly subscription.",
       alti: `Sign up now with ${A}`,
       altiSub: `About 10 minutes, in a chat. ${A} is an AI assistant, not a person.`,
       person: "Talk to a person first",
@@ -90,9 +90,10 @@ export const SIGNUP_COPY = {
       optionIntro: "There are two ways to work with us, and you choose. Both start with your review: you decide what is inaccurate. Here they are side by side.",
       optionNoRush: "Take your time. I can explain the difference; the choice is yours, and you can change later.",
       optionChosen: (name: string) => `You chose ${name}. You can change it before you sign, or later.`,
+      optionPreset: (name: string) => `You picked ${name} on your link, so it's marked below. Tap it to continue, or choose the other one: it's your choice.`,
       optionAsk: "What is the difference between Credalti Complete and Credalti DIY?",
       optionAskButton: "Ask Alti about the difference",
-      planRule: "Nothing is charged before the work it pays for. Your plan is written in the agreement, so you read it before you sign.",
+      planRule: "With Credalti Complete, nothing is charged before the work it pays for. Credalti DIY is a simple monthly subscription. Your plan is written in the agreement, so you read it before you sign.",
       disclosuresIntro: "Before the contract, the law asks that you read your rights, as their own document. Take your time.",
       questionPrompt: "Of course. What would you like to ask? I'll answer here, then we go back to the same spot.",
       backToSheet: "Whenever you're ready, we go back to where you were.",
@@ -152,7 +153,7 @@ export const SIGNUP_COPY = {
     progressAria: "Avance del registro",
     choose: {
       title: "¿Cómo quieres empezar?",
-      lead: "De cualquier forma, nada se cobra antes del trabajo que paga.",
+      lead: "De cualquier forma, Credalti Complete se cobra cada mes justo después de enviar tus cartas. Credalti DIY es una suscripción mensual sencilla.",
       alti: `Regístrate ahora con ${A}`,
       altiSub: `Unos 10 minutos, en un chat. ${A} es un asistente con IA, no una persona.`,
       person: "Hablar primero con una persona",
@@ -211,9 +212,10 @@ export const SIGNUP_COPY = {
       optionIntro: "Hay dos formas de trabajar con nosotros, y tú eliges. Las dos empiezan con tu revisión: tú decides qué es inexacto. Aquí las ves lado a lado.",
       optionNoRush: "Tómate tu tiempo. Te explico la diferencia; la decisión es tuya, y puedes cambiar después.",
       optionChosen: (name: string) => `Elegiste ${name}. Puedes cambiarla antes de firmar, o después.`,
+      optionPreset: (name: string) => `Elegiste ${name} en tu enlace, así que está marcada abajo. Tócala para seguir, o elige la otra: la decisión es tuya.`,
       optionAsk: "¿Qué diferencia hay entre Credalti Complete y Credalti DIY?",
       optionAskButton: "Preguntarle a Alti la diferencia",
-      planRule: "Nada se cobra antes del trabajo que paga. Tu plan está escrito en el acuerdo, así lo lees antes de firmar.",
+      planRule: "Con Credalti Complete, nada se cobra antes del trabajo que paga. Credalti DIY es una suscripción mensual sencilla. Tu plan está escrito en el acuerdo, así lo lees antes de firmar.",
       disclosuresIntro: "Antes del contrato, la ley pide que leas tus derechos, como un documento aparte. Tómate tu tiempo.",
       questionPrompt: "Claro. ¿Qué quieres preguntar? Te respondo aquí y luego volvemos al mismo lugar.",
       backToSheet: "Cuando quieras, volvemos a donde estabas.",
@@ -330,7 +332,10 @@ export function transcript(p: SignupProgress, locale: L, extra: { demo: boolean;
   out.push(...reportLines(p, locale, extra.monitoring));
   alti("option", c.alti.optionIntro);
   alti("option-calm", c.alti.optionNoRush);
-  if (!p.option) return out;
+  if (!p.option) {
+    if (p.presetOption) alti("option-preset", c.alti.optionPreset(OPTION_NAME[p.presetOption][locale]));
+    return out;
+  }
   you("a-option", OPTION_NAME[p.option][locale]);
   alti("option-chosen", c.alti.optionChosen(OPTION_NAME[p.option][locale]));
   alti("signup", c.alti.signupIntro);
