@@ -45,7 +45,10 @@ describe("the grouped menu", () => {
     expect(sales.groups.map((g) => g.key)).not.toContain("money");
     expect(sales.allowed.has("/equipo/contabilidad")).toBe(false);
     const specialist = groupsFor("specialist");
-    expect(specialist.groups.map((g) => g.key)).not.toContain("leads");
+    // A specialist has the Lead Manager only for the live funnel's report reviews (reviews.video), never the lead inbox.
+    expect(specialist.groups.map((g) => g.key)).toContain("leads");
+    expect(NAV_GROUPS.find((g) => g.key === "leads")!.hrefs.filter((h) => specialist.allowed.has(h))).toEqual(["/equipo/revisiones"]);
+    expect(groupsFor("sales").allowed.has("/equipo/revisiones")).toBe(false);
     expect(groupsFor("admin").groups).toHaveLength(10);
     // Settings is always there: everyone has a profile.
     for (const role of STAFF_ROLES) expect(groupsFor(role).groups.map((g) => g.key)).toContain("settings");
@@ -77,7 +80,8 @@ describe("Ask Alti", () => {
   const as = (role: (typeof STAFF_ROLES)[number]) => (c: Capability) => can(role, c);
 
   it("lists only the AI features the role may use", () => {
-    expect(altiJobs("leads", as("specialist"))).toEqual([]);
+    // The live funnel's report reader (reviews.video): administrators and specialists, never sales.
+    expect(altiJobs("leads", as("specialist")).map((j) => j.id)).toEqual(["live_review"]);
     expect(altiJobs("leads", as("sales")).map((j) => j.id)).toEqual(["lead_suggest", "lead_autopilot"]);
     expect(altiJobs("clients", as("sales"))).toEqual([]);
     // The AI's first look at IDs and proofs of address hands off to a person's review (documents.review: not sales).

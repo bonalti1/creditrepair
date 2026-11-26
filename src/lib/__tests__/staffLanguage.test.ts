@@ -43,6 +43,8 @@ import { LAUNCH_TEXT } from "../launch/text";
 import { IDEAS_TEXT } from "../ideas/text";
 import { IDEA_METRIC_LABELS } from "../ideas/signals";
 import { VIDEO_TEXT } from "../video/labels";
+import { LIVE_TEXT } from "../live/text";
+import { FUNNEL_STAGE_LABELS, FUNNEL_TAG_LABELS } from "../live/stages";
 import { DIMENSION_LABELS, OUTCOME_DEFINITION_TEXT } from "../staff/learning";
 import { exceptionMessage, MESSAGE_BODIES, STAFF_MESSAGE_RULE_TEXT } from "../staff/messages";
 import { METRIC_INFOS, PERIOD_LABELS } from "../staff/metrics";
@@ -151,6 +153,10 @@ const BILINGUAL_TABLES: Record<string, Record<StaffLocale, unknown>> = {
   // The Ads Manager (docs/ADS.md).
   ADS_TEXT,
   VIDEO_TEXT,
+  // The live funnel (migration 0043): the review overview and the script, the funnel stages and sources.
+  LIVE_TEXT,
+  FUNNEL_STAGE_LABELS,
+  FUNNEL_TAG_LABELS,
 };
 
 // English-only twins of Spanish tables that live where their rule lives.

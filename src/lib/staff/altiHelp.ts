@@ -41,6 +41,8 @@ const JOBS: Partial<Record<NavGroupKey, AltiJob[]>> = {
   leads: [
     { id: "lead_suggest", icon: "sparkle", needs: "leads.work", href: "/equipo/leads?filtro=waiting", gate: "draft" },
     { id: "lead_autopilot", icon: "clock", needs: "leads.work", href: "/equipo/leads?vista=autopilot", gate: "fixed" },
+    // The live funnel (src/lib/live): the AI report reader's first reading of a lead's report, turned into the team's overview.
+    { id: "live_review", icon: "doc", needs: "reviews.video", href: "/equipo/revisiones", gate: "check" },
   ],
   clients: [
     { id: "client_draft", icon: "sparkle", needs: "clients.reply", href: "/equipo/clientes?aviso=question_waiting", gate: "draft" },
@@ -93,6 +95,10 @@ export const ALTI_HELP_TEXT = defineText({
       lead_autopilot: {
         title: "Lead autopilot",
         desc: "When an administrator turns it on, I greet new leads on WhatsApp and answer from the approved FAQ, word for word. Anything else goes to a person.",
+      },
+      live_review: {
+        title: "A first reading of a lead's report",
+        desc: "When someone from a webinar or an ad uploads their report on /live, I read it and the overview counts what it shows, the time limits and what the data checks noticed. I don't decide anything: you check what I wasn't sure about, record the video and they decide.",
       },
       client_draft: {
         title: "Draft replies to clients' questions",
@@ -166,6 +172,10 @@ export const ALTI_HELP_TEXT = defineText({
       lead_autopilot: {
         title: "Piloto automático de prospectos",
         desc: "Cuando un administrador lo enciende, saludo a los prospectos nuevos por WhatsApp y contesto con las preguntas frecuentes aprobadas, palabra por palabra. Lo demás pasa a una persona.",
+      },
+      live_review: {
+        title: "Una primera lectura del reporte de un prospecto",
+        desc: "Cuando alguien de un webinar o de un anuncio sube su reporte en /live, lo leo y el resumen cuenta lo que muestra, los plazos de la ley y lo que notaron las revisiones de datos. No decido nada: tú revisas en lo que no estuve seguro, grabas el video y la persona decide.",
       },
       client_draft: {
         title: "Borradores para las preguntas de clientes",

@@ -11,6 +11,7 @@ import { loadTeam } from "../staff/server";
 import type { ConversationProvider } from "./conversations";
 import { guessLanguage, isPersonStage, leadLanguage, whatsappWindow } from "./inbox";
 import { renderLeadTemplate, type LeadTemplate } from "./templates";
+import { funnelFromRow } from "../live/review";
 import {
   DEFAULT_LEAD_AUTOPILOT,
   LEAD_SOURCES,
@@ -62,7 +63,7 @@ async function rows(query: PromiseLike<{ data: unknown; error: { message: string
 
 export function leadFromRow(
   row: Row,
-  extra: { optedOutAt?: string | null; prospect?: Row | null; partner?: Row | null; signup?: Row | null; handoff?: Lead["handoff"] } = {},
+  extra: { optedOutAt?: string | null; prospect?: Row | null; partner?: Row | null; signup?: Row | null; handoff?: Lead["handoff"]; live?: Row | null } = {},
 ): Lead {
   const touch = (row.first_touch as Row | null) ?? {};
   const utm = touch.utm && typeof touch.utm === "object" ? (touch.utm as NonNullable<Lead["firstTouch"]["utm"]>) : null;
@@ -111,10 +112,12 @@ export function leadFromRow(
     createdAt: iso(row.created_at) ?? new Date(0).toISOString(),
     optedOutAt: extra.optedOutAt ?? null,
     highlevelContactId: extra.prospect ? str(extra.prospect.highlevel_contact_id) : null,
-    goal: extra.prospect ? str(extra.prospect.goal) : null,
-    state: extra.prospect ? str(extra.prospect.state) : null,
+    goal: extra.prospect ? str(extra.prospect.goal) : extra.live ? str(extra.live.goal) : null,
+    state: extra.prospect ? str(extra.prospect.state) : extra.live ? str(extra.live.state) : null,
     signup: extra.signup ? { caseRef: String(extra.signup.case_ref), step: String(extra.signup.step), wantsPerson: Boolean(extra.signup.wants_person) } : null,
     handoff: extra.handoff ?? null,
+    // The live funnel's line (live_leads, migration 0043): where they came from and the stage reached.
+    funnel: extra.live ? funnelFromRow(extra.live, iso(row.signed_at)) : null,
   };
 }
 
@@ -146,13 +149,20 @@ export async function loadLeads(reader: SupabaseClient, options: { id?: string }
   const prospectIds = leadRows.map((r) => str(r.prospect_id)).filter((v): v is string => Boolean(v));
   const partnerIds = [...new Set(leadRows.map((r) => str(r.partner_id) ?? str((r.first_touch as Row | null)?.partnerId)).filter((v): v is string => Boolean(v)))];
   const caseRefs = leadRows.map((r) => str(r.signup_case_ref)).filter((v): v is string => Boolean(v));
-  const [optOuts, prospects, partners, signups, handoffs] = await Promise.all([
+  const [optOuts, prospects, partners, signups, handoffs, lives] = await Promise.all([
     rows(reader.from("message_opt_outs").select("phone_e164, kind, at").is("user_id", null).in("phone_e164", phones), "message_opt_outs"),
     prospectIds.length ? rows(reader.from("prospects").select("id, goal, state, highlevel_contact_id").in("id", prospectIds), "prospects") : Promise.resolve([]),
     partnerIds.length ? rows(reader.from("partners").select("id, name, referral_code").in("id", partnerIds), "partners") : Promise.resolve([]),
     caseRefs.length ? rows(reader.from("signup_cases").select("case_ref, step, wants_person").in("case_ref", caseRefs), "signup_cases") : Promise.resolve([]),
     rows(reader.from("lead_auto_messages").select("lead_id, reason, created_at").eq("kind", "handoff").in("lead_id", ids).order("created_at", { ascending: false }), "lead_auto_messages"),
+    // The live funnel's facts (no credit data). A database before 0043 has no table: no funnel line.
+    reader
+      .from("live_leads")
+      .select("lead_id, tag, platform, keyword, campaign, goal, state, form_at, report_at, ready_at, video_sent_at, video_opened_at, video_watched_at, started_at")
+      .in("lead_id", ids)
+      .then((r) => ((r.error ? [] : r.data) as Row[] | null) ?? []),
   ]);
+  const liveOf = new Map(lives.map((l) => [String(l.lead_id), l]));
   const opted = optOutsByPhone(optOuts);
   const prospectOf = new Map(prospects.map((p) => [String(p.id), p]));
   const partnerOf = new Map(partners.map((p) => [String(p.id), p]));
@@ -170,6 +180,7 @@ export async function loadLeads(reader: SupabaseClient, options: { id?: string }
       partner: partnerOf.get(String(row.partner_id ?? (row.first_touch as Row | null)?.partnerId)) ?? null,
       signup: signupOf.get(String(row.signup_case_ref)) ?? null,
       handoff: at && reason && !(lastHuman && lastHuman >= at) ? { at, reason } : null,
+      live: liveOf.get(String(row.id)) ?? null,
     });
   });
 }

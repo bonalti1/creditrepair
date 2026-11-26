@@ -6,6 +6,16 @@ import { useStaffLocale, useTx } from "@/lib/staff/i18n/StaffLocale";
 import { LANGUAGE_NAME } from "@/lib/staff/i18n/locale";
 import Icon from "@/components/Icon";
 import { stageTone } from "./LeadBits";
+import { FUNNEL_STAGE_LABELS, funnelLine, type FunnelStage } from "@/lib/live/stages";
+
+const FUNNEL_TONE: Record<FunnelStage, string> = {
+  new: "bg-amber-100 text-blue-900",
+  reviewing: "bg-blue-50 text-blue-800",
+  video_sent: "bg-blue-100 text-blue-900",
+  watched: "bg-blue-100 text-blue-900",
+  started: "bg-green-50 text-green-700",
+  signed: "bg-green-50 text-green-700",
+};
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -62,6 +72,12 @@ export function LeadRow({ lead, now, selected, onOpen, members }: { lead: Lead; 
         )}
         <span className="mt-1.5 flex flex-wrap gap-1.5 text-[11.5px]">
           {lead.handoff && <span className="rounded-full bg-red-50 px-2 py-0.5 font-semibold text-red-700">{HANDOFF_LABELS[locale][lead.handoff.reason]}</span>}
+          {/* The live funnel's stage (facts, never chosen): New → Reviewing report → Video sent → Watched → Started signup → Signed. */}
+          {lead.funnel && (
+            <span className={`rounded-full px-2 py-0.5 font-semibold ${FUNNEL_TONE[lead.funnel.stage]}`} title={funnelLine(lead.funnel, locale)} data-testid="lead-funnel" data-stage={lead.funnel.stage}>
+              {t("En vivo", "Live")} · {FUNNEL_STAGE_LABELS[locale][lead.funnel.stage]}
+            </span>
+          )}
           {lead.signup?.wantsPerson && !lead.lastHumanAt && lead.handoff?.reason !== "wants_person" && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-blue-900">{t("Pidió una persona", "Asked for a person")}</span>}
           {lead.optedOutAt && <span className="rounded-full bg-slate-200 px-2 py-0.5 font-semibold text-slate-700">{t("Pidió BAJA", "Said STOP")}</span>}
           {wa.state === "open" && wa.closing && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-blue-900">{t(`WhatsApp cierra en ${wa.hoursLeft} h`, `WhatsApp closes in ${wa.hoursLeft} h`)}</span>}

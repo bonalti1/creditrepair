@@ -529,6 +529,19 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     steps: ["Empieza por «Esperando».", "Abre la conversación: «✨ Sugerir respuesta» o una respuesta guardada; léela y envíala.", "Pasado un día sin que escriba, solo se puede enviar la plantilla aprobada.", "Cuando esté listo, «Preparar su invitación». «Invitado» y «Firmó» se ponen solos."],
     playbooks: [],
   },
+  // The live funnel (docs/LIVE-FUNNEL.md).
+  "/equipo/revisiones": {
+    title: "Revisiones de reportes",
+    what: "Los reportes que los prospectos del webinar o de un anuncio subieron en /live, con el resumen para el equipo. Grabas un video corto y privado y se lo mandas. La persona decide.",
+    steps: [
+      "Abre la primera revisión lista y lee el resumen: números, lo que la ley le permite disputar, lo que notaron las revisiones de datos y el paquete que le puede quedar.",
+      "Toca «Grabar video»: comparte esta pestaña (la vista de grabación solo muestra a esta persona), enciende la cámara si quieres y sigue el guion de 2 a 5 minutos.",
+      "Revisa el video, recorta el inicio o el final si hace falta y súbelo.",
+      "Mándalo por WhatsApp con un toque (o por correo). Ves cuando lo abre, lo ve y toca «Empezar».",
+      "Si firma, toca «Importar como primer reporte». Si no firma, el reporte y su video se borran solos a los 30 días.",
+    ],
+    playbooks: [],
+  },
   "/equipo/alertas": {
     title: "Alertas al teléfono",
     what: "Tú eliges qué te avisa al teléfono. Todo empieza apagado.",
@@ -766,6 +779,19 @@ const SCREEN_HELP_EN: Record<string, ScreenHelp> = {
     title: "Leads",
     what: "Every lead conversation, from WhatsApp, HighLevel, a partner or the chat signup. Only a person moves a lead's stage.",
     steps: ["Start with “Waiting”.", "Open the conversation: “✨ Suggest reply” or a saved answer; read it and send it.", "A day after their last message, only the approved template can be sent.", "When they're ready, “Prepare invitation”. “Invited” and “Signed” set themselves."],
+    playbooks: [],
+  },
+  // The live funnel (docs/LIVE-FUNNEL.md).
+  "/equipo/revisiones": {
+    title: "Report reviews",
+    what: "The reports that leads from a webinar or an ad uploaded on /live, with the overview for the team. You record a short private video and send it to them. They decide.",
+    steps: [
+      "Open the first review that's ready and read the overview: the counts, what the law lets them dispute, what the data checks noticed and which package may fit.",
+      "Tap “Record video”: share this tab (the recording view shows only this person), turn the camera on if you like and follow the 2 to 5 minute script.",
+      "Watch it back, trim the start or the end if needed, and upload it.",
+      "Send it on WhatsApp with one tap (or by email). You see when they open it, watch it and tap “Get started”.",
+      "If they sign, tap “Import as the first report”. If they don't, the report and its video delete themselves after 30 days.",
+    ],
     playbooks: [],
   },
   "/equipo/alertas": {

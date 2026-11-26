@@ -43,6 +43,24 @@ SmartCredit, MyFreeScoreNow…) as a PDF or saves the page (HTML).
 5. Saving goes through the same route as any import (`/api/staff/reports`),
    which validates the reading again on the server.
 
+### 1b. A lead's report before signup (the live funnel)
+
+A person from a webinar or an ad uploads their own report on `/live`
+(`docs/LIVE-FUNNEL.md`): 1 to 3 files (one per bureau from
+annualcreditreport.com, or one 3-bureau report from IdentityIQ), checked by
+their first bytes like any report and kept in the private **live-reports**
+bucket (migration 0043), not in `intake-files` (there is no client yet). The
+same reader (`extractReport`) reads each file after the upload answers;
+`validateReportExtraction` checks every reading again; the readings are merged
+(each bureau from the newest file; scores dropped) and turned into the team's
+**review overview** (`src/lib/live/overview.ts`: counts, the § 605 time
+limits, the data checks, the items the reader was not sure about). Nothing is
+saved to a case. If they sign, «Import as the first report» saves the merged
+reading through the ordinary import (`credalti_json` reader, the same rules);
+a simulated reading (no key) is refused. If they don't, the files and the
+overview are **deleted after 30 days** (`/api/cron/live`). This is the first
+automatic purge of report files in the app.
+
 ### 2. ID and proof of address
 
 The client uploads them where they always did (`IdentityDocs`). The file goes

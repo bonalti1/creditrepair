@@ -2,6 +2,7 @@ import { ALL_TEMPLATES } from "../autopilot/templates";
 import { CALL_TEMPLATES } from "../calls/messages";
 import type { CronJobName } from "../control/heartbeat";
 import { LEAD_TEMPLATES } from "../leads/templates";
+import { VIDEO_TEMPLATE } from "../live/templates";
 import { DIGEST_TEMPLATE as PARTNER_DIGEST_TEMPLATE, SHARE_REQUEST_TEMPLATE } from "../partners/portal";
 import { DIGEST_TEMPLATE as STAFF_DIGEST_TEMPLATE } from "../staff/digest";
 import type { EnvFacts } from "./env";
@@ -236,6 +237,8 @@ export const CRON_JOBS: readonly CronJob[] = [
   { job: "billing", path: "/api/cron/billing", workflow: 4, everyMinutes: 60, needed: "required" },
   { job: "leads", path: "/api/cron/leads", workflow: 6, everyMinutes: 5, needed: "required" },
   { job: "staff-digest", path: "/api/cron/staff-digest", workflow: 5, everyMinutes: 15, needed: "recommended" },
+  // The live funnel's retention (docs/LIVE-FUNNEL.md): reports of people who did not sign up are deleted after 30 days.
+  { job: "live", path: "/api/cron/live", workflow: 13, everyMinutes: 60, needed: "required" },
   { job: "content", path: "/api/cron/content", workflow: 7, everyMinutes: 10, needed: "recommended" },
   { job: "partners", path: "/api/cron/partners", workflow: 11, everyMinutes: 60, needed: "recommended" },
   { job: "highlevel", path: "/api/cron/highlevel", workflow: 12, everyMinutes: 30, needed: "later" },
@@ -276,6 +279,8 @@ export const WHATSAPP_TEMPLATE_NAMES: readonly string[] = [
     SHARE_REQUEST_TEMPLATE,
     PARTNER_DIGEST_TEMPLATE,
     STAFF_DIGEST_TEMPLATE,
+    // The live funnel's video link outside WhatsApp's 24 hours (live/templates.ts).
+    VIDEO_TEMPLATE.name,
   ]),
 ].sort();
 
@@ -330,6 +335,7 @@ export const MIGRATION_SENTINELS: Record<string, { table: string; column?: strin
   "0039_seo": { table: "seo_settings" },
   "0040_ideas_launch": { table: "launch_probes" },
   "0041_fulfillment": { table: "notification_settings" },
+  "0043_live_funnel": { table: "live_videos" },
 };
 
 // ── The registry ──────────────────────────────────────────────────────────
@@ -568,6 +574,7 @@ const ITEMS: LaunchItem[] = [
   { key: "meta_ads", group: "accounts", needed: "later", who: "owner", kind: "auto", env: ["META_ADS_ACCESS_TOKEN", "META_AD_ACCOUNT_ID"], docs: { file: "docs/ADS.md", section: "For the owner" }, blocks: [], priority: 94.1, evaluate: allSet(["META_ADS_ACCESS_TOKEN", "META_AD_ACCOUNT_ID"]) },
   { key: "search_console", group: "accounts", needed: "later", who: "owner", kind: "auto", env: ["GOOGLE_SEARCH_CONSOLE_SITE", "GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL", "GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY", "GOOGLE_SEARCH_CONSOLE_CLIENT_ID", "GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET", "GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN"], docs: { file: "docs/SEO.md", section: "Search Console" }, blocks: [], priority: 94.2, evaluate: searchConsoleSet },
   { key: "transcribe", group: "accounts", needed: "later", who: "owner", kind: "auto", env: ["TRANSCRIBE_API_KEY", "TRANSCRIBE_PROVIDER", "TRANSCRIBE_MODEL", "TRANSCRIBE_API_URL"], docs: { file: "docs/VIDEO.md", section: "What needs the owner" }, blocks: [], priority: 94.3, evaluate: allSet(["TRANSCRIBE_API_KEY"]) },
+  { key: "live_comments", group: "accounts", needed: "later", who: "owner", kind: "auto", env: ["LIVE_FUNNEL_WEBHOOK_SECRET"], docs: { file: "docs/LIVE-FUNNEL.md", section: "Instagram and Facebook comments" }, blocks: [], priority: 95.5, evaluate: allSet(["LIVE_FUNNEL_WEBHOOK_SECRET"]) },
   { key: "highlevel", group: "accounts", needed: "later", who: "owner", kind: "auto", env: ["HIGHLEVEL_WEBHOOK_SECRET", "HIGHLEVEL_INBOUND_WEBHOOK_URL", "LEAD_CONVERSATIONS_PROVIDER", "HIGHLEVEL_API_TOKEN", "HIGHLEVEL_LOCATION_ID"], docs: { file: "docs/HIGHLEVEL.md", section: "1. In the app (once)" }, blocks: [], priority: 95, evaluate: allSet(["HIGHLEVEL_WEBHOOK_SECRET"]) },
 
   // ── Database ──
@@ -728,6 +735,11 @@ export const NOT_FOR_LAUNCH: Record<string, string> = {
   NMI_API_URL: "Optional override of NMI's endpoint; the default is correct.",
   NMI_QUERY_URL: "Optional override of NMI's endpoint; the default is correct.",
   PARTNER_LANDING_URL: "Optional: where partner links land; empty uses this app's landing page.",
+  LIVE_KEYWORDS: "Optional: the live funnel's keywords; empty uses CREDIT, CREDITO and WEBINAR.",
+  SMS_FUNNEL_ENABLED: "Off by default: the live funnel's SMS channel, only after the attorney and an approved A2P 10DLC campaign (docs/LIVE-FUNNEL.md).",
+  TWILIO_ACCOUNT_SID: "Only with SMS_FUNNEL_ENABLED on (off by default).",
+  TWILIO_AUTH_TOKEN: "Only with SMS_FUNNEL_ENABLED on (off by default).",
+  TWILIO_FROM_NUMBER: "Only with SMS_FUNNEL_ENABLED on (off by default).",
 };
 
 export type { EnvFacts };

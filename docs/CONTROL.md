@@ -188,6 +188,21 @@ had to change:
 | Partner referral | the portal or the HighLevel code creates the prospect | Partner · name |
 | Chat signup (`/registro`) | the signup case is linked to an account with a phone | Chat signup · CR-… |
 | By hand / household | sales adds the prospect | Added by hand / Household |
+| The live funnel (`docs/LIVE-FUNNEL.md`) | a WhatsApp keyword ("CREDIT"), the `/live` form, or a comment handed over by HighLevel / ManyChat (`/api/webhooks/live`) | WhatsApp or Live funnel, plus a "Live · <stage>" tag |
+
+**The live funnel's stages.** A lead from a webinar or an ad carries a line
+beside its pipeline stage, set by facts only: New → Reviewing report → Video
+sent → Watched → Started signup → Signed (`src/lib/live/stages.ts`, from
+`live_leads`, migration 0043, which sales reads for its own leads; no credit
+data). The conversation shows where they came from (webinar, platform,
+keyword, campaign) and the steps. The keyword's automatic reply (one per
+person and keyword in 7 days, labelled "Alti · AI assistant", STOP and quiet
+hours as the greeting) replaces the greeting for that message. The report
+review and the personal video live in **3 · Lead Manager → Report reviews**
+(`/equipo/revisiones`, `reviews.video`: administrators and specialists, never
+sales), whose waiting reviews are added to the Lead Manager's red circle.
+WhatsApp only for leads; the funnel's SMS channel is a separate, narrow
+exception, off by default (`docs/LIVE-FUNNEL.md`, «SMS»).
 
 First touch wins (never overwritten). Each row shows the source and first
 touch, the language (saved, else the one they wrote in), the stage, who works
@@ -241,7 +256,9 @@ HighLevel, when that is on, labelled as such. Around it:
   server); after that, only the approved template
   `credalti_prospecto_seguimiento`, outside quiet hours, and only once it is
   approved in Meta and listed in `WHATSAPP_APPROVED_TEMPLATES`. A number that
-  said STOP gets nothing until START. **Never SMS.**
+  said STOP gets nothing until START. **Never SMS** (the live funnel's
+  keyword reply and video link are the one exception, off by default and
+  only for a person who texted us or consented: `docs/LIVE-FUNNEL.md`).
 
 ### Lead quality numbers
 

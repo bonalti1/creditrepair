@@ -21,6 +21,10 @@ import type { NavGroupKey } from "./nav";
 //     asked of an editor, approved videos not yet handed to Content:
 //     video/rules.ts videoNeeds) is ADDED to the Content group's number, from
 //     the shell's probe on any page.
+//   - the live funnel's report reviews waiting for a person (ready with no
+//     video yet, or signed and not imported: live/server.ts reviewNeedsYou)
+//     are ADDED to the Leads group's number, for a member with reviews.video
+//     (lib/live/badge.ts).
 //
 // A group with no number known shows no circle: "no data" is never a 0 or a
 // guess. «✓ Clear» hides a group's circle for this member in this browser
@@ -35,10 +39,10 @@ export type BadgeCounts = Partial<Record<NavGroupKey, number>>;
  * Overview replace each other's number for a group; a department's number is
  * ADDED to its group (the Overview does not count it), so the circle covers it.
  */
-type Source = "probe" | "overview" | "seo" | "ads" | "video";
-const ADDITIVE: readonly Source[] = ["seo", "ads", "video"];
+type Source = "probe" | "overview" | "seo" | "ads" | "video" | "live";
+const ADDITIVE: readonly Source[] = ["seo", "ads", "video", "live"];
 
-const sources: Record<Source, BadgeCounts> = { probe: {}, overview: {}, seo: {}, ads: {}, video: {} };
+const sources: Record<Source, BadgeCounts> = { probe: {}, overview: {}, seo: {}, ads: {}, video: {}, live: {} };
 let merged: BadgeCounts = {};
 const listeners = new Set<() => void>();
 

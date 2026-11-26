@@ -28,6 +28,9 @@ export const NOINDEX_PATHS = [
   "/auth/",
   "/baja",
   "/r/",
+  // The live funnel (docs/LIVE-FUNNEL.md): a campaign page, and the private video links.
+  "/live",
+  "/v/",
 ];
 
 const noindex = [{ key: "X-Robots-Tag", value: "noindex, nofollow" }];

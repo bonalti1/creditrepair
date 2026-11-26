@@ -14,6 +14,7 @@ import { needsFor, readLocal as readDemoSeo } from "@/lib/seo/store";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { useStaff } from "@/lib/staff/useStaff";
 import { useVideoBadge } from "@/lib/video/badge";
+import { useLiveBadge } from "@/lib/live/badge";
 
 // The red circles' numbers that the shell can work out on any page
 // (src/lib/staff/navBadges.ts): the Overview's own «Needs you» counts, from the
@@ -23,7 +24,8 @@ import { useVideoBadge } from "@/lib/video/badge";
 // Partners) when it opens.
 //
 //   My day       ← the Clients card's «Needs you» (the work queue on Home)
-//   Leads        ← the Leads & sales card's (waiting + handed over)
+//   Leads        ← the Leads & sales card's (waiting + handed over), plus the live
+//                  funnel's report reviews waiting for a person (lib/live/badge.ts)
 //   Fulfillment  ← the Support card's (client questions waiting)
 //   Money        ← the Money card's (payment notices), only with billing.view
 //   Marketing    ← plus the Ads Manager's ads to turn off that still spend, only with ads.view (its own source)
@@ -42,6 +44,7 @@ export default function BadgeProbe() {
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const lastReload = useRef(Date.now());
   useVideoBadge(viewer, can, pathname);
+  useLiveBadge(viewer, can, pathname);
 
   // The lead list: once, then every minute while the page is visible.
   useEffect(() => {

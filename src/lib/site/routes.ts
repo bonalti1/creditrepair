@@ -87,4 +87,7 @@ export const PRIVATE_PATHS = [
   "/auth/",
   "/baja",
   "/r/",
+  // The live funnel (docs/LIVE-FUNNEL.md): a campaign page, and the private video links.
+  "/live",
+  "/v/",
 ];

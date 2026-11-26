@@ -102,6 +102,16 @@ The app exposes everything n8n needs; n8n only provides the clock.
   changes back to HighLevel. Leave it off unless HighLevel is used. See
   `docs/HIGHLEVEL.md`.
 
+## Workflow 13: the live funnel's retention (hourly, required)
+
+- `POST {APP_URL}/api/cron/live`, same header. Deletes, files and overview, the
+  credit reports people uploaded on `/live` 30 days after the upload if they
+  did not sign up (and their personal video with them); keeps a signed lead's
+  until it is imported into the case (at most 60 more days); reads again any
+  report whose reading did not finish; clears expired upload tokens. Records
+  the "live" heartbeat. Safe to run twice. See `docs/LIVE-FUNNEL.md`,
+  «Retention».
+
 ## Heartbeats: is each workflow running?
 
 Every `/api/cron/*` route records one heartbeat per run in `cron_heartbeats`

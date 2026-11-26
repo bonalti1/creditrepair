@@ -134,5 +134,8 @@ export const config = {
     // The published guides (src/lib/seo, docs/SEO.md): ?lang= as on every page.
     "/guias",
     "/guias/:path*",
+    // The live funnel (docs/LIVE-FUNNEL.md): public, for ?lang= and noindex only.
+    "/live",
+    "/v/:path*",
   ],
 };

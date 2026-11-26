@@ -37,6 +37,8 @@ export const MORE_NAV: NavItem[] = [
   { href: "/equipo/anuncios", label: "ads", icon: "megaphone", needs: "ads.draft" },
   // SEO (src/lib/seo): site health, guides, Search Console, keywords and local; for seo.view (administrators and specialists).
   { href: "/equipo/seo", label: "seo", icon: "search", needs: "seo.view" },
+  // The live funnel (src/lib/live, docs/LIVE-FUNNEL.md): a lead's report review and their personal video (administrators and specialists).
+  { href: "/equipo/revisiones", label: "reportReviews", icon: "video", needs: "reviews.video" },
   { href: "/equipo/invitar", label: "invite", icon: "mail", needs: "clients.invite" },
   { href: "/equipo/acreedores", label: "creditors", icon: "doc", needs: "rounds.send" },
   { href: "/equipo/actividad", label: "activity", icon: "clock" },
@@ -93,7 +95,7 @@ export const NAV_GROUPS: NavGroup[] = [
   { key: "day", number: "1", icon: "home", hrefs: ["/equipo", "/equipo/actividad"] },
   // Marketing: Content, Video Studio, Ads, SEO, Reviews.
   { key: "content", number: "2", icon: "speaker", hrefs: ["/equipo/contenido", "/equipo/video", "/equipo/anuncios", "/equipo/seo", "/equipo/resenas"] },
-  { key: "leads", number: "3", icon: "inbox", hrefs: ["/equipo/leads", "/equipo/invitar"] },
+  { key: "leads", number: "3", icon: "inbox", hrefs: ["/equipo/leads", "/equipo/revisiones", "/equipo/invitar"] },
   { key: "clients", number: "4", icon: "person", hrefs: ["/equipo/clientes", "/equipo/respuestas", "/equipo/piloto", "/equipo/llamadas", "/equipo/importar"], also: ["/equipo/enviar", "/equipo/imprimir"] },
   { key: "money", number: "5", icon: "calc", hrefs: ["/equipo/contabilidad", "/equipo/cobros", "/equipo/planes", "/equipo/monitoreo"] },
   { key: "library", number: "6", icon: "book", hrefs: ["/equipo/cartas", "/equipo/acreedores", "/equipo/estados"] },

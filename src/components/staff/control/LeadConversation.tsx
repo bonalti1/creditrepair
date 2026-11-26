@@ -21,6 +21,7 @@ import { CharacterAvatar } from "@/components/Character";
 import { PRIMARY_BUTTON_COMPACT, QUIET_BUTTON, ROW_BUTTON, SECONDARY_BUTTON_COMPACT } from "@/components/staff/ui";
 import { Bubble, stageTone } from "./LeadBits";
 import SafeBoundary from "./SafeBoundary";
+import { FUNNEL_STAGES, FUNNEL_STAGE_LABELS, funnelLine, type LeadFunnel } from "@/lib/live/stages";
 
 // One lead's conversation, like WhatsApp, with everything sales needs around
 // it: ✨ Suggest reply (Alti's drafted-reply engine; facts only, checked
@@ -142,6 +143,7 @@ export default function LeadConversation(props: Props) {
             <dd className={`font-semibold tabular-nums ${waited !== null && waited >= 60 ? "text-red-700" : "text-slate-900"}`}>{waited === null ? t("No", "No") : minutesText(waited)}</dd>
           </div>
         </dl>
+        {lead.funnel && <FunnelSteps funnel={lead.funnel} canReview={props.can("reviews.video")} />}
         {lead.signup && (
           <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-[13px] leading-snug text-slate-700">
             {t(`Registro con Alti: ${lead.signup.caseRef}, va en el paso «${lead.signup.step}».`, `Chat signup: ${lead.signup.caseRef}, at the “${lead.signup.step}” step.`)}
@@ -456,6 +458,37 @@ export default function LeadConversation(props: Props) {
           </details>
         )}
       </section>
+    </div>
+  );
+}
+
+/** The live funnel's line on a lead (docs/LIVE-FUNNEL.md): where they came from and the stages reached. Facts, never chosen. */
+function FunnelSteps({ funnel, canReview }: { funnel: LeadFunnel; canReview: boolean }) {
+  const { locale } = useStaffLocale();
+  const t = useTx();
+  const reached = FUNNEL_STAGES.indexOf(funnel.stage);
+  return (
+    <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5" data-testid="lead-funnel-steps">
+      <p className="text-[12.5px] font-semibold text-slate-600">
+        {t("Embudo en vivo", "Live funnel")} · <span className="font-medium text-blue-700">{funnelLine(funnel, locale)}</span>
+      </p>
+      <ol className="mt-2 flex flex-wrap gap-1.5" aria-label={t("Etapas del embudo", "Funnel stages")}>
+        {FUNNEL_STAGES.map((stage, index) => (
+          <li
+            key={stage}
+            aria-current={index === reached ? "step" : undefined}
+            className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${index < reached ? "bg-green-50 text-green-700" : index === reached ? "bg-blue-900 text-white" : "bg-white text-slate-500 ring-1 ring-inset ring-slate-200"}`}
+          >
+            {index < reached ? "✓ " : ""}
+            {FUNNEL_STAGE_LABELS[locale][stage]}
+          </li>
+        ))}
+      </ol>
+      {canReview && reached >= 1 && (
+        <Link href="/equipo/revisiones" className="mt-2 inline-flex min-h-11 items-center text-[13px] font-semibold text-blue-700 underline-offset-2 hover:underline md:min-h-0">
+          {t("Abrir su revisión de reporte", "Open their report review")}
+        </Link>
+      )}
     </div>
   );
 }

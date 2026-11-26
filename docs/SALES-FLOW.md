@@ -62,8 +62,23 @@ Two more ways in, both ending at step 4 with the same invitation:
   invitation carries the partner's code through to the client. Partners see
   only a coarse status, never credit data. `docs/PARTNERS.md`.
 
-Neither changes the rules below: the conversation is still in WhatsApp chat,
-never a sales call, and never an SMS offer.
+- **The live funnel** (webinars and ads, `docs/LIVE-FUNNEL.md`). The host
+  says "send the word CREDIT to our WhatsApp, or tap the link"; Alti answers
+  the keyword once, automatically and labelled as AI, with the link to `/live`;
+  the person gives a few details with their consent and uploads their own
+  report; the team reads the review overview and sends a short private video
+  (`/equipo/revisiones`); its «Get started» opens this same invitation, with
+  the package they chose (`option=complete|diy`). Both packages are named
+  Complete first: **Credalti Complete** (done for you; charged each month
+  right after the letters are mailed) and **Credalti DIY** (guided by Alti; a
+  monthly subscription from the start). The video says what the report shows
+  and what the law lets them dispute; it never promises a result or says what
+  to mark.
+
+None of these changes the rules below: the conversation is still in WhatsApp
+chat, never a sales call, and never an SMS offer (the live funnel's SMS
+channel is off by default and only answers a person who texted us or
+consented on `/live`).
 
 ## Who decides what
 

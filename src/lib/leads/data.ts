@@ -4,6 +4,7 @@ import { can, type Viewer } from "../staff/permissions";
 import type { StaffLocale } from "../staff/i18n/locale";
 import { isDemoMode } from "../supabase/config";
 import { buildDemoLeadRecords, latestHandoff, withFacts, type DemoLead } from "./demo";
+import { demoLeadFunnels } from "../live/demoFunnels";
 import type { LeadDraftOutcome } from "./drafts";
 import { isPersonStage, leadLanguage, whatsappWindow } from "./inbox";
 import { LEAD_FOLLOWUP_TEMPLATE, renderLeadTemplate } from "./templates";
@@ -148,7 +149,14 @@ function mayWork(viewer: Viewer | null, lead: Lead): boolean {
 export function createDemoLeadData(viewer: Viewer | null, locale: StaffLocale): LeadData {
   const w = W[locale];
   const now = () => new Date();
-  const records = () => applyDemoLeadActions(buildDemoLeadRecords(now()), readDemo()).filter((e) => mayWork(viewer, e.lead));
+  const records = () => {
+    const at = now();
+    // Three invented leads came through the live funnel (live/demoFunnels.ts): their funnel line.
+    const funnels = demoLeadFunnels(at);
+    return applyDemoLeadActions(buildDemoLeadRecords(at), readDemo())
+      .filter((e) => mayWork(viewer, e.lead))
+      .map((e) => (funnels[e.lead.id] ? { ...e, lead: { ...e.lead, funnel: funnels[e.lead.id]! } } : e));
+  };
   const find = (id: string) => records().find((e) => e.lead.id === id) ?? null;
   const save = (edit: (a: DemoLeadActions) => void) => {
     const a = readDemo();

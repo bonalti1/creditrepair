@@ -360,6 +360,11 @@ export const LAUNCH_TEXT = defineText({
         "Only if leads come through HighLevel.",
         "Set HIGHLEVEL_WEBHOOK_SECRET and follow docs/HIGHLEVEL.md.",
       ),
+      live_comments: item(
+        "Comment leads from HighLevel or ManyChat",
+        "Only if a comment automation hands leads to the Lead Manager with their source.",
+        "Set LIVE_FUNNEL_WEBHOOK_SECRET and follow docs/LIVE-FUNNEL.md.",
+      ),
       db_connected: item(
         "The database answers",
         "Every screen reads and writes it.",
@@ -434,6 +439,11 @@ export const LAUNCH_TEXT = defineText({
         "Alti's weekly ideas",
         "Optional: Alti proposes experiments from the week's numbers.",
         "In n8n, call /api/cron/ideas once a week (Workflow 10).",
+      ),
+      job_live: item(
+        "The live funnel's retention",
+        "Reports people upload on /live are deleted after 30 days if they don't sign up, as the form promises.",
+        "In n8n, call /api/cron/live every hour (Workflow 13).",
       ),
       whatsapp_templates_meta: item(
         "WhatsApp templates approved in Meta",
@@ -848,6 +858,11 @@ export const LAUNCH_TEXT = defineText({
         "Solo si los prospectos llegan por HighLevel.",
         "Configura HIGHLEVEL_WEBHOOK_SECRET y sigue docs/HIGHLEVEL.md.",
       ),
+      live_comments: item(
+        "Prospectos de comentarios desde HighLevel o ManyChat",
+        "Solo si una automatización de comentarios pasa prospectos al Administrador de prospectos con su origen.",
+        "Configura LIVE_FUNNEL_WEBHOOK_SECRET y sigue docs/LIVE-FUNNEL.md.",
+      ),
       db_connected: item(
         "La base de datos responde",
         "Todas las pantallas leen y escriben en ella.",
@@ -922,6 +937,11 @@ export const LAUNCH_TEXT = defineText({
         "Las ideas semanales de Alti",
         "Opcional: Alti propone pruebas a partir de los números de la semana.",
         "En n8n, llama a /api/cron/ideas una vez por semana (flujo 10).",
+      ),
+      job_live: item(
+        "La retención del embudo en vivo",
+        "Los reportes que la gente sube en /live se borran a los 30 días si no se registra, como promete el formulario.",
+        "En n8n, llama a /api/cron/live cada hora (flujo 13).",
       ),
       whatsapp_templates_meta: item(
         "Plantillas de WhatsApp aprobadas en Meta",
