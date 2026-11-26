@@ -81,11 +81,18 @@ lead, the share of ad leads who signed, ads to turn off that still spend;
 the demo's sample account and an account Meta is not connected to are no
 data); from **SEO** (Search Console's last 28 days when it is connected:
 clicks, times shown, the click share and the average position; the guides on
-the website; the site checks to fix once a check has run). Every value is
-filled in by the server (`loadSignals`), never by the model. A number that
-could not be read is "no data", never a zero.
+the website; the site checks to fix once a check has run); from **Webinars**
+(`loadWebinarsSignal`, `docs/WEBINARS.md`: registrations in the last 30
+days, the share of registrants who attended the classes that ended, keyword
+leads and clients who signed from webinars, and the newest campaign's
+blended and ads-only cost per client, value per client so far, value ÷ cost
+per client, shown as "2.5×" (the unit `ratio`), and DIY → Complete
+upgrades; a cost per client below the scorecard's threshold of 3 signed
+clients is no data). Every value is filled in by the server (`loadSignals`),
+never by the model. A number that could not be read is "no data", never a
+zero.
 
-**Extension point (Ads and SEO are in; later departments the same way):** a department built later adds one entry to
+**Extension point (Ads, SEO and Webinars are in; later departments the same way):** a department built later adds one entry to
 `SIGNAL_SOURCES` in `signals.ts`: its metrics (unit, window, which way is
 better), their names in English and Spanish, and a `collect` that reads its
 own summary from `input.extra[<its id>]`. The metric picker, the proposals,

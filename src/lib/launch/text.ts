@@ -435,6 +435,11 @@ export const LAUNCH_TEXT = defineText({
         "Optional: Alti proposes experiments from the week's numbers.",
         "In n8n, call /api/cron/ideas once a week (Workflow 10).",
       ),
+      job_webinars: item(
+        "Webinar reminders",
+        "Registrants who asked for reminders get them (1 week, 1 day, 1 hour, live, replay, two follow-ups), never in quiet hours.",
+        "In n8n, call /api/cron/webinars every 10 minutes (Workflow 13).",
+      ),
       whatsapp_templates_meta: item(
         "WhatsApp templates approved in Meta",
         "Outside the 24-hour window an automatic message goes only as an approved template.",
@@ -922,6 +927,11 @@ export const LAUNCH_TEXT = defineText({
         "Las ideas semanales de Alti",
         "Opcional: Alti propone pruebas a partir de los números de la semana.",
         "En n8n, llama a /api/cron/ideas una vez por semana (flujo 10).",
+      ),
+      job_webinars: item(
+        "Recordatorios de los webinars",
+        "Quien pidió recordatorios los recibe (1 semana, 1 día, 1 hora, en vivo, repetición, dos seguimientos), nunca en horas de silencio.",
+        "En n8n, llama a /api/cron/webinars cada 10 minutos (flujo 13).",
       ),
       whatsapp_templates_meta: item(
         "Plantillas de WhatsApp aprobadas en Meta",

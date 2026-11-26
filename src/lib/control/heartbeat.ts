@@ -7,7 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // failure to record it is swallowed.
 
 /** The jobs that record a heartbeat: the /api/cron routes (docs/n8n.md). */
-export const CRON_JOB_NAMES = ["rounds", "autopilot", "billing", "staff-digest", "leads", "content", "partners", "highlevel", "ideas", "ads", "seo"] as const;
+export const CRON_JOB_NAMES = ["rounds", "autopilot", "billing", "staff-digest", "leads", "content", "partners", "highlevel", "ideas", "ads", "seo", "webinars"] as const;
 export type CronJobName = (typeof CRON_JOB_NAMES)[number];
 
 /** Records one run of a job. */

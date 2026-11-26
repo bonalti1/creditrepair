@@ -30,6 +30,7 @@ import { publishBadges } from "@/lib/staff/navBadges";
 import { getLaunchData } from "@/lib/launch/data";
 import type { LaunchReport } from "@/lib/launch/status";
 import { LaunchOverviewCard } from "@/components/staff/launch/parts";
+import NextWebinarCard from "@/components/staff/webinars/NextWebinarCard";
 
 // Credalti Control (docs/CONTROL.md): the business at a glance. A tab of its
 // own beside «Home», because Home is the specialist's day (the work queue,
@@ -266,6 +267,9 @@ export default function ControlPage() {
           <LaunchOverviewCard report={launch} />
         </SafeBoundary>
       )}
+      <SafeBoundary>
+        <NextWebinarCard viewer={viewer} />
+      </SafeBoundary>
       <div className="mt-5 flex flex-wrap gap-1.5" role="tablist" aria-label={t("Vista", "View")}>
         {(["overview", "today"] as const).map((v) => (
           <button

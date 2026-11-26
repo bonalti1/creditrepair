@@ -4,6 +4,7 @@ import type { CronJobName } from "../control/heartbeat";
 import { LEAD_TEMPLATES } from "../leads/templates";
 import { DIGEST_TEMPLATE as PARTNER_DIGEST_TEMPLATE, SHARE_REQUEST_TEMPLATE } from "../partners/portal";
 import { DIGEST_TEMPLATE as STAFF_DIGEST_TEMPLATE } from "../staff/digest";
+import { WEBINAR_TEMPLATE_NAMES } from "../webinars/reminders";
 import type { EnvFacts } from "./env";
 
 // Launch readiness (docs/LAUNCH.md): ONE registry of everything that has to be
@@ -242,6 +243,8 @@ export const CRON_JOBS: readonly CronJob[] = [
   { job: "ads", path: "/api/cron/ads", workflow: 8, everyMinutes: 180, needed: "later" },
   { job: "seo", path: "/api/cron/seo", workflow: 9, everyMinutes: 24 * 60, needed: "later" },
   { job: "ideas", path: "/api/cron/ideas", workflow: 10, everyMinutes: 7 * 24 * 60, needed: "later" },
+  // The webinars' reminders (src/lib/webinars, docs/WEBINARS.md): only once a webinar is published.
+  { job: "webinars", path: "/api/cron/webinars", workflow: 13, everyMinutes: 10, needed: "later" },
 ];
 
 /** A job is late after three of its intervals with no good run (and never less than two hours). */
@@ -276,6 +279,8 @@ export const WHATSAPP_TEMPLATE_NAMES: readonly string[] = [
     SHARE_REQUEST_TEMPLATE,
     PARTNER_DIGEST_TEMPLATE,
     STAFF_DIGEST_TEMPLATE,
+    // The webinars' reminders (webinars/reminders.ts, docs/WEBINARS.md).
+    ...WEBINAR_TEMPLATE_NAMES,
   ]),
 ].sort();
 
@@ -330,6 +335,7 @@ export const MIGRATION_SENTINELS: Record<string, { table: string; column?: strin
   "0039_seo": { table: "seo_settings" },
   "0040_ideas_launch": { table: "launch_probes" },
   "0041_fulfillment": { table: "notification_settings" },
+  "0044_webinars": { table: "signup_chat_messages" },
 };
 
 // ── The registry ──────────────────────────────────────────────────────────

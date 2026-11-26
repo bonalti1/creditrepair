@@ -54,7 +54,7 @@ export interface Idea {
 export interface BasedOn {
   key: string;
   value: number;
-  unit: "count" | "percent" | "cents" | "minutes" | "days";
+  unit: "count" | "percent" | "cents" | "minutes" | "days" | "ratio";
   display: string;
 }
 

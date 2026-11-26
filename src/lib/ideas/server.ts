@@ -6,7 +6,8 @@ import type { StaffMember } from "../staff/access";
 import { loadStaffClients } from "../staff/load";
 import { ALTI_RUNS_PER_DAY, askAlti, CRON_MIN_DAYS_BETWEEN, type AltiCaller, type AltiProblem } from "./alti";
 import { actionRefusal, applyAction, type IdeasBody } from "./rules";
-import { ADS_SIGNAL_ID, collectSignals, SEO_SIGNAL_ID, type AdsSignalInput, type SeoSignalInput, type Signal } from "./signals";
+import { ADS_SIGNAL_ID, collectSignals, SEO_SIGNAL_ID, WEBINARS_SIGNAL_ID, type AdsSignalInput, type SeoSignalInput, type Signal } from "./signals";
+import { loadWebinarsSignal } from "../webinars/server";
 import { loadAdsSummary } from "../ads/server";
 import { loadSeoSummary } from "../control/server";
 import { defaultRange, grandTotal } from "../seo/search";
@@ -199,14 +200,16 @@ export async function applyIdeaAction(db: SupabaseClient, member: StaffMember, b
  * server, from the records; the model only ever reads them.
  */
 export async function loadSignals(reader: SupabaseClient, now: Date, env: Record<string, string | undefined> = process.env): Promise<Signal[]> {
-  const [clients, leads, content, ads, seo] = await Promise.all([
+  const [clients, leads, content, ads, seo, webinars] = await Promise.all([
     loadStaffClients(reader).catch(() => null),
     loadLeads(reader).catch(() => null),
     loadContentSummary(reader, now),
     loadAdsSummary(reader, now, env).catch(() => null),
     loadSeoSignal(reader, now, env),
+    // Webinars and the newest campaign's CAC and client value (src/lib/webinars).
+    loadWebinarsSignal(reader, now),
   ]);
-  return collectSignals({ clients, leads, content, now, extra: { [ADS_SIGNAL_ID]: ads satisfies AdsSignalInput | null, [SEO_SIGNAL_ID]: seo } });
+  return collectSignals({ clients, leads, content, now, extra: { [ADS_SIGNAL_ID]: ads satisfies AdsSignalInput | null, [SEO_SIGNAL_ID]: seo, [WEBINARS_SIGNAL_ID]: webinars } });
 }
 
 /** SEO's numbers for Alti: Search Console's last 28 days (when it is connected), the guides and the site check. */

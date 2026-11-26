@@ -7,6 +7,7 @@ import { workQueue, STATUS_LABELS } from "../autopilot/queue";
 import { RESOLUTION_LABEL_EN } from "../autopilot/resolutions";
 import type { AutopilotEnv } from "../autopilot/types";
 import { ADS_TEXT } from "../ads/text";
+import { WEBINARS_TEXT } from "../webinars/text";
 import { checkClaimGuardrails } from "../compliance/guardrails";
 import { CHANNEL_LABEL_EN } from "../leads/source";
 import { CHIP_TEXT_EN, chipText } from "../letters/versions/source";
@@ -151,6 +152,8 @@ const BILINGUAL_TABLES: Record<string, Record<StaffLocale, unknown>> = {
   // The Ads Manager (docs/ADS.md).
   ADS_TEXT,
   VIDEO_TEXT,
+  // Webinars and the campaign scorecard (docs/WEBINARS.md).
+  WEBINARS_TEXT,
 };
 
 // English-only twins of Spanish tables that live where their rule lives.

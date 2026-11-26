@@ -175,7 +175,7 @@ design system» below).
 - **768 px and wider: a navy side menu** with the white logo, "Control" and
   ten **numbered groups** in the order the business works (`NAV_GROUPS`,
   ALTO's GROUPS): **0 Overview** (Resumen) · **1 My day** (Inicio, Actividad)
-  · **2 Marketing** (Contenido, Estudio de video, Anuncios, SEO, Reseñas) · **3 Lead Manager** (Prospectos, Invitar) ·
+  · **2 Marketing** (Contenido, Estudio de video, Anuncios, Webinars, SEO, Reseñas) · **3 Lead Manager** (Prospectos, Chats en vivo, Invitar) ·
   **4 Fulfillment & Clients** (Clientes, Respuestas, Piloto automático,
   Llamadas, Importar de CRC; the send and print screens belong here too) · **5 Payments &
   Accounting** (Contabilidad, Facturas, Planes, Monitoreo) · **6 Letters & Rules**
@@ -203,7 +203,10 @@ design system» below).
   ads marked "Turn off" that are still spending (`ads.view`, its own source,
   added on top, `docs/ADS.md`), and the Video Studio's own count (videos
   waiting for approval, changes asked, approved videos to hand over) is added
-  to it on any page (`lib/video/badge.ts`). Unknown means no circle.
+  to it on any page (`lib/video/badge.ts`); Lead Manager also counts the
+  signup chats where a person asked for a human and nobody has joined yet
+  (`leads.work`, its own source «chats», polled every 30 seconds; see
+  «Live chats» below). Unknown means no circle.
   «✓ Clear» (and «Clear all notifications») hides a circle for this member in
   this browser until its number goes up; it changes no record.
 - **Phone:** the check, the section's short name, search and Alti's face on
@@ -486,6 +489,37 @@ Video Studio), and Meta's spend beside the books as a reconciliation
 suggestion. The numbers are administrators' (`ads.view`); the content team
 drafts ad copy (`ads.draft`); sales sees none of it. Nothing there changes
 Meta. See `docs/ADS.md`.
+## Webinars
+
+«Webinars» (`/equipo/webinars`, section 2 «Marketing», after Ads and before
+SEO) runs the live classes: the public registration page (`/webinar/<slug>`,
+English and Spanish, Texas served, other states to learn, Georgia never),
+the automatic reminders (1 week, 1 day, 1 hour, live, the replay, follow-ups
+on day 2 and day 5; WhatsApp or email, never SMS, quiet hours, opt-out,
+dedupe), attendance (Zoom's CSV or by hand), the **live console** for the
+moderator (counters, copy-paste chat messages, the run-of-show timer with the
+three calls to action, the messages and leads coming in), and the printable
+host script with the two-package pitch. Its tab «Campaigns & cost per
+client» is the owner's scorecard: spend, the funnel, CAC two ways with the
+formula on screen, each client's value (money collected under the money
+rule, IdentityIQ commissions, later purchases, DIY → Complete upgrades),
+split by package. Every role sees the webinars (`webinars.view`); only an
+administrator creates them (`webinars.manage`) and sees the campaigns
+(`campaigns.view`); registrants' phones and emails are for members who work
+leads. The Overview shows a compact «Next webinar» card. See `docs/WEBINARS.md`.
+
+## Live chats
+
+«Chats en vivo» / «Live chats» (`/equipo/chats`, section 3 «Lead Manager»,
+`leads.work`): people who asked, in Alti's signup chat (`/registro`), to talk
+with someone. The chat shows its case reference, step, state and language;
+«Join the chat» puts the member in it (the person sees "Ana from the
+Credalti team joined", and every message of theirs is labelled
+"Ana · Credalti team"); Alti pauses while a person is in and comes back with
+«Hand back to Alti». Each reply passes `checkStaffReply`, on the screen and
+again on the server. Polled every few seconds (no realtime in the app). See
+`docs/SIGNUP-CHAT.md`, «A person joins the chat».
+
 ## SEO
 
 «SEO» (`/equipo/seo`, section 2, a sub-tab between Content and Reviews) is how

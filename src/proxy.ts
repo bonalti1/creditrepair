@@ -134,5 +134,7 @@ export const config = {
     // The published guides (src/lib/seo, docs/SEO.md): ?lang= as on every page.
     "/guias",
     "/guias/:path*",
+    // A webinar's public registration page and its reminders' unsubscribe (src/lib/webinars, docs/WEBINARS.md): ?lang= as on every page.
+    "/webinar/:path*",
   ],
 };

@@ -710,7 +710,11 @@ describe("team: what the staff routes accept", () => {
     expect(read("src/app/api/staff/monitoring/route.ts")).toMatch(/requireCapability\("clients\.followup"\)/);
     expect(read("src/app/api/staff/monitoring/route.ts")).toMatch(/requireCapability\("monitoring\.commissions"\)/);
     expect(read("src/app/api/staff/import/route.ts")).toMatch(/requireCapability\("clients\.import"\)/);
-    expect(staffRoutes.length).toBe(51);
+    // Webinars and the campaign scorecard, and a person in the signup chat (migration 0044).
+    expect(read("src/app/api/staff/webinars/route.ts")).toMatch(/requireCapability\(campaigns \? "campaigns\.view" : "webinars\.view"\)/);
+    expect(read("src/app/api/staff/webinars/route.ts")).toMatch(/requireCapability\(CAPABILITY\[input\.action\]\)/);
+    expect(read("src/app/api/staff/signup-chats/route.ts")).toMatch(/requireCapability\("leads\.work"\)/);
+    expect(staffRoutes.length).toBe(53);
   });
 });
 

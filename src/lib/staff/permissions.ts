@@ -92,6 +92,12 @@ export const CAPABILITIES = [
   "documents.review",
   "clients.import",
   "monitoring.commissions",
+  // Webinars (src/lib/webinars, migration 0044): the webinars, their registrants, the live console and the
+  // scripts; creating and changing webinars and importing attendance.
+  "webinars.view",
+  "webinars.manage",
+  // The campaign scorecard (src/lib/webinars/scorecard.ts): spend, CAC and client value. Money: administrators.
+  "campaigns.view",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -153,6 +159,9 @@ const CAPABILITY_LABEL_ES: Record<Capability, string> = {
   "documents.review": "Revisar los documentos del cliente: aceptar o pedir otro",
   "clients.import": "Importar clientes desde Credit Repair Cloud",
   "monitoring.commissions": "Registrar y conciliar las comisiones del monitoreo",
+  "webinars.view": "Ver los webinars, la consola en vivo y los guiones",
+  "webinars.manage": "Crear y cambiar webinars e importar la asistencia",
+  "campaigns.view": "Ver las campañas: gasto, costo por cliente y valor del cliente",
 };
 
 const CAPABILITY_LABEL_EN: Record<Capability, string> = {
@@ -196,6 +205,9 @@ const CAPABILITY_LABEL_EN: Record<Capability, string> = {
   "documents.review": "Review a client's documents: accept, or ask for another",
   "clients.import": "Import clients from Credit Repair Cloud",
   "monitoring.commissions": "Record and reconcile the monitoring commissions",
+  "webinars.view": "See the webinars, the live console and the scripts",
+  "webinars.manage": "Create and change webinars and import attendance",
+  "campaigns.view": "See the campaigns: spend, cost per client and client value",
 };
 
 export const CAPABILITY_LABELS: Record<StaffLocale, Record<Capability, string>> = { en: CAPABILITY_LABEL_EN, es: CAPABILITY_LABEL_ES };
@@ -262,6 +274,11 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "documents.review": true,
       "clients.import": false,
       "monitoring.commissions": false,
+      // Webinars (migration 0044): a specialist can moderate (the live console, the scripts); creating
+      // webinars and the campaign money are the owner's.
+      "webinars.view": true,
+      "webinars.manage": false,
+      "campaigns.view": false,
     },
   },
   sales: {
@@ -314,6 +331,10 @@ export const ROLE_PERMISSIONS: Record<StaffRole, RolePermissions> = {
       "documents.review": false,
       "clients.import": false,
       "monitoring.commissions": false,
+      // Sales answers the messages a webinar brings in: the live console and the registrants. No money.
+      "webinars.view": true,
+      "webinars.manage": false,
+      "campaigns.view": false,
     },
   },
 };

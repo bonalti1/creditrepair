@@ -83,6 +83,15 @@ departments strip: "9 · Launch readiness: N of M ready", the next item, and a
 link to `/equipo/lanzamiento`. It goes away by itself once every required item
 is ready, and comes back if one stops being ready.
 
+**Next webinar on the Overview** (`components/staff/webinars/NextWebinarCard.tsx`,
+`docs/WEBINARS.md`). For every member who may see the webinars
+(`webinars.view`), a compact card under the departments strip: "Next
+webinar" (or "Webinar live now"), its title, the day and time on Texas
+time, how many registered, and «Live console». Nothing shows when no
+webinar is upcoming or live. The webinars' numbers and the campaign
+scorecard live in Webinars (section 2), not on the Overview; Lead Manager's
+red circle also counts the signup chats waiting for a person («Live chats»).
+
 ### Video Studio, SEO and Ideas on the Overview (final pass)
 
 `src/lib/control/marketing.ts`. The **Content & video** card adds the Video

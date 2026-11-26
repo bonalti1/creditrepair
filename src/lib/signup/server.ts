@@ -60,7 +60,7 @@ export async function startSignupCase(
  * The row, when the caller started it (the token it was started with) or it
  * belongs to the signed-in account (another device, after sign-in).
  */
-async function ownedCase(db: SupabaseClient, caseRef: string, token: string | null, userId: string | null): Promise<Row | null> {
+export async function ownedCase(db: SupabaseClient, caseRef: string, token: string | null, userId: string | null): Promise<Row | null> {
   if (!isCaseRef(caseRef)) return null;
   const { data } = await db.from("signup_cases").select("*").eq("case_ref", caseRef).maybeSingle();
   const row = (data as Row | null) ?? null;
